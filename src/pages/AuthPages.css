@@ -26,6 +26,19 @@
   font-size: 14px;
 }
 
+.auth__message {
+  font-size: 14px;
+  margin: 0 0 16px;
+}
+
+.auth__message--error {
+  color: #ff6b6b;
+}
+
+.auth__message--success {
+  color: #8be28b;
+}
+
 .auth__form {
   display: flex;
   flex-direction: column;
