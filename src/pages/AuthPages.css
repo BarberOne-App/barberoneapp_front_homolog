@@ -4,6 +4,9 @@
   justify-content: center;
 }
 
+
+
+
 .auth__card {
   background: #131313;
   border: 1px solid #1f1f1f;
@@ -12,18 +15,21 @@
   max-width: 420px;
   width: 100%;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  margin: 200px auto;
 }
 
 .auth__title {
   font-size: 28px;
   margin: 0 0 8px;
   color: #ffffff;
+  text-align: center;
 }
 
 .auth__subtitle {
   margin: 0 0 24px;
   color: #cfcfcf;
   font-size: 14px;
+  text-align: center;
 }
 
 .auth__message {
@@ -58,6 +64,406 @@
   font-weight: 600;
 }
 
+
 .auth__switch a:hover {
   text-decoration: underline;
+}
+
+.auth__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 16px 0;
+}
+.manage-barbers {
+  margin-top: 2rem;
+}
+
+.manage-barbers__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.manage-barbers__header h2 {
+  margin: 0;
+}
+
+.barbers-admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.barber-admin-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  transition: box-shadow 0.3s ease;
+}
+
+.barber-admin-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.barber-admin-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.barber-admin-photo {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #d4af37;
+}
+
+.barber-admin-info h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #1a1a1a;
+}
+
+.barber-admin-info p {
+  margin: 0.25rem 0 0 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.barber-admin-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-direction: column;
+}
+
+.btn-edit,
+.btn-delete {
+  width: 96px;
+  height: 40px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-edit {
+  background: #d4af37;
+  color: white;
+  width: 100%;
+  padding: 20px;
+  margin-bottom: 20px;
+  font-size: 20px;
+}
+
+.btn-edit:hover {
+  background: #c29d2e;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(212, 175, 55, 0.3);
+}
+
+.btn-delete {
+  background: #e74c3c;
+  color: white;
+}
+
+.btn-delete:hover {
+  background: #c0392b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
+}
+
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+
+  span{
+    color: #000000;
+    font-size: 15px;
+  }
+
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  color: #1a1a1a;
+}
+
+.barber-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.modal-actions button {
+  min-width: 100px;
+}
+
+@media (max-width: 768px) {
+  .barber-admin-card {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .barber-admin-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .manage-barbers__header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .manage-barbers__header button {
+    width: 100%;
+  }
+}
+
+.div_btn_admin{
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+/* Adicione estes estilos ao seu AuthPages.css existente */
+
+/* Payments Section */
+.payments-section {
+  width: 100%;
+}
+
+.payments-section h2 {
+  color: #d4af37;
+  margin-bottom: 2rem;
+  font-size: 1.8rem;
+}
+
+.payment-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.payment-stat-card {
+  background: linear-gradient(135deg, #2a2a2a, #1f1f1f);
+  border: 1px solid #444;
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-align: center;
+  transition: all 0.3s;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.payment-stat-card:hover {
+  transform: translateY(-5px);
+  border-color: #d4af37;
+  box-shadow: 0 8px 25px rgba(212, 175, 55, 0.2);
+}
+
+.payment-stat-card h3 {
+  color: #d4af37;
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.payment-stat-card .stat-value {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #fff;
+  margin: 0.5rem 0;
+}
+
+.payment-stat-card .stat-count {
+  font-size: 0.9rem;
+  color: #999;
+  margin: 0;
+}
+
+.payment-stat-card--total {
+  background: linear-gradient(135deg, #d4af37, #f0c654);
+  border-color: #d4af37;
+}
+
+.payment-stat-card--total h3,
+.payment-stat-card--total .stat-value,
+.payment-stat-card--total .stat-count {
+  color: #1a1a1a;
+}
+
+/* Payments List */
+.payments-list {
+  margin-top: 2rem;
+}
+
+.payments-list h3 {
+  color: #d4af37;
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+}
+
+.payments-table {
+  background: #2a2a2a;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #444;
+}
+
+.payments-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.payments-table thead {
+  background: #1f1f1f;
+}
+
+.payments-table th {
+  padding: 1rem;
+  text-align: left;
+  color: #d4af37;
+  font-weight: 600;
+  border-bottom: 2px solid #444;
+}
+
+.payments-table td {
+  padding: 1rem;
+  color: #fff;
+  border-bottom: 1px solid #333;
+}
+
+.payments-table tbody tr:hover {
+  background: #333;
+}
+
+.payments-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.payment-method {
+  display: inline-block;
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.payment-method--pix {
+  background: rgba(50, 205, 50, 0.2);
+  color: #32cd32;
+  border: 1px solid #32cd32;
+}
+
+.payment-method--credito,
+.payment-method--crédito {
+  background: rgba(65, 105, 225, 0.2);
+  color: #4169e1;
+  border: 1px solid #4169e1;
+}
+
+.payment-method--debito,
+.payment-method--débito {
+  background: rgba(255, 140, 0, 0.2);
+  color: #ff8c00;
+  border: 1px solid #ff8c00;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.status-badge--active {
+  background: rgba(50, 205, 50, 0.2);
+  color: #32cd32;
+  border: 1px solid #32cd32;
+}
+
+.status-badge--inactive {
+  background: rgba(220, 20, 60, 0.2);
+  color: #dc143c;
+  border: 1px solid #dc143c;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .payment-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .payments-table {
+    overflow-x: auto;
+  }
+
+  .payments-table table {
+    min-width: 600px;
+  }
+
+  .payments-table th,
+  .payments-table td {
+    padding: 0.75rem;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .payment-stat-card .stat-value {
+    font-size: 1.5rem;
+  }
+
+  .payments-list h3 {
+    font-size: 1.2rem;
+  }
 }
