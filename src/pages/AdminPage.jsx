@@ -23,6 +23,12 @@ import {
   buscarTodosPagamentosAgendamentos,
   atualizarPagamentoAgendamento
 } from "../services/paymentService";
+import {
+  getProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct
+} from "../services/productService";
 import "./AuthPages.css";
 
 export default function AdminPage() {
@@ -34,6 +40,7 @@ export default function AdminPage() {
   const [appointments, setAppointments] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
   const [appointmentPayments, setAppointmentPayments] = useState([]);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
@@ -52,15 +59,25 @@ export default function AdminPage() {
     time: ""
   });
 
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [productForm, setProductForm] = useState({
+    name: "",
+    category: "",
+    description: "",
+    price: "",
+    subscriberDiscount: "0",
+    stock: "0",
+    image: ""
+  });
+
   const isAdmin = currentUser?.role === "admin" || currentUser?.isAdmin === true;
 
-  
   const sendWhatsApp = async (appointmentId, type) => {
     try {
       const appointment = appointments.find(apt => apt.id === appointmentId);
       if (!appointment) return;
 
-    
       const userData = await getUserById(appointment.clientId);
       
       if (!userData || !userData.phone) {
@@ -68,7 +85,7 @@ export default function AdminPage() {
         return;
       }
 
-      const phone = userData.phone.replace(/\D/g, ''); 
+      const phone = userData.phone.replace(/\D/g, '');
       const date = new Date(appointment.date).toLocaleDateString('pt-BR');
       const serviceName = Array.isArray(appointment.services) 
         ? appointment.services.map(s => s.name).join(', ')
@@ -79,18 +96,18 @@ export default function AdminPage() {
       if (type === 'confirm') {
         message = `Olá ${appointment.client}! \n\n` +
                   `Estamos entrando em contato para *CONFIRMAR* seu agendamento:\n\n` +
-                  ` Data: ${date}\n` +
-                  ` Horário: ${appointment.time}\n` +
-                  ` Serviço: ${serviceName}\n` +
-                  ` Barbeiro: ${appointment.barberName}\n\n` +
+                  `📅 Data: ${date}\n` +
+                  `🕐 Horário: ${appointment.time}\n` +
+                  `✂️ Serviço: ${serviceName}\n` +
+                  `👨‍🦰 Barbeiro: ${appointment.barberName}\n\n` +
                   `Por favor, responda esta mensagem para confirmar sua presença.\n\n` +
                   `Barbearia ADDEV`;
       } else if (type === 'cancel') {
         message = `Olá ${appointment.client}! \n\n` +
                   `Informamos que infelizmente precisaremos realizar o *CANCELAMENTO* do seu agendamento:\n\n` +
-                  ` Data: ${date}\n` +
-                  ` Horário: ${appointment.time}\n` +
-                  ` Serviço: ${serviceName}\n\n` +
+                  `📅 Data: ${date}\n` +
+                  `🕐 Horário: ${appointment.time}\n` +
+                  `✂️ Serviço: ${serviceName}\n\n` +
                   `Pedimos desculpas pelo transtorno. Entre em contato conosco para reagendar.\n\n` +
                   `Barbearia ADDEV`;
       }
@@ -108,17 +125,19 @@ export default function AdminPage() {
 
   async function loadData() {
     try {
-      const [barbersData, appointmentsData, subscriptionsData, paymentsData] = await Promise.all([
+      const [barbersData, appointmentsData, subscriptionsData, paymentsData, productsData] = await Promise.all([
         getBarbers(),
         getAppointments(),
         buscarTodasAssinaturas(),
-        buscarTodosPagamentosAgendamentos()
+        buscarTodosPagamentosAgendamentos(),
+        getProducts()
       ]);
 
       setBarbers(barbersData);
       setAppointments(appointmentsData);
       setSubscriptions(subscriptionsData || []);
       setAppointmentPayments(paymentsData || []);
+      setProducts(productsData || []);
     } catch (error) {
       console.error("Erro ao carregar dados:", error);
     } finally {
@@ -152,6 +171,7 @@ export default function AdminPage() {
   const closeToast = () => {
     setToast({ show: false, message: '', type: 'success' });
   };
+
 
   const openBarberModal = (barber = null) => {
     if (barber) {
@@ -215,6 +235,98 @@ export default function AdminPage() {
       }
     }
   };
+
+
+  const openProductModal = (product = null) => {
+    if (product) {
+      setEditingProduct(product);
+      setProductForm({
+        name: product.name,
+        category: product.category,
+        description: product.description || "",
+        price: product.price.toString().replace('R$ ', ''),
+        subscriberDiscount: product.subscriberDiscount?.toString() || "0",
+        stock: product.stock?.toString() || "0",
+        image: product.image || ""
+      });
+    } else {
+      setEditingProduct(null);
+      setProductForm({
+        name: "",
+        category: "",
+        description: "",
+        price: "",
+        subscriberDiscount: "0",
+        stock: "0",
+        image: ""
+      });
+    }
+    setShowProductModal(true);
+  };
+
+  const closeProductModal = () => {
+    setShowProductModal(false);
+    setEditingProduct(null);
+    setProductForm({
+      name: "",
+      category: "",
+      description: "",
+      price: "",
+      subscriberDiscount: "0",
+      stock: "0",
+      image: ""
+    });
+  };
+
+  const handleProductFormChange = (field, value) => {
+    setProductForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveProduct = async (e) => {
+    e.preventDefault();
+    
+    if (!productForm.name.trim() || !productForm.category || !productForm.price) {
+      showToast('Preencha os campos obrigatórios.', 'danger');
+      return;
+    }
+
+    try {
+      const productData = {
+        ...productForm,
+        price: `R$ ${parseFloat(productForm.price).toFixed(2)}`,
+        subscriberDiscount: parseInt(productForm.subscriberDiscount) || 0,
+        stock: parseInt(productForm.stock) || 0
+      };
+
+      if (editingProduct) {
+        await updateProduct(editingProduct.id, productData);
+        showToast('Produto atualizado com sucesso!', 'success');
+      } else {
+        await createProduct(productData);
+        showToast('Produto adicionado com sucesso!', 'success');
+      }
+      
+      await loadData();
+      closeProductModal();
+    } catch (error) {
+      console.error("Erro ao salvar produto:", error);
+      showToast('Erro ao salvar produto. Tente novamente.', 'danger');
+    }
+  };
+
+  const handleDeleteProduct = async (id) => {
+    if (confirm("Deseja realmente excluir este produto?")) {
+      try {
+        await deleteProduct(id);
+        await loadData();
+        showToast('Produto excluído com sucesso!', 'success');
+      } catch (error) {
+        console.error("Erro ao excluir produto:", error);
+        showToast('Erro ao excluir produto.', 'danger');
+      }
+    }
+  };
+
 
   const openEditModal = (appointment) => {
     setEditingAppointment(appointment);
@@ -379,6 +491,12 @@ export default function AdminPage() {
               Todos os Agendamentos ({appointments.length})
             </button>
             <button
+              onClick={() => setActiveTab("products")}
+              className={`tab-btn ${activeTab === "products" ? "tab-btn--active" : ""}`}
+            >
+              Produtos ({products.length})
+            </button>
+            <button
               onClick={() => setActiveTab("payments")}
               className={`tab-btn ${activeTab === "payments" ? "tab-btn--active" : ""}`}
             >
@@ -484,6 +602,63 @@ export default function AdminPage() {
                   ))}
                 </div>
               )}
+            </div>
+          ) : activeTab === "products" ? (
+            <div className="manage-products">
+              <div className="manage-barbers__header">
+                <h2>Gerenciar Produtos</h2>
+                <Button onClick={() => openProductModal()}>+ Adicionar Produto</Button>
+              </div>
+
+              <div className="barbers-admin-list">
+                {products.length === 0 ? (
+                  <p>Nenhum produto cadastrado.</p>
+                ) : (
+                  products.map((product) => (
+                    <div key={product.id} className="barber-admin-card product-admin-card">
+                      <div className="barber-admin-info">
+                        {product.image && (
+                          <img 
+                            src={product.image} 
+                            alt={product.name}
+                            className="barber-admin-photo"
+                          />
+                        )}
+                        <div>
+                          <h3>{product.name}</h3>
+                          <p className="product-category">{product.category}</p>
+                          <p className="product-description">{product.description}</p>
+                          <div className="product-details">
+                            <span className="product-price">{product.price}</span>
+                            {product.subscriberDiscount > 0 && (
+                              <span className="product-discount">
+                                -{product.subscriberDiscount}% para assinantes
+                              </span>
+                            )}
+                            <span className={`product-stock ${product.stock === 0 ? 'out-of-stock' : product.stock <= 5 ? 'low-stock' : ''}`}>
+                              Estoque: {product.stock}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="barber-admin-actions">
+                        <button 
+                          onClick={() => openProductModal(product)}
+                          className="btn-edit"
+                        >
+                          Editar
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteProduct(product.id)}
+                          className="btn-delete"
+                        >
+                          Excluir
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           ) : activeTab === "payments" ? (
             <div className="payments-section">
@@ -744,6 +919,135 @@ export default function AdminPage() {
                     </Button>
                     <Button type="submit">
                       Atualizar
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {showProductModal && (
+            <div className="modal-overlay" onClick={closeProductModal}>
+              <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                <h2>{editingProduct ? "Editar Produto" : "Adicionar Produto"}</h2>
+                <form onSubmit={handleSaveProduct} className="barber-form">
+                  <Input
+                    label="Nome do Produto *"
+                    value={productForm.name}
+                    onChange={(e) => handleProductFormChange("name", e.target.value)}
+                    required
+                  />
+                  
+                  <div>
+                    <label style={{ display: "block", marginBottom: "8px", color: "#d4af37" }}>
+                      Categoria *
+                    </label>
+                    <select
+                      value={productForm.category}
+                      onChange={(e) => handleProductFormChange("category", e.target.value)}
+                      required
+                      style={{
+                        width: "100%",
+                        padding: "12px",
+                        background: "#2a2a2a",
+                        border: "1px solid #444",
+                        borderRadius: "4px",
+                        color: "white",
+                        fontSize: "16px"
+                      }}
+                    >
+                      <option value="">Selecione uma categoria</option>
+                      <option value="Bebidas">Bebidas</option>
+                      <option value="Pomadas">Pomadas</option>
+                      <option value="Óleos">Óleos</option>
+                      <option value="Cuidados">Cuidados</option>
+                      <option value="Acessórios">Acessórios</option>
+                      <option value="Outros">Outros</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", marginBottom: "8px", color: "#d4af37" }}>
+                      Descrição
+                    </label>
+                    <textarea
+                      value={productForm.description}
+                      onChange={(e) => handleProductFormChange("description", e.target.value)}
+                      placeholder="Descrição do produto"
+                      rows="3"
+                      style={{
+                        width: "100%",
+                        padding: "12px",
+                        background: "#2a2a2a",
+                        border: "1px solid #444",
+                        borderRadius: "4px",
+                        color: "white",
+                        fontSize: "16px",
+                        resize: "vertical"
+                      }}
+                    />
+                  </div>
+
+                  <Input
+                    label="Preço (apenas números) *"
+                    type="number"
+                    step="0.01"
+                    value={productForm.price}
+                    onChange={(e) => handleProductFormChange("price", e.target.value)}
+                    placeholder="40.00"
+                    required
+                  />
+
+                  <Input
+                    label="Desconto para Assinantes (%)"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={productForm.subscriberDiscount}
+                    onChange={(e) => handleProductFormChange("subscriberDiscount", e.target.value)}
+                    placeholder="0"
+                  />
+
+                  <Input
+                    label="Estoque *"
+                    type="number"
+                    min="0"
+                    value={productForm.stock}
+                    onChange={(e) => handleProductFormChange("stock", e.target.value)}
+                    required
+                  />
+
+                  <Input
+                    label="URL da Imagem"
+                    value={productForm.image}
+                    onChange={(e) => handleProductFormChange("image", e.target.value)}
+                    placeholder="https://exemplo.com/produto.jpg"
+                  />
+
+                  {productForm.image && (
+                    <div style={{ marginTop: "10px", textAlign: "center" }}>
+                      <img 
+                        src={productForm.image} 
+                        alt="Preview" 
+                        style={{ 
+                          maxWidth: "200px", 
+                          maxHeight: "200px", 
+                          borderRadius: "8px",
+                          border: "2px solid #444"
+                        }}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  <div className="modal-actions">
+                    <Button type="button" onClick={closeProductModal}>
+                      Cancelar
+                    </Button>
+                    <Button type="submit">
+                      {editingProduct ? "Atualizar" : "Adicionar"}
                     </Button>
                   </div>
                 </form>

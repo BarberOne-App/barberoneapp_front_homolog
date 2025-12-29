@@ -4,7 +4,7 @@
   padding: 18px 18px 20px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   margin: 20px auto;
-  width: 320px;          /* um pouco mais largo para caber 7 colunas */
+  width: 320px;        
   box-sizing: border-box;
 }
 
@@ -40,7 +40,7 @@
 .date-picker__weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 4px;                 /* gap menor */
+  gap: 4px;                
   margin-bottom: 6px;
   text-align: center;
   font-weight: 600;
@@ -50,8 +50,8 @@
 
 .date-picker__days {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);  /* sempre 7 colunas */
-  gap: 6px;                                /* gap menor */
+  grid-template-columns: repeat(7, 1fr);  
+  gap: 6px;                                
 }
 
 .date-picker__day {

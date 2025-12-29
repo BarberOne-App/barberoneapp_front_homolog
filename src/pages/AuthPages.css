@@ -269,9 +269,7 @@
   gap: 10px;
   width: 100%;
 }
-/* Adicione estes estilos ao seu AuthPages.css existente */
 
-/* Payments Section */
 .payments-section {
   width: 100%;
 }
@@ -339,7 +337,7 @@
   color: #1a1a1a;
 }
 
-/* Payments List */
+
 .payments-list {
   margin-top: 2rem;
 }
@@ -437,7 +435,7 @@
   border: 1px solid #dc143c;
 }
 
-/* Mobile Responsiveness */
+
 @media (max-width: 768px) {
   .payment-stats {
     grid-template-columns: 1fr;
@@ -465,5 +463,106 @@
 
   .payments-list h3 {
     font-size: 1.2rem;
+  }
+}
+
+
+
+.product-admin-card {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.product-admin-card .barber-admin-info {
+  flex: 1;
+}
+
+.product-category {
+  display: inline-block;
+  background: #3a3a3a;
+  color: #d4af37;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin: 5px 0;
+}
+
+.product-description {
+  color: #999;
+  font-size: 14px;
+  margin: 8px 0;
+  line-height: 1.4;
+}
+
+.product-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+  align-items: center;
+}
+
+.product-price {
+  font-size: 20px;
+  font-weight: bold;
+  color: #d4af37;
+}
+
+.product-discount {
+  background: #1a4d1a;
+  color: #4ade80;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.product-stock {
+  background: #2a2a2a;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4ade80;
+}
+
+.product-stock.low-stock {
+  background: #4d3a1a;
+  color: #fbbf24;
+}
+
+.product-stock.out-of-stock {
+  background: #4d1a1a;
+  color: #ff4444;
+}
+
+.manage-products {
+  margin-top: 20px;
+}
+
+
+.modal-content textarea {
+  font-family: inherit;
+}
+
+.modal-content select option {
+  background: #2a2a2a;
+  color: white;
+}
+
+
+@media (max-width: 768px) {
+  .product-details {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .product-admin-card .barber-admin-photo {
+    width: 80px;
+    height: 80px;
   }
 }

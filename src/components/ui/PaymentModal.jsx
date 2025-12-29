@@ -3,21 +3,17 @@ import Button from './Button';
 import Input from './Input';
 import SavedCardsModal from './SavedCardsModal';
 import { getUserCards, saveCard } from '../../services/cardServices';
-import { 
-  criarAssinatura, 
-  criarPagamentoAgendamento,
-  atualizarPagamentoAgendamento 
-} from '../../services/paymentService';
+import { criarAssinatura, criarPagamentoAgendamento, atualizarPagamentoAgendamento } from '../../services/paymentService';
 import './PaymentModal.css';
 
 export default function PaymentModal({ 
   isOpen, 
   onClose, 
   selectedPlan, 
-  currentUser,
-  onSuccess,
-  isAppointmentPayment = false,
-  paymentId = null
+  currentUser, 
+  onSuccess, 
+  isAppointmentPayment = false, 
+  paymentId = null 
 }) {
   const [paymentMethod, setPaymentMethod] = useState('credit');
   const [cardData, setCardData] = useState({
@@ -68,22 +64,18 @@ export default function PaymentModal({
 
   const detectCardBrand = (number) => {
     const cleaned = number.replace(/\s/g, '');
-    
     if (/^4/.test(cleaned)) return 'visa';
     if (/^5[1-5]/.test(cleaned)) return 'mastercard';
     if (/^3[47]/.test(cleaned)) return 'amex';
     if (/^(636368|438935|504175|451416|636297)/.test(cleaned)) return 'elo';
     if (/^(6011|622(12[6-9]|1[3-9][0-9]|[2-8][0-9]{2}|9[0-1][0-9]|92[0-5]|64[4-9])|65)/.test(cleaned)) return 'discover';
-    
     return 'unknown';
   };
 
   const formatCardNumber = (value) => {
     const cleaned = value.replace(/\s/g, '');
     const brand = detectCardBrand(cleaned);
-    
     setCardData(prev => ({ ...prev, brand }));
-    
     const matches = cleaned.match(/.{1,4}/g);
     return matches ? matches.join(' ') : '';
   };
@@ -98,7 +90,6 @@ export default function PaymentModal({
 
   const handleExpiryChange = (field, value) => {
     const cleaned = value.replace(/\D/g, '');
-    
     if (field === 'expiryMonth' && cleaned.length <= 2) {
       const num = parseInt(cleaned);
       if (cleaned === '' || (num >= 1 && num <= 12)) {
@@ -127,38 +118,36 @@ export default function PaymentModal({
       }
 
       const cardNumber = cardData.number.replace(/\s/g, '');
-      
       if (cardNumber.length < 13 || cardNumber.length > 19) {
         alert('Número do cartão inválido');
         return false;
       }
-      
+
       if (!cardData.holderName.trim()) {
         alert('Nome do titular é obrigatório');
         return false;
       }
-      
+
       if (!cardData.expiryMonth || !cardData.expiryYear) {
         alert('Data de validade é obrigatória');
         return false;
       }
-      
+
       const month = parseInt(cardData.expiryMonth);
       const year = parseInt('20' + cardData.expiryYear);
       const currentYear = new Date().getFullYear();
       const currentMonth = new Date().getMonth() + 1;
-      
+
       if (year < currentYear || (year === currentYear && month < currentMonth)) {
         alert('Cartão expirado');
         return false;
       }
-      
+
       if (!cardData.cvv || cardData.cvv.length < 3) {
         alert('CVV inválido');
         return false;
       }
     }
-    
     return true;
   };
 
@@ -175,11 +164,14 @@ export default function PaymentModal({
       if (isAppointmentPayment && paymentId) {
         await atualizarPagamentoAgendamento(paymentId, {
           status: 'paid',
-          paymentMethod: paymentMethod === 'credit' ? 'credito' : paymentMethod === 'debit' ? 'debito' : 'pix',
+          paymentMethod: paymentMethod === 'credit' ? 'credito' : 
+                        paymentMethod === 'debit' ? 'debito' : 'pix',
           paidAt: new Date().toISOString(),
           cardData: {
             brand: cardData.brand,
-            lastDigits: cardData.savedCardId ? cardData.number.slice(-4) : cardData.number.replace(/\s/g, '').slice(-4),
+            lastDigits: cardData.savedCardId 
+              ? cardData.number.slice(-4) 
+              : cardData.number.replace(/\s/g, '').slice(-4),
             holderName: cardData.holderName
           }
         });
@@ -200,20 +192,23 @@ export default function PaymentModal({
         onSuccess && onSuccess();
       } else {
         const transactionId = `TRX-${Date.now()}-${Math.random().toString(36).substr(2, 7).toUpperCase()}`;
-
+        
         const paymentData = {
           userId: currentUser.id,
           userName: currentUser.name,
           planId: selectedPlan.id,
           planName: selectedPlan.name,
           amount: selectedPlan.price,
-          paymentMethod: paymentMethod === 'credit' ? 'credito' : paymentMethod === 'debit' ? 'debito' : 'pix',
+          paymentMethod: paymentMethod === 'credit' ? 'credito' : 
+                        paymentMethod === 'debit' ? 'debito' : 'pix',
           status: 'approved',
           type: 'subscription',
           transactionId,
           cardData: {
             brand: cardData.brand,
-            lastDigits: cardData.savedCardId ? cardData.number.slice(-4) : cardData.number.replace(/\s/g, '').slice(-4),
+            lastDigits: cardData.savedCardId 
+              ? cardData.number.slice(-4) 
+              : cardData.number.replace(/\s/g, '').slice(-4),
             holderName: cardData.holderName
           },
           installments: paymentMethod === 'credit' ? installments : 1,
@@ -230,7 +225,8 @@ export default function PaymentModal({
           planPrice: selectedPlan.price,
           amount: selectedPlan.price,
           status: 'active',
-          paymentMethod: paymentMethod === 'credit' ? 'credito' : paymentMethod === 'debit' ? 'debito' : 'pix'
+          paymentMethod: paymentMethod === 'credit' ? 'credito' : 
+                        paymentMethod === 'debit' ? 'debito' : 'pix'
         };
 
         const subscription = await criarAssinatura(subscriptionData);
@@ -260,7 +256,6 @@ export default function PaymentModal({
         brand: 'unknown'
       });
       setSaveCardOption(false);
-      
     } catch (error) {
       console.error('Erro no pagamento:', error);
       alert('Erro ao processar pagamento. Tente novamente.');
@@ -280,13 +275,11 @@ export default function PaymentModal({
     <>
       <div className="modal-overlay" onClick={onClose}>
         <div className="modal-content payment-modal" onClick={(e) => e.stopPropagation()}>
-          {/* HEADER FIXO */}
           <div className="modal-header">
-            <h2>Finalizar Pagamento</h2>
-            <button className="modal-close" onClick={onClose}>✕</button>
+            <h2>Pagamento</h2>
+            <button className="modal-close" onClick={onClose}>×</button>
           </div>
 
-          {/* CONTAINER COM SCROLL */}
           <div className="payment-modal-scroll">
             <div className="payment-summary">
               <h3>{selectedPlan.name}</h3>
@@ -298,144 +291,133 @@ export default function PaymentModal({
                 <label className="payment-method-option">
                   <input
                     type="radio"
+                    name="paymentMethod"
                     value="credit"
                     checked={paymentMethod === 'credit'}
                     onChange={(e) => setPaymentMethod(e.target.value)}
                   />
-                  <span>💳 Cartão de Crédito</span>
+                  <span>Cartão de Crédito</span>
                 </label>
 
                 <label className="payment-method-option">
                   <input
                     type="radio"
+                    name="paymentMethod"
                     value="debit"
                     checked={paymentMethod === 'debit'}
                     onChange={(e) => setPaymentMethod(e.target.value)}
                   />
-                  <span>💳 Cartão de Débito</span>
+                  <span>Cartão de Débito</span>
                 </label>
 
                 <label className="payment-method-option">
                   <input
                     type="radio"
+                    name="paymentMethod"
                     value="pix"
                     checked={paymentMethod === 'pix'}
                     onChange={(e) => setPaymentMethod(e.target.value)}
                   />
-                  <span>📱 PIX</span>
+                  <span>PIX</span>
                 </label>
               </div>
 
               {(paymentMethod === 'credit' || paymentMethod === 'debit') && (
-                <>
+                <div className="card-form">
                   {hasCards && (
-                    <Button 
-                      type="button" 
-                      onClick={() => {
-                        console.log('Abrindo modal de cartões salvos');
-                        setShowSavedCards(true);
-                      }}
-                      style={{ 
-                        marginBottom: '20px', 
-                        width: '100%',
+                    <button
+                      type="button"
+                      onClick={() => setShowSavedCards(true)}
+                      style={{
+                        padding: '0.75rem',
                         background: '#2a2a2a',
-                        color: '#d4af37'
+                        border: '2px solid #333',
+                        borderRadius: '0.5rem',
+                        color: '#ff7a1a',
+                        cursor: 'pointer',
+                        fontSize: '0.875rem',
+                        fontWeight: '500'
                       }}
                     >
-                      💳 Usar Cartão Salvo
-                    </Button>
+                      Usar cartão salvo
+                    </button>
                   )}
 
-                  <div className="card-form">
-                    <Input
-                      label="Número do Cartão"
+                  <div>
+                    <label style={{ color: '#ccc' }}>Número do Cartão</label>
+                    <input
+                      type="text"
+                      placeholder="0000 0000 0000 0000"
                       value={cardData.number}
                       onChange={handleCardNumberChange}
-                      placeholder="1234 5678 9012 3456"
                       disabled={!!cardData.savedCardId}
-                      required
                     />
-
-                    <Input
-                      label="Nome do Titular"
-                      value={cardData.holderName}
-                      onChange={(e) => setCardData(prev => ({ 
-                        ...prev, 
-                        holderName: e.target.value.toUpperCase() 
-                      }))}
-                      placeholder="NOME COMO ESTÁ NO CARTÃO"
-                      disabled={!!cardData.savedCardId}
-                      required
-                    />
-
-                    <div className="card-details">
-                      <div className="card-expiry">
-                        <label>Validade</label>
-                        <div className="expiry-inputs">
-                          <input
-                            type="text"
-                            value={cardData.expiryMonth}
-                            onChange={(e) => handleExpiryChange('expiryMonth', e.target.value)}
-                            placeholder="MM"
-                            maxLength="2"
-                            disabled={!!cardData.savedCardId}
-                            required
-                          />
-                          <span>/</span>
-                          <input
-                            type="text"
-                            value={cardData.expiryYear}
-                            onChange={(e) => handleExpiryChange('expiryYear', e.target.value)}
-                            placeholder="AA"
-                            maxLength="2"
-                            disabled={!!cardData.savedCardId}
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <Input
-                        label="CVV"
-                        type="text"
-                        value={cardData.cvv}
-                        onChange={handleCvvChange}
-                        placeholder="123"
-                        maxLength="4"
-                        required
-                      />
-                    </div>
-
-                    {!cardData.savedCardId && (
-                      <label className="save-card-option">
-                        <input
-                          type="checkbox"
-                          checked={saveCardOption}
-                          onChange={(e) => setSaveCardOption(e.target.checked)}
-                        />
-                        <span>💾 Salvar este cartão para pagamentos futuros</span>
-                      </label>
-                    )}
-
-                    {cardData.savedCardId && (
-                      <div style={{ 
-                        padding: '10px', 
-                        background: '#d1fae5', 
-                        borderRadius: '8px',
-                        marginTop: '10px',
-                        color: '#065f46'
-                      }}>
-                        ✓ Usando cartão salvo - Confirme o CVV para continuar
-                      </div>
-                    )}
                   </div>
 
-                  {paymentMethod === 'credit' && !isAppointmentPayment && (
+                  <div>
+                    <label style={{ color: '#ccc' }}>Nome do Titular</label>
+                    <input
+                      type="text"
+                      placeholder="Nome como está no cartão"
+                      value={cardData.holderName}
+                      onChange={(e) => setCardData(prev => ({ ...prev, holderName: e.target.value }))}
+                      disabled={!!cardData.savedCardId}
+                    />
+                  </div>
+
+                  <div className="card-details">
+                    <div className="card-expiry">
+                      <label style={{ color: '#ccc' }}>Validade</label>
+                      <div className="expiry-inputs">
+                        <input
+                          type="text"
+                          placeholder="MM"
+                          maxLength="2"
+                          value={cardData.expiryMonth}
+                          onChange={(e) => handleExpiryChange('expiryMonth', e.target.value)}
+                          disabled={!!cardData.savedCardId}
+                        />
+                        <span>/</span>
+                        <input
+                          type="text"
+                          placeholder="AA"
+                          maxLength="2"
+                          value={cardData.expiryYear}
+                          onChange={(e) => handleExpiryChange('expiryYear', e.target.value)}
+                          disabled={!!cardData.savedCardId}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ color: '#ccc' }}>CVV</label>
+                      <input
+                        type="text"
+                        placeholder="123"
+                        value={cardData.cvv}
+                        onChange={handleCvvChange}
+                      />
+                    </div>
+                  </div>
+
+                  {!cardData.savedCardId && (
+                    <label className="save-card-option">
+                      <input
+                        type="checkbox"
+                        checked={saveCardOption}
+                        onChange={(e) => setSaveCardOption(e.target.checked)}
+                      />
+                      <span>Salvar cartão para compras futuras</span>
+                    </label>
+                  )}
+
+                  {paymentMethod === 'credit' && (
                     <div className="installments-section">
-                      <label>Parcelamento</label>
-                      <select 
+                      <label style={{ color: '#ccc' }}>Parcelas</label>
+                      <select
+                        className="installments-select"
                         value={installments}
                         onChange={(e) => setInstallments(Number(e.target.value))}
-                        className="installments-select"
                       >
                         {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(num => (
                           <option key={num} value={num}>
@@ -445,25 +427,26 @@ export default function PaymentModal({
                       </select>
                     </div>
                   )}
-                </>
+                </div>
               )}
 
               {paymentMethod === 'pix' && (
                 <div className="pix-info">
-                  <p>📱 Após confirmar, você receberá o QR Code para pagamento via PIX.</p>
-                  <p className="pix-note">O pagamento é processado instantaneamente.</p>
+                  <p>Ao confirmar, você receberá um código PIX para pagamento.</p>
+                  <p className="pix-note">O pagamento será confirmado em até 5 minutos.</p>
                 </div>
               )}
-
-              <div className="modal-actions">
-                <Button type="button" onClick={onClose} disabled={processing}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={processing}>
-                  {processing ? 'Processando...' : `Pagar R$ ${selectedPlan.price.toFixed(2)}`}
-                </Button>
-              </div>
             </form>
+          </div>
+
+  
+          <div className="modal-actions">
+            <button type="button" onClick={onClose} disabled={processing}>
+              Cancelar
+            </button>
+            <button type="submit" onClick={handleSubmit} disabled={processing}>
+              {processing ? 'Processando...' : 'Finalizar'}
+            </button>
           </div>
         </div>
       </div>
@@ -471,12 +454,9 @@ export default function PaymentModal({
       {showSavedCards && (
         <SavedCardsModal
           isOpen={showSavedCards}
-          onClose={() => {
-            console.log('Fechando modal de cartões salvos');
-            setShowSavedCards(false);
-          }}
-          userId={currentUser?.id}
+          onClose={() => setShowSavedCards(false)}
           onSelectCard={handleSelectSavedCard}
+          userId={currentUser.id}
         />
       )}
     </>

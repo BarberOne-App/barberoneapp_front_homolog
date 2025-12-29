@@ -1,4 +1,4 @@
-/* SavedCardsModal.css */
+
 
 .saved-cards-modal {
   max-width: 700px;
@@ -58,7 +58,7 @@
   flex-shrink: 0;
 }
 
-/* Loading and Empty States */
+
 .loading-text {
   text-align: center;
   color: #999;
@@ -80,14 +80,14 @@
   color: #666;
 }
 
-/* Cards List */
+
 .cards-list {
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
-/* Saved Card Item */
+
 .saved-card {
   background: #2a2a2a;
   border: 2px solid #333;
@@ -160,7 +160,7 @@
   color: #666;
 }
 
-/* Card Actions */
+
 .saved-card__actions {
   display: flex;
   flex-direction: column;
@@ -203,7 +203,7 @@
   border-color: #dc2626;
 }
 
-/* Scrollbar */
+
 .saved-cards-modal .modal-body::-webkit-scrollbar {
   width: 8px;
 }
@@ -221,7 +221,7 @@
   background: #444;
 }
 
-/* Responsive */
+
 @media (max-width: 640px) {
   .saved-cards-modal {
     max-height: 90vh;

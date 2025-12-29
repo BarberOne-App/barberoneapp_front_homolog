@@ -31,7 +31,7 @@ export default function BarberCard({
     if (selectedServices.length === 0) return 0;
     return selectedServices.reduce((sum, s) => {
       if (s.duration) return sum + s.duration;
-      return sum + 30; // fallback se não vier duration
+      return sum + 30;
     }, 0);
   };
 

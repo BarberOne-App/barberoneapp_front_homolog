@@ -62,7 +62,7 @@ export default function Header() {
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.isAdmin === true;
 
-  /* Fecha menu ao clicar fora */
+ 
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (!e.target.closest('.header')) {
@@ -80,7 +80,7 @@ export default function Header() {
     };
   }, [menuOpen, profileMenuOpen]);
 
-  /* Fecha menu ao rolar */
+  
   useEffect(() => {
     const handleScroll = () => {
       setMenuOpen(false);
