@@ -4,7 +4,7 @@
   left: 0;
   right: 0;
   z-index: 1000;
-  background: rgba(20, 20, 20, 0.95);
+  background: rgba(0, 0, 0, 0.95);
   backdrop-filter: blur(10px);
   padding: 1rem 2rem;
   display: flex;
@@ -15,13 +15,23 @@
 
 .header__logo-link {
   text-decoration: none;
+  display: flex;
+  align-items: center;
+  transition: all 0.3s;
 }
 
+
+.header__logo-img {
+  height: 70px;
+  width: auto;
+  object-fit: contain;
+
+}
+
+
+
 .header__logo {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #ff7a1a;
-  letter-spacing: 1px;
+  display: none;
 }
 
 .header__menu-btn {
@@ -82,7 +92,6 @@
   background: #f0c654;
   transform: translateY(-2px);
 }
-
 
 .header__profile {
   position: relative;
@@ -177,7 +186,7 @@
 }
 
 .header__admin-badge {
-  background:#c0392b;
+  background: #d4af37;
   color: #1a1a1a;
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
@@ -220,7 +229,7 @@
 }
 
 .header__login-btn {
-  background:#c0392b;
+  background: #d4af37;
   color: #1a1a1a;
   padding: 0.6rem 1.2rem;
   border-radius: 5px;
@@ -235,10 +244,65 @@
   transform: translateY(-2px);
 }
 
+.cart-button {
+  position: relative;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 8px 12px;
+  transition: transform 0.3s;
+  color: #d4af37;
+}
+
+.cart-button:hover {
+  transform: scale(1.1);
+}
+
+.cart-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: #ff7a1a;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: bold;
+  animation: pulseBadge 0.5s ease-in-out;
+}
+
+@keyframes pulseBadge {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
 
 @media (max-width: 768px) {
   .header {
     padding: 1rem;
+  }
+
+
+  .header__logo-img {
+    height: 55px;
   }
 
   .header__menu-btn {
@@ -250,7 +314,7 @@
     top: 70px;
     left: 0;
     right: 0;
-    background: rgba(20, 20, 20, 0.98);
+    background: rgba(0, 0, 0, 0.98);
     flex-direction: column;
     padding: 2rem;
     gap: 1.5rem;
@@ -287,54 +351,4 @@
     margin-top: 1rem;
     width: 100%;
   }
-}
-
-.cart-button {
-  position: relative;
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  padding: 8px 12px;
-  transition: transform 0.3s;
-  color: #333;
-}
-
-.cart-button:hover {
-  transform: scale(1.1);
-}
-
-.cart-badge {
-  position: absolute;
-  top: 0;
-  right: 0;
-  background: #ff7a1a;
-  color: white;
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.75rem;
-  font-weight: bold;
-  animation: pulse 0.5s ease-in-out;
-}
-
-@keyframes pulse {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.2);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 15px;
 }

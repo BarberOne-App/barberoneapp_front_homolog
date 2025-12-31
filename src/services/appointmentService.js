@@ -1,40 +1,68 @@
-import api from "./api.js";
+import axios from 'axios';
 
-const BASE = "/appointments";
-
-
-export async function getAppointments() {
-  const res = await api.get(BASE);
-  return res.data;
-}
+const API_URL = 'http://localhost:3000'; 
 
 
-export async function getAppointmentsByBarberAndDate(barberId, date) {
-  const res = await api.get(`${BASE}?barberId=${barberId}&date=${date}`);
-  return res.data;
-}
-
-
-export async function createAppointment(data) {
-  const res = await api.post(BASE, data);
-  return res.data;
-}
-
-
-export async function deleteAppointment(id) {
-  await api.delete(`${BASE}/${id}`);
-  return true;
-}
-
-export async function updateAppointment(id, data) {
-  const appointments = getAppointments();
-  const index = appointments.findIndex(apt => apt.id === id);
-  
-  if (index !== -1) {
-    appointments[index] = { ...appointments[index], ...data };
-    localStorage.setItem('appointments', JSON.stringify(appointments));
-    return appointments[index];
+export const getAppointments = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/appointments`);
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao buscar agendamentos:', error);
+    throw error;
   }
-  
-  throw new Error('Agendamento não encontrado');
-}
+};
+
+
+export const createAppointment = async (appointmentData) => {
+  try {
+    const response = await axios.post(`${API_URL}/appointments`, appointmentData);
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao criar agendamento:', error);
+    throw error;
+  }
+};
+
+
+export const updateAppointment = async (id, updatedData) => {
+  try {
+    const response = await axios.put(`${API_URL}/appointments/${id}`, updatedData);
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao atualizar agendamento:', error);
+    throw error;
+  }
+};
+
+
+export const deleteAppointment = async (id) => {
+  try {
+    const response = await axios.delete(`${API_URL}/appointments/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao deletar agendamento:', error);
+    throw error;
+  }
+};
+
+export const getAppointmentsByBarber = async (barberId) => {
+  try {
+    const response = await axios.get(`${API_URL}/appointments?barberId=${barberId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao buscar agendamentos do barbeiro:', error);
+    throw error;
+  }
+};
+
+
+export const getAppointmentsByClient = async (clientId) => {
+  try {
+    const response = await axios.get(`${API_URL}/appointments?clientId=${clientId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao buscar agendamentos do cliente:', error);
+    throw error;
+  }
+};

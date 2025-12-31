@@ -329,7 +329,7 @@
   margin-top: 0.75rem;
 }
 
-/* CORREÇÃO: Botões fixos na parte inferior */
+
 .modal-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -455,4 +455,71 @@
 
 .payment-modal-scroll::-webkit-scrollbar-thumb:hover {
   background: #444;
+}
+
+.credit-fee-notice {
+  color: #fbbf24 !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  margin-top: 0.5rem !important;
+  background: rgba(251, 191, 36, 0.1);
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+
+.card-form label,
+.installments-section label,
+.card-expiry label {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+
+.payment-method-option span,
+.save-card-option span {
+  color: #ffffff !important;
+}
+
+.payment-amount-original {
+  color: #999 !important;
+  font-size: 1rem !important;
+  margin: 0.5rem 0 0 0 !important;
+}
+
+.payment-amount-original .strikethrough {
+  text-decoration: line-through;
+  color: #666;
+}
+
+
+.payment-amount {
+  margin: 0.25rem 0 0 0 !important;
+}
+
+
+.credit-fee-notice {
+  color: #fbbf24 !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  margin-top: 0.5rem !important;
+  background: rgba(251, 191, 36, 0.1);
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+
+.card-form label,
+.installments-section label,
+.card-expiry label {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+
+.payment-method-option span,
+.save-card-option span {
+  color: #ffffff !important;
 }

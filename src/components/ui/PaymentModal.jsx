@@ -6,16 +6,8 @@ import { getUserCards, saveCard } from '../../services/cardServices';
 import { criarAssinatura, criarPagamentoAgendamento, atualizarPagamentoAgendamento } from '../../services/paymentService';
 import './PaymentModal.css';
 
-export default function PaymentModal({ 
-  isOpen, 
-  onClose, 
-  selectedPlan, 
-  currentUser, 
-  onSuccess, 
-  isAppointmentPayment = false, 
-  paymentId = null 
-}) {
-  const [paymentMethod, setPaymentMethod] = useState('credit');
+export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUser, onSuccess, isAppointmentPayment = false, paymentId = null }) {
+  const [paymentMethod, setPaymentMethod] = useState('pix');
   const [cardData, setCardData] = useState({
     number: '',
     holderName: '',
@@ -29,6 +21,14 @@ export default function PaymentModal({
   const [showSavedCards, setShowSavedCards] = useState(false);
   const [hasCards, setHasCards] = useState(false);
   const [installments, setInstallments] = useState(1);
+
+
+  const getFinalPrice = () => {
+    if (paymentMethod === 'credit') {
+      return selectedPlan.price * 1.05;
+    }
+    return selectedPlan.price;
+  };
 
   useEffect(() => {
     if (isOpen && currentUser?.id) {
@@ -56,7 +56,7 @@ export default function PaymentModal({
       expiryMonth: card.expiryMonth,
       expiryYear: card.expiryYear,
       cvv: '',
-      brand: card.brand,
+      brand: card.brand || 'unknown',
       savedCardId: card.id
     });
     setShowSavedCards(false);
@@ -153,7 +153,7 @@ export default function PaymentModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateCardData()) {
       return;
     }
@@ -161,17 +161,17 @@ export default function PaymentModal({
     setProcessing(true);
 
     try {
+      const finalAmount = getFinalPrice();
+
       if (isAppointmentPayment && paymentId) {
         await atualizarPagamentoAgendamento(paymentId, {
           status: 'paid',
-          paymentMethod: paymentMethod === 'credit' ? 'credito' : 
-                        paymentMethod === 'debit' ? 'debito' : 'pix',
+          paymentMethod: paymentMethod === 'credit' ? 'credito' : paymentMethod === 'debit' ? 'debito' : 'pix',
           paidAt: new Date().toISOString(),
+          amount: finalAmount,
           cardData: {
             brand: cardData.brand,
-            lastDigits: cardData.savedCardId 
-              ? cardData.number.slice(-4) 
-              : cardData.number.replace(/\s/g, '').slice(-4),
+            lastDigits: cardData.savedCardId ? cardData.number.slice(-4) : cardData.number.replace(/\s/g, '').slice(-4),
             holderName: cardData.holderName
           }
         });
@@ -192,27 +192,24 @@ export default function PaymentModal({
         onSuccess && onSuccess();
       } else {
         const transactionId = `TRX-${Date.now()}-${Math.random().toString(36).substr(2, 7).toUpperCase()}`;
-        
+
         const paymentData = {
           userId: currentUser.id,
           userName: currentUser.name,
           planId: selectedPlan.id,
           planName: selectedPlan.name,
-          amount: selectedPlan.price,
-          paymentMethod: paymentMethod === 'credit' ? 'credito' : 
-                        paymentMethod === 'debit' ? 'debito' : 'pix',
+          amount: finalAmount,
+          paymentMethod: paymentMethod === 'credit' ? 'credito' : paymentMethod === 'debit' ? 'debito' : 'pix',
           status: 'approved',
           type: 'subscription',
           transactionId,
           cardData: {
             brand: cardData.brand,
-            lastDigits: cardData.savedCardId 
-              ? cardData.number.slice(-4) 
-              : cardData.number.replace(/\s/g, '').slice(-4),
+            lastDigits: cardData.savedCardId ? cardData.number.slice(-4) : cardData.number.replace(/\s/g, '').slice(-4),
             holderName: cardData.holderName
           },
           installments: paymentMethod === 'credit' ? installments : 1,
-          installmentAmount: (selectedPlan.price / (paymentMethod === 'credit' ? installments : 1)).toFixed(2)
+          installmentAmount: (finalAmount / (paymentMethod === 'credit' ? installments : 1)).toFixed(2)
         };
 
         await criarPagamentoAgendamento(paymentData);
@@ -223,10 +220,9 @@ export default function PaymentModal({
           planId: selectedPlan.id,
           planName: selectedPlan.name,
           planPrice: selectedPlan.price,
-          amount: selectedPlan.price,
+          amount: finalAmount,
           status: 'active',
-          paymentMethod: paymentMethod === 'credit' ? 'credito' : 
-                        paymentMethod === 'debit' ? 'debito' : 'pix'
+          paymentMethod: paymentMethod === 'credit' ? 'credito' : paymentMethod === 'debit' ? 'debito' : 'pix'
         };
 
         const subscription = await criarAssinatura(subscriptionData);
@@ -265,7 +261,7 @@ export default function PaymentModal({
   };
 
   const getInstallmentText = (num) => {
-    const value = selectedPlan.price / num;
+    const value = getFinalPrice() / num;
     return `${num}x de R$ ${value.toFixed(2)}${num === 1 ? ' à vista' : ''}`;
   };
 
@@ -276,14 +272,24 @@ export default function PaymentModal({
       <div className="modal-overlay" onClick={onClose}>
         <div className="modal-content payment-modal" onClick={(e) => e.stopPropagation()}>
           <div className="modal-header">
-            <h2>Pagamento</h2>
-            <button className="modal-close" onClick={onClose}>×</button>
+            <h2>Finalizar Pagamento</h2>
+            <button type="button" className="modal-close" onClick={onClose}>×</button>
           </div>
 
           <div className="payment-modal-scroll">
             <div className="payment-summary">
               <h3>{selectedPlan.name}</h3>
-              <p className="payment-amount">R$ {selectedPlan.price.toFixed(2)}</p>
+              {paymentMethod === 'credit' ? (
+                <>
+                  <p className="payment-amount-original">
+                    De: <span className="strikethrough">R$ {selectedPlan.price.toFixed(2)}</span>
+                  </p>
+                  <p className="payment-amount">Por: R$ {getFinalPrice().toFixed(2)}</p>
+                  <p className="credit-fee-notice">Acréscimo de 5% no crédito</p>
+                </>
+              ) : (
+                <p className="payment-amount">R$ {getFinalPrice().toFixed(2)}</p>
+              )}
             </div>
 
             <form onSubmit={handleSubmit}>
@@ -292,11 +298,22 @@ export default function PaymentModal({
                   <input
                     type="radio"
                     name="paymentMethod"
+                    value="pix"
+                    checked={paymentMethod === 'pix'}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                  />
+                  <span>PIX</span>
+                </label>
+
+                <label className="payment-method-option">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
                     value="credit"
                     checked={paymentMethod === 'credit'}
                     onChange={(e) => setPaymentMethod(e.target.value)}
                   />
-                  <span>Cartão de Crédito</span>
+                  <span>Cartão de Crédito (+5%)</span>
                 </label>
 
                 <label className="payment-method-option">
@@ -309,93 +326,83 @@ export default function PaymentModal({
                   />
                   <span>Cartão de Débito</span>
                 </label>
-
-                <label className="payment-method-option">
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="pix"
-                    checked={paymentMethod === 'pix'}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                  />
-                  <span>PIX</span>
-                </label>
               </div>
+
+              {paymentMethod === 'pix' && (
+                <div className="pix-info">
+                  <p>Após confirmar, você receberá um código PIX para realizar o pagamento.</p>
+                  <p className="pix-note">O pagamento via PIX é instantâneo e seguro.</p>
+                </div>
+              )}
 
               {(paymentMethod === 'credit' || paymentMethod === 'debit') && (
                 <div className="card-form">
                   {hasCards && (
-                    <button
+                    <Button
                       type="button"
                       onClick={() => setShowSavedCards(true)}
-                      style={{
-                        padding: '0.75rem',
-                        background: '#2a2a2a',
-                        border: '2px solid #333',
-                        borderRadius: '0.5rem',
-                        color: '#ff7a1a',
-                        cursor: 'pointer',
-                        fontSize: '0.875rem',
-                        fontWeight: '500'
-                      }}
+                      variant="secondary"
                     >
                       Usar cartão salvo
-                    </button>
+                    </Button>
                   )}
 
                   <div>
-                    <label style={{ color: '#ccc' }}>Número do Cartão</label>
+                    <label>Número do Cartão</label>
                     <input
                       type="text"
                       placeholder="0000 0000 0000 0000"
                       value={cardData.number}
                       onChange={handleCardNumberChange}
                       disabled={!!cardData.savedCardId}
+                      required
                     />
                   </div>
 
                   <div>
-                    <label style={{ color: '#ccc' }}>Nome do Titular</label>
+                    <label>Nome do Titular</label>
                     <input
                       type="text"
                       placeholder="Nome como está no cartão"
                       value={cardData.holderName}
                       onChange={(e) => setCardData(prev => ({ ...prev, holderName: e.target.value }))}
                       disabled={!!cardData.savedCardId}
+                      required
                     />
                   </div>
 
                   <div className="card-details">
                     <div className="card-expiry">
-                      <label style={{ color: '#ccc' }}>Validade</label>
+                      <label>Validade</label>
                       <div className="expiry-inputs">
                         <input
                           type="text"
                           placeholder="MM"
-                          maxLength="2"
                           value={cardData.expiryMonth}
                           onChange={(e) => handleExpiryChange('expiryMonth', e.target.value)}
                           disabled={!!cardData.savedCardId}
+                          required
                         />
                         <span>/</span>
                         <input
                           type="text"
                           placeholder="AA"
-                          maxLength="2"
                           value={cardData.expiryYear}
                           onChange={(e) => handleExpiryChange('expiryYear', e.target.value)}
                           disabled={!!cardData.savedCardId}
+                          required
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label style={{ color: '#ccc' }}>CVV</label>
+                      <label>CVV</label>
                       <input
                         type="text"
                         placeholder="123"
                         value={cardData.cvv}
                         onChange={handleCvvChange}
+                        required
                       />
                     </div>
                   </div>
@@ -407,13 +414,13 @@ export default function PaymentModal({
                         checked={saveCardOption}
                         onChange={(e) => setSaveCardOption(e.target.checked)}
                       />
-                      <span>Salvar cartão para compras futuras</span>
+                      <span>Salvar este cartão para futuras compras</span>
                     </label>
                   )}
 
                   {paymentMethod === 'credit' && (
                     <div className="installments-section">
-                      <label style={{ color: '#ccc' }}>Parcelas</label>
+                      <label>Parcelas</label>
                       <select
                         className="installments-select"
                         value={installments}
@@ -430,23 +437,15 @@ export default function PaymentModal({
                 </div>
               )}
 
-              {paymentMethod === 'pix' && (
-                <div className="pix-info">
-                  <p>Ao confirmar, você receberá um código PIX para pagamento.</p>
-                  <p className="pix-note">O pagamento será confirmado em até 5 minutos.</p>
-                </div>
-              )}
+              <div className="modal-actions">
+                <button type="button" onClick={onClose} disabled={processing}>
+                  Cancelar
+                </button>
+                <button type="submit" disabled={processing}>
+                  {processing ? 'Processando...' : 'Confirmar Pagamento'}
+                </button>
+              </div>
             </form>
-          </div>
-
-  
-          <div className="modal-actions">
-            <button type="button" onClick={onClose} disabled={processing}>
-              Cancelar
-            </button>
-            <button type="submit" onClick={handleSubmit} disabled={processing}>
-              {processing ? 'Processando...' : 'Finalizar'}
-            </button>
           </div>
         </div>
       </div>
@@ -455,8 +454,8 @@ export default function PaymentModal({
         <SavedCardsModal
           isOpen={showSavedCards}
           onClose={() => setShowSavedCards(false)}
-          onSelectCard={handleSelectSavedCard}
           userId={currentUser.id}
+          onSelectCard={handleSelectSavedCard}
         />
       )}
     </>

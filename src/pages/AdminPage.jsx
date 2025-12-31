@@ -1,41 +1,22 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import BaseLayout from "../components/layout/BaseLayout";
-import Button from "../components/ui/Button";
-import Input from "../components/ui/Input";
-import Toast from "../components/ui/Toast";
-import AppointmentCard from "../components/ui/AppointmentCard";
-import { getSession, logout } from "../services/authService";
-import { getUserById } from "../services/userServices";
-import { 
-  getBarbers, 
-  createBarber, 
-  updateBarber, 
-  deleteBarber 
-} from "../services/barberServices";
-import { 
-  getAppointments,
-  deleteAppointment,
-  updateAppointment
-} from "../services/appointmentService";
-import { 
-  buscarTodasAssinaturas,
-  buscarTodosPagamentosAgendamentos,
-  atualizarPagamentoAgendamento
-} from "../services/paymentService";
-import {
-  getProducts,
-  createProduct,
-  updateProduct,
-  deleteProduct
-} from "../services/productService";
-import "./AuthPages.css";
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import BaseLayout from '../components/layout/BaseLayout';
+import Button from '../components/ui/Button';
+import Input from '../components/ui/Input';
+import Toast from '../components/ui/Toast';
+import { getSession, logout } from '../services/authService';
+import { getUserById } from '../services/userServices';
+import { getBarbers, createBarber, updateBarber, deleteBarber } from '../services/barberServices';
+import { getAppointments, deleteAppointment, updateAppointment } from '../services/appointmentService';
+import { buscarTodasAssinaturas, buscarTodosPagamentosAgendamentos, atualizarPagamentoAgendamento } from '../services/paymentService';
+import { getProducts, createProduct, updateProduct, deleteProduct } from '../services/productService';
+import './AuthPages.css';
 
 export default function AdminPage() {
   const navigate = useNavigate();
   const currentUser = getSession();
-
-  const [activeTab, setActiveTab] = useState("barbers");
+  
+  const [activeTab, setActiveTab] = useState('barbers');
   const [barbers, setBarbers] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
@@ -43,35 +24,38 @@ export default function AdminPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-
+  
   const [showBarberModal, setShowBarberModal] = useState(false);
   const [editingBarber, setEditingBarber] = useState(null);
-  const [barberForm, setBarberForm] = useState({
-    name: "",
-    specialty: "",
-    photo: ""
+  const [barberForm, setBarberForm] = useState({ 
+    name: '', 
+    specialty: '', 
+    photo: '',
+    commissionPercent: 50
   });
-
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editingAppointment, setEditingAppointment] = useState(null);
-  const [appointmentForm, setAppointmentForm] = useState({
-    date: "",
-    time: ""
-  });
-
+  
   const [showProductModal, setShowProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [productForm, setProductForm] = useState({
-    name: "",
-    category: "",
-    description: "",
-    price: "",
-    subscriberDiscount: "0",
-    stock: "0",
-    image: ""
+    name: '',
+    category: '',
+    description: '',
+    price: '',
+    subscriberDiscount: 0,
+    stock: 0,
+    image: ''
   });
-
-  const isAdmin = currentUser?.role === "admin" || currentUser?.isAdmin === true;
+  
+  const [expandedBarbers, setExpandedBarbers] = useState({});
+  const [showChangeBarberModal, setShowChangeBarberModal] = useState(false);
+  const [selectedAppointmentForBarberChange, setSelectedAppointmentForBarberChange] = useState(null);
+  const [newBarberId, setNewBarberId] = useState('');
+  
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingAppointment, setEditingAppointment] = useState(null);
+  const [appointmentForm, setAppointmentForm] = useState({ date: '', time: '' });
+  
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.isAdmin === true;
 
   const sendWhatsApp = async (appointmentId, type) => {
     try {
@@ -79,7 +63,6 @@ export default function AdminPage() {
       if (!appointment) return;
 
       const userData = await getUserById(appointment.clientId);
-      
       if (!userData || !userData.phone) {
         showToast('Cliente não possui telefone cadastrado.', 'danger');
         return;
@@ -87,38 +70,22 @@ export default function AdminPage() {
 
       const phone = userData.phone.replace(/\D/g, '');
       const date = new Date(appointment.date).toLocaleDateString('pt-BR');
-      const serviceName = Array.isArray(appointment.services) 
+      const serviceName = Array.isArray(appointment.services)
         ? appointment.services.map(s => s.name).join(', ')
         : 'Serviço';
 
       let message = '';
-      
       if (type === 'confirm') {
-        message = `Olá ${appointment.client}! \n\n` +
-                  `Estamos entrando em contato para *CONFIRMAR* seu agendamento:\n\n` +
-                  `📅 Data: ${date}\n` +
-                  `🕐 Horário: ${appointment.time}\n` +
-                  `✂️ Serviço: ${serviceName}\n` +
-                  `👨‍🦰 Barbeiro: ${appointment.barberName}\n\n` +
-                  `Por favor, responda esta mensagem para confirmar sua presença.\n\n` +
-                  `Barbearia ADDEV`;
+        message = `Olá ${appointment.client}! Estamos entrando em contato para CONFIRMAR seu agendamento:\n\nData: ${date}\nHorário: ${appointment.time}\nServiço: ${serviceName}\nBarbeiro: ${appointment.barberName}\n\nPor favor, responda esta mensagem para confirmar sua presença.\n\nBarbearia ADDEV`;
       } else if (type === 'cancel') {
-        message = `Olá ${appointment.client}! \n\n` +
-                  `Informamos que infelizmente precisaremos realizar o *CANCELAMENTO* do seu agendamento:\n\n` +
-                  `📅 Data: ${date}\n` +
-                  `🕐 Horário: ${appointment.time}\n` +
-                  `✂️ Serviço: ${serviceName}\n\n` +
-                  `Pedimos desculpas pelo transtorno. Entre em contato conosco para reagendar.\n\n` +
-                  `Barbearia ADDEV`;
+        message = `Olá ${appointment.client}! Informamos que infelizmente precisaremos realizar o CANCELAMENTO do seu agendamento:\n\nData: ${date}\nHorário: ${appointment.time}\nServiço: ${serviceName}\n\nPedimos desculpas pelo transtorno. Entre em contato conosco para reagendar.\n\nBarbearia ADDEV`;
       }
 
       const encodedMessage = encodeURIComponent(message);
       const whatsappUrl = `https://wa.me/55${phone}?text=${encodedMessage}`;
-      
       window.open(whatsappUrl, '_blank');
-      
     } catch (error) {
-      console.error("Erro ao enviar WhatsApp:", error);
+      console.error('Erro ao enviar WhatsApp:', error);
       showToast('Erro ao abrir WhatsApp.', 'danger');
     }
   };
@@ -135,11 +102,11 @@ export default function AdminPage() {
 
       setBarbers(barbersData);
       setAppointments(appointmentsData);
-      setSubscriptions(subscriptionsData || []);
-      setAppointmentPayments(paymentsData || []);
-      setProducts(productsData || []);
+      setSubscriptions(subscriptionsData);
+      setAppointmentPayments(paymentsData);
+      setProducts(productsData);
     } catch (error) {
-      console.error("Erro ao carregar dados:", error);
+      console.error('Erro ao carregar dados:', error);
     } finally {
       setLoading(false);
     }
@@ -147,12 +114,12 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!currentUser) {
-      navigate("/login");
+      navigate('/login');
       return;
     }
 
     if (!isAdmin) {
-      navigate("/appointments");
+      navigate('/appointments');
       return;
     }
 
@@ -161,7 +128,7 @@ export default function AdminPage() {
 
   const handleLogout = () => {
     logout();
-    navigate("/login");
+    navigate('/login');
   };
 
   const showToast = (message, type = 'success') => {
@@ -172,18 +139,18 @@ export default function AdminPage() {
     setToast({ show: false, message: '', type: 'success' });
   };
 
-
   const openBarberModal = (barber = null) => {
     if (barber) {
       setEditingBarber(barber);
       setBarberForm({
         name: barber.name,
-        specialty: barber.specialty || "",
-        photo: barber.photo || ""
+        specialty: barber.specialty,
+        photo: barber.photo,
+        commissionPercent: barber.commissionPercent || 50
       });
     } else {
       setEditingBarber(null);
-      setBarberForm({ name: "", specialty: "", photo: "" });
+      setBarberForm({ name: '', specialty: '', photo: '', commissionPercent: 50 });
     }
     setShowBarberModal(true);
   };
@@ -191,7 +158,7 @@ export default function AdminPage() {
   const closeBarberModal = () => {
     setShowBarberModal(false);
     setEditingBarber(null);
-    setBarberForm({ name: "", specialty: "", photo: "" });
+    setBarberForm({ name: '', specialty: '', photo: '', commissionPercent: 50 });
   };
 
   const handleBarberFormChange = (field, value) => {
@@ -200,7 +167,6 @@ export default function AdminPage() {
 
   const handleSaveBarber = async (e) => {
     e.preventDefault();
-    
     if (!barberForm.name.trim()) {
       showToast('O nome do barbeiro é obrigatório.', 'danger');
       return;
@@ -214,28 +180,26 @@ export default function AdminPage() {
         await createBarber(barberForm);
         showToast('Barbeiro adicionado com sucesso!', 'success');
       }
-      
       await loadData();
       closeBarberModal();
     } catch (error) {
-      console.error("Erro ao salvar barbeiro:", error);
+      console.error('Erro ao salvar barbeiro:', error);
       showToast('Erro ao salvar barbeiro. Tente novamente.', 'danger');
     }
   };
 
   const handleDeleteBarber = async (id) => {
-    if (confirm("Deseja realmente excluir este barbeiro?")) {
+    if (confirm('Deseja realmente excluir este barbeiro?')) {
       try {
         await deleteBarber(id);
         await loadData();
         showToast('Barbeiro excluído com sucesso!', 'success');
       } catch (error) {
-        console.error("Erro ao excluir barbeiro:", error);
+        console.error('Erro ao excluir barbeiro:', error);
         showToast('Erro ao excluir barbeiro.', 'danger');
       }
     }
   };
-
 
   const openProductModal = (product = null) => {
     if (product) {
@@ -243,22 +207,22 @@ export default function AdminPage() {
       setProductForm({
         name: product.name,
         category: product.category,
-        description: product.description || "",
+        description: product.description,
         price: product.price.toString().replace('R$ ', ''),
-        subscriberDiscount: product.subscriberDiscount?.toString() || "0",
-        stock: product.stock?.toString() || "0",
-        image: product.image || ""
+        subscriberDiscount: product.subscriberDiscount?.toString() || '0',
+        stock: product.stock?.toString() || '0',
+        image: product.image
       });
     } else {
       setEditingProduct(null);
       setProductForm({
-        name: "",
-        category: "",
-        description: "",
-        price: "",
-        subscriberDiscount: "0",
-        stock: "0",
-        image: ""
+        name: '',
+        category: '',
+        description: '',
+        price: '',
+        subscriberDiscount: '0',
+        stock: '0',
+        image: ''
       });
     }
     setShowProductModal(true);
@@ -268,13 +232,13 @@ export default function AdminPage() {
     setShowProductModal(false);
     setEditingProduct(null);
     setProductForm({
-      name: "",
-      category: "",
-      description: "",
-      price: "",
-      subscriberDiscount: "0",
-      stock: "0",
-      image: ""
+      name: '',
+      category: '',
+      description: '',
+      price: '',
+      subscriberDiscount: '0',
+      stock: '0',
+      image: ''
     });
   };
 
@@ -284,7 +248,6 @@ export default function AdminPage() {
 
   const handleSaveProduct = async (e) => {
     e.preventDefault();
-    
     if (!productForm.name.trim() || !productForm.category || !productForm.price) {
       showToast('Preencha os campos obrigatórios.', 'danger');
       return;
@@ -305,28 +268,42 @@ export default function AdminPage() {
         await createProduct(productData);
         showToast('Produto adicionado com sucesso!', 'success');
       }
-      
       await loadData();
       closeProductModal();
     } catch (error) {
-      console.error("Erro ao salvar produto:", error);
+      console.error('Erro ao salvar produto:', error);
       showToast('Erro ao salvar produto. Tente novamente.', 'danger');
     }
   };
 
   const handleDeleteProduct = async (id) => {
-    if (confirm("Deseja realmente excluir este produto?")) {
+    if (confirm('Deseja realmente excluir este produto?')) {
       try {
         await deleteProduct(id);
         await loadData();
         showToast('Produto excluído com sucesso!', 'success');
       } catch (error) {
-        console.error("Erro ao excluir produto:", error);
+        console.error('Erro ao excluir produto:', error);
         showToast('Erro ao excluir produto.', 'danger');
       }
     }
   };
 
+  const handleConfirmAppointment = async (appointmentId) => {
+    try {
+      const appointment = appointments.find(apt => apt.id === appointmentId);
+      const updatedAppointment = {
+        ...appointment,
+        status: 'confirmed'
+      };
+      await updateAppointment(appointmentId, updatedAppointment);
+      await loadData();
+      showToast('Agendamento confirmado!', 'success');
+    } catch (error) {
+      console.error('Erro ao confirmar:', error);
+      showToast('Erro ao confirmar agendamento.', 'danger');
+    }
+  };
 
   const openEditModal = (appointment) => {
     setEditingAppointment(appointment);
@@ -340,7 +317,7 @@ export default function AdminPage() {
   const closeEditModal = () => {
     setShowEditModal(false);
     setEditingAppointment(null);
-    setAppointmentForm({ date: "", time: "" });
+    setAppointmentForm({ date: '', time: '' });
   };
 
   const handleAppointmentFormChange = (field, value) => {
@@ -349,7 +326,6 @@ export default function AdminPage() {
 
   const handleUpdateAppointment = async (e) => {
     e.preventDefault();
-    
     if (!appointmentForm.date || !appointmentForm.time) {
       showToast('Data e horário são obrigatórios.', 'danger');
       return;
@@ -361,25 +337,24 @@ export default function AdminPage() {
         date: appointmentForm.date,
         time: appointmentForm.time
       };
-
       await updateAppointment(editingAppointment.id, updatedData);
       await loadData();
       showToast('Agendamento atualizado com sucesso!', 'success');
       closeEditModal();
     } catch (error) {
-      console.error("Erro ao atualizar agendamento:", error);
+      console.error('Erro ao atualizar agendamento:', error);
       showToast('Erro ao atualizar agendamento.', 'danger');
     }
   };
 
   const handleDeleteAppointment = async (id) => {
-    if (confirm("Deseja realmente cancelar este agendamento?")) {
+    if (confirm('Deseja realmente cancelar este agendamento?')) {
       try {
         await deleteAppointment(id);
         await loadData();
         showToast('Agendamento cancelado com sucesso!', 'success');
       } catch (error) {
-        console.error("Erro ao cancelar:", error);
+        console.error('Erro ao cancelar:', error);
         showToast('Erro ao cancelar agendamento.', 'danger');
       }
     }
@@ -395,9 +370,100 @@ export default function AdminPage() {
       await loadData();
       showToast('Pagamento marcado como pago!', 'success');
     } catch (error) {
-      console.error("Erro ao atualizar pagamento:", error);
+      console.error('Erro ao atualizar pagamento:', error);
       showToast('Erro ao atualizar pagamento.', 'danger');
     }
+  };
+
+  const toggleBarberExpansion = (barberId) => {
+    setExpandedBarbers(prev => ({
+      ...prev,
+      [barberId]: !prev[barberId]
+    }));
+  };
+
+  const getAppointmentsByBarber = (barberId) => {
+    return appointments
+      .filter(apt => apt.barberId === barberId)
+      .sort((a, b) => {
+        const dateA = new Date(`${a.date}T${a.time}`);
+        const dateB = new Date(`${b.date}T${b.time}`);
+        return dateB - dateA;
+      });
+  };
+
+  const openChangeBarberModal = (appointment) => {
+    setSelectedAppointmentForBarberChange(appointment);
+    setNewBarberId(appointment.barberId.toString());
+    setShowChangeBarberModal(true);
+  };
+
+  const closeChangeBarberModal = () => {
+    setShowChangeBarberModal(false);
+    setSelectedAppointmentForBarberChange(null);
+    setNewBarberId('');
+  };
+
+  const handleChangeBarber = async () => {
+    if (!newBarberId || newBarberId === selectedAppointmentForBarberChange.barberId.toString()) {
+      showToast('Selecione um barbeiro diferente', 'danger');
+      return;
+    }
+
+    const newBarber = barbers.find(b => b.id.toString() === newBarberId);
+    if (!newBarber) return;
+
+    try {
+      const updatedAppointment = {
+        ...selectedAppointmentForBarberChange,
+        barberId: newBarber.id,
+        barberName: newBarber.name
+      };
+
+      await updateAppointment(selectedAppointmentForBarberChange.id, updatedAppointment);
+      await loadData();
+      showToast(`Agendamento transferido para ${newBarber.name}!`, 'success');
+      closeChangeBarberModal();
+    } catch (error) {
+      console.error('Erro ao alterar barbeiro:', error);
+      showToast('Erro ao alterar barbeiro.', 'danger');
+    }
+  };
+
+  const calculateTotal = (services) => {
+    return services.reduce((sum, service) => {
+      const price = Number(String(service.price ?? '0')
+        .replace(/[R$.-]/g, '')
+        .replace(',', '.'));
+      return sum + (isNaN(price) ? 0 : price);
+    }, 0);
+  };
+
+  const calculateBarberStats = (barberId) => {
+    const barber = barbers.find(b => b.id === barberId);
+    const barberAppointments = getAppointmentsByBarber(barberId);
+    
+    let totalRevenue = 0;
+    let totalServices = 0;
+
+    barberAppointments.forEach(apt => {
+      const aptTotal = calculateTotal(apt.services);
+      totalRevenue += aptTotal;
+      totalServices += apt.services.length;
+    });
+
+    const commissionPercent = barber?.commissionPercent || 50;
+    const barberEarnings = (totalRevenue * commissionPercent) / 100;
+    const shopEarnings = totalRevenue - barberEarnings;
+
+    return {
+      totalRevenue,
+      totalServices,
+      appointmentsCount: barberAppointments.length,
+      commissionPercent,
+      barberEarnings,
+      shopEarnings
+    };
   };
 
   const calculatePaymentStats = () => {
@@ -406,18 +472,13 @@ export default function AdminPage() {
       credito: 0,
       debito: 0,
       total: 0,
-      count: {
-        pix: 0,
-        credito: 0,
-        debito: 0
-      }
+      count: { pix: 0, credito: 0, debito: 0 }
     };
 
     subscriptions.forEach(sub => {
       const amount = parseFloat(sub.amount || sub.planPrice || 0);
       if (amount > 0) {
         stats.total += amount;
-        
         const method = (sub.paymentMethod || '').toLowerCase();
         if (method === 'pix') {
           stats.pix += amount;
@@ -439,12 +500,6 @@ export default function AdminPage() {
   const pendingPayments = appointmentPayments.filter(p => p.status === 'pending');
   const paidPayments = appointmentPayments.filter(p => p.status === 'paid');
 
-  const sortedAppointments = [...appointments].sort((a, b) => {
-    const dateA = new Date(`${a.date}T${a.time}`);
-    const dateB = new Date(`${b.date}T${b.time}`);
-    return dateB - dateA;
-  });
-
   if (loading) {
     return (
       <BaseLayout>
@@ -460,166 +515,239 @@ export default function AdminPage() {
   return (
     <BaseLayout>
       <section className="auth">
-        <div className="auth__card" style={{ maxWidth: "900px" }}>
+        <div className="auth__card auth__card--wide">
           <div className="appointments-header">
             <div>
               <h1 className="auth__title">Painel Administrativo</h1>
               <p className="auth__subtitle">
-                Usuário: {currentUser?.name}
-                <span style={{ marginLeft: "10px", color: "#d4af37" }}>(Admin)</span>
+                Usuário: {currentUser?.name} <span className="admin-badge">Admin</span>
               </p>
             </div>
-            <div className="div_btn_admin">
-              <Button onClick={() => navigate("/appointments")}>
+            <div className="admin-header-actions">
+              <button onClick={() => navigate('/appointments')} className="btn-header">
                 Agendamentos
-              </Button>
-              <Button className="btnSair" onClick={handleLogout}>Sair</Button>
+              </button>
+              <button className="btn-header btn-header-logout" onClick={handleLogout}>
+                Sair
+              </button>
             </div>
           </div>
 
           <div className="appointments-tabs">
             <button
-              onClick={() => setActiveTab("barbers")}
-              className={`tab-btn ${activeTab === "barbers" ? "tab-btn--active" : ""}`}
+              onClick={() => setActiveTab('barbers')}
+              className={`tab-btn ${activeTab === 'barbers' ? 'tab-btn--active' : ''}`}
             >
               Gerenciar Barbeiros
             </button>
             <button
-              onClick={() => setActiveTab("appointments")}
-              className={`tab-btn ${activeTab === "appointments" ? "tab-btn--active" : ""}`}
-            >
-              Todos os Agendamentos ({appointments.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("products")}
-              className={`tab-btn ${activeTab === "products" ? "tab-btn--active" : ""}`}
+              onClick={() => setActiveTab('products')}
+              className={`tab-btn ${activeTab === 'products' ? 'tab-btn--active' : ''}`}
             >
               Produtos ({products.length})
             </button>
             <button
-              onClick={() => setActiveTab("payments")}
-              className={`tab-btn ${activeTab === "payments" ? "tab-btn--active" : ""}`}
+              onClick={() => setActiveTab('payments')}
+              className={`tab-btn ${activeTab === 'payments' ? 'tab-btn--active' : ''}`}
             >
-              Pagamentos {pendingPayments.length > 0 && `(${pendingPayments.length} pendentes)`}
+              Pagamentos {pendingPayments.length > 0 && `(${pendingPayments.length})`}
             </button>
           </div>
 
-          {activeTab === "barbers" ? (
+          {activeTab === 'barbers' && (
             <div className="manage-barbers">
               <div className="manage-barbers__header">
                 <h2>Gerenciar Barbeiros</h2>
-                <Button onClick={() => openBarberModal()}>+ Adicionar Barbeiro</Button>
+                <button onClick={() => openBarberModal()} className="btn-add-barber">
+                  + Adicionar Barbeiro
+                </button>
               </div>
 
-              <div className="barbers-admin-list">
+              <div className="barbers-table-container">
                 {barbers.length === 0 ? (
-                  <p>Nenhum barbeiro cadastrado.</p>
+                  <p className="no-data">Nenhum barbeiro cadastrado.</p>
                 ) : (
-                  barbers.map((barber) => (
-                    <div key={barber.id} className="barber-admin-card">
-                      <div className="barber-admin-info">
-                        {barber.photo && (
-                          <img 
-                            src={barber.photo} 
-                            alt={barber.name}
-                            className="barber-admin-photo"
-                          />
-                        )}
-                        <div>
-                          <h3>{barber.name}</h3>
-                          {barber.specialty && <p>{barber.specialty}</p>}
+                  barbers.map((barber) => {
+                    const barberAppointments = getAppointmentsByBarber(barber.id);
+                    const isExpanded = expandedBarbers[barber.id];
+                    const stats = calculateBarberStats(barber.id);
+
+                    return (
+                      <div key={barber.id} className="fluig-table-parent">
+                        <div className="fluig-row-parent" onClick={() => toggleBarberExpansion(barber.id)}>
+                          <div className="fluig-expand-icon">
+                            {isExpanded ? '▼' : '▶'}
+                          </div>
+                          <div className="fluig-barber-info">
+                            <img
+                              src={barber.photo || `https://i.pravatar.cc/150?img=${barber.id}`}
+                              alt={barber.name}
+                              className="fluig-barber-photo"
+                            />
+                            <div className="fluig-barber-details">
+                              <h3 className="fluig-barber-name">{barber.name}</h3>
+                              <p className="fluig-barber-specialty">{barber.specialty}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="fluig-barber-stats">
+                            <div className="stat-item">
+                              <span className="stat-label">Atendimentos</span>
+                              <span className="stat-value">{stats.appointmentsCount}</span>
+                            </div>
+                            <div className="stat-item">
+                              <span className="stat-label">Faturamento Total</span>
+                              <span className="stat-value stat-value-highlight">R$ {stats.totalRevenue.toFixed(2)}</span>
+                            </div>
+                            <div className="stat-item">
+                              <span className="stat-label">Comissão ({stats.commissionPercent}%)</span>
+                              <span className="stat-value stat-value-success">R$ {stats.barberEarnings.toFixed(2)}</span>
+                            </div>
+                            <div className="stat-item">
+                              <span className="stat-label">Barbearia</span>
+                              <span className="stat-value">R$ {stats.shopEarnings.toFixed(2)}</span>
+                            </div>
+                          </div>
+
+                          <div className="fluig-parent-actions">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openBarberModal(barber);
+                              }}
+                              className="fluig-btn fluig-btn-edit"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteBarber(barber.id);
+                              }}
+                              className="fluig-btn fluig-btn-delete"
+                            >
+                              Excluir
+                            </button>
+                          </div>
                         </div>
+
+                        {isExpanded && (
+                          <div className="fluig-children-container">
+                            {barberAppointments.length === 0 ? (
+                              <p className="no-appointments">Nenhum agendamento para este barbeiro.</p>
+                            ) : (
+                              <table className="fluig-table-children">
+                                <thead>
+                                  <tr>
+                                    <th>Status</th>
+                                    <th>Cliente</th>
+                                    <th>Data</th>
+                                    <th>Horário</th>
+                                    <th>Serviços</th>
+                                    <th>Total</th>
+                                    <th>Barbeiro ({stats.commissionPercent}%)</th>
+                                    <th>Ações</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {barberAppointments.map(apt => {
+                                    const aptTotal = calculateTotal(apt.services);
+                                    const barberEarning = (aptTotal * stats.commissionPercent) / 100;
+                                    
+                                    return (
+                                      <tr key={apt.id} className={apt.status === 'confirmed' ? 'row-confirmed' : ''}>
+                                        <td>
+                                          {apt.status === 'confirmed' ? (
+                                            <span className="status-badge status-confirmed">Confirmado</span>
+                                          ) : (
+                                            <span className="status-badge status-pending">Pendente</span>
+                                          )}
+                                        </td>
+                                        <td><strong>{apt.client}</strong></td>
+                                        <td>{new Date(apt.date).toLocaleDateString('pt-BR')}</td>
+                                        <td>{apt.time}</td>
+                                        <td>
+                                          <div className="services-list">
+                                            {apt.services.map((service, idx) => (
+                                              <span key={idx} className="service-pill">
+                                                {service.name}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </td>
+                                        <td className="total-price">R$ {aptTotal.toFixed(2)}</td>
+                                        <td className="barber-earning">R$ {barberEarning.toFixed(2)}</td>
+                                        <td>
+                                          <div className="fluig-actions-buttons">
+                                            {apt.status !== 'confirmed' && (
+                                              <button
+                                                onClick={() => handleConfirmAppointment(apt.id)}
+                                                className="action-btn btn-confirm"
+                                              >
+                                                Confirmar
+                                              </button>
+                                            )}
+                                            <button
+                                              onClick={() => openEditModal(apt)}
+                                              className="action-btn btn-edit-apt"
+                                            >
+                                              Editar
+                                            </button>
+                                            <button
+                                              onClick={() => openChangeBarberModal(apt)}
+                                              className="action-btn btn-transfer"
+                                            >
+                                              Transferir
+                                            </button>
+                                            <button
+                                              onClick={() => sendWhatsApp(apt.id, 'confirm')}
+                                              className="action-btn btn-whatsapp"
+                                            >
+                                              WhatsApp
+                                            </button>
+                                            <button
+                                              onClick={() => handleDeleteAppointment(apt.id)}
+                                              className="action-btn btn-cancel"
+                                            >
+                                              Cancelar
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <div className="barber-admin-actions">
-                        <button 
-                          onClick={() => openBarberModal(barber)}
-                          className="btn-edit"
-                        >
-                          Editar
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteBarber(barber.id)}
-                          className="btn-delete"
-                        >
-                          Excluir
-                        </button>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
-          ) : activeTab === "appointments" ? (
-            <div className="appointments-list">
-              <h2>Todos os Agendamentos</h2>
-              {sortedAppointments.length === 0 ? (
-                <p className="calendar-empty">Nenhum agendamento encontrado.</p>
-              ) : (
-                <div className="calendar-list">
-                  {sortedAppointments.map((apt) => (
-                    <div key={apt.id} className="appointment-card-wrapper">
-                      <AppointmentCard
-                        appointment={apt}
-                        onDelete={handleDeleteAppointment}
-                      />
-                      <div style={{ 
-                        display: 'flex', 
-                        gap: '10px', 
-                        marginTop: '10px',
-                        flexWrap: 'wrap'
-                      }}>
-                        <button 
-                          onClick={() => openEditModal(apt)}
-                          className="btn-edit"
-                          style={{ flex: 1, minWidth: '150px' }}
-                        >
-                          ✏️ Editar Horário
-                        </button>
-                        <button 
-                          onClick={() => sendWhatsApp(apt.id, 'confirm')}
-                          className="btn-edit"
-                          style={{ 
-                            flex: 1, 
-                            minWidth: '150px',
-                            background: '#25D366',
-                            color: 'white'
-                          }}
-                        >
-                          ✅ Confirmar (WhatsApp)
-                        </button>
-                        <button 
-                          onClick={() => sendWhatsApp(apt.id, 'cancel')}
-                          className="btn-delete"
-                          style={{ 
-                            flex: 1, 
-                            minWidth: '150px'
-                          }}
-                        >
-                          ❌ Cancelar (WhatsApp)
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : activeTab === "products" ? (
+          )}
+
+          {activeTab === 'products' && (
             <div className="manage-products">
               <div className="manage-barbers__header">
                 <h2>Gerenciar Produtos</h2>
-                <Button onClick={() => openProductModal()}>+ Adicionar Produto</Button>
+                <button onClick={() => openProductModal()} className="btn-add-barber">
+                  + Adicionar Produto
+                </button>
               </div>
 
               <div className="barbers-admin-list">
                 {products.length === 0 ? (
-                  <p>Nenhum produto cadastrado.</p>
+                  <p className="no-data">Nenhum produto cadastrado.</p>
                 ) : (
                   products.map((product) => (
                     <div key={product.id} className="barber-admin-card product-admin-card">
                       <div className="barber-admin-info">
                         {product.image && (
-                          <img 
-                            src={product.image} 
+                          <img
+                            src={product.image}
                             alt={product.name}
                             className="barber-admin-photo"
                           />
@@ -635,23 +763,21 @@ export default function AdminPage() {
                                 -{product.subscriberDiscount}% para assinantes
                               </span>
                             )}
-                            <span className={`product-stock ${product.stock === 0 ? 'out-of-stock' : product.stock <= 5 ? 'low-stock' : ''}`}>
+                            <span
+                              className={`product-stock ${
+                                product.stock === 0 ? 'out-of-stock' : product.stock <= 5 ? 'low-stock' : ''
+                              }`}
+                            >
                               Estoque: {product.stock}
                             </span>
                           </div>
                         </div>
                       </div>
                       <div className="barber-admin-actions">
-                        <button 
-                          onClick={() => openProductModal(product)}
-                          className="btn-edit"
-                        >
+                        <button onClick={() => openProductModal(product)} className="btn-edit">
                           Editar
                         </button>
-                        <button 
-                          onClick={() => handleDeleteProduct(product.id)}
-                          className="btn-delete"
-                        >
+                        <button onClick={() => handleDeleteProduct(product.id)} className="btn-delete">
                           Excluir
                         </button>
                       </div>
@@ -660,29 +786,28 @@ export default function AdminPage() {
                 )}
               </div>
             </div>
-          ) : activeTab === "payments" ? (
+          )}
+
+          {activeTab === 'payments' && (
             <div className="payments-section">
               <h2>Relatório de Pagamentos</h2>
-              
+
               <div className="payment-stats">
                 <div className="payment-stat-card">
                   <h3>💳 Cartão de Crédito</h3>
                   <p className="stat-value">R$ {paymentStats.credito.toFixed(2)}</p>
                   <p className="stat-count">{paymentStats.count.credito} transações</p>
                 </div>
-
                 <div className="payment-stat-card">
                   <h3>💳 Cartão de Débito</h3>
                   <p className="stat-value">R$ {paymentStats.debito.toFixed(2)}</p>
                   <p className="stat-count">{paymentStats.count.debito} transações</p>
                 </div>
-
                 <div className="payment-stat-card">
                   <h3>📱 PIX</h3>
                   <p className="stat-value">R$ {paymentStats.pix.toFixed(2)}</p>
                   <p className="stat-count">{paymentStats.count.pix} transações</p>
                 </div>
-
                 <div className="payment-stat-card payment-stat-card--total">
                   <h3>💰 Total Assinaturas</h3>
                   <p className="stat-value">R$ {paymentStats.total.toFixed(2)}</p>
@@ -709,7 +834,7 @@ export default function AdminPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {pendingPayments.map((payment) => (
+                        {pendingPayments.map(payment => (
                           <tr key={payment.id}>
                             <td>{new Date(payment.appointmentDate).toLocaleDateString('pt-BR')}</td>
                             <td>{payment.appointmentTime}</td>
@@ -718,25 +843,22 @@ export default function AdminPage() {
                             <td>{payment.serviceName}</td>
                             <td>R$ {parseFloat(payment.amount || 0).toFixed(2)}</td>
                             <td>
-                              <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                                <button 
+                              <div className="payment-action-buttons">
+                                <button
                                   onClick={() => handleMarkAsPaid(payment, 'dinheiro')}
-                                  className="btn-edit"
-                                  style={{ fontSize: '12px', padding: '5px 10px' }}
+                                  className="btn-edit btn-payment-small"
                                 >
                                   💵 Dinheiro
                                 </button>
-                                <button 
+                                <button
                                   onClick={() => handleMarkAsPaid(payment, 'pix')}
-                                  className="btn-edit"
-                                  style={{ fontSize: '12px', padding: '5px 10px' }}
+                                  className="btn-edit btn-payment-small"
                                 >
                                   📱 PIX
                                 </button>
-                                <button 
+                                <button
                                   onClick={() => handleMarkAsPaid(payment, 'cartao')}
-                                  className="btn-edit"
-                                  style={{ fontSize: '12px', padding: '5px 10px' }}
+                                  className="btn-edit btn-payment-small"
                                 >
                                   💳 Cartão
                                 </button>
@@ -768,7 +890,7 @@ export default function AdminPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {subscriptions.map((sub) => (
+                        {subscriptions.map(sub => (
                           <tr key={sub.id}>
                             <td>{new Date(sub.createdAt || sub.startDate).toLocaleDateString('pt-BR')}</td>
                             <td>{sub.userName || 'N/A'}</td>
@@ -780,7 +902,7 @@ export default function AdminPage() {
                               </span>
                             </td>
                             <td>
-                              <span className={`status-badge status-badge--${sub.status || 'active'}`}>
+                              <span className={`status-badge status-badge--${sub.status === 'active'}`}>
                                 {sub.status === 'active' ? 'Ativo' : 'Inativo'}
                               </span>
                             </td>
@@ -809,10 +931,12 @@ export default function AdminPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {paidPayments.map((payment) => (
+                        {paidPayments.map(payment => (
                           <tr key={payment.id}>
                             <td>{new Date(payment.paidAt).toLocaleDateString('pt-BR')}</td>
-                            <td>{new Date(payment.appointmentDate).toLocaleDateString('pt-BR')} {payment.appointmentTime}</td>
+                            <td>
+                              {new Date(payment.appointmentDate).toLocaleDateString('pt-BR')} {payment.appointmentTime}
+                            </td>
                             <td>{payment.userName}</td>
                             <td>{payment.barberName}</td>
                             <td>{payment.serviceName}</td>
@@ -830,240 +954,231 @@ export default function AdminPage() {
                 </div>
               )}
             </div>
-          ) : null}
-
-          {showBarberModal && (
-            <div className="modal-overlay" onClick={closeBarberModal}>
-              <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <h2>{editingBarber ? "Editar Barbeiro" : "Adicionar Barbeiro"}</h2>
-                <form onSubmit={handleSaveBarber} className="barber-form">
-                  <Input
-                    label="Nome *"
-                    value={barberForm.name}
-                    onChange={(e) => handleBarberFormChange("name", e.target.value)}
-                    required
-                  />
-                  <Input
-                    label="Especialidade"
-                    value={barberForm.specialty}
-                    onChange={(e) => handleBarberFormChange("specialty", e.target.value)}
-                  />
-                  <Input
-                    label="URL da Foto"
-                    value={barberForm.photo}
-                    onChange={(e) => handleBarberFormChange("photo", e.target.value)}
-                    placeholder="https://exemplo.com/foto.jpg"
-                  />
-                  <div className="modal-actions">
-                    <Button type="button" onClick={closeBarberModal}>
-                      Cancelar
-                    </Button>
-                    <Button type="submit">
-                      {editingBarber ? "Atualizar" : "Adicionar"}
-                    </Button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
-
-          {showEditModal && (
-            <div className="modal-overlay" onClick={closeEditModal}>
-              <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <h2>Editar Agendamento</h2>
-                <p style={{ marginBottom: "20px", color: "#999" }}>
-                  Cliente: {editingAppointment?.client} | Barbeiro: {editingAppointment?.barberName}
-                </p>
-                <form onSubmit={handleUpdateAppointment} className="barber-form">
-                  <Input
-                    label="Data *"
-                    type="date"
-                    value={appointmentForm.date}
-                    onChange={(e) => handleAppointmentFormChange("date", e.target.value)}
-                    required
-                  />
-                  <div>
-                    <label style={{ display: "block", marginBottom: "8px", color: "#d4af37" }}>
-                      Horário *
-                    </label>
-                    <select
-                      value={appointmentForm.time}
-                      onChange={(e) => handleAppointmentFormChange("time", e.target.value)}
-                      required
-                      style={{
-                        width: "100%",
-                        padding: "12px",
-                        background: "#2a2a2a",
-                        border: "1px solid #444",
-                        borderRadius: "4px",
-                        color: "white",
-                        fontSize: "16px"
-                      }}
-                    >
-                      <option value="">Selecione um horário</option>
-                      <option value="08:00">08:00</option>
-                      <option value="09:00">09:00</option>
-                      <option value="10:00">10:00</option>
-                      <option value="11:00">11:00</option>
-                      <option value="13:00">13:00</option>
-                      <option value="14:00">14:00</option>
-                      <option value="15:00">15:00</option>
-                      <option value="16:00">16:00</option>
-                      <option value="17:00">17:00</option>
-                      <option value="18:00">18:00</option>
-                    </select>
-                  </div>
-                  <div className="modal-actions">
-                    <Button type="button" onClick={closeEditModal}>
-                      Cancelar
-                    </Button>
-                    <Button type="submit">
-                      Atualizar
-                    </Button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
-
-          {showProductModal && (
-            <div className="modal-overlay" onClick={closeProductModal}>
-              <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <h2>{editingProduct ? "Editar Produto" : "Adicionar Produto"}</h2>
-                <form onSubmit={handleSaveProduct} className="barber-form">
-                  <Input
-                    label="Nome do Produto *"
-                    value={productForm.name}
-                    onChange={(e) => handleProductFormChange("name", e.target.value)}
-                    required
-                  />
-                  
-                  <div>
-                    <label style={{ display: "block", marginBottom: "8px", color: "#d4af37" }}>
-                      Categoria *
-                    </label>
-                    <select
-                      value={productForm.category}
-                      onChange={(e) => handleProductFormChange("category", e.target.value)}
-                      required
-                      style={{
-                        width: "100%",
-                        padding: "12px",
-                        background: "#2a2a2a",
-                        border: "1px solid #444",
-                        borderRadius: "4px",
-                        color: "white",
-                        fontSize: "16px"
-                      }}
-                    >
-                      <option value="">Selecione uma categoria</option>
-                      <option value="Bebidas">Bebidas</option>
-                      <option value="Pomadas">Pomadas</option>
-                      <option value="Óleos">Óleos</option>
-                      <option value="Cuidados">Cuidados</option>
-                      <option value="Acessórios">Acessórios</option>
-                      <option value="Outros">Outros</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label style={{ display: "block", marginBottom: "8px", color: "#d4af37" }}>
-                      Descrição
-                    </label>
-                    <textarea
-                      value={productForm.description}
-                      onChange={(e) => handleProductFormChange("description", e.target.value)}
-                      placeholder="Descrição do produto"
-                      rows="3"
-                      style={{
-                        width: "100%",
-                        padding: "12px",
-                        background: "#2a2a2a",
-                        border: "1px solid #444",
-                        borderRadius: "4px",
-                        color: "white",
-                        fontSize: "16px",
-                        resize: "vertical"
-                      }}
-                    />
-                  </div>
-
-                  <Input
-                    label="Preço (apenas números) *"
-                    type="number"
-                    step="0.01"
-                    value={productForm.price}
-                    onChange={(e) => handleProductFormChange("price", e.target.value)}
-                    placeholder="40.00"
-                    required
-                  />
-
-                  <Input
-                    label="Desconto para Assinantes (%)"
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={productForm.subscriberDiscount}
-                    onChange={(e) => handleProductFormChange("subscriberDiscount", e.target.value)}
-                    placeholder="0"
-                  />
-
-                  <Input
-                    label="Estoque *"
-                    type="number"
-                    min="0"
-                    value={productForm.stock}
-                    onChange={(e) => handleProductFormChange("stock", e.target.value)}
-                    required
-                  />
-
-                  <Input
-                    label="URL da Imagem"
-                    value={productForm.image}
-                    onChange={(e) => handleProductFormChange("image", e.target.value)}
-                    placeholder="https://exemplo.com/produto.jpg"
-                  />
-
-                  {productForm.image && (
-                    <div style={{ marginTop: "10px", textAlign: "center" }}>
-                      <img 
-                        src={productForm.image} 
-                        alt="Preview" 
-                        style={{ 
-                          maxWidth: "200px", 
-                          maxHeight: "200px", 
-                          borderRadius: "8px",
-                          border: "2px solid #444"
-                        }}
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  <div className="modal-actions">
-                    <Button type="button" onClick={closeProductModal}>
-                      Cancelar
-                    </Button>
-                    <Button type="submit">
-                      {editingProduct ? "Atualizar" : "Adicionar"}
-                    </Button>
-                  </div>
-                </form>
-              </div>
-            </div>
           )}
         </div>
       </section>
 
-      {toast.show && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={closeToast}
-        />
+      {showBarberModal && (
+        <div className="modal-overlay" onClick={closeBarberModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>{editingBarber ? 'Editar Barbeiro' : 'Adicionar Barbeiro'}</h2>
+            <form onSubmit={handleSaveBarber} className="barber-form">
+              <Input
+                label="Nome"
+                value={barberForm.name}
+                onChange={(e) => handleBarberFormChange('name', e.target.value)}
+                required
+              />
+              <Input
+                label="Especialidade"
+                value={barberForm.specialty}
+                onChange={(e) => handleBarberFormChange('specialty', e.target.value)}
+              />
+              <Input
+                label="Porcentagem de Comissão (%)"
+                type="number"
+                min="0"
+                max="100"
+                value={barberForm.commissionPercent}
+                onChange={(e) => handleBarberFormChange('commissionPercent', e.target.value)}
+                required
+              />
+              <Input
+                label="URL da Foto"
+                value={barberForm.photo}
+                onChange={(e) => handleBarberFormChange('photo', e.target.value)}
+                placeholder="https://exemplo.com/foto.jpg"
+              />
+              <div className="modal-actions">
+                <Button type="button" onClick={closeBarberModal}>
+                  Cancelar
+                </Button>
+                <Button type="submit">{editingBarber ? 'Atualizar' : 'Adicionar'}</Button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
+
+      {showEditModal && (
+        <div className="modal-overlay" onClick={closeEditModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Editar Agendamento</h2>
+            <p className="modal-subtitle">
+              Cliente: {editingAppointment?.client} | Barbeiro: {editingAppointment?.barberName}
+            </p>
+            <form onSubmit={handleUpdateAppointment} className="barber-form">
+              <Input
+                label="Data"
+                type="date"
+                value={appointmentForm.date}
+                onChange={(e) => handleAppointmentFormChange('date', e.target.value)}
+                required
+              />
+              <div>
+                <label className="form-label">Horário</label>
+                <select
+                  value={appointmentForm.time}
+                  onChange={(e) => handleAppointmentFormChange('time', e.target.value)}
+                  required
+                  className="form-select"
+                >
+                  <option value="">Selecione um horário</option>
+                  <option value="08:00">08:00</option>
+                  <option value="09:00">09:00</option>
+                  <option value="10:00">10:00</option>
+                  <option value="11:00">11:00</option>
+                  <option value="13:00">13:00</option>
+                  <option value="14:00">14:00</option>
+                  <option value="15:00">15:00</option>
+                  <option value="16:00">16:00</option>
+                  <option value="17:00">17:00</option>
+                  <option value="18:00">18:00</option>
+                </select>
+              </div>
+              <div className="modal-actions">
+                <Button type="button" onClick={closeEditModal}>
+                  Cancelar
+                </Button>
+                <Button type="submit">Atualizar</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showChangeBarberModal && (
+        <div className="modal-overlay" onClick={closeChangeBarberModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Alterar Barbeiro do Agendamento</h2>
+            <p className="modal-subtitle">Cliente: {selectedAppointmentForBarberChange?.client}</p>
+            <p className="modal-subtitle">Barbeiro atual: {selectedAppointmentForBarberChange?.barberName}</p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleChangeBarber();
+              }}
+              className="barber-form"
+            >
+              <div>
+                <label className="form-label">Novo Barbeiro</label>
+                <select
+                  value={newBarberId}
+                  onChange={(e) => setNewBarberId(e.target.value)}
+                  required
+                  className="form-select"
+                >
+                  <option value="">Selecione um barbeiro</option>
+                  {barbers.map(barber => (
+                    <option key={barber.id} value={barber.id}>
+                      {barber.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="modal-actions">
+                <Button type="button" onClick={closeChangeBarberModal}>
+                  Cancelar
+                </Button>
+                <Button type="submit">Alterar Barbeiro</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showProductModal && (
+        <div className="modal-overlay" onClick={closeProductModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>{editingProduct ? 'Editar Produto' : 'Adicionar Produto'}</h2>
+            <form onSubmit={handleSaveProduct} className="barber-form">
+              <Input
+                label="Nome do Produto"
+                value={productForm.name}
+                onChange={(e) => handleProductFormChange('name', e.target.value)}
+                required
+              />
+              <div>
+                <label className="form-label">Categoria</label>
+                <select
+                  value={productForm.category}
+                  onChange={(e) => handleProductFormChange('category', e.target.value)}
+                  required
+                  className="form-select"
+                >
+                  <option value="">Selecione uma categoria</option>
+                  <option value="Bebidas">Bebidas</option>
+                  <option value="Pomadas">Pomadas</option>
+                  <option value="Óleos">Óleos</option>
+                  <option value="Cuidados">Cuidados</option>
+                  <option value="Acessórios">Acessórios</option>
+                  <option value="Outros">Outros</option>
+                </select>
+              </div>
+              <div>
+                <label className="form-label">Descrição</label>
+                <textarea
+                  value={productForm.description}
+                  onChange={(e) => handleProductFormChange('description', e.target.value)}
+                  placeholder="Descrição do produto"
+                  rows="3"
+                  className="form-textarea"
+                />
+              </div>
+              <Input
+                label="Preço (apenas números)"
+                type="number"
+                step="0.01"
+                value={productForm.price}
+                onChange={(e) => handleProductFormChange('price', e.target.value)}
+                placeholder="40.00"
+                required
+              />
+              <Input
+                label="Desconto para Assinantes (%)"
+                type="number"
+                min="0"
+                max="100"
+                value={productForm.subscriberDiscount}
+                onChange={(e) => handleProductFormChange('subscriberDiscount', e.target.value)}
+                placeholder="0"
+              />
+              <Input
+                label="Estoque"
+                type="number"
+                min="0"
+                value={productForm.stock}
+                onChange={(e) => handleProductFormChange('stock', e.target.value)}
+                required
+              />
+              <Input
+                label="URL da Imagem"
+                value={productForm.image}
+                onChange={(e) => handleProductFormChange('image', e.target.value)}
+                placeholder="https://exemplo.com/produto.jpg"
+              />
+              {productForm.image && (
+                <div className="image-preview-container">
+                  <img
+                    src={productForm.image}
+                    alt="Preview"
+                    className="image-preview"
+                    onError={(e) => (e.target.style.display = 'none')}
+                  />
+                </div>
+              )}
+              <div className="modal-actions">
+                <Button type="button" onClick={closeProductModal}>
+                  Cancelar
+                </Button>
+                <Button type="submit">{editingProduct ? 'Atualizar' : 'Adicionar'}</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {toast.show && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
     </BaseLayout>
   );
 }

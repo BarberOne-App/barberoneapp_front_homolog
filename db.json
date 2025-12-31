@@ -94,26 +94,7 @@
       "isAdmin": false
     }
   ],
-  "appointments": [
-    {
-      "id": "0567",
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "id": "2",
-          "name": "Barba",
-          "price": "R$ 30",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30
-        }
-      ],
-      "date": "2025-12-09",
-      "time": "10:00",
-      "client": "LUCAS",
-      "clientId": "ff1a"
-    }
-  ],
+  "appointments": [],
   "clientes": [],
   "subscriptionPlans": [
     {
@@ -200,6 +181,21 @@
       "paymentMethod": "credito",
       "createdAt": "2025-12-29T15:10:19.146Z",
       "updatedAt": "2025-12-29T15:10:19.146Z"
+    },
+    {
+      "id": "454f",
+      "userId": "ff1a",
+      "userName": "LUCAS",
+      "planId": "premium",
+      "planName": "Premium",
+      "planPrice": 149.9,
+      "amount": 149.9,
+      "status": "active",
+      "startDate": "2025-12-30T18:46:15.792Z",
+      "nextBillingDate": "2026-01-30T18:46:15.792Z",
+      "paymentMethod": "credito",
+      "createdAt": "2025-12-30T18:46:15.792Z",
+      "updatedAt": "2025-12-30T18:46:15.792Z"
     }
   ],
   "payments": [],
@@ -258,7 +254,7 @@
     },
     {
       "id": "4ab7",
-      "appointmentId": "0567",
+      "appointmentId": null,
       "userId": "ff1a",
       "userName": "LUCAS",
       "amount": 30,
@@ -266,22 +262,51 @@
       "barberName": "João",
       "appointmentDate": "2025-12-09",
       "appointmentTime": "10:00",
-      "paymentMethod": "pending",
-      "status": "pending",
+      "paymentMethod": "pix",
+      "status": "paid",
       "type": "appointment",
       "createdAt": "2025-12-29T15:06:04.995Z",
-      "updatedAt": "2025-12-29T15:06:04.995Z"
+      "updatedAt": "2025-12-30T14:45:15.561Z",
+      "paidAt": "2025-12-30T14:45:15.561Z"
     },
     {
       "id": "dab1",
       "userId": "ff1a",
       "userName": "LUCAS",
       "amount": 149.9,
+      "paymentMethod": "pix",
+      "status": "paid",
+      "type": "appointment",
+      "createdAt": "2025-12-29T15:10:19.123Z",
+      "updatedAt": "2025-12-30T14:45:14.778Z",
+      "paidAt": "2025-12-30T14:45:14.778Z"
+    },
+    {
+      "id": "8516",
+      "appointmentId": null,
+      "userId": "ff1a",
+      "userName": "LUCAS",
+      "amount": 40,
+      "serviceName": "Corte Clássico",
+      "barberName": "João",
+      "appointmentDate": "2025-12-30",
+      "appointmentTime": "14:30",
+      "paymentMethod": "pending",
+      "status": "pending",
+      "type": "appointment",
+      "createdAt": "2025-12-30T17:16:32.895Z",
+      "updatedAt": "2025-12-30T17:16:32.895Z"
+    },
+    {
+      "id": "0ec9",
+      "userId": "ff1a",
+      "userName": "LUCAS",
+      "amount": 157.395,
       "paymentMethod": "credito",
       "status": "pending",
       "type": "appointment",
-      "createdAt": "2025-12-29T15:10:19.123Z",
-      "updatedAt": "2025-12-29T15:10:19.123Z"
+      "createdAt": "2025-12-30T18:46:15.777Z",
+      "updatedAt": "2025-12-30T18:46:15.777Z"
     }
   ],
   "savedCards": [
@@ -306,7 +331,7 @@
       "expiryMonth": "12",
       "expiryYear": "26",
       "brand": "unknown",
-      "isMain": false,
+      "isMain": true,
       "createdAt": "2025-12-29T15:10:19.155Z"
     }
   ],

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getSession, logout } from '../../services/authService';
+import logoImg from '../../assets/logo-barber-rodrigues-new.jpg';
 import './Header.css';
 
 const navItems = [
@@ -62,7 +63,6 @@ export default function Header() {
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.isAdmin === true;
 
- 
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (!e.target.closest('.header')) {
@@ -80,7 +80,6 @@ export default function Header() {
     };
   }, [menuOpen, profileMenuOpen]);
 
-  
   useEffect(() => {
     const handleScroll = () => {
       setMenuOpen(false);
@@ -98,23 +97,22 @@ export default function Header() {
 
   return (
     <header className="header">
-      <Link to="/" className="header__logo-link" onClick={handleLogoClick}>
-        <span className="header__logo">Barbearia ADDEV</span>
-      </Link>
-
+      <a href="/" className="header__logo-link" onClick={handleLogoClick}>
+        <img src={logoImg} alt="Barbearia Rodrigues" className="header__logo-img" />
+      </a>
 
       <button
         className="header__menu-btn"
         onClick={() => setMenuOpen(!menuOpen)}
-        aria-label="Abrir menu"
+        aria-label="Menu"
       >
-        {menuOpen ? '✕' : '☰'}
+        ☰
       </button>
 
       <nav className={`header__nav ${menuOpen ? 'header__nav--open' : ''}`}>
-        {navItems.map((item) => (
+        {navItems.map(item => (
           <a
-            key={item.label}
+            key={item.href}
             href={item.href}
             className="header__link"
             onClick={(e) => handleNavClick(e, item.href)}
@@ -124,33 +122,34 @@ export default function Header() {
         ))}
 
         <a
-        target='_blank'
+          href="https://wa.me/5585999999999"
+          target="_blank"
+          rel="noopener noreferrer"
           className="header__contato"
-          href="https://wa.me/5511999999999"
-          onClick={() => setMenuOpen(false)}
         >
-          WhatsApp (11) 99999-9999
+          Agendar
         </a>
-
 
         {currentUser ? (
           <div className="header__profile">
-            <button 
+            <button
               className="header__profile-btn"
               onClick={handleProfileClick}
-              aria-label="Menu do perfil"
+              aria-label="Perfil"
             >
               <div className="header__profile-avatar">
-                {currentUser.name?.charAt(0).toUpperCase() || 'U'}
+                {currentUser.name.charAt(0).toUpperCase()}
+                <span className="header__profile-status"></span>
               </div>
-              <span className="header__profile-status">●</span>
             </button>
 
             {profileMenuOpen && (
               <div className="header__profile-menu">
                 <div className="header__profile-info">
                   <strong>{currentUser.name}</strong>
-                  {isAdmin && <span className="header__admin-badge">Admin</span>}
+                  {isAdmin && (
+                    <span className="header__admin-badge">ADMIN</span>
+                  )}
                 </div>
                 <hr />
                 <button onClick={handleGoToAppointments}>
@@ -169,7 +168,7 @@ export default function Header() {
             )}
           </div>
         ) : (
-          <Link to="/login" className="header__login-btn" onClick={() => setMenuOpen(false)}>
+          <Link to="/login" className="header__login-btn">
             Entrar
           </Link>
         )}

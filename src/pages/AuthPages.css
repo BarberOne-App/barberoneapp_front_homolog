@@ -1,11 +1,9 @@
+
 .auth {
   width: 100%;
   display: flex;
   justify-content: center;
 }
-
-
-
 
 .auth__card {
   background: #131313;
@@ -16,6 +14,12 @@
   width: 100%;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
   margin: 200px auto;
+}
+
+.auth__card--wide {
+  max-width: 95%;
+  margin: 40px auto;
+  padding: 40px;
 }
 
 .auth__title {
@@ -64,7 +68,6 @@
   font-weight: 600;
 }
 
-
 .auth__switch a:hover {
   text-decoration: underline;
 }
@@ -75,6 +78,87 @@
   gap: 12px;
   margin: 16px 0;
 }
+
+.admin-badge {
+  margin-left: 10px;
+  color: #d4af37;
+}
+
+
+
+.appointments-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.admin-header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-header {
+  padding: 8px 16px;
+  border: 1px solid #d4af37;
+  background: #ff8c00;
+  color: #ffffff;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-header:hover {
+  background: #d4af37;
+  color: #1a1a1a;
+  transform: translateY(-1px);
+}
+
+.btn-header-logout {
+  border-color: #e74c3c ;
+  color: whitesmoke;
+  background: #ff4444;
+}
+
+.btn-header-logout:hover {
+  background: #e74c3c;
+  color: white;
+}
+
+
+
+.appointments-tabs {
+  display: flex;
+  gap: 1rem;
+  border-bottom: 2px solid #333;
+  margin-bottom: 2rem;
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  color: #999;
+  padding: 1rem 1.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.3s;
+  border-bottom: 3px solid transparent;
+}
+
+.tab-btn:hover {
+  color: #d4af37;
+}
+
+.tab-btn--active {
+  color: #d4af37;
+  border-bottom-color: #d4af37;
+}
+
+
+
 .manage-barbers {
   margin-top: 2rem;
 }
@@ -88,104 +172,389 @@
 
 .manage-barbers__header h2 {
   margin: 0;
+  color: #d4af37;
 }
 
-.barbers-admin-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+.btn-add-barber {
+  padding: 10px 20px;
+  background: #d4af37;
+  color: #1a1a1a;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.barber-admin-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.5rem;
-  background: #f8f9fa;
+.btn-add-barber:hover {
+  background: #f0c654;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+}
+
+
+
+.barbers-table-container {
+  margin-top: 20px;
+}
+
+.fluig-table-parent {
+  background: #1a1a1a;
+  border: 2px solid #333;
   border-radius: 8px;
-  border: 1px solid #e0e0e0;
-  transition: box-shadow 0.3s ease;
+  margin-bottom: 16px;
+  overflow: hidden;
+  transition: all 0.3s;
 }
 
-.barber-admin-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+.fluig-table-parent:hover {
+  border-color: #d4af37;
+  box-shadow: 0 4px 16px rgba(212, 175, 55, 0.15);
 }
 
-.barber-admin-info {
+.fluig-row-parent {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 14px;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, #252525, #1f1f1f);
+  cursor: pointer;
+  transition: background 0.2s;
+  border-bottom: 2px solid #333;
 }
 
-.barber-admin-photo {
-  width: 60px;
-  height: 60px;
+.fluig-row-parent:hover {
+  background: linear-gradient(135deg, #2d2d2d, #272727);
+}
+
+.fluig-expand-icon {
+  color: #d4af37;
+  font-size: 18px;
+  font-weight: bold;
+  min-width: 24px;
+  text-align: center;
+  transition: transform 0.3s;
+}
+
+.fluig-barber-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 180px;
+}
+
+.fluig-barber-photo {
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid #d4af37;
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3);
 }
 
-.barber-admin-info h3 {
-  margin: 0;
-  font-size: 1.2rem;
-  color: #1a1a1a;
-}
-
-.barber-admin-info p {
-  margin: 0.25rem 0 0 0;
-  color: #666;
-  font-size: 0.9rem;
-}
-
-.barber-admin-actions {
+.fluig-barber-details {
   display: flex;
-  gap: 0.75rem;
-  align-items: center;
   flex-direction: column;
 }
 
-.btn-edit,
-.btn-delete {
-  width: 96px;
-  height: 40px;
+.fluig-barber-name {
+  color: #fff;
+  font-size: 16px;
+  margin: 0;
+  font-weight: 600;
+}
 
+.fluig-barber-specialty {
+  color: #d4af37;
+  margin: 2px 0 0 0;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+
+.fluig-barber-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  flex: 2;
+  padding: 0 14px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 14px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.stat-value-highlight {
+  color: #d4af37;
+  font-size: 15px;
+}
+
+.stat-value-success {
+  color: #4ade80;
+  font-size: 15px;
+}
+
+.fluig-parent-actions {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 
+.fluig-btn {
+  padding: 6px 12px;
   border: none;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  font-weight: 500;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
 }
 
-.btn-edit {
+.fluig-btn-edit {
   background: #d4af37;
-  color: white;
-  width: 100%;
-  padding: 20px;
-  margin-bottom: 20px;
-  font-size: 20px;
+  color: #1a1a1a;
 }
 
-.btn-edit:hover {
-  background: #c29d2e;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(212, 175, 55, 0.3);
+.fluig-btn-edit:hover {
+  background: #f0c654;
+  transform: translateY(-2px);
+  box-shadow: 0 3px 10px rgba(212, 175, 55, 0.4);
 }
 
-.btn-delete {
+.fluig-btn-delete {
   background: #e74c3c;
   color: white;
 }
 
-.btn-delete:hover {
+.fluig-btn-delete:hover {
+  background: #c0392b;
+  transform: translateY(-2px);
+  box-shadow: 0 3px 10px rgba(231, 76, 60, 0.4);
+}
+
+
+
+.fluig-children-container {
+  padding: 18px;
+  background: #1f1f1f;
+}
+
+.fluig-table-children {
+  width: 100%;
+  border-collapse: collapse;
+  background: #252525;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.fluig-table-children thead {
+  background: linear-gradient(135deg, #333, #2a2a2a);
+}
+
+.fluig-table-children th {
+  padding: 12px;
+  text-align: left;
+  color: #d4af37;
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #d4af37;
+}
+
+.fluig-table-children tbody tr {
+  border-bottom: 1px solid #333;
+  transition: all 0.2s;
+}
+
+.fluig-table-children tbody tr:hover {
+  background: #2d2d2d;
+}
+
+.fluig-table-children tbody tr.row-confirmed {
+  background: rgba(74, 222, 128, 0.05);
+  border-left: 4px solid #4ade80;
+}
+
+.fluig-table-children td {
+  padding: 12px;
+  color: #fff;
+  font-size: 13px;
+}
+
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-confirmed {
+  background: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+  border: 2px solid #4ade80;
+  animation: pulse-green 2s infinite;
+}
+
+.status-pending {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+  border: 2px solid #fbbf24;
+  animation: pulse-yellow 2s infinite;
+}
+
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(74, 222, 128, 0); }
+}
+
+@keyframes pulse-yellow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0); }
+}
+
+
+
+.services-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.service-pill {
+  background: #1a1a1a;
+  color: #d4af37;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid #444;
+}
+
+
+.total-price {
+  color: #d4af37 !important;
+  font-weight: bold !important;
+  font-size: 14px !important;
+}
+
+.barber-earning {
+  color: #4ade80 !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+}
+
+
+.fluig-actions-buttons {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  padding: 5px 10px;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-confirm {
+  background: #10b981;
+  color: white;
+}
+
+.btn-confirm:hover {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.btn-edit-apt {
+  background: #d4af37;
+  color: #1a1a1a;
+}
+
+.btn-edit-apt:hover {
+  background: #f0c654;
+  transform: translateY(-1px);
+}
+
+.btn-transfer {
+  background: #3b82f6;
+  color: white;
+}
+
+.btn-transfer:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+.btn-whatsapp {
+  background: #25D366;
+  color: white;
+}
+
+.btn-whatsapp:hover {
+  background: #1da851;
+  transform: translateY(-1px);
+}
+
+.btn-cancel {
+  background: #e74c3c;
+  color: white;
+}
+
+.btn-cancel:hover {
   background: #c0392b;
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
 }
+
+
+
+.no-data {
+  text-align: center;
+  color: #999;
+  padding: 30px;
+  font-size: 14px;
+}
+
+.no-appointments {
+  text-align: center;
+  color: #999;
+  padding: 18px;
+  font-style: italic;
+  font-size: 13px;
+}
+
 
 
 .modal-overlay {
@@ -194,7 +563,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -203,25 +572,31 @@
 }
 
 .modal-content {
-  background: white;
+  background: #1f1f1f;
   padding: 2rem;
-  border-radius: 8px;
+  border-radius: 12px;
   max-width: 500px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
+  border: 1px solid #444;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
 
-  span{
-    color: #000000;
-    font-size: 15px;
-  }
-
+.modal-content span {
+  color: #ffffff;
+  font-size: 15px;
 }
 
 .modal-content h2 {
   margin-top: 0;
   margin-bottom: 1.5rem;
-  color: #1a1a1a;
+  color: #d4af37;
+}
+
+.modal-subtitle {
+  margin-bottom: 20px;
+  color: #999;
 }
 
 .barber-form {
@@ -241,34 +616,251 @@
   min-width: 100px;
 }
 
-@media (max-width: 768px) {
-  .barber-admin-card {
-    flex-direction: column;
-    gap: 1rem;
-    align-items: flex-start;
-  }
-
-  .barber-admin-actions {
-    width: 100%;
-    justify-content: flex-end;
-  }
-
-  .manage-barbers__header {
-    flex-direction: column;
-    gap: 1rem;
-    align-items: flex-start;
-  }
-
-  .manage-barbers__header button {
-    width: 100%;
-  }
+.form-label {
+  display: block;
+  margin-bottom: 8px;
+  color: #d4af37;
+  font-weight: 500;
 }
 
-.div_btn_admin{
-  display: flex;
-  gap: 10px;
+.form-select {
   width: 100%;
+  padding: 12px;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: white;
+  font-size: 16px;
+  margin-bottom: 15px;
 }
+
+.form-select:focus {
+  outline: none;
+  border-color: #d4af37;
+}
+
+.form-textarea {
+  width: 100%;
+  padding: 12px;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: white;
+  font-size: 16px;
+  resize: vertical;
+  font-family: inherit;
+  margin-bottom: 15px;
+}
+
+.form-textarea:focus {
+  outline: none;
+  border-color: #d4af37;
+}
+
+.modal-content textarea {
+  font-family: inherit;
+}
+
+.modal-content select option {
+  background: #2a2a2a;
+  color: white;
+}
+
+.image-preview-container {
+  margin-top: 10px;
+  text-align: center;
+}
+
+.image-preview {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 8px;
+  border: 2px solid #444;
+}
+
+
+
+.manage-products {
+  margin-top: 20px;
+}
+
+.barbers-admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.barber-admin-card {
+  display: flex;
+  justify-content: space-between;
+
+  padding: 14px 18px;
+  background: #2a2a2a;
+  border-radius: 8px;
+  border: 1px solid #444;
+  transition: box-shadow 0.3s ease;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.barber-admin-card:hover {
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.2);
+}
+
+.barber-admin-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.barber-admin-photo {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #d4af37;
+}
+
+.barber-admin-info h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #ffffff;
+}
+
+.barber-admin-info p {
+  margin: 4px 0 0 0;
+  color: #999;
+  font-size: 13px;
+}
+
+.barber-admin-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-direction: column;
+}
+
+.btn-edit,
+.btn-delete {
+  width: 80px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-edit {
+  background: #ff8c00;
+  color: #1a1a1a;
+  padding: 8px 16px;
+}
+
+.btn-edit:hover {
+  background: #f0c654;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(212, 175, 55, 0.3);
+}
+
+.btn-delete {
+  background: #e74c3c;
+  color: white;
+  font-size: 15px !important; 
+}
+
+.btn-delete:hover {
+  background: #c0392b;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(231, 76, 60, 0.3);
+}
+
+.product-admin-card {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  background: #2a2a2a;
+  border-radius: 8px;
+  border: 1px solid #444;
+  transition: box-shadow 0.3s ease;
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100px;
+  gap: 12px;
+}
+
+.product-admin-card .barber-admin-info {
+  flex: 1;
+}
+
+.product-category {
+  display: inline-block;
+  background: #3a3a3a;
+  color: #d4af37;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin: 4px 0;
+}
+
+.product-description {
+  color: #999;
+  font-size: 13px;
+  margin: 6px 0;
+  line-height: 1.4;
+}
+
+.product-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+  align-items: center;
+}
+
+.product-price {
+  font-size: 17px;
+  font-weight: bold;
+  color: #d4af37;
+}
+
+.product-discount {
+  background: #1a4d1a;
+  color: #4ade80;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.product-stock {
+  background: #2a2a2a;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #4ade80;
+}
+
+.product-stock.low-stock {
+  background: #4d3a1a;
+  color: #fbbf24;
+}
+
+.product-stock.out-of-stock {
+  background: #4d1a1a;
+  color: #ff4444;
+}
+
 
 .payments-section {
   width: 100%;
@@ -337,6 +929,9 @@
   color: #1a1a1a;
 }
 
+.pending-payments {
+  margin-bottom: 2rem;
+}
 
 .payments-list {
   margin-top: 2rem;
@@ -415,14 +1010,6 @@
   border: 1px solid #ff8c00;
 }
 
-.status-badge {
-  display: inline-block;
-  padding: 0.3rem 0.8rem;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
 .status-badge--active {
   background: rgba(50, 205, 50, 0.2);
   color: #32cd32;
@@ -435,8 +1022,121 @@
   border: 1px solid #dc143c;
 }
 
+.calendar-empty {
+  text-align: center;
+  color: #999;
+  padding: 2rem;
+}
+
+.payment-action-buttons {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.btn-payment-small {
+  font-size: 12px;
+  padding: 5px 10px;
+}
+
+@media (max-width: 1200px) {
+  .fluig-barber-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .fluig-parent-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
 
 @media (max-width: 768px) {
+  .auth__card--wide {
+    padding: 20px;
+    margin: 20px auto;
+  }
+
+  .appointments-header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .admin-header-actions {
+    width: 100%;
+  }
+
+  .btn-header {
+    flex: 1;
+  }
+
+.barber-admin-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  background: #2a2a2a;
+  border-radius: 8px;
+  border: 1px solid #444;
+  transition: box-shadow 0.3s ease;
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100px;
+}
+
+
+  .barber-admin-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .manage-barbers__header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .manage-barbers__header button {
+    width: 100%;
+  }
+
+  .fluig-row-parent {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .fluig-barber-stats {
+    grid-template-columns: repeat(2, 1fr);
+    width: 100%;
+    padding: 0;
+  }
+
+  .fluig-parent-actions {
+    flex-direction: row;
+    width: 100%;
+  }
+
+  .fluig-btn {
+    flex: 1;
+  }
+
+  .fluig-table-children {
+    font-size: 11px;
+  }
+
+  .fluig-table-children th,
+  .fluig-table-children td {
+    padding: 8px 6px;
+  }
+
+  .fluig-actions-buttons {
+    flex-direction: column;
+  }
+
+  .action-btn {
+    width: 100%;
+  }
+
   .payment-stats {
     grid-template-columns: 1fr;
   }
@@ -454,107 +1154,7 @@
     padding: 0.75rem;
     font-size: 0.9rem;
   }
-}
 
-@media (max-width: 480px) {
-  .payment-stat-card .stat-value {
-    font-size: 1.5rem;
-  }
-
-  .payments-list h3 {
-    font-size: 1.2rem;
-  }
-}
-
-
-
-.product-admin-card {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.product-admin-card .barber-admin-info {
-  flex: 1;
-}
-
-.product-category {
-  display: inline-block;
-  background: #3a3a3a;
-  color: #d4af37;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  margin: 5px 0;
-}
-
-.product-description {
-  color: #999;
-  font-size: 14px;
-  margin: 8px 0;
-  line-height: 1.4;
-}
-
-.product-details {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 10px;
-  align-items: center;
-}
-
-.product-price {
-  font-size: 20px;
-  font-weight: bold;
-  color: #d4af37;
-}
-
-.product-discount {
-  background: #1a4d1a;
-  color: #4ade80;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.product-stock {
-  background: #2a2a2a;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #4ade80;
-}
-
-.product-stock.low-stock {
-  background: #4d3a1a;
-  color: #fbbf24;
-}
-
-.product-stock.out-of-stock {
-  background: #4d1a1a;
-  color: #ff4444;
-}
-
-.manage-products {
-  margin-top: 20px;
-}
-
-
-.modal-content textarea {
-  font-family: inherit;
-}
-
-.modal-content select option {
-  background: #2a2a2a;
-  color: white;
-}
-
-
-@media (max-width: 768px) {
   .product-details {
     flex-direction: column;
     align-items: flex-start;
@@ -565,4 +1165,48 @@
     width: 80px;
     height: 80px;
   }
+
+  .product-admin-card {
+    max-width: 100%;
+  }
+
+  .appointments-tabs {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .tab-btn {
+    border-bottom: none;
+    border-left: 3px solid transparent;
+    text-align: left;
+  }
+
+  .tab-btn--active {
+    border-left-color: #d4af37;
+  }
+}
+
+@media (max-width: 480px) {
+  .payment-stat-card .stat-value {
+    font-size: 1.5rem;
+  }
+
+  .payments-list h3 {
+    font-size: 1.2rem;
+  }
+
+  .fluig-barber-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+.date-picker__day--disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  color: #666;
+}
+
+.date-picker__day--disabled:hover {
+  background: transparent;
+  cursor: not-allowed;
 }

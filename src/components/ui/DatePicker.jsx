@@ -29,17 +29,38 @@ export default function DatePicker({ onSelectDate }) {
       currentMonth.getMonth(),
       day
     );
+    
+
+    if (isPastDate(day)) {
+      return;
+    }
+    
     onSelectDate(selectedDate);
   };
 
   const { daysInMonth, startDayOfWeek } = getDaysInMonth(currentMonth);
   const today = new Date();
+  
   const isToday = (day) => {
     return (
       day === today.getDate() &&
       currentMonth.getMonth() === today.getMonth() &&
       currentMonth.getFullYear() === today.getFullYear()
     );
+  };
+
+  const isPastDate = (day) => {
+    const checkDate = new Date(
+      currentMonth.getFullYear(),
+      currentMonth.getMonth(),
+      day
+    );
+    
+  
+    const todayWithoutTime = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const checkDateWithoutTime = new Date(checkDate.getFullYear(), checkDate.getMonth(), checkDate.getDate());
+    
+    return checkDateWithoutTime < todayWithoutTime;
   };
 
   const monthNames = [
@@ -78,13 +99,16 @@ export default function DatePicker({ onSelectDate }) {
 
         {Array.from({ length: daysInMonth }).map((_, i) => {
           const day = i + 1;
+          const isPast = isPastDate(day);
+          
           return (
             <button
               key={day}
               onClick={() => handleDayClick(day)}
+              disabled={isPast}
               className={`date-picker__day ${
                 isToday(day) ? "date-picker__day--today" : ""
-              }`}
+              } ${isPast ? "date-picker__day--disabled" : ""}`}
             >
               {day}
             </button>

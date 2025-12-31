@@ -3,12 +3,7 @@ import { getUserCards, deleteCard, setMainCard } from '../../services/cardServic
 import Button from './Button';
 import './SavedCardsModal.css';
 
-export default function SavedCardsModal({ 
-  isOpen, 
-  onClose, 
-  userId, 
-  onSelectCard 
-}) {
+export default function SavedCardsModal({ isOpen, onClose, userId, onSelectCard }) {
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -41,7 +36,6 @@ export default function SavedCardsModal({
 
   const handleDeleteCard = async (cardId, e) => {
     e.stopPropagation();
-    
     if (confirm('Deseja realmente excluir este cartão?')) {
       try {
         await deleteCard(cardId);
@@ -55,7 +49,6 @@ export default function SavedCardsModal({
 
   const handleSetMainCard = async (cardId, e) => {
     e.stopPropagation();
-    
     try {
       await setMainCard(userId, cardId);
       await loadCards();
@@ -71,9 +64,22 @@ export default function SavedCardsModal({
       'mastercard': '💳',
       'elo': '💳',
       'amex': '💳',
+      'discover': '💳',
       'unknown': '💳'
     };
     return icons[brand?.toLowerCase()] || '💳';
+  };
+
+  const getCardBrandName = (brand) => {
+    const brandNames = {
+      'visa': 'Visa',
+      'mastercard': 'Mastercard',
+      'elo': 'Elo',
+      'amex': 'American Express',
+      'discover': 'Discover',
+      'unknown': 'Cartão'
+    };
+    return brandNames[brand?.toLowerCase()] || 'Cartão';
   };
 
   if (!isOpen) return null;
@@ -82,63 +88,52 @@ export default function SavedCardsModal({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content saved-cards-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Meus Cartões</h2>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <h2>Cartões Salvos</h2>
+          <button className="modal-close" onClick={onClose}>×</button>
         </div>
 
         <div className="modal-body">
           {loading ? (
-            <p className="loading-text">Carregando cartões...</p>
+            <div className="loading-text">Carregando cartões...</div>
           ) : cards.length === 0 ? (
             <div className="empty-state">
               <p>Você ainda não possui cartões salvos.</p>
-              <p className="empty-subtitle">
-                Ao realizar um pagamento, você pode salvar o cartão para uso futuro.
-              </p>
+              <p className="empty-subtitle">Ao realizar um pagamento, você pode salvar o cartão para uso futuro.</p>
             </div>
           ) : (
             <div className="cards-list">
-              {cards.map((card) => (
-                <div 
-                  key={card.id} 
+              {cards.map(card => (
+                <div
+                  key={card.id}
                   className={`saved-card ${card.isMain ? 'saved-card--main' : ''}`}
                   onClick={() => handleSelectCard(card)}
                 >
                   <div className="saved-card__info">
                     <div className="saved-card__brand">
                       <span className="card-icon">{getCardBrandIcon(card.brand)}</span>
-                      <span className="card-brand">{card.brand?.toUpperCase() || 'CARTÃO'}</span>
+                      <span className="card-brand">{getCardBrandName(card.brand)}</span>
                     </div>
-                    <div className="saved-card__number">
-                      •••• •••• •••• {card.lastDigits}
-                    </div>
-                    <div className="saved-card__holder">
-                      {card.holderName}
-                    </div>
-                    <div className="saved-card__expiry">
-                      Validade: {card.expiryMonth}/{card.expiryYear}
-                    </div>
+                    <div className="saved-card__number">•••• •••• •••• {card.lastDigits}</div>
+                    <div className="saved-card__holder">{card.holderName}</div>
+                    <div className="saved-card__expiry">Validade: {card.expiryMonth}/{card.expiryYear}</div>
                   </div>
 
                   <div className="saved-card__actions">
-                    {card.isMain && (
+                    {card.isMain ? (
                       <span className="main-badge">Principal</span>
-                    )}
-                    {!card.isMain && (
-                      <button 
+                    ) : (
+                      <button
                         className="btn-set-main"
                         onClick={(e) => handleSetMainCard(card.id, e)}
-                        title="Definir como principal"
                       >
-                        ⭐ Principal
+                        Definir como principal
                       </button>
                     )}
-                    <button 
+                    <button
                       className="btn-delete-card"
                       onClick={(e) => handleDeleteCard(card.id, e)}
-                      title="Excluir cartão"
                     >
-                      🗑️
+                      Excluir
                     </button>
                   </div>
                 </div>
@@ -148,7 +143,9 @@ export default function SavedCardsModal({
         </div>
 
         <div className="modal-footer">
-          <Button onClick={onClose}>Fechar</Button>
+          <Button onClick={onClose} variant="secondary">
+            Fechar
+          </Button>
         </div>
       </div>
     </div>
