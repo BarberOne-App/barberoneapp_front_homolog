@@ -8,7 +8,6 @@ export const getProducts = async () => {
     const response = await axios.get(`${API_URL}/products`);
     return response.data;
   } catch (error) {
-    console.error('Erro ao buscar produtos:', error);
     throw error;
   }
 };
@@ -19,7 +18,6 @@ export const getProductById = async (id) => {
     const response = await axios.get(`${API_URL}/products/${id}`);
     return response.data;
   } catch (error) {
-    console.error('Erro ao buscar produto:', error);
     throw error;
   }
 };
@@ -30,7 +28,6 @@ export const createProduct = async (productData) => {
     const response = await axios.post(`${API_URL}/products`, productData);
     return response.data;
   } catch (error) {
-    console.error('Erro ao criar produto:', error);
     throw error;
   }
 };
@@ -41,7 +38,6 @@ export const updateProduct = async (id, productData) => {
     const response = await axios.put(`${API_URL}/products/${id}`, productData);
     return response.data;
   } catch (error) {
-    console.error('Erro ao atualizar produto:', error);
     throw error;
   }
 };
@@ -52,7 +48,6 @@ export const deleteProduct = async (id) => {
     const response = await axios.delete(`${API_URL}/products/${id}`);
     return response.data;
   } catch (error) {
-    console.error('Erro ao deletar produto:', error);
     throw error;
   }
 };
@@ -65,7 +60,6 @@ export const updateProductStock = async (id, newStock) => {
     });
     return response.data;
   } catch (error) {
-    console.error('Erro ao atualizar estoque:', error);
     throw error;
   }
 };

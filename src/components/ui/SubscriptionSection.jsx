@@ -4,22 +4,25 @@ import Button from './Button.jsx';
 import PaymentModal from './PaymentModal.jsx';
 import './SubscriptionSection.css';
 
-export default function SubscriptionSection() {
+export default function SubscriptionSection({ activeSubscription }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
-  
     const user = localStorage.getItem('currentUser');
     if (user) {
       try {
         setCurrentUser(JSON.parse(user));
       } catch (error) {
-        console.error('Erro ao parsear usuário:', error);
+        console.error('Erro ao carregar usuário:', error);
       }
     }
   }, []);
+
+  if (activeSubscription) {
+    return null;
+  }
 
   const plans = [
     {
@@ -72,115 +75,108 @@ export default function SubscriptionSection() {
   ];
 
   const calculateSavings = (price, cutsPerMonth) => {
-    const regularPrice = 50; 
+    const regularPrice = 50;
     const monthlyCost = regularPrice * cutsPerMonth;
     const savings = monthlyCost - price;
     const savingsPercent = ((savings / monthlyCost) * 100).toFixed(0);
-    
     return { savings, savingsPercent };
   };
 
   const handleSelectPlan = (plan) => {
-  
     if (!currentUser) {
       alert('Por favor, faça login para assinar um plano.');
-    
       return;
     }
 
-    console.log('Plano selecionado:', plan);
-    console.log('Usuário atual:', currentUser);
-    setSelectedPlan(plan);
+    const planWithRecurring = {
+      ...plan,
+      isRecurring: true,
+      autoRenewal: true
+    };
+    setSelectedPlan(planWithRecurring);
     setIsModalOpen(true);
   };
 
   const handlePaymentSuccess = (subscription) => {
-    console.log('Pagamento realizado com sucesso:', subscription);
-    alert('Assinatura realizada com sucesso! Bem-vindo ao plano ' + selectedPlan.name);
+    alert(`Assinatura realizada com sucesso! Bem-vindo ao plano ${selectedPlan.name}`);
     setIsModalOpen(false);
     setSelectedPlan(null);
-    
-
   };
 
   return (
     <>
-      <section className="subscription-section" id="planos">
-        <div className="container">
+      <section className="subscription-section">
+        <div className="subscription-section__container">
           <div className="subscription-section__header">
-            <h2 className="subscription-section__title">
-              Planos de Assinatura
-            </h2>
+            <h2 className="subscription-section__title">Planos de Assinatura</h2>
             <p className="subscription-section__subtitle">
               Escolha o plano perfeito para você e economize todos os meses
             </p>
           </div>
 
-          <div className="subscription-plans">
+          <div className="subscription-section__plans">
             {plans.map((plan) => {
               const cutsPerMonth = plan.id === 'basic' ? 2 : plan.id === 'premium' ? 4 : 8;
               const { savings, savingsPercent } = calculateSavings(plan.price, cutsPerMonth);
-              
+
               return (
-                <div 
+                <div
                   key={plan.id}
-                  className={`subscription-plan ${plan.recommended ? 'subscription-plan--recommended' : ''}`}
-                  style={{ '--plan-color': plan.color }}
+                  className={`subscription-plan ${
+                    plan.recommended ? 'subscription-plan--recommended' : ''
+                  }`}
                 >
-                  <div className="plan-content">
-                    <div className="plan-top">
-                      <h3 className="plan-title">{plan.name}</h3>
-                      <p className="plan-subtitle">{plan.subtitle}</p>
-                      
-                      <div className="plan-pricing">
-                        <div className="plan-price-main">
-                          <span className="currency">R$</span>
-                          <span className="price">{plan.price.toFixed(2).replace('.', ',')}</span>
-                          <span className="period">/mês</span>
-                        </div>
-                        
-                        {savings > 0 && (
-                          <div className="plan-savings">
-                            Economize {savingsPercent}% • R$ {savings.toFixed(2)} por mês
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                  {plan.recommended && (
+                    <div className="subscription-plan__badge">Recomendado</div>
+                  )}
 
-                    <ul className="plan-features">
-                      {plan.features.map((feature, index) => (
-                        <li key={index}>
-                          <Check size={20} className="feature-icon" />
-                          <span>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    <Button 
-                      className={`plan-button ${plan.recommended ? 'plan-button--recommended' : ''}`}
-                      onClick={() => handleSelectPlan(plan)}
-                    >
-                      Assinar Agora
-                    </Button>
+                  <div className="subscription-plan__header">
+                    <h3 className="subscription-plan__name">{plan.name}</h3>
+                    <p className="subscription-plan__subtitle">{plan.subtitle}</p>
                   </div>
+
+                  <div className="subscription-plan__price">
+                    <span className="subscription-plan__currency">R$</span>
+                    <span className="subscription-plan__amount">
+                      {plan.price.toFixed(2).replace('.', ',')}
+                    </span>
+                    <span className="subscription-plan__period">/mês</span>
+                  </div>
+
+                  {savings > 0 && (
+                    <p className="subscription-plan__savings">
+                      Economize {savingsPercent}% • R$ {savings.toFixed(2)} por mês
+                    </p>
+                  )}
+
+                  <ul className="subscription-plan__features">
+                    {plan.features.map((feature, index) => (
+                      <li key={index} className="subscription-plan__feature">
+                        <Check className="subscription-plan__feature-icon" size={20} />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <Button
+                    onClick={() => handleSelectPlan(plan)}
+                    style={{ backgroundColor: plan.color }}
+                    className="subscription-plan__button"
+                  >
+                    Assinar Agora
+                  </Button>
                 </div>
               );
             })}
           </div>
 
-          <div className="subscription-info">
-            <div className="info-item">
-              <h4>Cancele quando quiser</h4>
-              <p>Sem multas ou taxas de cancelamento</p>
-            </div>
-            <div className="info-item">
-              <h4>Primeiro mês grátis</h4>
-              <p>Teste por 30 dias sem compromisso</p>
-            </div>
-            <div className="info-item">
-              <h4>Benefícios imediatos</h4>
-              <p>Comece a usar assim que assinar</p>
-            </div>
+          <div className="subscription-section__footer">
+            <p className="subscription-section__note">
+              ✓ Todos os planos são renovados automaticamente a cada mês
+            </p>
+            <p className="subscription-section__note">
+              Cancele quando quiser • Sem taxas de cancelamento
+            </p>
           </div>
         </div>
       </section>
@@ -195,6 +191,7 @@ export default function SubscriptionSection() {
           selectedPlan={selectedPlan}
           currentUser={currentUser}
           onSuccess={handlePaymentSuccess}
+          isAppointmentPayment={false}
         />
       )}
     </>

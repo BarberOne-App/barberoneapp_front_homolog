@@ -1,72 +1,61 @@
-import api from "./api.js";
-
-const BASE = "/savedCards";
+import api from './api';
 
 
-export async function getUserCards(userId) {
+export const getUserCards = async (userId) => {
   try {
-    const res = await api.get(`${BASE}?userId=${userId}`);
-    return res.data;
+   
+    const response = await api.get(`/savedCards?userId=${userId}`);
+    
+    return response.data;
   } catch (error) {
-    console.error("Erro ao buscar cartões:", error);
-    return [];
+    throw new Error('Não foi possível carregar os cartões');
   }
-}
+};
 
 
-export async function saveCard(cardData) {
+export const saveCard = async (cardData) => {
   try {
-    const res = await api.post(BASE, {
+    const response = await api.post('/savedCards', {
       ...cardData,
       createdAt: new Date().toISOString()
     });
-    return res.data;
+  
+    return response.data;
   } catch (error) {
-    console.error("Erro ao salvar cartão:", error);
-    throw error;
+
+    throw new Error('Não foi possível salvar o cartão');
   }
-}
+};
 
 
-export async function deleteCard(cardId) {
+export const deleteCard = async (cardId) => {
   try {
-    await api.delete(`${BASE}/${cardId}`);
+    await api.delete(`/savedCards/${cardId}`);
+    
     return true;
   } catch (error) {
-    console.error("Erro ao deletar cartão:", error);
-    throw error;
+    console.error('❌ Erro ao deletar cartão:', error);
+    throw new Error('Não foi possível remover o cartão');
   }
-}
+};
 
 
-export async function updateCard(cardId, data) {
+export const setMainCard = async (userId, cardId) => {
   try {
-    const res = await api.patch(`${BASE}/${cardId}`, data);
-    return res.data;
-  } catch (error) {
-    console.error("Erro ao atualizar cartão:", error);
-    throw error;
-  }
-}
-
-
-export async function setMainCard(userId, cardId) {
-  try {
-    const userCards = await getUserCards(userId);
     
-
+    const cards = await getUserCards(userId);
     await Promise.all(
-      userCards.map(card => 
-        updateCard(card.id, { isMain: false })
+      cards.map(card => 
+        api.patch(`/savedCards/${card.id}`, { isMain: false })
       )
     );
-    
 
-    await updateCard(cardId, { isMain: true });
-    
-    return true;
+  
+    const response = await api.patch(`/savedCards/${cardId}`, { isMain: true });
+
+    return response.data;
   } catch (error) {
-    console.error("Erro ao definir cartão principal:", error);
-    throw error;
+  
+    throw new Error('Não foi possível definir cartão principal');
   }
-}
+};

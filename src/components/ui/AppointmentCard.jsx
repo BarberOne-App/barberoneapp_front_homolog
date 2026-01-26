@@ -1,7 +1,7 @@
 import Button from "./Button.jsx";
 import "./Appointment.css";
 
-export default function AppointmentCard({ appointment, onDelete }) {
+export default function AppointmentCard({ appointment, onDelete, paymentStatus = null }) {
   const totalPrice = (appointment.services || []).reduce((sum, service) => {
     const price = Number(
       String(service.price ?? 0)

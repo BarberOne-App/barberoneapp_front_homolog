@@ -19,7 +19,7 @@ export const createAppointment = async (appointmentData) => {
     const response = await axios.post(`${API_URL}/appointments`, appointmentData);
     return response.data;
   } catch (error) {
-    console.error('Erro ao criar agendamento:', error);
+   
     throw error;
   }
 };
@@ -30,7 +30,6 @@ export const updateAppointment = async (id, updatedData) => {
     const response = await axios.put(`${API_URL}/appointments/${id}`, updatedData);
     return response.data;
   } catch (error) {
-    console.error('Erro ao atualizar agendamento:', error);
     throw error;
   }
 };
@@ -51,7 +50,6 @@ export const getAppointmentsByBarber = async (barberId) => {
     const response = await axios.get(`${API_URL}/appointments?barberId=${barberId}`);
     return response.data;
   } catch (error) {
-    console.error('Erro ao buscar agendamentos do barbeiro:', error);
     throw error;
   }
 };

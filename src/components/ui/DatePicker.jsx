@@ -1,7 +1,7 @@
 import { useState } from "react";
 import "./DatePicker.css";
 
-export default function DatePicker({ onSelectDate }) {
+export default function DatePicker({ onSelectDate, selectedDate }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const getDaysInMonth = (date) => {
@@ -24,18 +24,17 @@ export default function DatePicker({ onSelectDate }) {
   };
 
   const handleDayClick = (day) => {
-    const selectedDate = new Date(
+    const selectedDateObj = new Date(
       currentMonth.getFullYear(),
       currentMonth.getMonth(),
       day
     );
     
-
     if (isPastDate(day)) {
       return;
     }
     
-    onSelectDate(selectedDate);
+    onSelectDate(selectedDateObj);
   };
 
   const { daysInMonth, startDayOfWeek } = getDaysInMonth(currentMonth);
@@ -49,6 +48,16 @@ export default function DatePicker({ onSelectDate }) {
     );
   };
 
+  const isSelected = (day) => {
+    if (!selectedDate) return false;
+    
+    return (
+      day === selectedDate.getDate() &&
+      currentMonth.getMonth() === selectedDate.getMonth() &&
+      currentMonth.getFullYear() === selectedDate.getFullYear()
+    );
+  };
+
   const isPastDate = (day) => {
     const checkDate = new Date(
       currentMonth.getFullYear(),
@@ -56,7 +65,6 @@ export default function DatePicker({ onSelectDate }) {
       day
     );
     
-  
     const todayWithoutTime = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const checkDateWithoutTime = new Date(checkDate.getFullYear(), checkDate.getMonth(), checkDate.getDate());
     
@@ -100,6 +108,7 @@ export default function DatePicker({ onSelectDate }) {
         {Array.from({ length: daysInMonth }).map((_, i) => {
           const day = i + 1;
           const isPast = isPastDate(day);
+          const selected = isSelected(day);
           
           return (
             <button
@@ -108,7 +117,9 @@ export default function DatePicker({ onSelectDate }) {
               disabled={isPast}
               className={`date-picker__day ${
                 isToday(day) ? "date-picker__day--today" : ""
-              } ${isPast ? "date-picker__day--disabled" : ""}`}
+              } ${selected ? "date-picker__day--selected" : ""} ${
+                isPast ? "date-picker__day--disabled" : ""
+              }`}
             >
               {day}
             </button>

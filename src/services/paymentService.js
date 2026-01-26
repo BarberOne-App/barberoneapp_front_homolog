@@ -1,5 +1,47 @@
-
 import api from './api';
+
+
+
+function obterProximaDataCobranca() {
+  const hoje = new Date();
+  const proximoMes = new Date(hoje.setMonth(hoje.getMonth() + 1));
+  return proximoMes.toISOString();
+}
+
+function calcularDiasAtraso(nextBillingDate) {
+  const hoje = new Date();
+  const dataCobranca = new Date(nextBillingDate);
+  const diferencaMs = hoje - dataCobranca;
+  const dias = Math.floor(diferencaMs / (1000 * 60 * 60 * 24));
+  return dias > 0 ? dias : 0;
+}
+
+function gerarIdTransacao() {
+  const timestamp = Date.now();
+  const aleatorio = Math.random().toString(36).substring(2, 9).toUpperCase();
+  return `TRX-${timestamp}-${aleatorio}`;
+}
+
+function detectarBandeiraCartao(numeroCartao) {
+  const numero = numeroCartao.replace(/\s/g, '');
+  const padroes = {
+    visa: /^4/,
+    mastercard: /^5[1-5]/,
+    amex: /^3[47]/,
+    elo: /^(4011|4312|4389|4514|4573|5041|5066|5067|5090|6277|6362|6363|6504|6505|6516)/,
+    hipercard: /^606282/,
+    diners: /^(30|36|38)/,
+    discover: /^6(?:011|5)/,
+  };
+
+  for (const [bandeira, padrao] of Object.entries(padroes)) {
+    if (padrao.test(numero)) {
+      return bandeira;
+    }
+  }
+  return 'unknown';
+}
+
 
 
 export const buscarPlanosAssinatura = async () => {
@@ -7,21 +49,21 @@ export const buscarPlanosAssinatura = async () => {
     const response = await api.get('/subscriptionPlans');
     return response.data;
   } catch (error) {
-    console.error('Erro ao buscar planos:', error);
+  
     throw new Error('Não foi possível carregar os planos de assinatura');
   }
 };
-
 
 export const buscarPlanoAssinatura = async (planId) => {
   try {
     const response = await api.get(`/subscriptionPlans/${planId}`);
     return response.data;
   } catch (error) {
-    console.error('Erro ao buscar plano:', error);
+   
     throw new Error('Plano não encontrado');
   }
 };
+
 
 
 export const criarAssinatura = async (dadosAssinatura) => {
@@ -32,15 +74,22 @@ export const criarAssinatura = async (dadosAssinatura) => {
       planId: dadosAssinatura.planId,
       planName: dadosAssinatura.planName,
       planPrice: dadosAssinatura.planPrice,
-      amount: dadosAssinatura.planPrice,
+      amount: dadosAssinatura.amount || dadosAssinatura.planPrice,
       status: 'active',
       startDate: new Date().toISOString(),
       nextBillingDate: obterProximaDataCobranca(),
+      lastBillingDate: new Date().toISOString(),
       paymentMethod: dadosAssinatura.paymentMethod,
+    
+      isRecurring: dadosAssinatura.isRecurring ?? true,
+      autoRenewal: dadosAssinatura.autoRenewal ?? true,
+      daysOverdue: 0,
+      overdueNotificationSent: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
+ 
     const response = await api.post('/subscriptions', assinatura);
     return response.data;
   } catch (error) {
@@ -50,16 +99,175 @@ export const criarAssinatura = async (dadosAssinatura) => {
 };
 
 
+
+export const verificarAssinaturasVencidas = async () => {
+  try {
+    const response = await api.get('/subscriptions?status=active');
+    const assinaturasAtivas = response.data;
+    const hoje = new Date();
+
+    const assinaturasVencidas = assinaturasAtivas.filter(sub => {
+      const nextBilling = new Date(sub.nextBillingDate);
+      return hoje > nextBilling;
+    });
+
+    
+    return assinaturasVencidas;
+  } catch (error) {
+   
+    return [];
+  }
+};
+
+
+
+export const marcarAssinaturaComoAtrasada = async (subscriptionId) => {
+  try {
+    const subscription = await api.get(`/subscriptions/${subscriptionId}`);
+    const sub = subscription.data;
+    
+    const diasAtraso = calcularDiasAtraso(sub.nextBillingDate);
+
+  
+
+    const response = await api.patch(`/subscriptions/${subscriptionId}`, {
+      status: 'overdue',
+      daysOverdue: diasAtraso,
+      updatedAt: new Date().toISOString()
+    });
+
+    return response.data;
+  } catch (error) {
+ 
+    throw error;
+  }
+};
+
+
+
+export const enviarNotificacaoAtraso = async (subscription) => {
+  try {
+    const dataVencimento = new Date(subscription.nextBillingDate).toLocaleDateString('pt-BR');
+    
+    const mensagem = `🚨 *Pagamento Atrasado* 🚨\n\nOlá *${subscription.userName}*!\n\nSua assinatura do plano *${subscription.planName}* está com o pagamento atrasado.\n\n💰 *Valor:* R$ ${subscription.amount.toFixed(2).replace('.', ',')}\n📅 *Vencimento:* ${dataVencimento}\n⏰ *Dias de atraso:* ${subscription.daysOverdue}\n\nPor favor, realize o pagamento para continuar aproveitando os benefícios do seu plano.\n\n👉 Acesse o sistema para pagar: https://seusite.com/pagamentos\n\n_Mensagem automática - Barbearia AdDev_`;
+
+    
+    let telefone = '5585999999999';
+    
+    try {
+      const userResponse = await api.get(`/users/${subscription.userId}`);
+      const user = userResponse.data;
+      if (user.phone) {
+       
+        telefone = user.phone.replace(/\D/g, '');
+        if (!telefone.startsWith('55')) {
+          telefone = '55' + telefone;
+        }
+      }
+    } catch (error) {
+      console.warn('Não foi possível buscar telefone do usuário:', error);
+    }
+
+    const urlWhatsApp = `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
+
+  
+    await api.patch(`/subscriptions/${subscription.id}`, {
+      overdueNotificationSent: true,
+      lastNotificationDate: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+
+ 
+    
+  
+    if (typeof window !== 'undefined') {
+      window.open(urlWhatsApp, '_blank');
+    }
+
+    return { 
+      success: true, 
+      url: urlWhatsApp,
+      telefone: telefone,
+      mensagem: mensagem
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+
+
+export const renovarAssinatura = async (subscriptionId, paymentData) => {
+  try {
+    const hoje = new Date();
+    const proximaCobranca = obterProximaDataCobranca();
+
+    
+
+    const response = await api.patch(`/subscriptions/${subscriptionId}`, {
+      status: 'active',
+      lastBillingDate: hoje.toISOString(),
+      nextBillingDate: proximaCobranca,
+      daysOverdue: 0,
+      overdueNotificationSent: false,
+      paymentMethod: paymentData.paymentMethod,
+      updatedAt: hoje.toISOString()
+    });
+
+  
+    await api.post('/payments', {
+      userId: response.data.userId,
+      userName: response.data.userName,
+      subscriptionId: subscriptionId,
+      planId: response.data.planId,
+      planName: response.data.planName,
+      amount: response.data.amount,
+      paymentMethod: paymentData.paymentMethod,
+      status: 'approved',
+      type: 'subscription_renewal',
+      transactionId: gerarIdTransacao(),
+      createdAt: hoje.toISOString(),
+      approvedAt: hoje.toISOString()
+    });
+
+    
+    return response.data;
+  } catch (error) {
+   
+    throw error;
+  }
+};
+
+
+
+export const alternarModoCobranca = async (subscriptionId, isRecurring) => {
+  try {
+   
+    
+    const response = await api.patch(`/subscriptions/${subscriptionId}`, {
+      isRecurring: isRecurring,
+      autoRenewal: isRecurring,
+      updatedAt: new Date().toISOString()
+    });
+
+    return response.data;
+  } catch (error) {
+   
+    throw error;
+  }
+};
+
+
+
 export const buscarAssinaturasUsuario = async (userId) => {
   try {
     const response = await api.get(`/subscriptions?userId=${userId}`);
     return response.data;
   } catch (error) {
-    console.error('Erro ao buscar assinaturas:', error);
+ 
     throw new Error('Não foi possível carregar suas assinaturas');
   }
 };
-
 
 export const buscarAssinaturaAtiva = async (userId) => {
   try {
@@ -71,16 +279,16 @@ export const buscarAssinaturaAtiva = async (userId) => {
   }
 };
 
-
 export const buscarTodasAssinaturas = async () => {
   try {
     const response = await api.get('/subscriptions?_sort=createdAt&_order=desc');
     return response.data;
   } catch (error) {
-    console.error('Erro ao buscar todas assinaturas:', error);
+
     return [];
   }
 };
+
 
 
 export const atualizarStatusAssinatura = async (subscriptionId, status) => {
@@ -97,14 +305,16 @@ export const atualizarStatusAssinatura = async (subscriptionId, status) => {
   }
 };
 
-
 export const cancelarAssinatura = async (subscriptionId) => {
   return atualizarStatusAssinatura(subscriptionId, 'cancelled');
 };
 
 
+
 export const criarPagamentoAgendamento = async (dadosPagamento) => {
   try {
+
+
     const pagamento = {
       appointmentId: dadosPagamento.appointmentId,
       userId: dadosPagamento.userId,
@@ -114,12 +324,16 @@ export const criarPagamentoAgendamento = async (dadosPagamento) => {
       barberName: dadosPagamento.barberName,
       appointmentDate: dadosPagamento.appointmentDate,
       appointmentTime: dadosPagamento.appointmentTime,
-      paymentMethod: dadosPagamento.paymentMethod || 'pending',
-      status: 'pending', 
-      type: 'appointment', 
+      status: dadosPagamento.status || 'pending',
+      paymentMethod: dadosPagamento.paymentMethod || null,
+      ...(dadosPagamento.status === 'paid' && {
+        paidAt: dadosPagamento.paidAt || new Date().toISOString()
+      }),
+      type: 'appointment',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
+
 
     const response = await api.post('/appointmentPayments', pagamento);
     return response.data;
@@ -128,7 +342,6 @@ export const criarPagamentoAgendamento = async (dadosPagamento) => {
     throw new Error('Não foi possível criar o pagamento');
   }
 };
-
 
 export const buscarPagamentoAgendamento = async (appointmentId) => {
   try {
@@ -140,17 +353,15 @@ export const buscarPagamentoAgendamento = async (appointmentId) => {
   }
 };
 
-
 export const buscarTodosPagamentosAgendamentos = async () => {
   try {
     const response = await api.get('/appointmentPayments?_sort=createdAt&_order=desc');
     return response.data;
   } catch (error) {
-    console.error('Erro ao buscar pagamentos:', error);
+
     return [];
   }
 };
-
 
 export const atualizarPagamentoAgendamento = async (paymentId, dados) => {
   try {
@@ -167,21 +378,16 @@ export const atualizarPagamentoAgendamento = async (paymentId, dados) => {
 };
 
 
-
-
 export const processarPagamento = async (dadosPagamento) => {
   try {
-
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-   
     if (dadosPagamento.paymentMethod !== 'pix') {
       const valido = validarDadosCartao(dadosPagamento.card);
       if (!valido) {
         throw new Error('Dados do cartão inválidos');
       }
     }
-
 
     const pagamento = {
       userId: dadosPagamento.userId,
@@ -193,12 +399,11 @@ export const processarPagamento = async (dadosPagamento) => {
       amount: dadosPagamento.amount,
       paymentMethod: dadosPagamento.paymentMethod,
       status: 'approved',
-      type: dadosPagamento.type || 'subscription', 
+      type: dadosPagamento.type || 'subscription',
       transactionId: gerarIdTransacao(),
       createdAt: new Date().toISOString(),
       approvedAt: new Date().toISOString()
     };
-
 
     if (dadosPagamento.paymentMethod !== 'pix') {
       pagamento.cardData = {
@@ -206,7 +411,7 @@ export const processarPagamento = async (dadosPagamento) => {
         lastDigits: dadosPagamento.card.number.replace(/\s/g, '').slice(-4),
         holderName: dadosPagamento.card.holderName
       };
-      
+
       if (dadosPagamento.paymentMethod === 'credit') {
         pagamento.installments = dadosPagamento.installments || 1;
         pagamento.installmentAmount = (dadosPagamento.amount / pagamento.installments).toFixed(2);
@@ -236,7 +441,6 @@ export const buscarHistoricoPagamentos = async (userId) => {
   }
 };
 
-
 export const buscarPagamento = async (paymentId) => {
   try {
     const response = await api.get(`/payments/${paymentId}`);
@@ -246,6 +450,7 @@ export const buscarPagamento = async (paymentId) => {
     throw new Error('Pagamento não encontrado');
   }
 };
+
 
 
 export const salvarMetodoPagamento = async (dadosMetodo) => {
@@ -270,7 +475,6 @@ export const salvarMetodoPagamento = async (dadosMetodo) => {
   }
 };
 
-
 export const buscarMetodosPagamento = async (userId) => {
   try {
     const response = await api.get(`/paymentMethods?userId=${userId}`);
@@ -280,7 +484,6 @@ export const buscarMetodosPagamento = async (userId) => {
     throw new Error('Não foi possível carregar os métodos de pagamento');
   }
 };
-
 
 export const deletarMetodoPagamento = async (methodId) => {
   try {
@@ -296,7 +499,7 @@ export const definirMetodoPadrao = async (userId, methodId) => {
   try {
     const metodos = await buscarMetodosPagamento(userId);
     await Promise.all(
-      metodos.map(metodo => 
+      metodos.map(metodo =>
         api.patch(`/paymentMethods/${metodo.id}`, { isDefault: false })
       )
     );
@@ -304,10 +507,11 @@ export const definirMetodoPadrao = async (userId, methodId) => {
     const response = await api.patch(`/paymentMethods/${methodId}`, { isDefault: true });
     return response.data;
   } catch (error) {
-    console.error('Erro ao definir padrão:', error);
+  
     throw new Error('Não foi possível definir método padrão');
   }
 };
+
 
 
 function validarDadosCartao(dadosCartao) {
@@ -316,7 +520,6 @@ function validarDadosCartao(dadosCartao) {
   }
 
   const numeroCartao = dadosCartao.number.replace(/\s/g, '');
-  
   if (numeroCartao.length < 13 || numeroCartao.length > 19) {
     return false;
   }
@@ -328,7 +531,6 @@ function validarDadosCartao(dadosCartao) {
   const [mes, ano] = dadosCartao.expiryDate.split('/');
   const dataExpiracao = new Date(2000 + parseInt(ano), parseInt(mes) - 1);
   const hoje = new Date();
-  
   if (dataExpiracao < hoje) {
     return false;
   }
@@ -338,34 +540,6 @@ function validarDadosCartao(dadosCartao) {
   }
 
   return true;
-}
-
-function detectarBandeiraCartao(numeroCartao) {
-  const numero = numeroCartao.replace(/\s/g, '');
-  
-  const padroes = {
-    visa: /^4/,
-    mastercard: /^5[1-5]/,
-    amex: /^3[47]/,
-    elo: /^(4011|4312|4389|4514|4573|5041|5066|5067|5090|6277|6362|6363|6504|6505|6516)/,
-    hipercard: /^606282/,
-    diners: /^(30|36|38)/,
-    discover: /^6(?:011|5)/,
-  };
-
-  for (const [bandeira, padrao] of Object.entries(padroes)) {
-    if (padrao.test(numero)) {
-      return bandeira;
-    }
-  }
-
-  return 'unknown';
-}
-
-function gerarIdTransacao() {
-  const timestamp = Date.now();
-  const aleatorio = Math.random().toString(36).substring(2, 9).toUpperCase();
-  return `TRX-${timestamp}-${aleatorio}`;
 }
 
 function gerarCodigoPix() {
@@ -378,22 +552,18 @@ function gerarQrCodePix() {
   return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 }
 
-function obterProximaDataCobranca() {
-  const hoje = new Date();
-  const proximoMes = new Date(hoje.setMonth(hoje.getMonth() + 1));
-  return proximoMes.toISOString();
-}
+
 
 export function calcularEconomia(precoPlano, cortesPorMes) {
   const precoCorteRegular = 40;
   const custoMensal = precoCorteRegular * cortesPorMes;
   const economia = custoMensal - precoPlano;
   const porcentagemEconomia = custoMensal > 0 ? ((economia / custoMensal) * 100).toFixed(0) : 0;
-  
-  return { 
-    economia: economia > 0 ? economia : 0, 
-    porcentagemEconomia: porcentagemEconomia > 0 ? porcentagemEconomia : 0, 
-    custoMensal 
+
+  return {
+    economia: economia > 0 ? economia : 0,
+    porcentagemEconomia: porcentagemEconomia > 0 ? porcentagemEconomia : 0,
+    custoMensal
   };
 }
 
@@ -407,3 +577,69 @@ export function formatarMoeda(valor) {
 export function formatarData(stringData) {
   return new Intl.DateTimeFormat('pt-BR').format(new Date(stringData));
 }
+export const enviarNotificacaoAssinatura = async (subscription) => {
+  try {
+    const dataVencimento = new Date(subscription.nextBillingDate).toLocaleDateString('pt-BR');
+    
+    const mensagem = ` *Assinatura Ativada com Sucesso!* \n\nOlá *${subscription.userName}*!\n\nSua assinatura do plano *${subscription.planName}* foi ativada com sucesso!\n\n *Status:* Ativo\n *Valor:* R$ ${subscription.amount.toFixed(2).replace('.', ',')}\n *Próxima cobrança:* ${dataVencimento}\n *Forma de pagamento:* ${subscription.paymentMethod.toUpperCase()}\n${subscription.isRecurring ? ' *Renovação automática:* ' + (subscription.autoRenewal ? 'Ativada' : 'Desativada') : ''}\n\nObrigado por escolher nossos serviços!\n\n_Mensagem automática - Barbearia AdDev_`;
+
+    let telefone = '5585982299499';
+    
+    try {
+      const userResponse = await api.get(`/users/${subscription.userId}`);
+      const user = userResponse.data;
+      if (user.phone) {
+        let userPhone = user.phone.replace(/\D/g, '');
+        if (!userPhone.startsWith('55')) {
+          userPhone = '55' + userPhone;
+        }
+      
+        telefone = userPhone;
+      }
+    } catch (error) {
+     
+    }
+
+    const urlWhatsApp = `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
+
+  
+    
+    if (typeof window !== 'undefined') {
+      window.open(urlWhatsApp, '_blank');
+    }
+
+    return { 
+      success: true, 
+      url: urlWhatsApp,
+      telefone: telefone,
+      mensagem: mensagem
+    };
+  } catch (error) {
+   
+    throw error;
+  }
+};
+
+export const testarNotificacaoWhatsApp = async () => {
+  const subscriptionTeste = {
+    id: 'test-001',
+    userId: 'ff1a',
+    userName: 'LUCAS',
+    planName: 'Premium',
+    amount: 149.90,
+    nextBillingDate: new Date('2026-02-06').toISOString(),
+    daysOverdue: 0,
+    paymentMethod: 'credito',
+    isRecurring: true,
+    autoRenewal: true
+  };
+
+  try {
+   
+    const result = await enviarNotificacaoAssinatura(subscriptionTeste);
+   
+    return result;
+  } catch (error) {
+    throw error;
+  }
+};

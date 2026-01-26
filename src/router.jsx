@@ -1,9 +1,11 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+
 import Home from './pages/Home.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
 import AppointmentsPage from './pages/AppointmentsPage.jsx';
 import AdminPage from './pages/AdminPage.jsx';
+import BarberPage from './pages/BarberPage.jsx';
 
 const router = createBrowserRouter([
   { path: '/', element: <Home /> },
@@ -13,6 +15,7 @@ const router = createBrowserRouter([
   { path: '/agendamentos', element: <AppointmentsPage /> },
   { path: '/appointments', element: <AppointmentsPage /> },
   { path: '/admin', element: <AdminPage /> },
+  { path: '/barber', element: <BarberPage /> },
   { path: '*', element: <Home /> },
 ]);
 

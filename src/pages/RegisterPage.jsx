@@ -96,7 +96,6 @@ export default function RegisterPage() {
       });
       setTimeout(() => navigate("/login"), 800);
     } catch (err) {
-      console.error(err);
       setMessage({ type: "error", text: "Erro ao cadastrar." });
     } finally {
       setIsSubmitting(false);

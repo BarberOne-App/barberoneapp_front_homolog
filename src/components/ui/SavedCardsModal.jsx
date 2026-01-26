@@ -8,7 +8,6 @@ export default function SavedCardsModal({ isOpen, onClose, userId, onSelectCard 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('📋 SavedCardsModal mounted. isOpen:', isOpen, 'userId:', userId);
     if (isOpen && userId) {
       loadCards();
     }
@@ -17,29 +16,30 @@ export default function SavedCardsModal({ isOpen, onClose, userId, onSelectCard 
   const loadCards = async () => {
     try {
       setLoading(true);
-      console.log('🔄 Carregando cartões para userId:', userId);
+     
       const userCards = await getUserCards(userId);
-      console.log('✅ Cartões carregados:', userCards);
+     
       setCards(userCards);
     } catch (error) {
-      console.error('❌ Erro ao carregar cartões:', error);
+      
     } finally {
       setLoading(false);
     }
   };
 
   const handleSelectCard = (card) => {
-    console.log('✔️ Cartão selecionado:', card);
+   
     onSelectCard(card);
     onClose();
   };
 
   const handleDeleteCard = async (cardId, e) => {
     e.stopPropagation();
-    if (confirm('Deseja realmente excluir este cartão?')) {
+    if (window.confirm('Deseja realmente excluir este cartão?')) {
       try {
         await deleteCard(cardId);
         await loadCards();
+        alert('Cartão removido com sucesso!');
       } catch (error) {
         console.error('Erro ao excluir cartão:', error);
         alert('Erro ao excluir cartão');
@@ -52,6 +52,7 @@ export default function SavedCardsModal({ isOpen, onClose, userId, onSelectCard 
     try {
       await setMainCard(userId, cardId);
       await loadCards();
+      alert('Cartão definido como principal!');
     } catch (error) {
       console.error('Erro ao definir cartão principal:', error);
       alert('Erro ao definir cartão principal');
@@ -86,23 +87,31 @@ export default function SavedCardsModal({ isOpen, onClose, userId, onSelectCard 
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content saved-cards-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="saved-cards-modal" onClick={(e) => e.stopPropagation()}>
+      
         <div className="modal-header">
-          <h2>Cartões Salvos</h2>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <h2> Cartões Salvos</h2>
+          <button className="modal-close" onClick={onClose} aria-label="Fechar">
+            ×
+          </button>
         </div>
 
+     
         <div className="modal-body">
           {loading ? (
-            <div className="loading-text">Carregando cartões...</div>
+            <div className="loading-text">
+              <p>Carregando cartões...</p>
+            </div>
           ) : cards.length === 0 ? (
             <div className="empty-state">
               <p>Você ainda não possui cartões salvos.</p>
-              <p className="empty-subtitle">Ao realizar um pagamento, você pode salvar o cartão para uso futuro.</p>
+              <p className="empty-subtitle">
+                Ao realizar um pagamento, você pode salvar o cartão para uso futuro.
+              </p>
             </div>
           ) : (
             <div className="cards-list">
-              {cards.map(card => (
+              {cards.map((card) => (
                 <div
                   key={card.id}
                   className={`saved-card ${card.isMain ? 'saved-card--main' : ''}`}
@@ -113,9 +122,15 @@ export default function SavedCardsModal({ isOpen, onClose, userId, onSelectCard 
                       <span className="card-icon">{getCardBrandIcon(card.brand)}</span>
                       <span className="card-brand">{getCardBrandName(card.brand)}</span>
                     </div>
-                    <div className="saved-card__number">•••• •••• •••• {card.lastDigits}</div>
-                    <div className="saved-card__holder">{card.holderName}</div>
-                    <div className="saved-card__expiry">Validade: {card.expiryMonth}/{card.expiryYear}</div>
+                    <div className="saved-card__number">
+                      •••• •••• •••• {card.lastDigits}
+                    </div>
+                    <div className="saved-card__holder">
+                      {card.holderName}
+                    </div>
+                    <div className="saved-card__expiry">
+                      Validade: {card.expiryMonth}/{card.expiryYear}
+                    </div>
                   </div>
 
                   <div className="saved-card__actions">
@@ -126,7 +141,7 @@ export default function SavedCardsModal({ isOpen, onClose, userId, onSelectCard 
                         className="btn-set-main"
                         onClick={(e) => handleSetMainCard(card.id, e)}
                       >
-                        Definir como principal
+                        Tornar Principal
                       </button>
                     )}
                     <button
@@ -142,8 +157,9 @@ export default function SavedCardsModal({ isOpen, onClose, userId, onSelectCard 
           )}
         </div>
 
+   
         <div className="modal-footer">
-          <Button onClick={onClose} variant="secondary">
+          <Button variant="secondary" onClick={onClose}>
             Fechar
           </Button>
         </div>

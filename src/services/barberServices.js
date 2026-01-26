@@ -23,3 +23,18 @@ export async function updateBarber(id, barberData) {
 export async function deleteBarber(id) {
   await api.delete(`/barbers/${id}`);
 }
+
+
+export const linkBarberToUser = async (barberId, userId) => {
+  try {
+    const response = await fetch(`${API_BASE}/barbers/${barberId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId })
+    });
+    return await response.json();
+  } catch (error) {
+
+    throw error;
+  }
+};

@@ -15,7 +15,6 @@ import './AuthPages.css';
 export default function AdminPage() {
   const navigate = useNavigate();
   const currentUser = getSession();
-  
   const [activeTab, setActiveTab] = useState('barbers');
   const [barbers, setBarbers] = useState([]);
   const [appointments, setAppointments] = useState([]);
@@ -24,16 +23,20 @@ export default function AdminPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-  
+
   const [showBarberModal, setShowBarberModal] = useState(false);
   const [editingBarber, setEditingBarber] = useState(null);
-  const [barberForm, setBarberForm] = useState({ 
-    name: '', 
-    specialty: '', 
+  const [barberForm, setBarberForm] = useState({
+    name: '',
+    specialty: '',
     photo: '',
-    commissionPercent: 50
+    commissionPercent: 50,
+    createUser: false,
+    userEmail: '',
+    userPassword: '',
+    userPhone: ''
   });
-  
+
   const [showProductModal, setShowProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [productForm, setProductForm] = useState({
@@ -45,16 +48,16 @@ export default function AdminPage() {
     stock: 0,
     image: ''
   });
-  
+
   const [expandedBarbers, setExpandedBarbers] = useState({});
   const [showChangeBarberModal, setShowChangeBarberModal] = useState(false);
   const [selectedAppointmentForBarberChange, setSelectedAppointmentForBarberChange] = useState(null);
   const [newBarberId, setNewBarberId] = useState('');
-  
+
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState(null);
   const [appointmentForm, setAppointmentForm] = useState({ date: '', time: '' });
-  
+
   const isAdmin = currentUser?.role === 'admin' || currentUser?.isAdmin === true;
 
   const sendWhatsApp = async (appointmentId, type) => {
@@ -76,16 +79,16 @@ export default function AdminPage() {
 
       let message = '';
       if (type === 'confirm') {
-        message = `Olá ${appointment.client}! Estamos entrando em contato para CONFIRMAR seu agendamento:\n\nData: ${date}\nHorário: ${appointment.time}\nServiço: ${serviceName}\nBarbeiro: ${appointment.barberName}\n\nPor favor, responda esta mensagem para confirmar sua presença.\n\nBarbearia ADDEV`;
+        message = `Olá ${appointment.client}! Estamos entrando em contato para CONFIRMAR seu agendamento:\n${date} às ${appointment.time}\n${serviceName}\n${appointment.barberName}\n\nPor favor, responda esta mensagem para confirmar sua presença.\n\nADDEV`;
       } else if (type === 'cancel') {
-        message = `Olá ${appointment.client}! Informamos que infelizmente precisaremos realizar o CANCELAMENTO do seu agendamento:\n\nData: ${date}\nHorário: ${appointment.time}\nServiço: ${serviceName}\n\nPedimos desculpas pelo transtorno. Entre em contato conosco para reagendar.\n\nBarbearia ADDEV`;
+        message = `Olá ${appointment.client}! Informamos que infelizmente precisaremos realizar o CANCELAMENTO do seu agendamento:\n${date} às ${appointment.time}\n${serviceName}\n\nDesculpas pelo transtorno. Entre em contato conosco para reagendar.\n\nADDEV`;
       }
 
       const encodedMessage = encodeURIComponent(message);
       const whatsappUrl = `https://wa.me/55${phone}?text=${encodedMessage}`;
       window.open(whatsappUrl, '_blank');
     } catch (error) {
-      console.error('Erro ao enviar WhatsApp:', error);
+ 
       showToast('Erro ao abrir WhatsApp.', 'danger');
     }
   };
@@ -106,7 +109,7 @@ export default function AdminPage() {
       setAppointmentPayments(paymentsData);
       setProducts(productsData);
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
+ 
     } finally {
       setLoading(false);
     }
@@ -146,11 +149,24 @@ export default function AdminPage() {
         name: barber.name,
         specialty: barber.specialty,
         photo: barber.photo,
-        commissionPercent: barber.commissionPercent || 50
+        commissionPercent: barber.commissionPercent || 50,
+        createUser: false,
+        userEmail: '',
+        userPassword: '',
+        userPhone: ''
       });
     } else {
       setEditingBarber(null);
-      setBarberForm({ name: '', specialty: '', photo: '', commissionPercent: 50 });
+      setBarberForm({
+        name: '',
+        specialty: '',
+        photo: '',
+        commissionPercent: 50,
+        createUser: false,
+        userEmail: '',
+        userPassword: '',
+        userPhone: ''
+      });
     }
     setShowBarberModal(true);
   };
@@ -158,7 +174,16 @@ export default function AdminPage() {
   const closeBarberModal = () => {
     setShowBarberModal(false);
     setEditingBarber(null);
-    setBarberForm({ name: '', specialty: '', photo: '', commissionPercent: 50 });
+    setBarberForm({
+      name: '',
+      specialty: '',
+      photo: '',
+      commissionPercent: 50,
+      createUser: false,
+      userEmail: '',
+      userPassword: '',
+      userPhone: ''
+    });
   };
 
   const handleBarberFormChange = (field, value) => {
@@ -167,37 +192,96 @@ export default function AdminPage() {
 
   const handleSaveBarber = async (e) => {
     e.preventDefault();
+
     if (!barberForm.name.trim()) {
       showToast('O nome do barbeiro é obrigatório.', 'danger');
       return;
     }
 
     try {
+      let userId = null;
+
+  
+      if (barberForm.createUser && !editingBarber) {
+        if (!barberForm.userEmail || !barberForm.userPassword) {
+          showToast('Email e senha são obrigatórios para criar conta de acesso.', 'danger');
+          return;
+        }
+
+  
+        const checkEmailResponse = await fetch('http://localhost:3000/users');
+        const allUsers = await checkEmailResponse.json();
+        const emailExists = allUsers.some(u => u.email === barberForm.userEmail);
+
+        if (emailExists) {
+          showToast('Este email já está cadastrado.', 'danger');
+          return;
+        }
+
+  
+        const newUser = {
+          name: barberForm.name,
+          email: barberForm.userEmail,
+          password: barberForm.userPassword,
+          phone: barberForm.userPhone,
+          role: 'barber',
+          isAdmin: false,
+          createdAt: new Date().toISOString()
+        };
+
+        const userResponse = await fetch('http://localhost:3000/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newUser)
+        });
+
+        if (!userResponse.ok) {
+          throw new Error('Erro ao criar usuário');
+        }
+
+        const createdUser = await userResponse.json();
+        userId = createdUser.id;
+      }
+
+      const barberData = {
+        name: barberForm.name,
+        specialty: barberForm.specialty,
+        photo: barberForm.photo,
+        commissionPercent: barberForm.commissionPercent,
+        userId: userId 
+      };
+
       if (editingBarber) {
-        await updateBarber(editingBarber.id, barberForm);
+        await updateBarber(editingBarber.id, barberData);
         showToast('Barbeiro atualizado com sucesso!', 'success');
       } else {
-        await createBarber(barberForm);
-        showToast('Barbeiro adicionado com sucesso!', 'success');
+        await createBarber(barberData);
+        showToast(
+          barberForm.createUser
+            ? 'Barbeiro e conta de acesso criados com sucesso!'
+            : 'Barbeiro adicionado com sucesso!',
+          'success'
+        );
       }
+
       await loadData();
       closeBarberModal();
     } catch (error) {
-      console.error('Erro ao salvar barbeiro:', error);
+ 
       showToast('Erro ao salvar barbeiro. Tente novamente.', 'danger');
     }
   };
 
   const handleDeleteBarber = async (id) => {
-    if (confirm('Deseja realmente excluir este barbeiro?')) {
-      try {
-        await deleteBarber(id);
-        await loadData();
-        showToast('Barbeiro excluído com sucesso!', 'success');
-      } catch (error) {
-        console.error('Erro ao excluir barbeiro:', error);
-        showToast('Erro ao excluir barbeiro.', 'danger');
-      }
+    if (!confirm('Deseja realmente excluir este barbeiro?')) return;
+
+    try {
+      await deleteBarber(id);
+      await loadData();
+      showToast('Barbeiro excluído com sucesso!', 'success');
+    } catch (error) {
+
+      showToast('Erro ao excluir barbeiro.', 'danger');
     }
   };
 
@@ -248,6 +332,7 @@ export default function AdminPage() {
 
   const handleSaveProduct = async (e) => {
     e.preventDefault();
+
     if (!productForm.name.trim() || !productForm.category || !productForm.price) {
       showToast('Preencha os campos obrigatórios.', 'danger');
       return;
@@ -268,49 +353,44 @@ export default function AdminPage() {
         await createProduct(productData);
         showToast('Produto adicionado com sucesso!', 'success');
       }
+
       await loadData();
       closeProductModal();
     } catch (error) {
-      console.error('Erro ao salvar produto:', error);
+
       showToast('Erro ao salvar produto. Tente novamente.', 'danger');
     }
   };
 
   const handleDeleteProduct = async (id) => {
-    if (confirm('Deseja realmente excluir este produto?')) {
-      try {
-        await deleteProduct(id);
-        await loadData();
-        showToast('Produto excluído com sucesso!', 'success');
-      } catch (error) {
-        console.error('Erro ao excluir produto:', error);
-        showToast('Erro ao excluir produto.', 'danger');
-      }
+    if (!confirm('Deseja realmente excluir este produto?')) return;
+
+    try {
+      await deleteProduct(id);
+      await loadData();
+      showToast('Produto excluído com sucesso!', 'success');
+    } catch (error) {
+ 
+      showToast('Erro ao excluir produto.', 'danger');
     }
   };
 
   const handleConfirmAppointment = async (appointmentId) => {
     try {
       const appointment = appointments.find(apt => apt.id === appointmentId);
-      const updatedAppointment = {
-        ...appointment,
-        status: 'confirmed'
-      };
+      const updatedAppointment = { ...appointment, status: 'confirmed' };
       await updateAppointment(appointmentId, updatedAppointment);
       await loadData();
       showToast('Agendamento confirmado!', 'success');
     } catch (error) {
-      console.error('Erro ao confirmar:', error);
+    
       showToast('Erro ao confirmar agendamento.', 'danger');
     }
   };
 
   const openEditModal = (appointment) => {
     setEditingAppointment(appointment);
-    setAppointmentForm({
-      date: appointment.date,
-      time: appointment.time
-    });
+    setAppointmentForm({ date: appointment.date, time: appointment.time });
     setShowEditModal(true);
   };
 
@@ -326,6 +406,7 @@ export default function AdminPage() {
 
   const handleUpdateAppointment = async (e) => {
     e.preventDefault();
+
     if (!appointmentForm.date || !appointmentForm.time) {
       showToast('Data e horário são obrigatórios.', 'danger');
       return;
@@ -342,21 +423,21 @@ export default function AdminPage() {
       showToast('Agendamento atualizado com sucesso!', 'success');
       closeEditModal();
     } catch (error) {
-      console.error('Erro ao atualizar agendamento:', error);
+    
       showToast('Erro ao atualizar agendamento.', 'danger');
     }
   };
 
   const handleDeleteAppointment = async (id) => {
-    if (confirm('Deseja realmente cancelar este agendamento?')) {
-      try {
-        await deleteAppointment(id);
-        await loadData();
-        showToast('Agendamento cancelado com sucesso!', 'success');
-      } catch (error) {
-        console.error('Erro ao cancelar:', error);
-        showToast('Erro ao cancelar agendamento.', 'danger');
-      }
+    if (!confirm('Deseja realmente cancelar este agendamento?')) return;
+
+    try {
+      await deleteAppointment(id);
+      await loadData();
+      showToast('Agendamento cancelado com sucesso!', 'success');
+    } catch (error) {
+   
+      showToast('Erro ao cancelar agendamento.', 'danger');
     }
   };
 
@@ -370,16 +451,13 @@ export default function AdminPage() {
       await loadData();
       showToast('Pagamento marcado como pago!', 'success');
     } catch (error) {
-      console.error('Erro ao atualizar pagamento:', error);
+
       showToast('Erro ao atualizar pagamento.', 'danger');
     }
   };
 
   const toggleBarberExpansion = (barberId) => {
-    setExpandedBarbers(prev => ({
-      ...prev,
-      [barberId]: !prev[barberId]
-    }));
+    setExpandedBarbers(prev => ({ ...prev, [barberId]: !prev[barberId] }));
   };
 
   const getAppointmentsByBarber = (barberId) => {
@@ -419,22 +497,19 @@ export default function AdminPage() {
         barberId: newBarber.id,
         barberName: newBarber.name
       };
-
       await updateAppointment(selectedAppointmentForBarberChange.id, updatedAppointment);
       await loadData();
       showToast(`Agendamento transferido para ${newBarber.name}!`, 'success');
       closeChangeBarberModal();
     } catch (error) {
-      console.error('Erro ao alterar barbeiro:', error);
+
       showToast('Erro ao alterar barbeiro.', 'danger');
     }
   };
 
   const calculateTotal = (services) => {
     return services.reduce((sum, service) => {
-      const price = Number(String(service.price ?? '0')
-        .replace(/[R$.-]/g, '')
-        .replace(',', '.'));
+      const price = Number(String(service.price ?? 0).replace(/[R$.-]/g, '').replace(',', '.'));
       return sum + (isNaN(price) ? 0 : price);
     }, 0);
   };
@@ -442,7 +517,7 @@ export default function AdminPage() {
   const calculateBarberStats = (barberId) => {
     const barber = barbers.find(b => b.id === barberId);
     const barberAppointments = getAppointmentsByBarber(barberId);
-    
+
     let totalRevenue = 0;
     let totalServices = 0;
 
@@ -471,8 +546,10 @@ export default function AdminPage() {
       pix: 0,
       credito: 0,
       debito: 0,
+      dinheiro: 0,
+      cartao: 0,
       total: 0,
-      count: { pix: 0, credito: 0, debito: 0 }
+      count: { pix: 0, credito: 0, debito: 0, dinheiro: 0, cartao: 0 }
     };
 
     subscriptions.forEach(sub => {
@@ -493,18 +570,43 @@ export default function AdminPage() {
       }
     });
 
+    const paidAppointmentPayments = appointmentPayments.filter(p => p.status === 'paid');
+    paidAppointmentPayments.forEach(payment => {
+      const amount = parseFloat(payment.amount || 0);
+      if (amount > 0) {
+        stats.total += amount;
+        const method = (payment.paymentMethod || '').toLowerCase();
+        if (method === 'pix') {
+          stats.pix += amount;
+          stats.count.pix++;
+        } else if (method === 'credito' || method === 'crédito') {
+          stats.credito += amount;
+          stats.count.credito++;
+        } else if (method === 'debito' || method === 'débito') {
+          stats.debito += amount;
+          stats.count.debito++;
+        } else if (method === 'dinheiro') {
+          stats.dinheiro += amount;
+          stats.count.dinheiro++;
+        } else if (method === 'cartao' || method === 'cartão') {
+          stats.cartao += amount;
+          stats.count.cartao++;
+        }
+      }
+    });
+
     return stats;
   };
 
   const paymentStats = calculatePaymentStats();
-  const pendingPayments = appointmentPayments.filter(p => p.status === 'pending');
+  const pendingPayments = appointmentPayments.filter(p => p.status === 'pending' || p.status === 'pendinglocal');
   const paidPayments = appointmentPayments.filter(p => p.status === 'paid');
 
   if (loading) {
     return (
       <BaseLayout>
         <div className="auth">
-          <div className="auth__card">
+          <div className="auth-card">
             <p>Carregando...</p>
           </div>
         </div>
@@ -515,11 +617,11 @@ export default function AdminPage() {
   return (
     <BaseLayout>
       <section className="auth">
-        <div className="auth__card auth__card--wide">
+        <div className="auth-card auth-card--wide">
           <div className="appointments-header">
             <div>
-              <h1 className="auth__title">Painel Administrativo</h1>
-              <p className="auth__subtitle">
+              <h1 className="auth-title">Painel Administrativo</h1>
+              <p className="auth-subtitle">
                 Usuário: {currentUser?.name} <span className="admin-badge">Admin</span>
               </p>
             </div>
@@ -556,10 +658,10 @@ export default function AdminPage() {
 
           {activeTab === 'barbers' && (
             <div className="manage-barbers">
-              <div className="manage-barbers__header">
+              <div className="manage-barbers-header">
                 <h2>Gerenciar Barbeiros</h2>
                 <button onClick={() => openBarberModal()} className="btn-add-barber">
-                  + Adicionar Barbeiro
+                  Adicionar Barbeiro
                 </button>
               </div>
 
@@ -567,7 +669,7 @@ export default function AdminPage() {
                 {barbers.length === 0 ? (
                   <p className="no-data">Nenhum barbeiro cadastrado.</p>
                 ) : (
-                  barbers.map((barber) => {
+                  barbers.map(barber => {
                     const barberAppointments = getAppointmentsByBarber(barber.id);
                     const isExpanded = expandedBarbers[barber.id];
                     const stats = calculateBarberStats(barber.id);
@@ -575,9 +677,7 @@ export default function AdminPage() {
                     return (
                       <div key={barber.id} className="fluig-table-parent">
                         <div className="fluig-row-parent" onClick={() => toggleBarberExpansion(barber.id)}>
-                          <div className="fluig-expand-icon">
-                            {isExpanded ? '▼' : '▶'}
-                          </div>
+                          <div className="fluig-expand-icon">{isExpanded ? '▼' : '▶'}</div>
                           <div className="fluig-barber-info">
                             <img
                               src={barber.photo || `https://i.pravatar.cc/150?img=${barber.id}`}
@@ -587,9 +687,13 @@ export default function AdminPage() {
                             <div className="fluig-barber-details">
                               <h3 className="fluig-barber-name">{barber.name}</h3>
                               <p className="fluig-barber-specialty">{barber.specialty}</p>
+                              {barber.userId && (
+                                <span style={{ fontSize: '0.8rem', color: '#4ade80' }}>
+                                  ✓ Conta de acesso criada
+                                </span>
+                              )}
                             </div>
                           </div>
-                          
                           <div className="fluig-barber-stats">
                             <div className="stat-item">
                               <span className="stat-label">Atendimentos</span>
@@ -597,18 +701,21 @@ export default function AdminPage() {
                             </div>
                             <div className="stat-item">
                               <span className="stat-label">Faturamento Total</span>
-                              <span className="stat-value stat-value-highlight">R$ {stats.totalRevenue.toFixed(2)}</span>
+                              <span className="stat-value stat-value-highlight">
+                                R$ {stats.totalRevenue.toFixed(2)}
+                              </span>
                             </div>
                             <div className="stat-item">
                               <span className="stat-label">Comissão ({stats.commissionPercent}%)</span>
-                              <span className="stat-value stat-value-success">R$ {stats.barberEarnings.toFixed(2)}</span>
+                              <span className="stat-value stat-value-success">
+                                R$ {stats.barberEarnings.toFixed(2)}
+                              </span>
                             </div>
                             <div className="stat-item">
                               <span className="stat-label">Barbearia</span>
                               <span className="stat-value">R$ {stats.shopEarnings.toFixed(2)}</span>
                             </div>
                           </div>
-
                           <div className="fluig-parent-actions">
                             <button
                               onClick={(e) => {
@@ -653,7 +760,7 @@ export default function AdminPage() {
                                   {barberAppointments.map(apt => {
                                     const aptTotal = calculateTotal(apt.services);
                                     const barberEarning = (aptTotal * stats.commissionPercent) / 100;
-                                    
+
                                     return (
                                       <tr key={apt.id} className={apt.status === 'confirmed' ? 'row-confirmed' : ''}>
                                         <td>
@@ -731,10 +838,10 @@ export default function AdminPage() {
 
           {activeTab === 'products' && (
             <div className="manage-products">
-              <div className="manage-barbers__header">
+              <div className="manage-barbers-header">
                 <h2>Gerenciar Produtos</h2>
                 <button onClick={() => openProductModal()} className="btn-add-barber">
-                  + Adicionar Produto
+                  Adicionar Produto
                 </button>
               </div>
 
@@ -742,15 +849,11 @@ export default function AdminPage() {
                 {products.length === 0 ? (
                   <p className="no-data">Nenhum produto cadastrado.</p>
                 ) : (
-                  products.map((product) => (
+                  products.map(product => (
                     <div key={product.id} className="barber-admin-card product-admin-card">
                       <div className="barber-admin-info">
                         {product.image && (
-                          <img
-                            src={product.image}
-                            alt={product.name}
-                            className="barber-admin-photo"
-                          />
+                          <img src={product.image} alt={product.name} className="barber-admin-photo" />
                         )}
                         <div>
                           <h3>{product.name}</h3>
@@ -759,14 +862,10 @@ export default function AdminPage() {
                           <div className="product-details">
                             <span className="product-price">{product.price}</span>
                             {product.subscriberDiscount > 0 && (
-                              <span className="product-discount">
-                                -{product.subscriberDiscount}% para assinantes
-                              </span>
+                              <span className="product-discount">-{product.subscriberDiscount}% para assinantes</span>
                             )}
                             <span
-                              className={`product-stock ${
-                                product.stock === 0 ? 'out-of-stock' : product.stock <= 5 ? 'low-stock' : ''
-                              }`}
+                              className={`product-stock ${product.stock === 0 ? 'out-of-stock' : product.stock < 5 ? 'low-stock' : ''}`}
                             >
                               Estoque: {product.stock}
                             </span>
@@ -794,12 +893,12 @@ export default function AdminPage() {
 
               <div className="payment-stats">
                 <div className="payment-stat-card">
-                  <h3>💳 Cartão de Crédito</h3>
+                  <h3>Cartão de Crédito</h3>
                   <p className="stat-value">R$ {paymentStats.credito.toFixed(2)}</p>
                   <p className="stat-count">{paymentStats.count.credito} transações</p>
                 </div>
                 <div className="payment-stat-card">
-                  <h3>💳 Cartão de Débito</h3>
+                  <h3>Cartão de Débito</h3>
                   <p className="stat-value">R$ {paymentStats.debito.toFixed(2)}</p>
                   <p className="stat-count">{paymentStats.count.debito} transações</p>
                 </div>
@@ -808,18 +907,35 @@ export default function AdminPage() {
                   <p className="stat-value">R$ {paymentStats.pix.toFixed(2)}</p>
                   <p className="stat-count">{paymentStats.count.pix} transações</p>
                 </div>
+                {paymentStats.dinheiro > 0 && (
+                  <div className="payment-stat-card">
+                    <h3>💵 Dinheiro</h3>
+                    <p className="stat-value">R$ {paymentStats.dinheiro.toFixed(2)}</p>
+                    <p className="stat-count">{paymentStats.count.dinheiro} transações</p>
+                  </div>
+                )}
+                {paymentStats.cartao > 0 && (
+                  <div className="payment-stat-card">
+                    <h3> Cartão Local</h3>
+                    <p className="stat-value">R$ {paymentStats.cartao.toFixed(2)}</p>
+                    <p className="stat-count">{paymentStats.count.cartao} transações</p>
+                  </div>
+                )}
                 <div className="payment-stat-card payment-stat-card--total">
-                  <h3>💰 Total Assinaturas</h3>
+                  <h3>💰 Total Geral</h3>
                   <p className="stat-value">R$ {paymentStats.total.toFixed(2)}</p>
                   <p className="stat-count">
-                    {paymentStats.count.pix + paymentStats.count.credito + paymentStats.count.debito} transações
+                    {Object.values(paymentStats.count).reduce((a, b) => a + b, 0)} transações
+                  </p>
+                  <p style={{ fontSize: '0.85rem', marginTop: '8px', opacity: 0.9 }}>
+                    Assinaturas + Agendamentos
                   </p>
                 </div>
               </div>
 
               {pendingPayments.length > 0 && (
                 <div className="pending-payments">
-                  <h3>⏳ Pagamentos Pendentes de Agendamentos</h3>
+                  <h3>💰 Pagamentos Pendentes de Agendamentos</h3>
                   <div className="payments-table">
                     <table>
                       <thead>
@@ -830,6 +946,7 @@ export default function AdminPage() {
                           <th>Barbeiro</th>
                           <th>Serviço</th>
                           <th>Valor</th>
+                          <th>Status</th>
                           <th>Ações</th>
                         </tr>
                       </thead>
@@ -842,6 +959,13 @@ export default function AdminPage() {
                             <td>{payment.barberName}</td>
                             <td>{payment.serviceName}</td>
                             <td>R$ {parseFloat(payment.amount || 0).toFixed(2)}</td>
+                            <td>
+                              {payment.status === 'pendinglocal' ? (
+                                <span className="status-badge status-pending-local">Pagar no Local</span>
+                              ) : (
+                                <span className="status-badge status-pending-online">Pagar Online</span>
+                              )}
+                            </td>
                             <td>
                               <div className="payment-action-buttons">
                                 <button
@@ -860,7 +984,7 @@ export default function AdminPage() {
                                   onClick={() => handleMarkAsPaid(payment, 'cartao')}
                                   className="btn-edit btn-payment-small"
                                 >
-                                  💳 Cartão
+                                  Cartão
                                 </button>
                               </div>
                             </td>
@@ -902,7 +1026,7 @@ export default function AdminPage() {
                               </span>
                             </td>
                             <td>
-                              <span className={`status-badge status-badge--${sub.status === 'active'}`}>
+                              <span className={`status-badge status-badge--${sub.status}`}>
                                 {sub.status === 'active' ? 'Ativo' : 'Inativo'}
                               </span>
                             </td>
@@ -958,6 +1082,7 @@ export default function AdminPage() {
         </div>
       </section>
 
+
       {showBarberModal && (
         <div className="modal-overlay" onClick={closeBarberModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -989,6 +1114,53 @@ export default function AdminPage() {
                 onChange={(e) => handleBarberFormChange('photo', e.target.value)}
                 placeholder="https://exemplo.com/foto.jpg"
               />
+
+              {!editingBarber && (
+                <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(212, 175, 55, 0.1)', borderRadius: '8px', border: '1px solid rgba(212, 175, 55, 0.3)' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={barberForm.createUser}
+                      onChange={(e) => handleBarberFormChange('createUser', e.target.checked)}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                    />
+                    <span style={{ fontWeight: '500', color: '#d4af37' }}>
+                      🔐 Criar conta de acesso para este barbeiro
+                    </span>
+                  </label>
+
+                  {barberForm.createUser && (
+                    <div style={{ marginTop: '1rem', paddingLeft: '1.5rem', borderLeft: '2px solid rgba(212, 175, 55, 0.3)' }}>
+                      <Input
+                        label="Email de acesso"
+                        type="email"
+                        value={barberForm.userEmail}
+                        onChange={(e) => handleBarberFormChange('userEmail', e.target.value)}
+                        required={barberForm.createUser}
+                        placeholder="barbeiro@exemplo.com"
+                      />
+                      <Input
+                        label="Senha"
+                        type="password"
+                        value={barberForm.userPassword}
+                        onChange={(e) => handleBarberFormChange('userPassword', e.target.value)}
+                        required={barberForm.createUser}
+                        placeholder="Mínimo 6 caracteres"
+                      />
+                      <Input
+                        label="Telefone (WhatsApp)"
+                        value={barberForm.userPhone}
+                        onChange={(e) => handleBarberFormChange('userPhone', e.target.value)}
+                        placeholder="(85) 99999-9999"
+                      />
+                      <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginTop: '0.5rem' }}>
+                        ℹ️ O barbeiro poderá acessar o painel com este email e senha
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="modal-actions">
                 <Button type="button" onClick={closeBarberModal}>
                   Cancelar
@@ -1000,6 +1172,7 @@ export default function AdminPage() {
         </div>
       )}
 
+    
       {showEditModal && (
         <div className="modal-overlay" onClick={closeEditModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -1086,6 +1259,7 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
 
       {showProductModal && (
         <div className="modal-overlay" onClick={closeProductModal}>
