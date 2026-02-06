@@ -8,7 +8,8 @@ export default function ProductsModal({
   products, 
   onConfirm, 
   hasActiveSubscription,
-  servicePrice = 0
+  servicePrice = 0,
+  onUpdateStock
 }) {
   const [selectedProducts, setSelectedProducts] = useState([]);
 
@@ -77,7 +78,7 @@ export default function ProductsModal({
     return hasActiveSubscription ? productsTotal : (servicePrice + productsTotal);
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     const productsTotal = calculateProductsTotal();
     const finalTotal = calculateFinalTotal();
     
@@ -89,6 +90,13 @@ export default function ProductsModal({
         totalPrice: calculatedPrice * product.quantity
       };
     });
+    
+
+    if (onUpdateStock && selectedProducts.length > 0) {
+      for (const product of selectedProducts) {
+        await onUpdateStock(product.id, product.quantity);
+      }
+    }
     
     onConfirm({
       products: productsWithCalculatedPrice,
@@ -111,7 +119,7 @@ export default function ProductsModal({
     setSelectedProducts([]);
   };
 
-  const availableProducts = products.filter(p => p.stock > 0);
+  const availableProducts = products;
   const productsTotal = calculateProductsTotal();
   const finalTotal = calculateFinalTotal();
 
@@ -138,17 +146,22 @@ export default function ProductsModal({
                 const price = calculateProductPrice(product);
                 const originalPrice = parsePrice(product.price);
                 const hasDiscount = hasActiveSubscription && product.subscriberDiscount;
+                const isOutOfStock = product.stock === 0;
 
                 return (
                   <div 
                     key={product.id} 
-                    className={`product-card ${isSelected ? 'selected' : ''}`}
-                    onClick={() => handleProductToggle(product)}
+                    className={`product-card ${isSelected ? 'selected' : ''} ${isOutOfStock ? 'out-of-stock' : ''}`}
+                    onClick={() => !isOutOfStock && handleProductToggle(product)}
+                    style={{ opacity: isOutOfStock ? 0.5 : 1, cursor: isOutOfStock ? 'not-allowed' : 'pointer' }}
                   >
                     <div className="product-image">
                       <img src={product.image} alt={product.name} />
-                      {hasDiscount && (
+                      {hasDiscount && !isOutOfStock && (
                         <span className="discount-badge">-{product.subscriberDiscount}%</span>
+                      )}
+                      {isOutOfStock && (
+                        <span className="discount-badge" style={{ background: '#dc3545' }}>ESGOTADO</span>
                       )}
                     </div>
 
@@ -157,22 +170,28 @@ export default function ProductsModal({
                       <p className="product-description">{product.description}</p>
                       
                       <div className="product-pricing">
-                        {hasDiscount ? (
+                        {hasDiscount && !isOutOfStock ? (
                           <>
                             <span className="original-price">R$ {originalPrice.toFixed(2)}</span>
                             <span className="discounted-price">R$ {price.toFixed(2)}</span>
                           </>
                         ) : (
-                          <span className="product-price">R$ {price.toFixed(2)}</span>
+                          <span className="product-price" style={{ color: isOutOfStock ? '#666' : '#d4af37' }}>
+                            {isOutOfStock ? 'Indisponível' : `R$ ${price.toFixed(2)}`}
+                          </span>
                         )}
                       </div>
 
                       <div className="product-stock">
-                        Estoque: {product.stock} {product.stock === 1 ? 'unidade' : 'unidades'}
+                        {isOutOfStock ? (
+                          <span style={{ color: '#dc3545', fontWeight: 700 }}>Produto esgotado</span>
+                        ) : (
+                          <>Estoque: {product.stock} {product.stock === 1 ? 'unidade' : 'unidades'}</>
+                        )}
                       </div>
                     </div>
 
-                    {isSelected && (
+                    {isSelected && !isOutOfStock && (
                       <div className="quantity-controls" onClick={(e) => e.stopPropagation()}>
                         <button 
                           onClick={(e) => {
@@ -254,5 +273,6 @@ ProductsModal.propTypes = {
   products: PropTypes.array.isRequired,
   onConfirm: PropTypes.func.isRequired,
   hasActiveSubscription: PropTypes.bool.isRequired,
-  servicePrice: PropTypes.number
+  servicePrice: PropTypes.number,
+  onUpdateStock: PropTypes.func
 };

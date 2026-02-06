@@ -1,10 +1,13 @@
+import { useState, useEffect } from 'react';
 import { X, Check, CreditCard, Calendar, AlertCircle, Crown, Sparkles } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa';
+import axios from 'axios';
 import Button from './Button.jsx';
 import './ManageSubscriptionModal.css';
 
-export default function ManageSubscriptionModal({ isOpen, onClose, subscription }) {
-  if (!isOpen || !subscription) return null;
+export default function ManageSubscriptionModal({ isOpen, onClose, subscription, user }) {
+  const [planDetails, setPlanDetails] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   const planConfigs = {
     basic: {
@@ -34,7 +37,7 @@ export default function ManageSubscriptionModal({ isOpen, onClose, subscription 
     }
   };
 
-  const planBenefits = {
+  const defaultBenefits = {
     basic: [
       '2 cortes por mês',
       '10% de desconto em produtos',
@@ -79,12 +82,39 @@ export default function ManageSubscriptionModal({ isOpen, onClose, subscription 
     ]
   };
 
+
+  useEffect(() => {
+    async function loadPlanDetails() {
+      if (!subscription?.planId || !isOpen) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const { data } = await axios.get(`http://localhost:3000/subscriptionPlans/${subscription.planId}`);
+        setPlanDetails(data);
+        console.log('✅ Plano carregado:', data);
+      } catch (error) {
+        console.error('❌ Erro ao carregar plano:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadPlanDetails();
+  }, [isOpen, subscription?.planId]);
+
+  if (!isOpen || !subscription) return null;
+
   const planName = subscription.planName || subscription.name || 'Premium';
   const planKey = planName.toLowerCase();
   const config = planConfigs[planKey] || planConfigs.premium;
-  const benefits = planBenefits[planKey] || planBenefits.premium;
-  const planPrice = subscription.price || subscription.amount || 149.90;
   const PlanIcon = config.icon;
+
+  
+  const benefits = planDetails?.features || defaultBenefits[planKey] || defaultBenefits.premium;
+  const planPrice = planDetails?.price || subscription.price || subscription.amount || 149.90;
 
   const formatDate = (date) => {
     if (!date) return 'N/A';
@@ -92,12 +122,17 @@ export default function ManageSubscriptionModal({ isOpen, onClose, subscription 
     return d.toLocaleDateString('pt-BR');
   };
 
-  const handleContactWhatsApp = () => {
+const handleContactWhatsApp = () => {
+
+    const nomeUsuario = user?.name || subscription?.userName || "Cliente";
+    
+
+    const idPlano = subscription?.id || "Não identificado";
+
+    const message = `Me chamo ${nomeUsuario},  id do plano ${idPlano} e gostaria de realizar o cancelamento`;
+
     const phone = '5585999999999';
-    const message = encodeURIComponent(
-      `Olá! Gostaria de solicitar o cancelamento da minha assinatura do plano ${planName}.`
-    );
-    window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   return (
@@ -110,61 +145,80 @@ export default function ManageSubscriptionModal({ isOpen, onClose, subscription 
         <div className="manage-modal__header">
           <div className="status-badge">
             <span className="status-dot"></span>
-            Assinatura Ativa
+            {subscription.status === 'active' ? 'Assinatura Ativa' : 'Assinatura Inativa'}
           </div>
           <h2>Gerenciar Assinatura</h2>
           <p>Veja os detalhes e benefícios do seu plano</p>
         </div>
 
-        <div className="subscription-card" style={{ borderImage: `${config.gradient} 1` }}>
-          <div className="subscription-card__header" style={{ background: config.gradient }}>
+        <div className="subscription-card">
+          <div 
+            className="subscription-card__header"
+            style={{ background: config.gradient }}
+          >
             <div className="plan-icon-wrapper">
               <PlanIcon size={40} />
             </div>
             <h3 className="plan-title">{planName}</h3>
             <div className="plan-price-info">
               <span className="price-currency">R$</span>
-              <span className="price-value">{planPrice.toFixed(2).replace('.', ',')}</span>
+              <span className="price-value">{planPrice.toFixed(2)}</span>
               <span className="price-period">/mês</span>
             </div>
           </div>
 
           <div className="subscription-details">
             <div className="detail-item">
-              <Calendar size={20} style={{ color: config.color }} />
+              <Calendar size={20} color="#d4af37" />
               <div>
-                <span className="detail-label">Data de Início</span>
-                <span className="detail-value">{formatDate(subscription.startDate)}</span>
+                <span className="detail-label">Próximo Pagamento</span>
+                <span className="detail-value">
+                  {formatDate(subscription.nextBillingDate)}
+                </span>
               </div>
             </div>
 
             <div className="detail-item">
-              <Calendar size={20} style={{ color: config.color }} />
-              <div>
-                <span className="detail-label">Próxima Cobrança</span>
-                <span className="detail-value">{formatDate(subscription.nextBillingDate)}</span>
-              </div>
-            </div>
-
-            <div className="detail-item">
-              <CreditCard size={20} style={{ color: config.color }} />
+              <CreditCard size={20} color="#d4af37" />
               <div>
                 <span className="detail-label">Método de Pagamento</span>
-                <span className="detail-value">Cartão de Crédito</span>
+                <span className="detail-value">
+                  {subscription.paymentMethod?.toUpperCase() || 'N/A'}
+                </span>
+              </div>
+            </div>
+
+            <div className="detail-item">
+              <Check size={20} color="#4caf50" />
+              <div>
+                <span className="detail-label">Data de Início</span>
+                <span className="detail-value">
+                  {formatDate(subscription.startDate)}
+                </span>
               </div>
             </div>
           </div>
 
           <div className="benefits-section">
-            <h4>✨ Seus Benefícios</h4>
-            <ul className="benefits-list">
-              {benefits.map((benefit, index) => (
-                <li key={index}>
-                  <Check size={18} style={{ color: config.color }} />
-                  <span>{benefit}</span>
-                </li>
-              ))}
-            </ul>
+            <h4>Benefícios Inclusos</h4>
+            {loading ? (
+              <div style={{ 
+                textAlign: 'center', 
+                padding: '20px',
+                color: '#d4af37' 
+              }}>
+                <p>Carregando benefícios...</p>
+              </div>
+            ) : (
+              <ul className="benefits-list">
+                {benefits.map((benefit, index) => (
+                  <li key={index}>
+                    <Check size={18} color="#4caf50" />
+                    <span>{benefit}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
 
@@ -173,25 +227,13 @@ export default function ManageSubscriptionModal({ isOpen, onClose, subscription 
             <AlertCircle size={24} />
           </div>
           <div className="info-content">
-            <h4>Precisa Cancelar?</h4>
-            <p>
-              Entre em contato conosco pelo WhatsApp para solicitar o cancelamento.
-              Estamos prontos para ajudá-lo!
-            </p>
-            <button
-              className="whatsapp-button"
-              onClick={handleContactWhatsApp}
-            >
+            <h4>Precisa cancelar?</h4>
+            <p>Entre em contato conosco pelo WhatsApp para solicitar o cancelamento. Estamos prontos para ajudá-lo!</p>
+            <button className="whatsapp-button" onClick={handleContactWhatsApp}>
               <FaWhatsapp size={20} />
-              Falar no WhatsApp
+              Cancelar via WhatsApp
             </button>
           </div>
-        </div>
-
-        <div className="modal-footer">
-          <Button onClick={onClose} variant="secondary">
-            Fechar
-          </Button>
         </div>
       </div>
     </div>

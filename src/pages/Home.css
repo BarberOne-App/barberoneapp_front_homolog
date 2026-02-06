@@ -219,47 +219,50 @@
   background: rgba(16, 185, 129, 0.1);
   border-color: rgba(16, 185, 129, 0.3);
 }
+
 .services__subscription-cta {
-  text-align: center;
-  margin-top: 60px;
-  margin-bottom: 60px;
-  padding: 40px 30px;
-  background: linear-gradient(135deg, rgba(255, 122, 26, 0.1) 0%, rgba(255, 122, 26, 0.05) 100%);
+  background: #ff9800;
   border-radius: 16px;
-  border: 1px solid rgba(255, 122, 26, 0.2);
+  padding: 40px;
+  text-align: center;
+  box-shadow: 0 8px 30px rgba(212, 175, 55, 0.3);
+  max-width: 1400px;
+  margin: 60px auto 0 auto;
 }
 
 .subscription-cta__title {
   font-size: 28px;
+  color: #1a1a1a;
+  margin: 0 0 10px 0;
   font-weight: 700;
-  color: #ffffff;
-  margin: 0 0 12px;
 }
 
 .subscription-cta__text {
   font-size: 16px;
-  color: #a8a8a8;
-  margin: 0 0 24px;
+  color: #2a2a2a;
+  margin: 0 0 25px 0;
 }
 
 .subscription-cta__button {
-  background: linear-gradient(135deg, #ff7a1a, #ff944d);
-  color: #ffffff;
-  border: none;
-  border-radius: 8px;
-  padding: 14px 32px;
-  font-weight: 700;
+  padding: 14px 40px;
+  background: #1a1a1a;
+  border: 2px solid #1a1a1a;
+  border-radius: 30px;
+  color: #d4af37;
   font-size: 16px;
+  font-weight: 700;
   cursor: pointer;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  box-shadow: 0 4px 16px rgba(255, 122, 26, 0.3);
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .subscription-cta__button:hover {
+  background: #d4af37;
+  color: #1a1a1a;
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(255, 122, 26, 0.4);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
 }
-
 .gallery {
   padding: 80px 20px;
 }
@@ -372,66 +375,9 @@
   margin: 0 0 32px;
 }
 
-.subscription-banner {
-  position: relative;
-  min-height: 70vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  margin: 0; 
-  width: 100%;
-}
 
-.subscription-banner__background {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-}
 
-.subscription-banner__background-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center top;
-}
 
-.subscription-banner__overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.55) 100%);
-  z-index: 2;
-}
-
-.subscription-banner__content {
-  position: relative;
-  z-index: 3;
-  max-width: 900px;
-  padding: 60px 20px;
-  text-align: center;
-}
-
-.subscription-banner__title {
-  font-size: 56px;
-  font-weight: 700;
-  margin-bottom: 24px;
-  color: #ffffff;
-  line-height: 1.2;
-  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-}
-
-.subscription-banner__subtitle {
-  font-size: 22px;
-  color: #cfcfcf;
-  margin-bottom: 0;
-  line-height: 1.6;
-}
 
 @media (max-width: 768px) {
   .hero__title {
@@ -476,18 +422,6 @@
   .hero__buttons a {
     width: 100%;
     text-align: center;
-  }
-
-  .subscription-banner {
-    min-height: 60vh;
-  }
-
-  .subscription-banner__title {
-    font-size: 36px;
-  }
-
-  .subscription-banner__subtitle {
-    font-size: 18px;
   }
 
   .subscription-cta__title {

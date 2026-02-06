@@ -10,7 +10,7 @@
   backdrop-filter: blur(4px);
 }
 
-/* Modal Container */
+
 .products-modal-container {
   background: #1f1f1f;
   border-radius: 16px;
@@ -25,7 +25,7 @@
   flex-direction: column;
 }
 
-/* Header */
+
 .products-modal-header {
   padding: 2rem;
   border-bottom: 1px solid #333;
@@ -63,7 +63,7 @@
   color: #d4af37;
 }
 
-/* Subtitle */
+
 .products-modal-subtitle {
   background: linear-gradient(135deg, #d4af37, #f4d03f);
   color: #1a1a1a;
@@ -74,7 +74,7 @@
   border-bottom: 1px solid #333;
 }
 
-/* Content */
+
 .products-modal-content {
   padding: 1.5rem;
   flex: 1;
@@ -88,14 +88,14 @@
   font-size: 1rem;
 }
 
-/* Products Grid */
+
 .products-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 1.5rem;
 }
 
-/* Product Card */
+
 .product-card {
   background: #2a2a2a;
   border: 2px solid #333;
@@ -121,7 +121,19 @@
   box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
 }
 
-/* Product Image */
+.product-card.out-of-stock {
+  opacity: 0.6;
+  cursor: not-allowed !important;
+  filter: grayscale(0.5);
+}
+
+.product-card.out-of-stock:hover {
+  transform: none;
+  border-color: #333;
+  box-shadow: none;
+}
+
+
 .product-image {
   width: 100%;
   height: 160px;
@@ -152,7 +164,6 @@
   font-weight: 700;
 }
 
-/* Product Info */
 .product-info {
   display: flex;
   flex-direction: column;
@@ -178,7 +189,6 @@
   overflow: hidden;
 }
 
-/* Product Pricing */
 .product-pricing {
   display: flex;
   align-items: center;
@@ -199,14 +209,14 @@
   font-size: 1.1rem;
 }
 
-/* Product Stock */
+
 .product-stock {
   font-size: 0.75rem;
   color: #4caf50;
   font-weight: 600;
 }
 
-/* Quantity Controls */
+
 .quantity-controls {
   display: flex;
   align-items: center;
@@ -252,7 +262,7 @@
   text-align: center;
 }
 
-/* Summary */
+
 .products-modal-summary {
   padding: 1.5rem;
   background: #2a2a2a;
@@ -298,7 +308,7 @@
   border-radius: 6px;
 }
 
-/* Footer */
+
 .products-modal-footer {
   padding: 1.5rem;
   display: flex;
@@ -347,7 +357,6 @@
   cursor: not-allowed;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .products-modal-container {
     max-width: 95%;
@@ -375,7 +384,7 @@
   }
 }
 
-/* Scrollbar customization */
+
 .products-modal-container::-webkit-scrollbar {
   width: 8px;
 }

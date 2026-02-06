@@ -4,10 +4,11 @@ import Input from './Input';
 import SavedCardsModal from './SavedCardsModal';
 import { getUserCards, saveCard } from '../../services/cardServices';
 import { criarAssinatura, criarPagamentoAgendamento, atualizarPagamentoAgendamento, enviarNotificacaoAssinatura } from '../../services/paymentService';
+import { getPixKey } from '../../services/settingsService';
+import { getTermsDocument } from '../../services/termsService';
 import './PaymentModal.css';
 
 export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUser, onSuccess, isAppointmentPayment = false, paymentId = null }) {
-  // Estado inicial ajustado baseado no tipo de pagamento
   const [paymentMethod, setPaymentMethod] = useState(
     isAppointmentPayment ? 'pix' : 'credit'
   );
@@ -24,18 +25,20 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
   const [showSavedCards, setShowSavedCards] = useState(false);
   const [hasCards, setHasCards] = useState(false);
   const [installments, setInstallments] = useState(1);
-  
-  // Estados do timer PIX
-  const [pixTimer, setPixTimer] = useState(600); // 600 segundos = 10 minutos
+  const [pixTimer, setPixTimer] = useState(600);
   const [pixExpired, setPixExpired] = useState(false);
+  const [pixKey, setPixKey] = useState('');
+  const [pixKeyCopied, setPixKeyCopied] = useState(false);
+  const [showErrorToast, setShowErrorToast] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [validationToast, setValidationToast] = useState({ show: false, message: '' });
+  const [termsDocUrl, setTermsDocUrl] = useState('');
 
-  // Função para determinar métodos de pagamento disponíveis
   const getAvailablePaymentMethods = () => {
     if (isAppointmentPayment) {
-      // Para agendamentos: todos os métodos
       return ['pix', 'credit', 'debit'];
     }
-    // Para assinaturas: apenas crédito
     return ['credit'];
   };
 
@@ -56,11 +59,37 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
       checkUserCards();
     }
   }, [isOpen, currentUser]);
+  useEffect(() => {
+  const loadTermsDoc = async () => {
+    try {
+      const data = await getTermsDocument();
+      setTermsDocUrl(data.documentUrl || '');
+    } catch (error) {
+      console.error('Erro ao carregar documento de termos:', error);
+    }
+  };
+  
+  if (isOpen) {
+    loadTermsDoc();
+  }
+}, [isOpen]);
 
-  // Timer do PIX
+  useEffect(() => {
+    if (isOpen && paymentMethod === 'pix') {
+      const loadPixKey = async () => {
+        try {
+          const data = await getPixKey();
+          setPixKey(data.pixKey || '');
+        } catch (error) {
+          console.error('Erro ao carregar chave PIX:', error);
+        }
+      };
+      loadPixKey();
+    }
+  }, [isOpen, paymentMethod]);
+
   useEffect(() => {
     let interval;
-    
     if (isOpen && paymentMethod === 'pix' && !pixExpired) {
       interval = setInterval(() => {
         setPixTimer((prev) => {
@@ -73,7 +102,6 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
         });
       }, 1000);
     }
-
     return () => {
       if (interval) {
         clearInterval(interval);
@@ -81,12 +109,16 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
     };
   }, [isOpen, paymentMethod, pixExpired]);
 
-  // Reseta o timer quando muda o método de pagamento
   useEffect(() => {
     if (paymentMethod === 'pix') {
       setPixTimer(600);
       setPixExpired(false);
     }
+  }, [paymentMethod]);
+
+  useEffect(() => {
+    setShowErrorToast(false);
+    setErrorMessage('');
   }, [paymentMethod]);
 
   const checkUserCards = async () => {
@@ -111,6 +143,14 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
     setShowSavedCards(false);
   };
 
+  const handleCopyPixKey = () => {
+    if (pixKey) {
+      navigator.clipboard.writeText(pixKey);
+      setPixKeyCopied(true);
+      setTimeout(() => setPixKeyCopied(false), 3000);
+    }
+  };
+
   const detectCardBrand = (number) => {
     const cleaned = number.replace(/\s/g, '');
     if (/^4/.test(cleaned)) return 'visa';
@@ -124,7 +164,7 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
   const formatCardNumber = (value) => {
     const cleaned = value.replace(/\s/g, '');
     const brand = detectCardBrand(cleaned);
-    setCardData(prev => ({ ...prev, brand }));
+    setCardData((prev) => ({ ...prev, brand }));
     const matches = cleaned.match(/.{1,4}/g);
     return matches ? matches.join(' ') : '';
   };
@@ -133,7 +173,7 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
     const value = e.target.value.replace(/\D/g, '');
     if (value.length <= 16) {
       const formatted = formatCardNumber(value);
-      setCardData(prev => ({ ...prev, number: formatted }));
+      setCardData((prev) => ({ ...prev, number: formatted }));
     }
   };
 
@@ -142,10 +182,10 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
     if (field === 'expiryMonth' && cleaned.length <= 2) {
       const num = parseInt(cleaned);
       if (cleaned === '' || (num >= 1 && num <= 12)) {
-        setCardData(prev => ({ ...prev, expiryMonth: cleaned }));
+        setCardData((prev) => ({ ...prev, expiryMonth: cleaned }));
       }
     } else if (field === 'expiryYear' && cleaned.length <= 2) {
-      setCardData(prev => ({ ...prev, expiryYear: cleaned }));
+      setCardData((prev) => ({ ...prev, expiryYear: cleaned }));
     }
   };
 
@@ -153,15 +193,27 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
     const value = e.target.value.replace(/\D/g, '');
     const maxLength = cardData.brand === 'amex' ? 4 : 3;
     if (value.length <= maxLength) {
-      setCardData(prev => ({ ...prev, cvv: value }));
+      setCardData((prev) => ({ ...prev, cvv: value }));
     }
   };
 
   const validateCardData = () => {
+    const showToast = (message) => {
+      setValidationToast({ show: true, message });
+      setTimeout(() => {
+        setValidationToast({ show: false, message: '' });
+      }, 4000);
+    };
+
+    if (!isAppointmentPayment && !acceptedTerms) {
+      showToast('Você precisa aceitar os termos de contratação');
+      return false;
+    }
+
     if (paymentMethod === 'credit' || paymentMethod === 'debit') {
       if (cardData.savedCardId) {
         if (!cardData.cvv || cardData.cvv.length < 3) {
-          alert('CVV é obrigatório');
+          showToast('CVV é obrigatório');
           return false;
         }
         return true;
@@ -169,17 +221,17 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
 
       const cardNumber = cardData.number.replace(/\s/g, '');
       if (cardNumber.length < 13 || cardNumber.length > 19) {
-        alert('Número do cartão inválido');
+        showToast('Número do cartão inválido');
         return false;
       }
 
       if (!cardData.holderName.trim()) {
-        alert('Nome do titular é obrigatório');
+        showToast('Nome do titular é obrigatório');
         return false;
       }
 
       if (!cardData.expiryMonth || !cardData.expiryYear) {
-        alert('Data de validade é obrigatória');
+        showToast('Data de validade é obrigatória');
         return false;
       }
 
@@ -189,12 +241,12 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
       const currentMonth = new Date().getMonth() + 1;
 
       if (year < currentYear || (year === currentYear && month < currentMonth)) {
-        alert('Cartão expirado');
+        showToast('Cartão expirado');
         return false;
       }
 
       if (!cardData.cvv || cardData.cvv.length < 3) {
-        alert('CVV inválido');
+        showToast('CVV inválido');
         return false;
       }
     }
@@ -213,13 +265,46 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
     }
 
     setProcessing(true);
+    setShowErrorToast(false);
+    setErrorMessage('');
 
     try {
+      await new Promise(resolve => setTimeout(resolve, 7000));
+
+
       const finalAmount = getFinalPrice();
       const paymentMethodString = paymentMethod === 'credit' ? 'credito' : paymentMethod === 'debit' ? 'debito' : 'pix';
 
       if (isAppointmentPayment) {
-        if (paymentId) {
+        if (selectedPlan.needsCreation && selectedPlan.appointmentData && selectedPlan.paymentData) {
+          const appointmentResponse = await fetch('http://localhost:3000/appointments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(selectedPlan.appointmentData)
+          });
+
+          if (!appointmentResponse.ok) {
+            throw new Error('Erro ao criar agendamento');
+          }
+
+          const createdAppointment = await appointmentResponse.json();
+
+          const paymentData = {
+            ...selectedPlan.paymentData,
+            appointmentId: createdAppointment.id,
+            status: 'paid',
+            paymentMethod: paymentMethodString,
+            paidAt: new Date().toISOString(),
+            amount: finalAmount,
+            cardData: paymentMethod === 'credit' || paymentMethod === 'debit' ? {
+              brand: cardData.brand,
+              lastDigits: cardData.savedCardId ? cardData.number.slice(-4) : cardData.number.replace(/\s/g, '').slice(-4),
+              holderName: cardData.holderName
+            } : undefined
+          };
+
+          await criarPagamentoAgendamento(paymentData);
+        } else if (paymentId) {
           await atualizarPagamentoAgendamento(paymentId, {
             status: 'paid',
             paymentMethod: paymentMethodString,
@@ -252,10 +337,7 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
 
         onSuccess && onSuccess(paymentMethodString);
       } else {
-        const transactionId = `TRX-${Date.now()}-${Math.random()
-          .toString(36)
-          .substr(2, 7)
-          .toUpperCase()}`;
+        const transactionId = `TRX-${Date.now()}-${Math.random().toString(36).substr(2, 7).toUpperCase()}`;
 
         const paymentData = {
           userId: currentUser.id,
@@ -273,9 +355,7 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
             holderName: cardData.holderName
           } : undefined,
           installments: paymentMethod === 'credit' ? installments : 1,
-          installmentAmount: (
-            finalAmount / (paymentMethod === 'credit' ? installments : 1)
-          ).toFixed(2)
+          installmentAmount: (finalAmount / (paymentMethod === 'credit' ? installments : 1)).toFixed(2)
         };
 
         await criarPagamentoAgendamento(paymentData);
@@ -332,10 +412,23 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
       setSaveCardOption(false);
     } catch (error) {
       console.error('Erro no pagamento:', error);
-      alert('Erro ao processar pagamento. Tente novamente.');
-    } finally {
+      setErrorMessage('Pagamento não confirmado. Gostaria de selecionar outra forma de pagamento ou tentar novamente?');
+      setShowErrorToast(true);
       setProcessing(false);
+      return;
     }
+  };
+
+  const handleCloseErrorToast = () => {
+    setShowErrorToast(false);
+    setErrorMessage('');
+  };
+
+  const getButtonLabel = () => {
+    if (paymentMethod === 'pix') {
+      return 'Confirmar Pagamento';
+    }
+    return 'Finalizar Pagamento';
   };
 
   const getInstallmentText = (num) => {
@@ -354,303 +447,323 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
   return (
     <>
       <div className="payment-modal-overlay" onClick={onClose}>
-        <div className="payment-modal" onClick={(e) => e.stopPropagation()}>
-          <button className="payment-modal__close" onClick={onClose}>
-            ×
-          </button>
+        <div className="payment-modal-content" onClick={(e) => e.stopPropagation()}>
+          <button className="payment-modal-close" onClick={onClose}>×</button>
 
-          <div className="payment-modal__header">
-            <h2>Finalizar Pagamento</h2>
-            <p>
-              {isAppointmentPayment 
-                ? 'Complete o pagamento do seu agendamento' 
-                : 'Escolha a forma de pagamento para sua assinatura'}
+          <div className="payment-modal-header">
+            <h2>Pagamento</h2>
+            <p className="payment-modal-subtitle">
+              Complete os dados para finalizar sua compra
             </p>
-          </div>
 
-          <div className="payment-modal__plan-info">
-            <h3>{selectedPlan.name}</h3>
-            <div className="payment-modal__price">
-              {!isAppointmentPayment && paymentMethod === 'credit' ? (
-                <>
-                  <div className="payment-modal__price-old">
-                    <span>De:</span>
-                    <span className="old-price">R$ {selectedPlan.price.toFixed(2)}</span>
-                  </div>
-                  <div className="payment-modal__price-current">
-                    <span>Por:</span>
-                    <span className="current-price">R$ {getFinalPrice().toFixed(2)}</span>
-                  </div>
-                  <p className="payment-modal__price-note">Acréscimo de 5% no crédito</p>
-                </>
-              ) : (
-                <div className="payment-modal__price-single">
-                  <span className="current-price">R$ {getFinalPrice().toFixed(2)}</span>
+            {showErrorToast && (
+              <div className="payment-error-toast">
+                <div className="payment-error-toast__icon">⚠️</div>
+                <div className="payment-error-toast__content">
+                  <p>{errorMessage}</p>
                 </div>
-              )}
-            </div>
+                <button className="payment-error-toast__close" onClick={handleCloseErrorToast}>
+                  ×
+                </button>
+              </div>
+            )}
           </div>
 
-          <div className="payment-methods">
-            <h3 className="payment-methods__title">Forma de Pagamento</h3>
-            <div className="payment-methods__buttons">
+          <div className="payment-modal-body">
+            <div className="payment-plan-summary">
+              <h3>Plano: {selectedPlan.name}</h3>
+              <div className="payment-plan-price">
+                R$ {getFinalPrice().toFixed(2)}
+              </div>
+            </div>
+
+            <div className="payment-methods">
               {availableMethods.includes('pix') && (
                 <button
+                  type="button"
                   className={`payment-method-btn ${paymentMethod === 'pix' ? 'active' : ''}`}
                   onClick={() => setPaymentMethod('pix')}
                 >
-                  <span className="payment-icon">💳</span>
                   PIX
                 </button>
               )}
               {availableMethods.includes('credit') && (
                 <button
+                  type="button"
                   className={`payment-method-btn ${paymentMethod === 'credit' ? 'active' : ''}`}
                   onClick={() => setPaymentMethod('credit')}
                 >
-                  <span className="payment-icon">💳</span>
                   Crédito
                 </button>
               )}
               {availableMethods.includes('debit') && (
                 <button
+                  type="button"
                   className={`payment-method-btn ${paymentMethod === 'debit' ? 'active' : ''}`}
                   onClick={() => setPaymentMethod('debit')}
                 >
-                  <span className="payment-icon">💳</span>
                   Débito
                 </button>
               )}
             </div>
-          </div>
 
-          <form className="payment-form" onSubmit={handleSubmit}>
-            {paymentMethod === 'pix' && (
-              <div className="payment-form__pix">
-                {/* Timer do PIX */}
-                <div className={`pix-timer ${pixExpired ? 'pix-timer--expired' : ''}`}>
-                  <div className="pix-timer__icon">
-                    {pixExpired ? '⏱️' : '⏰'}
+            <form onSubmit={handleSubmit}>
+              {paymentMethod === 'pix' && (
+                <div className="pix-payment-section">
+                  <div className="pix-timer">
+                    Tempo restante: {pixExpired ? 'EXPIRADO' : formatTime(pixTimer)}
                   </div>
-                  <div className="pix-timer__content">
-                    {pixExpired ? (
-                      <>
-                        <span className="pix-timer__label">QR Code Expirado</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="pix-timer__label">Tempo restante para pagamento</span>
-                        <span className="pix-timer__time">{formatTime(pixTimer)}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
 
-                <div className="payment-form__pix-content">
-                  {/* QR Code */}
-                  <div className="pix-qr-section">
-                    <h4 className="pix-section-title">
-
-                      Escaneie o QR Code
-                    </h4>
-                    <div className="pix-qr-code">
-                      <div className="pix-qr-placeholder">
-                        {/* Aqui vai o QR Code real gerado pelo backend */}
-                        <div className="pix-qr-mockup">
-                          <div className="qr-corner qr-corner--tl"></div>
-                          <div className="qr-corner qr-corner--tr"></div>
-                          <div className="qr-corner qr-corner--bl"></div>
-                          <div className="qr-corner qr-corner--br"></div>
-                          <p className="qr-loading-text">Carregando QR Code...</p>
+                  {pixKey && !pixExpired && (
+                    <div className="pix-key-section">
+                      <div className="pix-qrcode">
+                        <div className="pix-qrcode-placeholder">
+                          <p>QR Code PIX</p>
                         </div>
+                      </div>
+
+                      <h4>Chave PIX</h4>
+                      <div className="pix-key-container">
+                        <input 
+                          type="text" 
+                          value={pixKey} 
+                          readOnly 
+                          className="pix-key-input" 
+                        />
+                        <button
+                          type="button"
+                          onClick={handleCopyPixKey}
+                          className={`pix-copy-btn ${pixKeyCopied ? 'copied' : ''}`}
+                        >
+                          {pixKeyCopied ? '✓ Copiado!' : 'Copiar Chave'}
+                        </button>
+                      </div>
+
+                      <div className="pix-instructions">
+                        <h4>Como pagar</h4>
+                        <ol>
+                          <li>Abra o app do seu banco</li>
+                          <li>Escaneie o QR Code ou copie a chave PIX</li>
+                          <li>Confirme o pagamento</li>
+                        </ol>
                       </div>
                     </div>
-                    <button 
-                      type="button" 
-                      className="pix-copy-btn"
-                      onClick={() => {
-                        // Aqui vai copiar o código PIX real do backend
-                        navigator.clipboard.writeText('00020126580014br.gov.bcb.pix...');
-                        alert('Código PIX copiado!');
-                      }}
-                    >
-                       Copiar código PIX
-                    </button>
-                  </div>
+                  )}
 
-                  {/* Instruções */}
-                  <div className="pix-instructions-section">
-                    <h4 className="pix-section-title">
-                      Como pagar
-                    </h4>
-                    <div className="pix-instructions">
-                      <div className="pix-step">
-                        <div className="pix-step-number">1</div>
-                        <div className="pix-step-content">
-                          <strong>Abra seu banco</strong>
-                          <p>Use o app do seu banco ou carteira digital</p>
-                        </div>
-                      </div>
-                      <div className="pix-step">
-                        <div className="pix-step-number">2</div>
-                        <div className="pix-step-content">
-                          <strong>Escolha pagar com PIX</strong>
-                          <p>Selecione a opção PIX QR Code</p>
-                        </div>
-                      </div>
-                      <div className="pix-step">
-                        <div className="pix-step-number">3</div>
-                        <div className="pix-step-content">
-                          <strong>Escaneie o código</strong>
-                          <p>Aponte a câmera para o QR Code acima</p>
-                        </div>
-                      </div>
-                      <div className="pix-step">
-                        <div className="pix-step-number">4</div>
-                        <div className="pix-step-content">
-                          <strong>Confirme o pagamento</strong>
-                          <p>Revise os dados e confirme</p>
-                        </div>
-                      </div>
+                  {pixExpired && (
+                    <div className="pix-expired">
+                      O tempo para pagamento expirou. Por favor, selecione outro método de pagamento ou feche e tente novamente.
                     </div>
-
-                    <div className="pix-info-box">
-                      <span className="info-icon">ℹ️</span>
-                      <p>O pagamento é processado na hora e você receberá a confirmação automaticamente.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {(paymentMethod === 'credit' || paymentMethod === 'debit') && (
-              <div className="payment-form__card">
-                {hasCards && (
-                  <div className="saved-cards-action">
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={() => setShowSavedCards(true)}
-                    >
-                      Usar cartão salvo
-                    </button>
-                  </div>
-                )}
-
-                <div className="form-group">
-                  <label>Número do Cartão</label>
-                  <Input
-                    type="text"
-                    value={cardData.number}
-                    onChange={handleCardNumberChange}
-                    placeholder="1234 5678 9012 3456"
-                    maxLength="19"
-                    disabled={cardData.savedCardId}
-                  />
-                  {cardData.brand !== 'unknown' && (
-                    <span className="card-brand">{cardData.brand.toUpperCase()}</span>
                   )}
                 </div>
+              )}
 
-                <div className="form-group">
-                  <label>Nome do Titular</label>
+              {(paymentMethod === 'credit' || paymentMethod === 'debit') && (
+                <div className="card-form">
+                  {hasCards && (
+                    <div className="saved-cards-section">
+                      <button
+                        type="button"
+                        className="use-saved-card-button"
+                        onClick={() => setShowSavedCards(true)}
+                      >
+                        Usar cartão salvo
+                      </button>
+                    </div>
+                  )}
+
                   <Input
-                    type="text"
-                    value={cardData.holderName}
-                    onChange={(e) =>
-                      setCardData({ ...cardData, holderName: e.target.value.toUpperCase() })
-                    }
-                    placeholder="NOME COMO NO CARTÃO"
-                    disabled={cardData.savedCardId}
+                    label="Número do Cartão"
+                    value={cardData.number}
+                    onChange={handleCardNumberChange}
+                    placeholder="0000 0000 0000 0000"
+                    maxLength={19}
+                    disabled={!!cardData.savedCardId}
                   />
-                </div>
 
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Validade</label>
-                    <div className="expiry-inputs">
+                  <Input
+                    label="Nome do Titular"
+                    value={cardData.holderName}
+                    onChange={(e) => setCardData({ ...cardData, holderName: e.target.value })}
+                    placeholder="Como está no cartão"
+                    disabled={!!cardData.savedCardId}
+                  />
+
+                  <div className="card-form-row">
+                    <div className="card-form-col">
+                      <label>Validade</label>
+                      <div className="card-expiry-inputs">
+                        <input
+                          type="text"
+                          value={cardData.expiryMonth}
+                          onChange={(e) => handleExpiryChange('expiryMonth', e.target.value)}
+                          placeholder="MM"
+                          maxLength={2}
+                          disabled={!!cardData.savedCardId}
+                        />
+                        <span>/</span>
+                        <input
+                          type="text"
+                          value={cardData.expiryYear}
+                          onChange={(e) => handleExpiryChange('expiryYear', e.target.value)}
+                          placeholder="AA"
+                          maxLength={2}
+                          disabled={!!cardData.savedCardId}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="card-form-col">
                       <Input
-                        type="text"
-                        value={cardData.expiryMonth}
-                        onChange={(e) => handleExpiryChange('expiryMonth', e.target.value)}
-                        placeholder="MM"
-                        maxLength="2"
-                        disabled={cardData.savedCardId}
-                      />
-                      <span>/</span>
-                      <Input
-                        type="text"
-                        value={cardData.expiryYear}
-                        onChange={(e) => handleExpiryChange('expiryYear', e.target.value)}
-                        placeholder="AA"
-                        maxLength="2"
-                        disabled={cardData.savedCardId}
+                        label="CVV"
+                        value={cardData.cvv}
+                        onChange={handleCvvChange}
+                        placeholder="123"
+                        maxLength={cardData.brand === 'amex' ? 4 : 3}
                       />
                     </div>
                   </div>
 
-                  <div className="form-group">
-                    <label>CVV</label>
-                    <Input
-                      type="text"
-                      value={cardData.cvv}
-                      onChange={handleCvvChange}
-                      placeholder="123"
-                      maxLength={cardData.brand === 'amex' ? '4' : '3'}
-                    />
-                  </div>
+                  {paymentMethod === 'credit' && !isAppointmentPayment && (
+                    <div className="installments-section">
+                      <label>Parcelas</label>
+                      <select
+                        value={installments}
+                        onChange={(e) => setInstallments(Number(e.target.value))}
+                        className="installments-select"
+                      >
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((num) => (
+                          <option key={num} value={num}>
+                            {getInstallmentText(num)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {!cardData.savedCardId && (
+                    <div className="save-card-option">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={saveCardOption}
+                          onChange={(e) => setSaveCardOption(e.target.checked)}
+                        />
+                        <span>Salvar cartão para próximas compras</span>
+                      </label>
+                    </div>
+                  )}
                 </div>
+              )}
 
-                {paymentMethod === 'credit' && (
-                  <div className="form-group">
-                    <label>Parcelas</label>
-                    <select
-                      value={installments}
-                      onChange={(e) => setInstallments(parseInt(e.target.value))}
-                      className="installments-select"
-                    >
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((num) => (
-                        <option key={num} value={num}>
-                          {getInstallmentText(num)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+            {!isAppointmentPayment && (
+  <div className="payment-terms-section">
+    <div className="payment-terms-box">
+      <h4>📋 Termos de Contratação</h4>
+      <p>
+        Ao contratar nosso plano de assinatura, você concorda com os termos e condições estabelecidos.
+      </p>
+      {termsDocUrl && (
+        <a
+          href={termsDocUrl}
+          download
+          className="payment-terms-download"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          📄 Baixar Contrato Completo
+        </a>
+      )}
+    </div>
 
-                {!cardData.savedCardId && (
-                  <div className="form-group">
-                    <label className="checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={saveCardOption}
-                        onChange={(e) => setSaveCardOption(e.target.checked)}
-                      />
-                      Salvar cartão para próximas compras
-                    </label>
-                  </div>
-                )}
+    <label className="payment-terms-checkbox">
+      <input
+        type="checkbox"
+        checked={acceptedTerms}
+        onChange={(e) => setAcceptedTerms(e.target.checked)}
+      />
+      <span>
+        Li e aceito os{' '}
+        {termsDocUrl ? (
+          <a
+            href={termsDocUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: '#c4a053', textDecoration: 'underline' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            termos de contratação
+          </a>
+        ) : (
+          <span style={{ color: '#c4a053' }}>termos de contratação</span>
+        )}
+      </span>
+    </label>
+  </div>
+)}
+
+              {!isAppointmentPayment && (
+                <div className="payment-recurring-info">
+                  ℹ️ Seu cartão será registrado para pagamento recorrente automático
+                </div>
+              )}
+
+              <div className="payment-modal-footer">
+                <button 
+                  type="button" 
+                  onClick={onClose} 
+                  disabled={processing}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={processing || (paymentMethod === 'pix' && pixExpired)}
+                >
+                  {processing ? 'Processando...' : getButtonLabel()}
+                </button>
               </div>
-            )}
-
-            <div className="payment-form__actions">
-              <Button type="button" variant="secondary" onClick={onClose}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={processing || (paymentMethod === 'pix' && pixExpired)}>
-                {processing ? 'Processando...' : 'Confirmar Pagamento'}
-              </Button>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
       </div>
+
+      {validationToast.show && (
+        <div className="toast-notification">
+          <div className="toast-notification__content">
+            <div className="toast-notification__icon">⚠️</div>
+            <p>{validationToast.message}</p>
+          </div>
+          <button 
+            className="toast-notification__close"
+            onClick={() => setValidationToast({ show: false, message: '' })}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {processing && (
+        <div className="processing-overlay">
+          <div className="processing-content">
+            <div className="processing-spinner-large"></div>
+            <h2>Processando Pagamento...</h2>
+            <p>Aguarde enquanto confirmamos sua transação</p>
+            <div className="processing-dots">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showSavedCards && (
         <SavedCardsModal
           isOpen={showSavedCards}
           onClose={() => setShowSavedCards(false)}
-          currentUser={currentUser}
           onSelectCard={handleSelectSavedCard}
+          userId={currentUser.id}
         />
       )}
     </>

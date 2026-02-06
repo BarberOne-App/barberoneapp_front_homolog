@@ -9,6 +9,7 @@ import "./AuthPages.css";
 export default function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [cpf, setCpf] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -20,12 +21,66 @@ export default function RegisterPage() {
 
   const ADMIN_SECRET_CODE = "ADDEV2024";
 
+  
+  const isValidEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
 
-  const formatPhone = (value) => {
-   
+  
+  const isValidCPF = (cpf) => {
+    const cleanCPF = cpf.replace(/\D/g, '');
+    
+    if (cleanCPF.length !== 11) return false;
+    
+    
+    if (/^(\d)\1{10}$/.test(cleanCPF)) return false;
+    
+    
+    let sum = 0;
+    for (let i = 0; i < 9; i++) {
+      sum += parseInt(cleanCPF.charAt(i)) * (10 - i);
+    }
+    let checkDigit = 11 - (sum % 11);
+    if (checkDigit === 10 || checkDigit === 11) checkDigit = 0;
+    if (checkDigit !== parseInt(cleanCPF.charAt(9))) return false;
+    
+    
+    sum = 0;
+    for (let i = 0; i < 10; i++) {
+      sum += parseInt(cleanCPF.charAt(i)) * (11 - i);
+    }
+    checkDigit = 11 - (sum % 11);
+    if (checkDigit === 10 || checkDigit === 11) checkDigit = 0;
+    if (checkDigit !== parseInt(cleanCPF.charAt(10))) return false;
+    
+    return true;
+  };
+
+  
+  const formatCPF = (value) => {
     const cleaned = value.replace(/\D/g, '');
     
+    if (cleaned.length <= 3) {
+      return cleaned;
+    } else if (cleaned.length <= 6) {
+      return `${cleaned.slice(0, 3)}.${cleaned.slice(3)}`;
+    } else if (cleaned.length <= 9) {
+      return `${cleaned.slice(0, 3)}.${cleaned.slice(3, 6)}.${cleaned.slice(6)}`;
+    } else {
+      return `${cleaned.slice(0, 3)}.${cleaned.slice(3, 6)}.${cleaned.slice(6, 9)}-${cleaned.slice(9, 11)}`;
+    }
+  };
+
+  const handleCpfChange = (e) => {
+    const formatted = formatCPF(e.target.value);
+    setCpf(formatted);
+  };
+
   
+  const formatPhone = (value) => {
+    const cleaned = value.replace(/\D/g, '');
+    
     if (cleaned.length <= 2) {
       return cleaned;
     } else if (cleaned.length <= 7) {
@@ -46,13 +101,29 @@ export default function RegisterPage() {
     setIsSubmitting(true);
     setMessage({ type: "", text: "" });
 
-    if (!name || !email || !phone || !password || !confirmPassword) {
+    
+    if (!name || !email || !cpf || !phone || !password || !confirmPassword) {
       setMessage({ type: "error", text: "Preencha todos os campos." });
       setIsSubmitting(false);
       return;
     }
 
-   
+    
+    if (!isValidEmail(email)) {
+      setMessage({ type: "error", text: "Digite um e-mail válido (exemplo@dominio.com)" });
+      setIsSubmitting(false);
+      return;
+    }
+
+    
+    const cleanCPF = cpf.replace(/\D/g, '');
+    if (!isValidCPF(cleanCPF)) {
+      setMessage({ type: "error", text: "CPF inválido. Verifique os dígitos digitados." });
+      setIsSubmitting(false);
+      return;
+    }
+
+    
     const phoneNumbers = phone.replace(/\D/g, '');
     if (phoneNumbers.length < 10 || phoneNumbers.length > 11) {
       setMessage({ type: "error", text: "Telefone inválido. Use o formato (85) 99999-9999" });
@@ -60,12 +131,20 @@ export default function RegisterPage() {
       return;
     }
 
+    
     if (password !== confirmPassword) {
       setMessage({ type: "error", text: "As senhas precisam ser iguais." });
       setIsSubmitting(false);
       return;
     }
 
+    if (password.length < 4) {
+      setMessage({ type: "error", text: "A senha deve ter no mínimo 4 caracteres." });
+      setIsSubmitting(false);
+      return;
+    }
+
+    
     if (isAdmin && adminSecret !== ADMIN_SECRET_CODE) {
       setMessage({ type: "error", text: "Código secreto de administrador inválido." });
       setIsSubmitting(false);
@@ -83,6 +162,7 @@ export default function RegisterPage() {
       const userData = {
         name,
         email,
+        cpf: cleanCPF,
         phone: phoneNumbers, 
         password,
         role: isAdmin ? "admin" : "client",
@@ -130,6 +210,14 @@ export default function RegisterPage() {
               placeholder="seuemail@exemplo.com"
             />
             <Input 
+              label="CPF" 
+              type="text" 
+              value={cpf} 
+              onChange={handleCpfChange}
+              placeholder="000.000.000-00"
+              maxLength="14"
+            />
+            <Input 
               label="Telefone/WhatsApp" 
               type="tel" 
               value={phone} 
@@ -152,16 +240,7 @@ export default function RegisterPage() {
               placeholder="Digite a senha novamente"
             />
 
-            <div className="admin-option">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={isAdmin}
-                  onChange={(e) => setIsAdmin(e.target.checked)}
-                />
-                <span>Cadastrar como Administrador</span>
-              </label>
-            </div>
+         
 
             {isAdmin && (
               <Input 

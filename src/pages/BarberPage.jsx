@@ -277,7 +277,7 @@ export default function BarberPage() {
     <BaseLayout>
       <section className="auth">
         <div className="auth-card auth-card--wide">
-          {/* HEADER */}
+      
           <div className="appointments-header">
             <div>
               <h1 className="auth-title">Painel do Barbeiro</h1>
@@ -291,7 +291,6 @@ export default function BarberPage() {
             </div>
           </div>
 
-          {/* TABS */}
           <div className="appointments-tabs">
             <button onClick={() => setActiveTab('appointments')} className={`tab-btn ${activeTab === 'appointments' ? 'tab-btn--active' : ''}`}>
               Agendamentos
@@ -301,7 +300,6 @@ export default function BarberPage() {
             </button>
           </div>
 
-          {/* APPOINTMENTS TAB */}
           {activeTab === 'appointments' && (
             <>
               <div className="appointments-tabs" style={{ marginTop: '1rem' }}>
@@ -399,7 +397,7 @@ export default function BarberPage() {
             </>
           )}
 
-          {/* EARNINGS TAB */}
+       
           {activeTab === 'earnings' && (
             <div className="earnings-section">
               <div className="earnings-filters">

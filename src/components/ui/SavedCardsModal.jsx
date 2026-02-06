@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { getUserCards, deleteCard, setMainCard } from '../../services/cardServices';
 import Button from './Button';
+import Toast from './Toast';
 import './SavedCardsModal.css';
 
 export default function SavedCardsModal({ isOpen, onClose, userId, onSelectCard }) {
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
   useEffect(() => {
     if (isOpen && userId) {
@@ -13,22 +15,27 @@ export default function SavedCardsModal({ isOpen, onClose, userId, onSelectCard 
     }
   }, [isOpen, userId]);
 
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+  };
+
+  const closeToast = () => {
+    setToast({ show: false, message: '', type: 'success' });
+  };
+
   const loadCards = async () => {
     try {
       setLoading(true);
-     
       const userCards = await getUserCards(userId);
-     
       setCards(userCards);
     } catch (error) {
-      
+      showToast('Erro ao carregar cartões', 'danger');
     } finally {
       setLoading(false);
     }
   };
 
   const handleSelectCard = (card) => {
-   
     onSelectCard(card);
     onClose();
   };
@@ -39,10 +46,10 @@ export default function SavedCardsModal({ isOpen, onClose, userId, onSelectCard 
       try {
         await deleteCard(cardId);
         await loadCards();
-        alert('Cartão removido com sucesso!');
+        showToast('Cartão removido com sucesso!', 'success');
       } catch (error) {
         console.error('Erro ao excluir cartão:', error);
-        alert('Erro ao excluir cartão');
+        showToast('Erro ao excluir cartão', 'danger');
       }
     }
   };
@@ -52,10 +59,10 @@ export default function SavedCardsModal({ isOpen, onClose, userId, onSelectCard 
     try {
       await setMainCard(userId, cardId);
       await loadCards();
-      alert('Cartão definido como principal!');
+      showToast('Cartão definido como principal!', 'success');
     } catch (error) {
       console.error('Erro ao definir cartão principal:', error);
-      alert('Erro ao definir cartão principal');
+      showToast('Erro ao definir cartão principal', 'danger');
     }
   };
 
@@ -88,15 +95,13 @@ export default function SavedCardsModal({ isOpen, onClose, userId, onSelectCard 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="saved-cards-modal" onClick={(e) => e.stopPropagation()}>
-      
         <div className="modal-header">
-          <h2> Cartões Salvos</h2>
+          <h2>Cartões Salvos</h2>
           <button className="modal-close" onClick={onClose} aria-label="Fechar">
             ×
           </button>
         </div>
 
-     
         <div className="modal-body">
           {loading ? (
             <div className="loading-text">
@@ -122,12 +127,8 @@ export default function SavedCardsModal({ isOpen, onClose, userId, onSelectCard 
                       <span className="card-icon">{getCardBrandIcon(card.brand)}</span>
                       <span className="card-brand">{getCardBrandName(card.brand)}</span>
                     </div>
-                    <div className="saved-card__number">
-                      •••• •••• •••• {card.lastDigits}
-                    </div>
-                    <div className="saved-card__holder">
-                      {card.holderName}
-                    </div>
+                    <div className="saved-card__number">•••• {card.lastDigits}</div>
+                    <div className="saved-card__holder">{card.holderName}</div>
                     <div className="saved-card__expiry">
                       Validade: {card.expiryMonth}/{card.expiryYear}
                     </div>
@@ -157,13 +158,20 @@ export default function SavedCardsModal({ isOpen, onClose, userId, onSelectCard 
           )}
         </div>
 
-   
         <div className="modal-footer">
           <Button variant="secondary" onClick={onClose}>
             Fechar
           </Button>
         </div>
       </div>
+
+      {toast.show && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={closeToast}
+        />
+      )}
     </div>
   );
 }

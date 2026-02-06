@@ -25,7 +25,6 @@ export default function Header() {
   useEffect(() => {
     const user = getSession();
     setCurrentUser(user);
-    
     if (user) {
       verificarAssinaturaAtiva(user.id);
     }
@@ -36,6 +35,7 @@ export default function Header() {
       const assinatura = await buscarAssinaturaAtiva(userId);
       setActiveSubscription(assinatura);
     } catch (error) {
+
     }
   };
 
@@ -45,18 +45,31 @@ export default function Header() {
     window.location.href = '/';
   };
 
-  const handleNavClick = (e, href) => {
-    if (href.startsWith('#')) {
-      e.preventDefault();
+const handleNavClick = (e, href) => {
+  e.preventDefault();
+  setMenuOpen(false);
+  
+  if (href.startsWith('#')) {
+    const isHomePage = window.location.pathname === '/';
+    
+    if (isHomePage) {
       const element = document.querySelector(href);
       if (element) {
         element.scrollIntoView({ behavior: 'smooth' });
-      } else {
-        window.location.href = '/' + href;
       }
+    } else {
+      navigate('/');
+      setTimeout(() => {
+        const element = document.querySelector(href);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
     }
-    setMenuOpen(false);
-  };
+  } else {
+    window.location.href = '/' + href;
+  }
+};
 
   const handleLogout = () => {
     logout();
@@ -74,9 +87,9 @@ export default function Header() {
   };
 
   const handleGoToAdmin = () => {
-    setProfileMenuOpen(false);
-    navigate('/admin');
-  };
+  setProfileMenuOpen(false);
+  navigate('/admin');
+};
 
   const handleManageSubscription = () => {
     setProfileMenuOpen(false);
@@ -84,7 +97,11 @@ export default function Header() {
     setShowManageModal(true);
   };
 
+  
   const isAdmin = currentUser?.role === 'admin' || currentUser?.isAdmin === true;
+  const isReceptionist = currentUser?.role === 'receptionist';
+  const isBarber = currentUser?.role === 'barber';
+  const hasAdminAccess = isAdmin || isReceptionist || currentUser?.permissions?.viewAdmin;
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -96,11 +113,10 @@ export default function Header() {
 
     if (menuOpen || profileMenuOpen) {
       document.addEventListener('click', handleClickOutside);
+      return () => {
+        document.removeEventListener('click', handleClickOutside);
+      };
     }
-
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
   }, [menuOpen, profileMenuOpen]);
 
   useEffect(() => {
@@ -111,11 +127,10 @@ export default function Header() {
 
     if (menuOpen || profileMenuOpen) {
       window.addEventListener('scroll', handleScroll);
+      return () => {
+        window.removeEventListener('scroll', handleScroll);
+      };
     }
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
   }, [menuOpen, profileMenuOpen]);
 
   return (
@@ -134,7 +149,7 @@ export default function Header() {
         </button>
 
         <nav className={`header__nav ${menuOpen ? 'header__nav--open' : ''}`}>
-          {navItems.map(item => (
+          {navItems.map((item) => (
             <a
               key={item.href}
               href={item.href}
@@ -144,15 +159,14 @@ export default function Header() {
               {item.label}
             </a>
           ))}
-
-        <a
-  href="https://wa.me/5585999999999"
-  target="_blank"
-  rel="noopener noreferrer"
-  className="header__contato"
->
-  <FaWhatsapp /> Fale conosco 
-</a>
+          <a
+            href="https://wa.me/5585999999999"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="header__contato"
+          >
+            <FaWhatsapp /> Fale conosco
+          </a>
 
           {currentUser ? (
             <div className="header__profile">
@@ -163,40 +177,39 @@ export default function Header() {
               >
                 <div className="header__profile-avatar">
                   {currentUser.name.charAt(0).toUpperCase()}
-                  <span className="header__profile-status"></span>
                 </div>
+                <span className="header__profile-status">▼</span>
               </button>
 
               {profileMenuOpen && (
                 <div className="header__profile-menu">
                   <div className="header__profile-info">
                     <strong>{currentUser.name}</strong>
-                    {isAdmin && (
-                      <span className="header__admin-badge">ADMIN</span>
-                    )}
+                    {isAdmin && <span className="header__admin-badge">ADMIN</span>}
+                    {isReceptionist && <span className="header__admin-badge">RECEPCIONISTA</span>}
+                    {isBarber && <span className="header__admin-badge">BARBEIRO</span>}
                     {activeSubscription && (
                       <span className="header__subscription-badge">
-                        ⭐ Plano {activeSubscription.planName}
+                        ✓ Plano {activeSubscription.planName}
                       </span>
                     )}
                   </div>
                   <hr />
-                  <button onClick={handleGoToAppointments}>
-                    📅 Meus Agendamentos
-                  </button>
+                  <button onClick={handleGoToAppointments}>Meus Agendamentos</button>
                   {activeSubscription && (
-                    <button onClick={handleManageSubscription} className="header__subscription-btn">
-                      💳 Gerenciar Plano
+                    <button
+                      onClick={handleManageSubscription}
+                      className="header__subscription-btn"
+                    >
+                      Gerenciar Plano
                     </button>
                   )}
-                  {isAdmin && (
-                    <button onClick={handleGoToAdmin}>
-                      ⚙️ Painel Admin
-                    </button>
+                  {hasAdminAccess && (
+                    <button onClick={handleGoToAdmin}>Painel Admin</button>
                   )}
                   <hr />
                   <button onClick={handleLogout} className="header__logout-btn">
-                    🚪 Sair
+                    Sair
                   </button>
                 </div>
               )}
@@ -210,12 +223,12 @@ export default function Header() {
       </header>
 
       {showManageModal && activeSubscription && (
-        <ManageSubscriptionModal
-          isOpen={showManageModal}
-          onClose={() => setShowManageModal(false)}
-          subscription={activeSubscription}
-        />
-      )}
+  <ManageSubscriptionModal
+    isOpen={showManageModal}
+    onClose={() => setShowManageModal(false)}  // <-- CORRIGIDO AQUI
+    subscription={activeSubscription}
+  />
+)}
     </>
   );
 }

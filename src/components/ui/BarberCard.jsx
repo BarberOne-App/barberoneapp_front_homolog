@@ -1,28 +1,30 @@
-import { useState, useEffect, useRef } from "react";
-import Button from "./Button.jsx";
-import "./BarberCard.css";
+import { useState, useEffect, useRef } from 'react';
+import Button from './Button.jsx';
+import './BarberCard.css';
 
-export default function BarberCard({
-  barber,
-  services,
-  availableTimes,
-  allTimes,
-  bookedSlots = [],
-  onBook,
+export default function BarberCard({ 
+  barber, 
+  services, 
+  selectedDate,
+  barberId,
+  getBookedSlots,
+  generateTimes,
+  getAvailableTimes,
+  calculateTotalDuration,
+  onBook, 
   showToast,
   preSelectedService,
 }) {
   const [selectedServices, setSelectedServices] = useState([]);
-  const [selectedTime, setSelectedTime] = useState("");
-  const hasPreSelected = useRef(false); 
-
+  const [selectedTime, setSelectedTime] = useState('');
+  const hasPreSelected = useRef(false);
 
   useEffect(() => {
     if (preSelectedService && !hasPreSelected.current) {
-      const serviceExists = services.find(s => s.id === preSelectedService.id);
+      const serviceExists = services.find((s) => s.id === preSelectedService.id);
       if (serviceExists) {
         setSelectedServices([preSelectedService]);
-        hasPreSelected.current = true; 
+        hasPreSelected.current = true;
       }
     }
   }, [preSelectedService, services]);
@@ -33,43 +35,24 @@ export default function BarberCard({
       if (exists) {
         return prev.filter((s) => s.id !== service.id);
       }
-
       return [...prev, service];
     });
-
-    setSelectedTime("");
+  
+    setSelectedTime('');
   };
 
   const getTotalDuration = () => {
     if (selectedServices.length === 0) return 0;
-    return selectedServices.reduce((sum, s) => {
-      if (s.duration) return sum + s.duration;
-      return sum + 30;
-    }, 0);
+    return calculateTotalDuration(selectedServices);
   };
 
   const totalDuration = getTotalDuration();
-  const slotsNeeded = totalDuration / 30;
+  const slotsNeeded = Math.ceil(totalDuration / 30);
 
-  const getDisplayTimes = () => {
-    if (!totalDuration) return [];
-    const base = availableTimes;
 
-    if (totalDuration === 30) {
-      return base;
-    }
-
-    if (totalDuration === 60) {
-      return base.filter((time) => {
-        const [, minute] = time.split(":").map(Number);
-        return minute === 0;
-      });
-    }
-
-    return base;
-  };
-
-  const displayTimes = getDisplayTimes();
+  const bookedSlots = selectedServices.length > 0 ? getBookedSlots(barberId, selectedDate) : [];
+  const availableTimes = selectedServices.length > 0 ? getAvailableTimes(barberId, selectedDate, totalDuration) : [];
+  const allTimes = selectedServices.length > 0 ? generateTimes(totalDuration) : [];
 
   const isTimeAvailableForSelection = (time) => {
     if (!slotsNeeded) return false;
@@ -77,6 +60,7 @@ export default function BarberCard({
     const indexInAll = allTimes.indexOf(time);
     if (indexInAll === -1) return false;
 
+  
     const slots = [];
     for (let i = 0; i < slotsNeeded; i++) {
       const t = allTimes[indexInAll + i];
@@ -84,8 +68,10 @@ export default function BarberCard({
       slots.push(t);
     }
 
+
     const hasConflict = slots.some((t) => bookedSlots.includes(t));
     if (hasConflict) return false;
+
 
     if (!availableTimes.includes(time)) return false;
 
@@ -94,16 +80,11 @@ export default function BarberCard({
 
   const handleConfirm = () => {
     if (selectedServices.length === 0) {
-      showToast
-        ? showToast("Selecione pelo menos um serviço.", "danger")
-        : alert("Selecione pelo menos um serviço.");
+      showToast ? showToast('Selecione pelo menos um serviço.', 'danger') : alert('Selecione pelo menos um serviço.');
       return;
     }
-
     if (!selectedTime) {
-      showToast
-        ? showToast("Selecione um horário.", "danger")
-        : alert("Selecione um horário.");
+      showToast ? showToast('Selecione um horário.', 'danger') : alert('Selecione um horário.');
       return;
     }
 
@@ -115,31 +96,21 @@ export default function BarberCard({
     });
 
     setSelectedServices([]);
-    setSelectedTime("");
+    setSelectedTime('');
     hasPreSelected.current = false;
   };
 
   const parsePrice = (price) => {
     if (!price) return 0;
-    return Number(
-      price.replace("R$", "").replace(".", "").replace(",", ".").trim()
-    );
+    return Number(price.replace(/R\$/g, '').replace(/\./g, '').replace(/,/g, '.').trim());
   };
 
-  const totalPrice = selectedServices.reduce(
-    (sum, s) => sum + parsePrice(s.price),
-    0
-  );
+  const totalPrice = selectedServices.reduce((sum, s) => sum + parsePrice(s.price), 0);
 
   return (
     <div className="barber-card">
-      
       <div className="barber-card__header">
-        <img
-          src={barber.photo}
-          alt={barber.name}
-          className="barber-card__avatar"
-        />
+        <img src={barber.photo} alt={barber.name} className="barber-card__avatar" />
         <div className="barber-card__info">
           <h3 className="barber-card__name">{barber.name}</h3>
           <p className="barber-card__specialty">{barber.specialty}</p>
@@ -154,7 +125,7 @@ export default function BarberCard({
             return (
               <div
                 key={service.id}
-                className={`service-box ${isSelected ? "service-box--selected" : ""}`}
+                className={`service-box ${isSelected ? 'service-box--selected' : ''}`}
                 onClick={() => toggleService(service)}
                 style={{ cursor: 'pointer' }}
               >
@@ -165,44 +136,38 @@ export default function BarberCard({
             );
           })}
         </div>
-      </div>
 
-      {selectedServices.length > 0 && (
-        <div className="total-price">
-          <strong>Total:</strong> R$ {totalPrice.toFixed(2)} ({totalDuration} min)
-        </div>
-      )}
+        {selectedServices.length > 0 && (
+          <div className="total-price">
+            <strong>Total:</strong> R$ {totalPrice.toFixed(2)} ({totalDuration} min)
+          </div>
+        )}
+      </div>
 
       <div className="barber-card__times">
         <h4>Horários Disponíveis</h4>
-        
-        {selectedServices.length === 0 && (
+
+        {selectedServices.length === 0 ? (
           <p style={{ color: '#a8a8a8', textAlign: 'center', padding: '1rem' }}>
             Selecione um serviço para ver os horários disponíveis.
           </p>
-        )}
-
-        {selectedServices.length > 0 && displayTimes.length === 0 && (
+        ) : availableTimes.length === 0 ? (
           <p style={{ color: '#ff9800', textAlign: 'center', padding: '1rem' }}>
             Sem horários disponíveis para este serviço.
           </p>
-        )}
-
-        {selectedServices.length > 0 && displayTimes.length > 0 && (
+        ) : (
           <div className="times-grid">
-            {displayTimes.map((time) => {
+            {availableTimes.map((time) => {
               const isAvailable = isTimeAvailableForSelection(time);
               return (
                 <button
                   key={time}
-                  className={`time-box ${
-                    selectedTime === time ? "time-box--selected" : ""
-                  }`}
+                  className={`time-box ${selectedTime === time ? 'time-box--selected' : ''}`}
                   onClick={() => isAvailable && setSelectedTime(time)}
                   disabled={!isAvailable}
                   style={{
                     opacity: isAvailable ? 1 : 0.5,
-                    cursor: isAvailable ? 'pointer' : 'not-allowed'
+                    cursor: isAvailable ? 'pointer' : 'not-allowed',
                   }}
                 >
                   {time}

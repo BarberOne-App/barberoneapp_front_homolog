@@ -10,7 +10,7 @@
   backdrop-filter: blur(4px);
 }
 
-/* Payment Choice Modal */
+
 .payment-choice-modal {
   position: relative;
   background: #1a1a1a;
@@ -24,7 +24,7 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 
-/* Close Button */
+
 .modal-close-btn {
   position: absolute;
   top: 1rem;
@@ -47,7 +47,7 @@
   color: #d4af37;
 }
 
-/* Header */
+
 .payment-choice-modal h2 {
   color: #d4af37;
   font-size: 1.6rem;
@@ -57,7 +57,7 @@
   padding-right: 2rem;
 }
 
-/* Purchase Summary */
+
 .purchase-summary {
   background: #252525;
   border-radius: 12px;
@@ -131,7 +131,7 @@
   border: 1px solid rgba(76, 175, 80, 0.3);
 }
 
-/* Payment Choices */
+
 .payment-choices {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -204,7 +204,7 @@
   color: #1a1a1a;
 }
 
-/* Subscription Active Message */
+
 .subscription-active-message {
   text-align: center;
   padding: 2rem 1rem;
@@ -281,7 +281,7 @@
   box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
 }
 
-/* Responsive */
+
 @media (max-width: 768px) {
   .payment-choice-modal {
     padding: 1.5rem;

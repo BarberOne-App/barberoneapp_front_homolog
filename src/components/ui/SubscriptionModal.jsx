@@ -1,84 +1,58 @@
 import { X, Check } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import PaymentModal from './PaymentModal.jsx';
+import Toast from './Toast.jsx';
 import './SubscriptionModal.css';
 
 export default function SubscriptionModal({ isOpen, onClose, currentUser }) {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [plans, setPlans] = useState([]);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  useEffect(() => {
+    const loadPlans = async () => {
+      try {
+        const response = await fetch('http://localhost:3000/subscriptionPlans');
+        const data = await response.json();
+        setPlans(data);
+      } catch (error) {
+        console.error('Erro ao carregar planos:', error);
+      }
+    };
+
+    if (isOpen) {
+      loadPlans();
+    }
+  }, [isOpen]);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+  };
+
+  const closeToast = () => {
+    setToast({ show: false, message: '', type: 'success' });
+  };
 
   if (!isOpen) return null;
 
-  const plans = [
-    {
-      id: 'basic',
-      name: 'Básico',
-      price: 89.90,
-      priceMonth: '/mês',
-      popular: false,
-      color: '#6b7280',
-      benefits: [
-        '2 cortes por mês',
-        '10% de desconto em produtos',
-        'Agendamento prioritário',
-        'Suporte por WhatsApp',
-      ],
-    },
-    {
-      id: 'premium',
-      name: 'Premium',
-      price: 149.90,
-      priceMonth: '/mês',
-      popular: true,
-      color: '#ff7a1a',
-      benefits: [
-        '4 cortes por mês',
-        '1 barba grátis por mês',
-        '20% de desconto em produtos',
-        'Agendamento prioritário',
-        'Acesso a eventos exclusivos',
-        'Suporte VIP 24/7',
-      ],
-    },
-    {
-      id: 'vip',
-      name: 'VIP Gold',
-      price: 249.90,
-      priceMonth: '/mês',
-      popular: false,
-      color: '#d4af37',
-      benefits: [
-        'Cortes ilimitados',
-        '2 barbas grátis por mês',
-        '1 tratamento capilar/mês',
-        '30% de desconto em produtos',
-        'Agendamento prioritário',
-        'Bebidas premium inclusas',
-        'Acesso a eventos exclusivos',
-        'Suporte VIP 24/7',
-        'Presente de aniversário',
-      ],
-    },
-  ];
-
   const handleSelectPlan = (plan) => {
     if (!currentUser) {
-      alert('Por favor, faça login para assinar um plano.');
+      showToast('Por favor, faça login para assinar um plano.', 'danger');
       return;
     }
 
     const planWithRecurring = {
       ...plan,
       isRecurring: true,
-      autoRenewal: true
+      autoRenewal: true,
     };
-    
     setSelectedPlan(planWithRecurring);
     setShowPaymentModal(true);
   };
 
   const handlePaymentSuccess = (subscription) => {
-    alert(`Assinatura realizada com sucesso! Bem-vindo ao plano ${selectedPlan.name}`);
+    showToast(`Assinatura realizada com sucesso! Bem-vindo ao plano ${selectedPlan.name}`, 'success');
     setShowPaymentModal(false);
     setSelectedPlan(null);
     onClose();
@@ -108,10 +82,18 @@ export default function SubscriptionModal({ isOpen, onClose, currentUser }) {
             {plans.map((plan) => (
               <div
                 key={plan.id}
-                className={`subscription-modal__plan ${plan.popular ? 'subscription-modal__plan--popular' : ''}`}
+                className={`subscription-modal__plan ${
+                  plan.recommended ? 'subscription-modal__plan--popular' : ''
+                }`}
+                style={{ borderColor: plan.color }}
               >
-                {plan.popular && (
-                  <div className="subscription-modal__badge">MAIS POPULAR</div>
+                {plan.recommended && (
+                  <div
+                    className="subscription-modal__badge"
+                    style={{ backgroundColor: plan.color }}
+                  >
+                    Mais Popular
+                  </div>
                 )}
 
                 <h3 className="subscription-modal__plan-name">{plan.name}</h3>
@@ -121,16 +103,23 @@ export default function SubscriptionModal({ isOpen, onClose, currentUser }) {
                   <span className="subscription-modal__amount">
                     {plan.price.toFixed(2).replace('.', ',')}
                   </span>
-                  <span className="subscription-modal__period">{plan.priceMonth}</span>
+                  <span className="subscription-modal__period">/mês</span>
                 </div>
 
                 <ul className="subscription-modal__benefits">
-                  {plan.benefits.map((benefit, index) => (
-                    <li key={index} className="subscription-modal__benefit">
+                  {plan.features && plan.features.length > 0 ? (
+                    plan.features.map((benefit, index) => (
+                      <li key={index} className="subscription-modal__benefit">
+                        <Check size={18} />
+                        <span>{benefit}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="subscription-modal__benefit" style={{ opacity: 0.5 }}>
                       <Check size={18} />
-                      <span>{benefit}</span>
+                      <span>Nenhum benefício cadastrado</span>
                     </li>
-                  ))}
+                  )}
                 </ul>
 
                 <button
@@ -144,13 +133,16 @@ export default function SubscriptionModal({ isOpen, onClose, currentUser }) {
             ))}
           </div>
 
-          <p className="subscription-modal__footer">
-            Cobrança recorrente automática • Cancele quando quiser • Sem taxas de cancelamento
-          </p>
+          <div className="subscription-modal__footer">
+            <p>
+              ✓ Cobrança recorrente automática • ✓ Cancele quando quiser • ✓ Sem taxas de
+              cancelamento
+            </p>
+          </div>
         </div>
       </div>
 
-      {showPaymentModal && selectedPlan && currentUser && (
+      {showPaymentModal && selectedPlan && (
         <PaymentModal
           isOpen={showPaymentModal}
           onClose={handleClosePayment}
@@ -158,6 +150,14 @@ export default function SubscriptionModal({ isOpen, onClose, currentUser }) {
           currentUser={currentUser}
           onSuccess={handlePaymentSuccess}
           isAppointmentPayment={false}
+        />
+      )}
+
+      {toast.show && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={closeToast}
         />
       )}
     </>

@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import api from '../services/api.js';
 import BaseLayout from '../components/layout/BaseLayout.jsx';
 import DatePicker from '../components/ui/DatePicker.jsx';
 import BarberCard from '../components/ui/BarberCard.jsx';
@@ -30,7 +31,6 @@ export default function AppointmentsPage() {
   const [appointmentPayments, setAppointmentPayments] = useState({});
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-  
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedAppointmentForPayment, setSelectedAppointmentForPayment] = useState(null);
   const [showPaymentChoiceModal, setShowPaymentChoiceModal] = useState(false);
@@ -43,62 +43,220 @@ export default function AppointmentsPage() {
   const [appointmentToDelete, setAppointmentToDelete] = useState(null);
   const [userSubscriptions, setUserSubscriptions] = useState([]);
   const [appointmentFilter, setAppointmentFilter] = useState('current');
-  
-  // Novo estado para serviço pré-selecionado
   const [preSelectedService, setPreSelectedService] = useState(null);
+  const [bookingInProgress, setBookingInProgress] = useState(false);
+  const [isBarberLocked, setIsBarberLocked] = useState(false);
+  const [lockedBarberId, setLockedBarberId] = useState(null);
+  const [lockedBarberName, setLockedBarberName] = useState(null);
+  const [showConflictModal, setShowConflictModal] = useState(false);
+  const [existingAppointment, setExistingAppointment] = useState(null);
+  const [isRescheduling, setIsRescheduling] = useState(false);
+
+  const hasLoadedOnce = useRef(false);
+  const paymentsCache = useRef({});
+  const isFetchingPayments = useRef(false);
+
+  const clearPaymentCache = useCallback((appointmentId) => {
+    if (appointmentId) {
+      delete paymentsCache.current[appointmentId];
+    }
+  }, []);
+
+  const clearAllPaymentsCache = useCallback(() => {
+    paymentsCache.current = {};
+  }, []);
+
+  const checkExistingAppointmentOnDate = useCallback(
+    (date) => {
+      if (!date || !currentUser?.id) return null;
+      const dateStr = date.toLocaleDateString('en-CA');
+      const existingApt = appointments.find(
+        (apt) => apt.clientId === currentUser.id && apt.date === dateStr
+      );
+      return existingApt || null;
+    },
+    [appointments, currentUser?.id]
+  );
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.isAdmin === true;
 
   const hasActiveSubscription = useMemo(() => {
-    return userSubscriptions.some(sub => 
-      sub.userId === currentUser?.id && sub.status === 'active'
+    return userSubscriptions.some(
+      (sub) => sub.userId === currentUser?.id && sub.status === 'active'
     );
   }, [userSubscriptions, currentUser?.id]);
 
-  // Processar serviço pré-selecionado da navegação
   useEffect(() => {
     if (location.state?.preSelectedService) {
       const preSelected = location.state.preSelectedService;
       setPreSelectedService(preSelected);
-      
-      // Limpa o estado da navegação
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
 
+  const activeUserSubscription = useMemo(() => {
+    if (!currentUser || !userSubscriptions || userSubscriptions.length === 0) return null;
+    return (
+      userSubscriptions.find((s) => s.userId === currentUser.id && s.status === 'active') || null
+    );
+  }, [currentUser, userSubscriptions]);
+
+  useEffect(() => {
+    if (!userSubscriptions.length || !hasLoadedOnce.current) return;
+    hasLoadedOnce.current = true;
+
+    if (!activeUserSubscription) {
+      setIsBarberLocked(false);
+      setLockedBarberId(null);
+      setLockedBarberName(null);
+      return;
+    }
+
+    if (!activeUserSubscription.monthlyBarberId || !activeUserSubscription.monthlyBarberSetDate) {
+      setIsBarberLocked(false);
+      setLockedBarberId(null);
+      setLockedBarberName(null);
+      return;
+    }
+
+    const setDate = new Date(activeUserSubscription.monthlyBarberSetDate);
+    const currentDate = new Date();
+    const isSameMonth =
+      setDate.getMonth() === currentDate.getMonth() &&
+      setDate.getFullYear() === currentDate.getFullYear();
+
+    if (isSameMonth) {
+      setIsBarberLocked(true);
+      setLockedBarberId(activeUserSubscription.monthlyBarberId);
+      setLockedBarberName(activeUserSubscription.monthlyBarberName);
+    } else {
+      setIsBarberLocked(false);
+      setLockedBarberId(null);
+      setLockedBarberName(null);
+    }
+  }, [userSubscriptions.length, activeUserSubscription]);
+
+  const setMonthlyBarber = useCallback(
+    async (barberId, barberName) => {
+      if (!activeUserSubscription) return;
+      try {
+        await api.patch(`/subscriptions/${activeUserSubscription.id}`, {
+          monthlyBarberId: barberId,
+          monthlyBarberName: barberName,
+          monthlyBarberSetDate: new Date().toISOString(),
+        });
+        setIsBarberLocked(true);
+        setLockedBarberId(barberId);
+        setLockedBarberName(barberName);
+        setToast({
+          show: true,
+          message: `${barberName} é seu barbeiro fixo este mês!`,
+          type: 'success',
+        });
+      } catch (error) {
+        setToast({
+          show: true,
+          message: 'Erro ao definir barbeiro fixo',
+          type: 'danger',
+        });
+      }
+    },
+    [activeUserSubscription]
+  );
+
   const loadData = useCallback(async () => {
     try {
-      const [barbersData, servicesData, productsData, appointmentsData, subscriptionsData] = await Promise.all([
-        getBarbers(),
-        getAllServices(),
-        fetch('http://localhost:3000/products').then(res => res.json()),
-        getAppointments(),
-        fetch('http://localhost:3000/subscriptions').then(res => res.json())
-      ]);
+      const [barbersData, servicesData, productsData, appointmentsData, subscriptionsData] =
+        await Promise.all([
+          getBarbers(),
+          getAllServices(),
+          fetch('http://localhost:3000/products').then((res) => res.json()),
+          getAppointments(),
+          fetch('http://localhost:3000/subscriptions').then((res) => res.json()),
+        ]);
 
-      setBarbers(barbersData);
+      const usersResponse = await fetch('http://localhost:3000/users');
+      const allUsers = await usersResponse.json();
+
+      const validBarbers = barbersData.filter((barber) => {
+        if (!barber.userId) return true;
+        const user = allUsers.find((u) => u.id === barber.userId);
+        return user && user.role === 'barber';
+      });
+
+      setBarbers(validBarbers);
       setServices(servicesData);
       setProducts(productsData);
       setAppointments(appointmentsData);
       setUserSubscriptions(subscriptionsData);
 
-      const userAppointments = appointmentsData.filter(apt => apt.clientId === currentUser?.id);
-      const paymentsMap = {};
-      
-      for (const apt of userAppointments) {
-        const payment = await buscarPagamentoAgendamento(apt.id);
-        if (payment) {
-          paymentsMap[apt.id] = payment;
+      if (!isFetchingPayments.current) {
+        isFetchingPayments.current = true;
+
+        const userAppointments = appointmentsData.filter(
+          (apt) => apt.clientId === currentUser?.id
+        );
+
+        const paymentsMap = { ...paymentsCache.current };
+
+        for (const apt of userAppointments) {
+          if (!paymentsMap[apt.id]) {
+            try {
+              const payment = await buscarPagamentoAgendamento(apt.id);
+              if (payment) {
+                paymentsMap[apt.id] = payment;
+                paymentsCache.current[apt.id] = payment;
+              }
+            } catch (error) {
+              console.error(`Erro ao buscar pagamento do agendamento ${apt.id}:`, error);
+            }
+          }
         }
+
+        setAppointmentPayments(paymentsMap);
+        isFetchingPayments.current = false;
       }
-      
-      setAppointmentPayments(paymentsMap);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
+      isFetchingPayments.current = false;
     } finally {
       setLoading(false);
     }
   }, [currentUser?.id]);
+
+  const handleUpdateStock = useCallback(async (productId, quantity) => {
+    try {
+    
+      const response = await fetch(`http://localhost:3000/products/${productId}`);
+      const product = await response.json();
+      
+      
+      const newStock = Math.max(0, product.stock - quantity);
+      
+      
+      await fetch(`http://localhost:3000/products/${productId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ stock: newStock }),
+      });
+      
+      
+      setProducts(prev => 
+        prev.map(p => 
+          p.id === productId 
+            ? { ...p, stock: newStock }
+            : p
+        )
+      );
+      
+      return true;
+    } catch (error) {
+      console.error('Erro ao atualizar estoque:', error);
+      return false;
+    }
+  }, []);
 
   useEffect(() => {
     if (!currentUser) {
@@ -120,104 +278,113 @@ export default function AppointmentsPage() {
   };
 
   const handleSelectDate = (date) => {
+    const existing = checkExistingAppointmentOnDate(date);
     setSelectedDate(date);
+
+    if (existing && !isRescheduling) {
+      setExistingAppointment(existing);
+      setShowConflictModal(true);
+    }
   };
 
-  const generateTimes = () => {
+  const generateTimes = useCallback((intervalMinutes = 30) => {
     const times = [];
     let hour = 8;
     let minute = 0;
 
-    while (hour < 19) {
+    while (hour < 20 || (hour === 20 && minute === 0)) {
       const h = String(hour).padStart(2, '0');
       const m = String(minute).padStart(2, '0');
       times.push(`${h}:${m}`);
 
-      minute += 30;
+      minute += intervalMinutes;
       if (minute >= 60) {
-        minute = 0;
-        hour += 1;
+        hour += Math.floor(minute / 60);
+        minute = minute % 60;
       }
     }
 
     return times;
-  };
+  }, []);
 
-  const getBookedSlots = useCallback((barberId, date) => {
-    if (!date) return [];
-    
-    const dateStr = date.toLocaleDateString('en-CA');
-    
-    return appointments
-      .filter(apt => apt.barberId === barberId && apt.date === dateStr)
-      .flatMap(apt => {
-        let totalDuration = 30;
-        
-        if (Array.isArray(apt.services) && apt.services.length > 0) {
-          totalDuration = apt.services.reduce((sum, s) => {
-            if (s.duration) return sum + s.duration;
-            if (typeof s.name === 'string' && 
-                (s.name.toLowerCase().includes('corte') || s.name.toLowerCase().includes('barba'))) {
-              return sum + 60;
-            }
-            return sum + 30;
-          }, 0);
-        }
+  const calculateTotalDuration = useCallback((services) => {
+    if (!Array.isArray(services) || services.length === 0) return 30;
+    return services.reduce((total, service) => {
+      return total + (service.duration || 30);
+    }, 0);
+  }, []);
 
-        const slots = totalDuration / 30;
-        const result = [];
-        let [h, m] = apt.time.split(':').map(Number);
+  const getBookedSlots = useCallback(
+    (barberId, date) => {
+      if (!date) return [];
+      const dateStr = date.toLocaleDateString('en-CA');
 
-        for (let i = 0; i < slots; i++) {
-          const hh = String(h).padStart(2, '0');
-          const mm = String(m).padStart(2, '0');
-          result.push(`${hh}:${mm}`);
-
-          m += 30;
-          if (m >= 60) {
-            m = 0;
-            h += 1;
+      return appointments
+        .filter((apt) => apt.barberId === barberId && apt.date === dateStr)
+        .flatMap((apt) => {
+          let totalDuration = 30;
+          if (Array.isArray(apt.services) && apt.services.length > 0) {
+            totalDuration = apt.services.reduce((sum, s) => {
+              return sum + (s.duration || 30);
+            }, 0);
           }
-        }
 
-        return result;
-      });
-  }, [appointments]);
+          const slots = Math.ceil(totalDuration / 30);
+          const result = [];
+          let [h, m] = apt.time.split(':').map(Number);
 
-  const getAvailableTimes = useCallback((barberId, date) => {
-    if (!date) return [];
+          for (let i = 0; i < slots; i++) {
+            const hh = String(h).padStart(2, '0');
+            const mm = String(m).padStart(2, '0');
+            result.push(`${hh}:${mm}`);
+            m += 30;
+            if (m >= 60) {
+              m = 0;
+              h += 1;
+            }
+          }
+          return result;
+        });
+    },
+    [appointments]
+  );
 
-    const allTimes = generateTimes();
-    const dateStr = date.toLocaleDateString('en-CA');
-    const today = new Date();
-    const todayStr = today.toLocaleDateString('en-CA');
-    const isToday = dateStr === todayStr;
+  const getAvailableTimes = useCallback(
+    (barberId, date, intervalMinutes = 30) => {
+      if (!date) return [];
 
-    let currentHour = 0;
-    let currentMinute = 0;
+      const allTimes = generateTimes(intervalMinutes);
+      const dateStr = date.toLocaleDateString('en-CA');
+      const today = new Date();
+      const todayStr = today.toLocaleDateString('en-CA');
+      const isToday = dateStr === todayStr;
 
-    if (isToday) {
-      currentHour = today.getHours();
-      currentMinute = today.getMinutes();
-    }
-
-    const bookedTimes = appointments
-      .filter(apt => apt.barberId === barberId && apt.date === dateStr)
-      .map(apt => apt.time);
-
-    return allTimes.filter(time => {
-      if (bookedTimes.includes(time)) return false;
+      let currentHour = 0;
+      let currentMinute = 0;
 
       if (isToday) {
-        const [hour, minute] = time.split(':').map(Number);
-        
-        if (hour < currentHour) return false;
-        if (hour === currentHour && minute <= currentMinute) return false;
+        currentHour = today.getHours();
+        currentMinute = today.getMinutes();
       }
 
-      return true;
-    });
-  }, [appointments]);
+      const bookedTimes = appointments
+        .filter((apt) => apt.barberId === barberId && apt.date === dateStr)
+        .map((apt) => apt.time);
+
+      return allTimes.filter((time) => {
+        if (bookedTimes.includes(time)) return false;
+
+        if (isToday) {
+          const [hour, minute] = time.split(':').map(Number);
+          if (hour < currentHour) return false;
+          if (hour === currentHour && minute <= currentMinute) return false;
+        }
+
+        return true;
+      });
+    },
+    [appointments, generateTimes]
+  );
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ show: true, message, type });
@@ -231,62 +398,172 @@ export default function AppointmentsPage() {
     const total = services.reduce((sum, s) => {
       const priceStr = s.price || 0;
       const cleanPrice = priceStr.toString().replace(/R\$/g, '');
-      const normalized = cleanPrice.replace(',', '.');
+      const normalized = cleanPrice.replace(/,/g, '.');
       const numeric = parseFloat(normalized);
       return sum + (isNaN(numeric) ? 0 : numeric);
     }, 0);
-    
     return parseFloat(total.toFixed(2));
   }, []);
 
-  const handleBook = useCallback(async (bookingData) => {
+  const handleBook = useCallback(
+    async (bookingData) => {
+      try {
+        if (!selectedDate) {
+          showToast('Selecione uma data.', 'danger');
+          return;
+        }
+
+        const dateStr = selectedDate.toLocaleDateString('en-CA');
+
+        const existingAptOnDate = appointments.find(
+          (apt) => apt.clientId === currentUser.id && apt.date === dateStr
+        );
+
+        if (existingAptOnDate && !isRescheduling) {
+          setExistingAppointment(existingAptOnDate);
+          setShowConflictModal(true);
+          return;
+        }
+
+        if (
+          !isAdmin &&
+          activeUserSubscription &&
+          isBarberLocked &&
+          bookingData.barberId !== lockedBarberId
+        ) {
+          showToast(
+            `Você já selecionou ${lockedBarberName} no início deste mês. O barbeiro só pode ser alterado no próximo mês.`,
+            'warning'
+          );
+          return;
+        }
+
+        const serviceDuration = calculateTotalDuration(bookingData.services);
+        const availableTimes = getAvailableTimes(
+          bookingData.barberId,
+          selectedDate,
+          serviceDuration
+        );
+
+        if (!availableTimes.includes(bookingData.time)) {
+          showToast('Este horário não está mais disponível. Por favor, selecione outro.', 'danger');
+          await loadData();
+          return;
+        }
+
+        const servicePrice = calculateTotal(bookingData.services);
+
+        setPendingBookingData({
+          ...bookingData,
+          date: dateStr,
+          servicePrice,
+          dateFormatted: selectedDate.toLocaleDateString('pt-BR'),
+        });
+
+        setShowProductsModal(true);
+      } catch (error) {
+        showToast('Erro ao realizar agendamento.', 'danger');
+      }
+    },
+    [
+      selectedDate,
+      isRescheduling,
+      appointments,
+      currentUser,
+      getAvailableTimes,
+      showToast,
+      loadData,
+      calculateTotal,
+      isAdmin,
+      activeUserSubscription,
+      isBarberLocked,
+      lockedBarberId,
+      lockedBarberName,
+      calculateTotalDuration,
+    ]
+  );
+
+   const handleProductsConfirm = useCallback(
+    (data) => {
+      if (!pendingBookingData) return;
+
+      setPurchaseData(data);
+      setShowProductsModal(false);
+
+    
+      
+      const hasProducts = data.products.length > 0;
+      const hasSubscription = data.hasActiveSubscription;
+      
+      
+      if (!hasProducts && hasSubscription) {
+        handleDirectConfirmation();
+        return;
+      }
+      
+      
+      setShowPaymentChoiceModal(true);
+    },
+    [pendingBookingData]
+  );
+
+  const handleReschedule = useCallback(async () => {
+    if (!existingAppointment) return;
+
+    setShowConflictModal(false);
+
     try {
-      if (!selectedDate) {
-        showToast('Selecione uma data.', 'danger');
-        return;
-      }
-
-      const dateStr = selectedDate.toLocaleDateString('en-CA');
-      const availableTimes = getAvailableTimes(bookingData.barberId, selectedDate);
-
-      if (!availableTimes.includes(bookingData.time)) {
-        showToast('Este horário não está mais disponível. Por favor, selecione outro.', 'danger');
-        await loadData();
-        return;
-      }
-
-      const servicePrice = calculateTotal(bookingData.services);
-
-      setPendingBookingData({
-        ...bookingData,
-        date: dateStr,
-        servicePrice,
-        dateFormatted: selectedDate.toLocaleDateString('pt-BR')
-      });
-
-      setShowProductsModal(true);
+      clearPaymentCache(existingAppointment.id);
+      await deleteAppointment(existingAppointment.id);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      await loadData();
+      showToast('Agendamento cancelado. Escolha novo horário.', 'info');
     } catch (error) {
-      showToast('Erro ao realizar agendamento.', 'danger');
-    }
-  }, [selectedDate, getAvailableTimes, showToast, loadData, calculateTotal]);
-
-  const handleProductsConfirm = useCallback((data) => {
-    if (!pendingBookingData) return;
-
-    setPurchaseData(data);
-    setShowProductsModal(false);
-
-    if (data.products.length === 0 && data.hasActiveSubscription) {
-      handleDirectConfirmation();
-      return;
+      console.error('Erro ao deletar:', error);
+      showToast('Escolha novo horário. O anterior será substituído.', 'warning');
     }
 
-    setShowPaymentChoiceModal(true);
-  }, [pendingBookingData]);
+    setIsRescheduling(true);
+
+  }, [existingAppointment, loadData, showToast, clearPaymentCache]);
+
+  const handleCancelExisting = useCallback(async () => {
+    if (!existingAppointment) return;
+
+    try {
+      setShowConflictModal(false);
+      clearPaymentCache(existingAppointment.id);
+      await deleteAppointment(existingAppointment.id);
+      await loadData();
+      showToast('Agendamento cancelado com sucesso!', 'success');
+      setExistingAppointment(null);
+      setSelectedDate(null);
+      setIsRescheduling(false);
+    } catch (error) {
+      showToast('Erro ao cancelar agendamento.', 'danger');
+    }
+  }, [existingAppointment, loadData, showToast, clearPaymentCache]);
+
+  const handleKeepExisting = useCallback(() => {
+    setShowConflictModal(false);
+    setExistingAppointment(null);
+    setSelectedDate(null);
+    setIsRescheduling(false);
+  }, []);
 
   const handleDirectConfirmation = useCallback(async () => {
     try {
       if (!pendingBookingData) return;
+
+      setBookingInProgress(true);
+
+  
+      if (activeUserSubscription && !isBarberLocked && !isAdmin) {
+        const selectedBarber = barbers.find((b) => b.id === pendingBookingData.barberId);
+        if (selectedBarber) {
+          await setMonthlyBarber(selectedBarber.id, selectedBarber.name);
+        }
+      }
 
       const newAppointment = {
         barberId: pendingBookingData.barberId,
@@ -296,12 +573,12 @@ export default function AppointmentsPage() {
         time: pendingBookingData.time,
         client: currentUser.name,
         clientId: currentUser.id,
-        products: []
+        products: [],
       };
 
       const createdAppointment = await createAppointment(newAppointment);
 
-      const serviceNames = pendingBookingData.services.map(s => s.name).join(', ');
+      const serviceNames = pendingBookingData.services.map((s) => s.name).join(', ');
 
       const paymentData = {
         appointmentId: createdAppointment.id,
@@ -314,57 +591,111 @@ export default function AppointmentsPage() {
         appointmentTime: pendingBookingData.time,
         products: [],
         status: 'plancovered',
-        paymentMethod: 'subscription'
+        paymentMethod: 'subscription',
       };
 
       await criarPagamentoAgendamento(paymentData);
+
       await loadData();
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       setSuccessData({
-        title: 'Agendamento Confirmado!',
-        message: 'Seu agendamento foi confirmado! Coberto pelo seu plano ativo.',
+        title: isRescheduling ? 'Reagendamento Confirmado!' : 'Agendamento Confirmado!',
+        message: isRescheduling
+          ? 'Seu agendamento foi reagendado com sucesso! Coberto pelo seu plano ativo.'
+          : 'Seu agendamento foi confirmado! Coberto pelo seu plano ativo.',
         details: [
           { label: 'Barbeiro', value: pendingBookingData.barberName },
           { label: 'Data', value: pendingBookingData.dateFormatted },
           { label: 'Horário', value: pendingBookingData.time },
-          { label: 'Serviços', value: serviceNames }
-        ]
+          { label: 'Serviços', value: serviceNames },
+        ],
       });
 
       setShowSuccessModal(true);
       setPendingBookingData(null);
       setPurchaseData(null);
+      setExistingAppointment(null);
+      setIsRescheduling(false);
+      setSelectedDate(null);
       setView('myAppointments');
     } catch (error) {
-      showToast('Erro ao realizar agendamento.', 'danger');
+      console.error('Erro:', error);
+      showToast(error.response?.data?.message || error.message, 'danger');
+      setExistingAppointment(null);
+      setIsRescheduling(false);
+      setSelectedDate(null);
+    } finally {
+      setBookingInProgress(false);
     }
-  }, [pendingBookingData, currentUser, loadData, showToast]);
+  }, [
+    pendingBookingData,
+    isRescheduling,
+    existingAppointment,
+    currentUser,
+    loadData,
+    showToast,
+    activeUserSubscription,
+    isBarberLocked,
+    isAdmin,
+    barbers,
+    setMonthlyBarber,
+    clearPaymentCache,
+  ]);
 
-  const handlePaymentChoice = useCallback(async (payNow) => {
-    try {
-      if (!pendingBookingData || !purchaseData) return;
+  const handlePaymentChoice = useCallback(
+    async (payNow) => {
+      try {
+        if (!pendingBookingData || !purchaseData) return;
 
-      if (payNow) {
-        const serviceNames = pendingBookingData.services.map(s => s.name).join(', ');
-        const productNames = purchaseData.products
-          .map(p => `${p.name} x${p.quantity}`)
-          .join(', ');
-        
-        const fullDescription = productNames 
-          ? `${serviceNames}, ${productNames}` 
-          : serviceNames;
+        if (payNow) {
+          const serviceNames = pendingBookingData.services.map((s) => s.name).join(', ');
+          const productNames = purchaseData.products
+            .map((p) => `${p.name} x${p.quantity}`)
+            .join(', ');
+          const fullDescription = productNames ? `${serviceNames}, ${productNames}` : serviceNames;
 
-        const paymentPlan = {
-          id: `temp-${Date.now()}`,
-          name: fullDescription,
-          price: purchaseData.finalTotal
-        };
+          const paymentPlan = {
+            id: `temp-${Date.now()}`,
+            name: fullDescription,
+            price: purchaseData.finalTotal,
+          };
 
-        setSelectedAppointmentForPayment({
-          ...paymentPlan,
-          isAppointment: true,
-          needsCreation: true,
-          appointmentData: {
+          setSelectedAppointmentForPayment({
+            ...paymentPlan,
+            isAppointment: true,
+            needsCreation: true,
+            appointmentData: {
+              barberId: pendingBookingData.barberId,
+              barberName: pendingBookingData.barberName,
+              services: pendingBookingData.services,
+              date: pendingBookingData.date,
+              time: pendingBookingData.time,
+              client: currentUser.name,
+              clientId: currentUser.id,
+              products: purchaseData.products,
+            },
+            paymentData: {
+              userId: currentUser.id,
+              userName: currentUser.name,
+              amount: purchaseData.finalTotal,
+              serviceName: serviceNames,
+              barberName: pendingBookingData.barberName,
+              appointmentDate: pendingBookingData.date,
+              appointmentTime: pendingBookingData.time,
+              products: purchaseData.products,
+            },
+          });
+
+          setShowPaymentChoiceModal(false);
+          setPendingBookingData(null);
+          setPurchaseData(null);
+          setShowPaymentModal(true);
+        } else {
+          setBookingInProgress(true);
+
+          
+          const newAppointment = {
             barberId: pendingBookingData.barberId,
             barberName: pendingBookingData.barberName,
             services: pendingBookingData.services,
@@ -372,9 +703,15 @@ export default function AppointmentsPage() {
             time: pendingBookingData.time,
             client: currentUser.name,
             clientId: currentUser.id,
-            products: purchaseData.products
-          },
-          paymentData: {
+            products: purchaseData.products,
+          };
+
+          const createdAppointment = await createAppointment(newAppointment);
+
+          const serviceNames = pendingBookingData.services.map((s) => s.name).join(', ');
+
+          const paymentData = {
+            appointmentId: createdAppointment.id,
             userId: currentUser.id,
             userName: currentUser.name,
             amount: purchaseData.finalTotal,
@@ -382,80 +719,72 @@ export default function AppointmentsPage() {
             barberName: pendingBookingData.barberName,
             appointmentDate: pendingBookingData.date,
             appointmentTime: pendingBookingData.time,
-            products: purchaseData.products
-          }
-        });
+            products: purchaseData.products,
+            status: 'pendinglocal',
+            paymentMethod: 'local',
+          };
 
-        setShowPaymentChoiceModal(false);
-        setPendingBookingData(null);
-        setPurchaseData(null);
-        setShowPaymentModal(true);
-      } else {
-        const newAppointment = {
-          barberId: pendingBookingData.barberId,
-          barberName: pendingBookingData.barberName,
-          services: pendingBookingData.services,
-          date: pendingBookingData.date,
-          time: pendingBookingData.time,
-          client: currentUser.name,
-          clientId: currentUser.id,
-          products: purchaseData.products
-        };
+          await criarPagamentoAgendamento(paymentData);
+          clearPaymentCache(createdAppointment.id);
 
-        const createdAppointment = await createAppointment(newAppointment);
+          await loadData();
+          await new Promise((resolve) => setTimeout(resolve, 500));
 
-        const serviceNames = pendingBookingData.services.map(s => s.name).join(', ');
+          const productInfo =
+            purchaseData.products.length > 0 ? ` + ${purchaseData.products.length} produtos` : '';
 
-        const paymentData = {
-          appointmentId: createdAppointment.id,
-          userId: currentUser.id,
-          userName: currentUser.name,
-          amount: purchaseData.finalTotal,
-          serviceName: serviceNames,
-          barberName: pendingBookingData.barberName,
-          appointmentDate: pendingBookingData.date,
-          appointmentTime: pendingBookingData.time,
-          products: purchaseData.products,
-          status: 'pendinglocal',
-          paymentMethod: 'local'
-        };
+          setSuccessData({
+            title: isRescheduling ? 'Reagendamento Confirmado!' : 'Agendamento Confirmado!',
+            message: isRescheduling
+              ? 'Seu agendamento foi reagendado com sucesso! O pagamento será realizado no estabelecimento.'
+              : 'Seu agendamento foi confirmado! O pagamento será realizado no estabelecimento.',
+            details: [
+              { label: 'Barbeiro', value: pendingBookingData.barberName },
+              { label: 'Data', value: pendingBookingData.dateFormatted },
+              { label: 'Horário', value: pendingBookingData.time },
+              { label: 'Serviços', value: serviceNames + productInfo },
+              { label: 'Total', value: `R$ ${purchaseData.finalTotal.toFixed(2)}` },
+            ],
+          });
 
-        await criarPagamentoAgendamento(paymentData);
-        await loadData();
-
-        const productInfo = purchaseData.products.length > 0 
-          ? `${purchaseData.products.length} produto(s)` 
-          : '';
-
-        setSuccessData({
-          title: 'Agendamento Confirmado!',
-          message: 'Seu agendamento foi confirmado! O pagamento será realizado no estabelecimento.',
-          details: [
-            { label: 'Barbeiro', value: pendingBookingData.barberName },
-            { label: 'Data', value: pendingBookingData.dateFormatted },
-            { label: 'Horário', value: pendingBookingData.time },
-            { label: 'Serviços', value: `${serviceNames}${productInfo}` },
-            { label: 'Total', value: `R$ ${purchaseData.finalTotal.toFixed(2)}` }
-          ]
-        });
-
-        setShowSuccessModal(true);
-        setShowPaymentChoiceModal(false);
-        setPendingBookingData(null);
-        setPurchaseData(null);
-        setView('myAppointments');
+          setShowSuccessModal(true);
+          setShowPaymentChoiceModal(false);
+          setPendingBookingData(null);
+          setPurchaseData(null);
+          setExistingAppointment(null);
+          setIsRescheduling(false);
+          setSelectedDate(null);
+          setView('myAppointments');
+        }
+      } catch (error) {
+        console.error('Erro:', error);
+        showToast(error.response?.data?.message || error.message, 'danger');
+        setExistingAppointment(null);
+        setIsRescheduling(false);
+        setSelectedDate(null);
+      } finally {
+        setBookingInProgress(false);
       }
-    } catch (error) {
-      showToast('Erro ao realizar agendamento.', 'danger');
-    }
-  }, [pendingBookingData, purchaseData, currentUser, loadData, showToast]);
+    },
+    [
+      pendingBookingData,
+      purchaseData,
+      isRescheduling,
+      existingAppointment,
+      currentUser,
+      loadData,
+      showToast,
+      clearPaymentCache,
+    ]
+  );
 
   const handlePaymentSuccess = useCallback(async () => {
+    clearAllPaymentsCache();
     await loadData();
     setShowPaymentModal(false);
     setSelectedAppointmentForPayment(null);
     setView('myAppointments');
-  }, [loadData]);
+  }, [loadData, clearAllPaymentsCache]);
 
   const handleDeleteClick = useCallback((id) => {
     setAppointmentToDelete(id);
@@ -464,6 +793,7 @@ export default function AppointmentsPage() {
 
   const handleDeleteConfirm = useCallback(async () => {
     try {
+      clearPaymentCache(appointmentToDelete);
       await deleteAppointment(appointmentToDelete);
       await loadData();
       showToast('Agendamento cancelado com sucesso!', 'success');
@@ -471,17 +801,17 @@ export default function AppointmentsPage() {
     } catch (error) {
       showToast('Erro ao cancelar agendamento.', 'danger');
     }
-  }, [appointmentToDelete, loadData, showToast]);
+  }, [appointmentToDelete, loadData, showToast, clearPaymentCache]);
 
   const myAppointments = useMemo(() => {
     const today = new Date();
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
 
-    return appointments.filter(apt => {
+    return appointments.filter((apt) => {
       if (apt.clientId !== currentUser?.id) return false;
 
-      const aptDate = new Date(apt.date + 'T00:00:00');
+      const aptDate = new Date(`${apt.date}T00:00:00`);
       const aptMonth = aptDate.getMonth();
       const aptYear = aptDate.getFullYear();
 
@@ -499,8 +829,8 @@ export default function AppointmentsPage() {
 
   const sortedMyAppointments = useMemo(() => {
     return [...myAppointments].sort((a, b) => {
-      const dateA = new Date(a.date + 'T' + a.time);
-      const dateB = new Date(b.date + 'T' + b.time);
+      const dateA = new Date(`${a.date}T${a.time}`);
+      const dateB = new Date(`${b.date}T${b.time}`);
       return dateB - dateA;
     });
   }, [myAppointments]);
@@ -529,6 +859,7 @@ export default function AppointmentsPage() {
                 {isAdmin && <span style={{ marginLeft: '10px', color: '#d4af37' }}>(Admin)</span>}
               </p>
             </div>
+
             <div className="admin-header-actions">
               {isAdmin && (
                 <button onClick={() => navigate('/admin')} className="btn-header">
@@ -542,14 +873,14 @@ export default function AppointmentsPage() {
           </div>
 
           <div className="appointments-tabs">
-            <button 
-              onClick={() => setView('calendar')} 
+            <button
+              onClick={() => setView('calendar')}
               className={`tab-btn ${view === 'calendar' ? 'tab-btn--active' : ''}`}
             >
               Novo Agendamento
             </button>
-            <button 
-              onClick={() => setView('myAppointments')} 
+            <button
+              onClick={() => setView('myAppointments')}
               className={`tab-btn ${view === 'myAppointments' ? 'tab-btn--active' : ''}`}
             >
               Meus Agendamentos ({myAppointments.length})
@@ -557,37 +888,45 @@ export default function AppointmentsPage() {
           </div>
 
           {view === 'calendar' && (
-            <div className="appointments-booking">
+            <div className="appointments__booking">
               <h2>Selecione uma data</h2>
-              <DatePicker 
-                onSelectDate={handleSelectDate}
-                selectedDate={selectedDate}
-              />
+              <DatePicker onSelectDate={handleSelectDate} selectedDate={selectedDate} />
 
-              {selectedDate && (
-                <div className="appointments-barbers">
+              
+              {selectedDate && !showConflictModal && (
+                <div className="appointments__barbers">
                   <h2>Barbeiros disponíveis em {selectedDate.toLocaleDateString('pt-BR')}</h2>
                   {barbers.length === 0 ? (
                     <p>Nenhum barbeiro disponível.</p>
                   ) : (
-                    barbers.map(barber => {
+                    barbers.map((barber) => {
                       const barberWithPhoto = {
                         ...barber,
-                        photo: barber.photo || barber.avatar || `https://i.pravatar.cc/150?img=${barber.id}`
+                        photo:
+                          barber.photo ||
+                          barber.avatar ||
+                          `https://i.pravatar.cc/150?img=${barber.id}`,
                       };
 
-                      const allTimes = generateTimes();
-                      const bookedSlots = getBookedSlots(barber.id, selectedDate);
-                      const availableTimes = getAvailableTimes(barber.id, selectedDate);
+                      const shouldHideBarber =
+                        !isAdmin &&
+                        activeUserSubscription &&
+                        isBarberLocked &&
+                        barber.id !== lockedBarberId;
+
+                      if (shouldHideBarber) return null;
 
                       return (
                         <BarberCard
                           key={barber.id}
                           barber={barberWithPhoto}
                           services={services}
-                          availableTimes={availableTimes}
-                          allTimes={allTimes}
-                          bookedSlots={bookedSlots}
+                          selectedDate={selectedDate}
+                          barberId={barber.id}
+                          getBookedSlots={getBookedSlots}
+                          generateTimes={generateTimes}
+                          getAvailableTimes={getAvailableTimes}
+                          calculateTotalDuration={calculateTotalDuration}
                           onBook={handleBook}
                           showToast={showToast}
                           preSelectedService={preSelectedService}
@@ -601,45 +940,66 @@ export default function AppointmentsPage() {
           )}
 
           {view === 'myAppointments' && (
-            <div className="appointments-list">
+            <div className="appointments__list">
               <h2>Seus Agendamentos</h2>
-              
-              <div className="appointments-filter-tabs" style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', borderBottom: '2px solid #333' }}>
-                <button 
-                  onClick={() => setAppointmentFilter('current')} 
+
+              <div
+                className="appointments-filter-tabs"
+                style={{
+                  display: 'flex',
+                  gap: '1rem',
+                  marginBottom: '1.5rem',
+                  borderBottom: '2px solid #333',
+                }}
+              >
+                <button
+                  onClick={() => setAppointmentFilter('current')}
                   className={`tab-btn ${appointmentFilter === 'current' ? 'tab-btn--active' : ''}`}
                 >
-                  Este Mês ({appointments.filter(apt => {
-                    const aptDate = new Date(apt.date + 'T00:00:00');
-                    const today = new Date();
-                    return apt.clientId === currentUser?.id && 
-                           aptDate.getMonth() === today.getMonth() && 
-                           aptDate.getFullYear() === today.getFullYear();
-                  }).length})
+                  Este Mês (
+                  {
+                    appointments.filter((apt) => {
+                      const aptDate = new Date(`${apt.date}T00:00:00`);
+                      const today = new Date();
+                      return (
+                        apt.clientId === currentUser?.id &&
+                        aptDate.getMonth() === today.getMonth() &&
+                        aptDate.getFullYear() === today.getFullYear()
+                      );
+                    }).length
+                  }
+                  )
                 </button>
-                <button 
-                  onClick={() => setAppointmentFilter('upcoming')} 
+                <button
+                  onClick={() => setAppointmentFilter('upcoming')}
                   className={`tab-btn ${appointmentFilter === 'upcoming' ? 'tab-btn--active' : ''}`}
                 >
-                  Próximos ({appointments.filter(apt => {
-                    const aptDate = new Date(apt.date + 'T00:00:00');
-                    const today = new Date();
-                    return apt.clientId === currentUser?.id && 
-                           (aptDate.getFullYear() > today.getFullYear() || 
-                            (aptDate.getFullYear() === today.getFullYear() && aptDate.getMonth() > today.getMonth()));
-                  }).length})
+                  Próximos (
+                  {
+                    appointments.filter((apt) => {
+                      const aptDate = new Date(`${apt.date}T00:00:00`);
+                      const today = new Date();
+                      return (
+                        apt.clientId === currentUser?.id &&
+                        (aptDate.getFullYear() > today.getFullYear() ||
+                          (aptDate.getFullYear() === today.getFullYear() &&
+                            aptDate.getMonth() > today.getMonth()))
+                      );
+                    }).length
+                  }
+                  )
                 </button>
-                <button 
-                  onClick={() => setAppointmentFilter('all')} 
+                <button
+                  onClick={() => setAppointmentFilter('all')}
                   className={`tab-btn ${appointmentFilter === 'all' ? 'tab-btn--active' : ''}`}
                 >
-                  Todos ({appointments.filter(apt => apt.clientId === currentUser?.id).length})
+                  Todos ({appointments.filter((apt) => apt.clientId === currentUser?.id).length})
                 </button>
               </div>
 
               {sortedMyAppointments.length === 0 ? (
-                <div className="appointments-empty">
-                  <div className="appointments-empty-icon"></div>
+                <div className="appointments__empty">
+                  <div className="appointments__empty-icon">📅</div>
                   <p>Você não tem agendamentos.</p>
                 </div>
               ) : (
@@ -668,32 +1028,42 @@ export default function AppointmentsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {sortedMyAppointments.map(apt => {
+                      {sortedMyAppointments.map((apt) => {
                         const payment = appointmentPayments[apt.id];
                         const isPending = payment && payment.status === 'pending';
                         const isPendingLocal = payment && payment.status === 'pendinglocal';
                         const isPaid = payment && payment.status === 'paid';
                         const isPlanCovered = payment && payment.status === 'plancovered';
 
-                        const appointmentDate = new Date(apt.date + 'T00:00:00');
+                        const appointmentDate = new Date(`${apt.date}T00:00:00`);
                         const formattedDate = appointmentDate.toLocaleDateString('pt-BR');
 
-                        const total = (Array.isArray(apt.services) 
+                        const servicesTotal = Array.isArray(apt.services)
                           ? apt.services.reduce((sum, s) => {
-                              const price = typeof s.price === 'string' 
-                                ? parseFloat(s.price.replace('R$', '').replace(',', '.').trim())
-                                : s.price || 0;
+                              const price =
+                                typeof s.price === 'string'
+                                  ? parseFloat(
+                                      s.price.replace(/R\$/g, '').replace(/,/g, '.').trim()
+                                    ) || 0
+                                  : s.price || 0;
                               return sum + price;
-                            }, 0) 
-                          : 0) + 
-                          (apt.products && apt.products.length > 0 
+                            }, 0)
+                          : 0;
+
+                        const productsTotal =
+                          apt.products && apt.products.length > 0
                             ? apt.products.reduce((sum, p) => {
-                                const price = typeof p.price === 'string'
-                                  ? parseFloat(p.price.replace('R$', '').replace(',', '.').trim())
-                                  : p.price || 0;
-                                return sum + (price * (p.quantity || 1));
+                                const price =
+                                  typeof p.price === 'string'
+                                    ? parseFloat(
+                                        p.price.replace(/R\$/g, '').replace(/,/g, '.').trim()
+                                      ) || 0
+                                    : p.price || 0;
+                                return sum + price * (p.quantity || 1);
                               }, 0)
-                            : 0);
+                            : 0;
+
+                        const total = servicesTotal + productsTotal;
 
                         let statusClass = 'pending';
                         let statusText = 'Pendente';
@@ -709,20 +1079,24 @@ export default function AppointmentsPage() {
                           statusText = 'Plano Ativo';
                         }
 
-                        const barber = barbers.find(b => b.id === apt.barberId);
-                        const barberPhoto = barber 
-                          ? (barber.photo || barber.avatar || `https://i.pravatar.cc/150?img=${barber.id}`)
+                        const barber = barbers.find((b) => b.id === apt.barberId);
+                        const barberPhoto = barber
+                          ? barber.photo ||
+                            barber.avatar ||
+                            `https://i.pravatar.cc/150?img=${barber.id}`
                           : `https://i.pravatar.cc/150?img=${apt.barberId}`;
 
                         return (
                           <tr key={apt.id}>
                             <td>
                               <div className="appointment-barber">
-                                <img 
-                                  src={barberPhoto} 
+                                <img
+                                  src={barberPhoto}
                                   alt={apt.barberName}
                                   className="appointment-barber-avatar"
-                                  onError={(e) => { e.target.src = `https://i.pravatar.cc/150?img=${apt.barberId}`; }}
+                                  onError={(e) => {
+                                    e.target.src = `https://i.pravatar.cc/150?img=${apt.barberId}`;
+                                  }}
                                 />
                                 <span className="appointment-barber-name">{apt.barberName}</span>
                               </div>
@@ -771,7 +1145,7 @@ export default function AppointmentsPage() {
                             </td>
                             <td>
                               <div className="appointment-actions">
-                                <button 
+                                <button
                                   onClick={() => handleDeleteClick(apt.id)}
                                   className="btn-action cancel"
                                 >
@@ -801,6 +1175,7 @@ export default function AppointmentsPage() {
         onConfirm={handleProductsConfirm}
         hasActiveSubscription={hasActiveSubscription}
         servicePrice={pendingBookingData?.servicePrice || 0}
+        onUpdateStock={handleUpdateStock}
       />
 
       <PaymentChoiceModal
@@ -811,12 +1186,16 @@ export default function AppointmentsPage() {
           setPurchaseData(null);
         }}
         onChoose={handlePaymentChoice}
-        appointmentDetails={pendingBookingData ? {
-          barberName: pendingBookingData.barberName,
-          date: pendingBookingData.dateFormatted,
-          time: pendingBookingData.time,
-          serviceName: pendingBookingData.services.map(s => s.name).join(', ')
-        } : null}
+        appointmentDetails={
+          pendingBookingData
+            ? {
+                barberName: pendingBookingData.barberName,
+                date: pendingBookingData.dateFormatted,
+                time: pendingBookingData.time,
+                serviceName: pendingBookingData.services.map((s) => s.name).join(', '),
+              }
+            : null
+        }
         purchaseData={purchaseData}
       />
 
@@ -857,13 +1236,85 @@ export default function AppointmentsPage() {
         />
       )}
 
-      {toast.show && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={closeToast}
-        />
+      {showConflictModal && existingAppointment && (
+        <div className="modal-overlay" onClick={handleKeepExisting}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Agendamento Existente</h2>
+            </div>
+            <div className="modal-body">
+              <p style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>
+                Você já possui um agendamento para esta data:
+              </p>
+              <div
+                style={{
+                  background: '#1a1a1a',
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  marginBottom: '1.5rem',
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div>
+                    <strong>Barbeiro:</strong> {existingAppointment.barberName}
+                  </div>
+                  <div>
+                    <strong>Data:</strong>{' '}
+                    {new Date(`${existingAppointment.date}T00:00:00`).toLocaleDateString('pt-BR')}
+                  </div>
+                  <div>
+                    <strong>Horário:</strong> {existingAppointment.time}
+                  </div>
+                  <div>
+                    <strong>Serviços:</strong>{' '}
+                    {Array.isArray(existingAppointment.services)
+                      ? existingAppointment.services.map((s) => s.name).join(', ')
+                      : '-'}
+                  </div>
+                </div>
+              </div>
+              <p style={{ marginBottom: '1.5rem', color: '#999' }}>
+                Gostaria de reagendar ou cancelar este agendamento?
+              </p>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button
+                  onClick={handleCancelExisting}
+                  className="btn-action cancel"
+                  style={{ flex: 1, minWidth: '150px' }}
+                >
+                  Cancelar Agendamento
+                </button>
+                <button
+                  onClick={handleReschedule}
+                  className="btn-action"
+                  style={{ flex: 1, minWidth: '150px', background: '#d4af37', color: '#000' }}
+                >
+                  Reagendar
+                </button>
+                <button
+                  onClick={handleKeepExisting}
+                  className="btn-secondary"
+                  style={{ flex: 1, minWidth: '150px' }}
+                >
+                  Manter e Voltar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
+
+      {bookingInProgress && (
+        <div className="booking-overlay">
+          <div className="booking-overlay-content">
+            <div className="booking-spinner"></div>
+            <h2>Processando Agendamento...</h2>
+            <p>Aguarde enquanto confirmamos seu horário</p>
+          </div>
+        </div>
+      )}
+
+      {toast.show && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
     </BaseLayout>
   );
 }
