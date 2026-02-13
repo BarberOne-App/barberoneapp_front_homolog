@@ -630,7 +630,7 @@ export const testarNotificacaoWhatsApp = async () => {
     userId: 'ff1a',
     userName: 'LUCAS',
     planName: 'Premium',
-    amount: 149.90,
+    amount: 150.00,
     nextBillingDate: new Date('2026-02-06').toISOString(),
     daysOverdue: 0,
     paymentMethod: 'credito',

@@ -10,6 +10,7 @@ import { FaWhatsapp } from 'react-icons/fa';
 import { getServices, getGallery } from '../services/homeServices.js';
 import { buscarAssinaturaAtiva } from '../services/paymentService.js';
 import { getProducts } from '../services/productService.js';
+import { getHomeInfo } from '../services/settingsService.js';
 import './Home.css';
 
 export default function Home() {
@@ -22,6 +23,20 @@ export default function Home() {
   const [activeSubscription, setActiveSubscription] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  const [siteInfo, setSiteInfo] = useState({
+    aboutTitle: "Barbearia Rodrigues",
+    aboutText1: "",
+    aboutText2: "",
+    aboutText3: "",
+    scheduleTitle: "Horário de Funcionamento",
+    scheduleLine1: "",
+    scheduleLine2: "",
+    scheduleLine3: "",
+    locationTitle: "Localização",
+    locationAddress: "",
+    locationCity: ""
+  });
 
   useEffect(() => {
     let user = null;
@@ -59,15 +74,20 @@ export default function Home() {
 
   async function carregarDados() {
     try {
-      const [servicesData, galleryData, productsData] = await Promise.all([
+      const [servicesData, galleryData, productsData, homeInfoData] = await Promise.all([
         getServices(),
         getGallery(),
         getProducts(),
+        getHomeInfo(),
       ]);
 
       setServices(servicesData);
       setGallery(galleryData);
       setProducts(productsData);
+
+      if (homeInfoData) {
+        setSiteInfo(homeInfoData);
+      }
     } catch (error) {
       console.error('Erro ao carregar dados da Home:', error);
     } finally {
@@ -256,18 +276,18 @@ export default function Home() {
 
         <section className="about" id="sobre">
           <div className="container">
+
             <h2 className="section__title">Sobre Nós</h2>
             <div className="about__content">
               <div className="about__text">
                 <p>
-                  A <strong>Barbearia Rodrigues</strong> é referência em cortes masculinos
-                  há mais de 10 anos.
+                  A <strong>{siteInfo.aboutTitle || 'Barbearia Rodrigues'}</strong>{' '}
+                  {siteInfo.aboutText1 || 'é referência em cortes masculinos há mais de 10 anos.'}
                 </p>
                 <p>
-                  Combinamos técnicas tradicionais com tendências modernas para garantir o
-                  melhor atendimento.
+                  {siteInfo.aboutText2 || 'Combinamos técnicas tradicionais com tendências modernas para garantir o melhor atendimento.'}
                 </p>
-                <p>Nosso ambiente proporciona conforto e uma experiência única.</p>
+                <p>{siteInfo.aboutText3 || 'Nosso ambiente proporciona conforto e uma experiência única.'}</p>
                 <a
                   href="https://wa.me/5585999999999"
                   target="_blank"
@@ -280,16 +300,18 @@ export default function Home() {
 
               <div className="about__info">
                 <div className="info-card">
-                  <h3>Horário de Funcionamento</h3>
-                  <p>Seg - 14h as 20h</p>
-                  <p>Terça a Sab. - 09h as 20h</p>
-                  <p>Domingo: Fechado</p>
+
+                  <h3>{siteInfo.scheduleTitle || 'Horário de Funcionamento'}</h3>
+                  <p>{siteInfo.scheduleLine1 || 'Seg - 14h as 20h'}</p>
+                  <p>{siteInfo.scheduleLine2 || 'Terça a Sab. - 09h as 20h'}</p>
+                  <p>{siteInfo.scheduleLine3 || 'Domingo: Fechado'}</p>
                 </div>
 
                 <div className="info-card">
-                  <h3>Localização</h3>
-                  <p>Av. val paraíso,1396</p>
-                  <p>Jangurussu - Fortaleza/CE</p>
+
+                  <h3>{siteInfo.locationTitle || 'Localização'}</h3>
+                  <p>{siteInfo.locationAddress || 'Av. val paraíso,1396'}</p>
+                  <p>{siteInfo.locationCity || 'Jangurussu - Fortaleza/CE'}</p>
                 </div>
               </div>
             </div>

@@ -1,30 +1,36 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Button from './Button';
-import Input from './Input';
 import SavedCardsModal from './SavedCardsModal';
 import { getUserCards, saveCard } from '../../services/cardServices';
-import { criarAssinatura, criarPagamentoAgendamento, atualizarPagamentoAgendamento, enviarNotificacaoAssinatura } from '../../services/paymentService';
+import {
+  criarAssinatura,
+  criarPagamentoAgendamento,
+  atualizarPagamentoAgendamento,
+  enviarNotificacaoAssinatura,
+} from '../../services/paymentService';
 import { getPixKey } from '../../services/settingsService';
 import { getTermsDocument } from '../../services/termsService';
+import { processMercadoPagoPayment } from '../../services/mercadoPagoService';
 import './PaymentModal.css';
 
-export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUser, onSuccess, isAppointmentPayment = false, paymentId = null }) {
-  const [paymentMethod, setPaymentMethod] = useState(
-    isAppointmentPayment ? 'pix' : 'credit'
-  );
-  const [cardData, setCardData] = useState({
-    number: '',
-    holderName: '',
-    expiryMonth: '',
-    expiryYear: '',
-    cvv: '',
-    brand: 'unknown'
-  });
-  const [saveCardOption, setSaveCardOption] = useState(false);
+const SUBSCRIPTION_LINKS = {
+  150: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=248f6838b5a0470c96b23a4edd1905d8',
+  89.9: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=6a4820f29af0439eaedd4ffa13a0acbf',
+};
+
+export default function PaymentModal({
+  isOpen,
+  onClose,
+  selectedPlan,
+  currentUser,
+  onSuccess,
+  isAppointmentPayment = false,
+  paymentId = null,
+}) {
+  const [paymentMethod, setPaymentMethod] = useState(isAppointmentPayment ? 'pix' : 'credit');
   const [processing, setProcessing] = useState(false);
   const [showSavedCards, setShowSavedCards] = useState(false);
   const [hasCards, setHasCards] = useState(false);
-  const [installments, setInstallments] = useState(1);
   const [pixTimer, setPixTimer] = useState(600);
   const [pixExpired, setPixExpired] = useState(false);
   const [pixKey, setPixKey] = useState('');
@@ -34,6 +40,16 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [validationToast, setValidationToast] = useState({ show: false, message: '' });
   const [termsDocUrl, setTermsDocUrl] = useState('');
+  const [mercadoPagoInstance, setMercadoPagoInstance] = useState(null);
+  const [brickController, setBrickController] = useState(null);
+  const [brickLoaded, setBrickLoaded] = useState(false);
+
+  const cardPaymentBrickRef = useRef(null);
+  const isRenderingBrick = useRef(false);
+
+  const MERCADO_PAGO_PUBLIC_KEY = 'APP_USR-b1b4acc6-b66a-4a00-abdf-b31df28a8d7e';
+
+  const isRecurringSubscription = !isAppointmentPayment && selectedPlan?.isRecurring;
 
   const getAvailablePaymentMethods = () => {
     if (isAppointmentPayment) {
@@ -55,24 +71,367 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
   };
 
   useEffect(() => {
-    if (isOpen && currentUser?.id) {
-      checkUserCards();
+    if (
+      !isRecurringSubscription &&
+      !window.MercadoPago &&
+      isOpen &&
+      (paymentMethod === 'credit' || paymentMethod === 'debit')
+    ) {
+      const script = document.createElement('script');
+      script.src = 'https://sdk.mercadopago.com/js/v2';
+      script.async = true;
+      script.onload = () => {
+        const mp = new window.MercadoPago(MERCADO_PAGO_PUBLIC_KEY, {
+          locale: 'pt-BR',
+        });
+        setMercadoPagoInstance(mp);
+      };
+      document.body.appendChild(script);
+
+      return () => {
+        if (script.parentNode) {
+          document.body.removeChild(script);
+        }
+      };
+    } else if (!isRecurringSubscription && window.MercadoPago && !mercadoPagoInstance) {
+      const mp = new window.MercadoPago(MERCADO_PAGO_PUBLIC_KEY, {
+        locale: 'pt-BR',
+      });
+      setMercadoPagoInstance(mp);
     }
-  }, [isOpen, currentUser]);
+  }, [isOpen, paymentMethod, mercadoPagoInstance, isRecurringSubscription]);
+
   useEffect(() => {
-  const loadTermsDoc = async () => {
+    if (
+      !isRecurringSubscription &&
+      mercadoPagoInstance &&
+      (paymentMethod === 'credit' || paymentMethod === 'debit') &&
+      isOpen &&
+      !brickLoaded &&
+      !isRenderingBrick.current
+    ) {
+      renderCardPaymentBrick();
+    }
+
+    return () => {
+      if (brickController && !isOpen) {
+        brickController.unmount();
+        setBrickController(null);
+        setBrickLoaded(false);
+      }
+    };
+  }, [mercadoPagoInstance, paymentMethod, isOpen, brickLoaded, isRecurringSubscription]);
+
+  useEffect(() => {
+    if (paymentMethod === 'pix' && brickController) {
+      brickController.unmount();
+      setBrickController(null);
+      setBrickLoaded(false);
+    }
+  }, [paymentMethod]);
+
+  const renderCardPaymentBrick = async () => {
+    if (isRenderingBrick.current) {
+      console.log('⚠️ Brick já está sendo renderizado, ignorando...');
+      return;
+    }
+
+    isRenderingBrick.current = true;
+
     try {
-      const data = await getTermsDocument();
-      setTermsDocUrl(data.documentUrl || '');
+      if (brickController) {
+        console.log('🧹 Limpando brick anterior...');
+        await brickController.unmount();
+        setBrickController(null);
+      }
+
+      const container = document.getElementById('cardPaymentBrick_container');
+      if (container) {
+        container.innerHTML = '';
+      }
+
+      console.log('🔄 Renderizando Card Payment Brick...');
+
+      const bricksBuilder = mercadoPagoInstance.bricks();
+
+      const controller = await bricksBuilder.create('cardPayment', 'cardPaymentBrick_container', {
+        initialization: {
+          amount: getFinalPrice(),
+        },
+        customization: {
+          visual: {
+            style: {
+              theme: 'dark',
+              customVariables: {
+                baseColor: '#ff7a1a',
+                textPrimaryColor: '#ffffff',
+                textSecondaryColor: '#b0b0b0',
+                inputBackgroundColor: '#242424',
+                formBackgroundColor: '#1a1a1a',
+                borderRadiusSmall: '8px',
+                borderRadiusMedium: '12px',
+                borderRadiusLarge: '16px',
+              },
+            },
+          },
+          paymentMethods: {
+            maxInstallments: paymentMethod === 'credit' ? 12 : 1,
+            minInstallments: 1,
+            types: {
+              excluded: paymentMethod === 'debit' ? ['credit_card'] : ['debit_card'],
+            },
+          },
+        },
+        callbacks: {
+          onReady: () => {
+            console.log('✅ Card Payment Brick pronto');
+            setBrickLoaded(true);
+            isRenderingBrick.current = false;
+          },
+          onSubmit: async (cardFormData) => {
+            return handleMercadoPagoSubmit(cardFormData);
+          },
+          onError: (error) => {
+            console.error('❌ Erro no Card Payment Brick:', error);
+            setErrorMessage('Erro ao processar pagamento. Verifique os dados do cartão.');
+            setShowErrorToast(true);
+            isRenderingBrick.current = false;
+          },
+        },
+      });
+
+      setBrickController(controller);
     } catch (error) {
-      console.error('Erro ao carregar documento de termos:', error);
+      console.error('❌ Erro ao renderizar Card Payment Brick:', error);
+      setErrorMessage('Erro ao carregar formulário de pagamento. Tente novamente.');
+      setShowErrorToast(true);
+      isRenderingBrick.current = false;
     }
   };
-  
-  if (isOpen) {
-    loadTermsDoc();
-  }
-}, [isOpen]);
+
+  const handleMercadoPagoSubmit = async (cardFormData) => {
+    console.log('🔵 Iniciando processo de pagamento...');
+
+    if (!isAppointmentPayment && !acceptedTerms) {
+      setValidationToast({ show: true, message: 'Você precisa aceitar os termos de contratação' });
+      setTimeout(() => setValidationToast({ show: false, message: '' }), 4000);
+      return new Promise((_, reject) => reject(new Error('Terms not accepted')));
+    }
+
+    setProcessing(true);
+    setShowErrorToast(false);
+    setErrorMessage('');
+
+    try {
+      const paymentData = {
+        token: cardFormData.token,
+        transaction_amount: getFinalPrice(),
+        installments: cardFormData.installments,
+        payment_method_id: cardFormData.payment_method_id,
+        issuer_id: cardFormData.issuer_id,
+        payer: {
+          email: currentUser.email || `${currentUser.id}@barbearia.com`,
+          identification: {
+            type: cardFormData.payer.identification.type,
+            number: cardFormData.payer.identification.number,
+          },
+        },
+        description: isAppointmentPayment
+          ? `Pagamento - ${selectedPlan.serviceName || 'Serviço'}`
+          : `Assinatura - ${selectedPlan.name}`,
+      };
+
+      console.log('💳 Processando pagamento com Mercado Pago...');
+      const paymentResult = await processMercadoPagoPayment(paymentData);
+      console.log('✅ Pagamento processado:', paymentResult);
+
+      if (paymentResult.status === 'approved' || paymentResult.status === 'authorized') {
+        const finalAmount = getFinalPrice();
+        const paymentMethodString = paymentMethod === 'credit' ? 'credito' : 'debito';
+
+        console.log('💾 Salvando dados no banco...');
+
+        if (isAppointmentPayment) {
+          if (
+            selectedPlan.needsCreation &&
+            selectedPlan.appointmentData &&
+            selectedPlan.paymentData
+          ) {
+            console.log('📅 Criando novo agendamento...');
+
+            try {
+              const appointmentResponse = await fetch('http://localhost:3000/appointments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(selectedPlan.appointmentData),
+              });
+
+              if (!appointmentResponse.ok) {
+                const errorText = await appointmentResponse.text();
+                console.error('❌ Erro ao criar agendamento:', errorText);
+                throw new Error('Erro ao criar agendamento');
+              }
+
+              const createdAppointment = await appointmentResponse.json();
+              console.log('✅ Agendamento criado:', createdAppointment);
+
+              const paymentDataToSave = {
+                ...selectedPlan.paymentData,
+                appointmentId: createdAppointment.id,
+                status: 'paid',
+                paymentMethod: paymentMethodString,
+                paidAt: new Date().toISOString(),
+                amount: finalAmount,
+                mercadoPagoId: paymentResult.id,
+                mercadoPagoStatus: paymentResult.status,
+                cardData: {
+                  brand: paymentResult.payment_method_id,
+                  lastDigits: paymentResult.card?.last_four_digits || '****',
+                },
+              };
+
+              console.log('💰 Salvando pagamento do agendamento...');
+              await criarPagamentoAgendamento(paymentDataToSave);
+              console.log('✅ Pagamento salvo com sucesso!');
+            } catch (error) {
+              console.error('❌ Erro no fluxo de agendamento:', error);
+              throw error;
+            }
+          } else if (paymentId) {
+            console.log('🔄 Atualizando pagamento existente...');
+            await atualizarPagamentoAgendamento(paymentId, {
+              status: 'paid',
+              paymentMethod: paymentMethodString,
+              paidAt: new Date().toISOString(),
+              amount: finalAmount,
+              mercadoPagoId: paymentResult.id,
+              mercadoPagoStatus: paymentResult.status,
+              cardData: {
+                brand: paymentResult.payment_method_id,
+                lastDigits: paymentResult.card?.last_four_digits || '****',
+              },
+            });
+            console.log('✅ Pagamento atualizado!');
+          }
+
+          console.log('🎉 Processo de pagamento concluído com sucesso!');
+          onSuccess && onSuccess(paymentMethodString);
+        } else {
+          console.log('📝 Criando assinatura...');
+          const transactionId = `TRX-${Date.now()}-${Math.random().toString(36).substr(2, 7).toUpperCase()}`;
+
+          const paymentDataToSave = {
+            userId: currentUser.id,
+            userName: currentUser.name,
+            planId: selectedPlan.id,
+            planName: selectedPlan.name,
+            amount: finalAmount,
+            paymentMethod: paymentMethodString,
+            status: 'approved',
+            type: 'subscription',
+            transactionId,
+            mercadoPagoId: paymentResult.id,
+            mercadoPagoStatus: paymentResult.status,
+            installments: cardFormData.installments || 1,
+            installmentAmount: (finalAmount / (cardFormData.installments || 1)).toFixed(2),
+            cardData: {
+              brand: paymentResult.payment_method_id,
+              lastDigits: paymentResult.card?.last_four_digits || '****',
+            },
+            createdAt: new Date().toISOString(),
+            approvedAt: new Date().toISOString(),
+          };
+
+          await criarPagamentoAgendamento(paymentDataToSave);
+
+          const subscriptionData = {
+            userId: currentUser.id,
+            userName: currentUser.name,
+            planId: selectedPlan.id,
+            planName: selectedPlan.name,
+            planPrice: selectedPlan.price,
+            amount: finalAmount,
+            status: 'active',
+            paymentMethod: paymentMethodString,
+            isRecurring: selectedPlan.isRecurring ?? true,
+            autoRenewal: selectedPlan.autoRenewal ?? true,
+          };
+
+          const subscription = await criarAssinatura(subscriptionData);
+          console.log('✅ Assinatura criada:', subscription);
+
+          try {
+            await enviarNotificacaoAssinatura(subscription);
+          } catch (error) {
+            console.error('⚠️ Erro ao enviar notificação (não crítico):', error);
+          }
+
+          onSuccess && onSuccess(subscription);
+        }
+
+        setProcessing(false);
+        onClose();
+        return { status: 'success' };
+      } else if (paymentResult.status === 'pending' || paymentResult.status === 'in_process') {
+        console.warn('⏳ Pagamento pendente:', paymentResult);
+        setErrorMessage(
+          `Pagamento pendente. Status: ${paymentResult.status_detail || 'Aguardando confirmação'}`,
+        );
+        setShowErrorToast(true);
+        setProcessing(false);
+        return new Promise((_, reject) => reject(new Error('Payment pending')));
+      } else {
+        console.error('❌ Pagamento rejeitado:', paymentResult);
+        throw new Error(paymentResult.status_detail || 'Pagamento não aprovado');
+      }
+    } catch (error) {
+      console.error('❌ ERRO GERAL no pagamento:', error);
+      console.error('Stack trace:', error.stack);
+      setErrorMessage(error.message || 'Erro ao processar pagamento. Tente novamente.');
+      setShowErrorToast(true);
+      setProcessing(false);
+      return new Promise((_, reject) => reject(error));
+    }
+  };
+
+  const handleRecurringSubscription = () => {
+    if (!acceptedTerms) {
+      setValidationToast({ show: true, message: 'Você precisa aceitar os termos de contratação' });
+      setTimeout(() => setValidationToast({ show: false, message: '' }), 4000);
+      return;
+    }
+
+    const subscriptionLink = SUBSCRIPTION_LINKS[selectedPlan.price];
+
+    if (!subscriptionLink) {
+      setErrorMessage('Plano de assinatura não encontrado. Entre em contato com o suporte.');
+      setShowErrorToast(true);
+      return;
+    }
+
+    window.location.href = subscriptionLink;
+  };
+
+  useEffect(() => {
+    if (isOpen && currentUser?.id && !isRecurringSubscription) {
+      checkUserCards();
+    }
+  }, [isOpen, currentUser, isRecurringSubscription]);
+
+  useEffect(() => {
+    const loadTermsDoc = async () => {
+      try {
+        const data = await getTermsDocument();
+        setTermsDocUrl(data.documentUrl || '');
+      } catch (error) {
+        console.error('Erro ao carregar documento de termos:', error);
+      }
+    };
+
+    if (isOpen) {
+      loadTermsDoc();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && paymentMethod === 'pix') {
@@ -84,6 +443,7 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
           console.error('Erro ao carregar chave PIX:', error);
         }
       };
+
       loadPixKey();
     }
   }, [isOpen, paymentMethod]);
@@ -102,6 +462,7 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
         });
       }, 1000);
     }
+
     return () => {
       if (interval) {
         clearInterval(interval);
@@ -130,19 +491,6 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
     }
   };
 
-  const handleSelectSavedCard = (card) => {
-    setCardData({
-      number: `•••• •••• •••• ${card.lastDigits}`,
-      holderName: card.holderName,
-      expiryMonth: card.expiryMonth,
-      expiryYear: card.expiryYear,
-      cvv: '',
-      brand: card.brand || 'unknown',
-      savedCardId: card.id
-    });
-    setShowSavedCards(false);
-  };
-
   const handleCopyPixKey = () => {
     if (pixKey) {
       navigator.clipboard.writeText(pixKey);
@@ -151,136 +499,30 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
     }
   };
 
-  const detectCardBrand = (number) => {
-    const cleaned = number.replace(/\s/g, '');
-    if (/^4/.test(cleaned)) return 'visa';
-    if (/^5[1-5]/.test(cleaned)) return 'mastercard';
-    if (/^3[47]/.test(cleaned)) return 'amex';
-    if (/^(636368|438935|504175|451416|636297)/.test(cleaned)) return 'elo';
-    if (/^(6011|622(12[6-9]|1[3-9][0-9]|[2-8][0-9]{2}|9[0-1][0-9]|92[0-5]|64[4-9])|65)/.test(cleaned)) return 'discover';
-    return 'unknown';
-  };
-
-  const formatCardNumber = (value) => {
-    const cleaned = value.replace(/\s/g, '');
-    const brand = detectCardBrand(cleaned);
-    setCardData((prev) => ({ ...prev, brand }));
-    const matches = cleaned.match(/.{1,4}/g);
-    return matches ? matches.join(' ') : '';
-  };
-
-  const handleCardNumberChange = (e) => {
-    const value = e.target.value.replace(/\D/g, '');
-    if (value.length <= 16) {
-      const formatted = formatCardNumber(value);
-      setCardData((prev) => ({ ...prev, number: formatted }));
-    }
-  };
-
-  const handleExpiryChange = (field, value) => {
-    const cleaned = value.replace(/\D/g, '');
-    if (field === 'expiryMonth' && cleaned.length <= 2) {
-      const num = parseInt(cleaned);
-      if (cleaned === '' || (num >= 1 && num <= 12)) {
-        setCardData((prev) => ({ ...prev, expiryMonth: cleaned }));
-      }
-    } else if (field === 'expiryYear' && cleaned.length <= 2) {
-      setCardData((prev) => ({ ...prev, expiryYear: cleaned }));
-    }
-  };
-
-  const handleCvvChange = (e) => {
-    const value = e.target.value.replace(/\D/g, '');
-    const maxLength = cardData.brand === 'amex' ? 4 : 3;
-    if (value.length <= maxLength) {
-      setCardData((prev) => ({ ...prev, cvv: value }));
-    }
-  };
-
-  const validateCardData = () => {
-    const showToast = (message) => {
-      setValidationToast({ show: true, message });
-      setTimeout(() => {
-        setValidationToast({ show: false, message: '' });
-      }, 4000);
-    };
-
-    if (!isAppointmentPayment && !acceptedTerms) {
-      showToast('Você precisa aceitar os termos de contratação');
-      return false;
-    }
-
-    if (paymentMethod === 'credit' || paymentMethod === 'debit') {
-      if (cardData.savedCardId) {
-        if (!cardData.cvv || cardData.cvv.length < 3) {
-          showToast('CVV é obrigatório');
-          return false;
-        }
-        return true;
-      }
-
-      const cardNumber = cardData.number.replace(/\s/g, '');
-      if (cardNumber.length < 13 || cardNumber.length > 19) {
-        showToast('Número do cartão inválido');
-        return false;
-      }
-
-      if (!cardData.holderName.trim()) {
-        showToast('Nome do titular é obrigatório');
-        return false;
-      }
-
-      if (!cardData.expiryMonth || !cardData.expiryYear) {
-        showToast('Data de validade é obrigatória');
-        return false;
-      }
-
-      const month = parseInt(cardData.expiryMonth);
-      const year = parseInt('20' + cardData.expiryYear);
-      const currentYear = new Date().getFullYear();
-      const currentMonth = new Date().getMonth() + 1;
-
-      if (year < currentYear || (year === currentYear && month < currentMonth)) {
-        showToast('Cartão expirado');
-        return false;
-      }
-
-      if (!cardData.cvv || cardData.cvv.length < 3) {
-        showToast('CVV inválido');
-        return false;
-      }
-    }
-    return true;
-  };
-
-  const handleSubmit = async (e) => {
+  const handlePixSubmit = async (e) => {
     e.preventDefault();
 
-    if (paymentMethod === 'pix' && pixExpired) {
-      return;
-    }
-
-    if (!validateCardData()) {
+    if (pixExpired) {
       return;
     }
 
     setProcessing(true);
-    setShowErrorToast(false);
-    setErrorMessage('');
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 7000));
-
+      await new Promise((resolve) => setTimeout(resolve, 3000));
 
       const finalAmount = getFinalPrice();
-      const paymentMethodString = paymentMethod === 'credit' ? 'credito' : paymentMethod === 'debit' ? 'debito' : 'pix';
 
       if (isAppointmentPayment) {
-        if (selectedPlan.needsCreation && selectedPlan.appointmentData && selectedPlan.paymentData) {
+        if (
+          selectedPlan.needsCreation &&
+          selectedPlan.appointmentData &&
+          selectedPlan.paymentData
+        ) {
           const appointmentResponse = await fetch('http://localhost:3000/appointments', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(selectedPlan.appointmentData)
+            body: JSON.stringify(selectedPlan.appointmentData),
           });
 
           if (!appointmentResponse.ok) {
@@ -293,147 +535,32 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
             ...selectedPlan.paymentData,
             appointmentId: createdAppointment.id,
             status: 'paid',
-            paymentMethod: paymentMethodString,
+            paymentMethod: 'pix',
             paidAt: new Date().toISOString(),
             amount: finalAmount,
-            cardData: paymentMethod === 'credit' || paymentMethod === 'debit' ? {
-              brand: cardData.brand,
-              lastDigits: cardData.savedCardId ? cardData.number.slice(-4) : cardData.number.replace(/\s/g, '').slice(-4),
-              holderName: cardData.holderName
-            } : undefined
           };
 
           await criarPagamentoAgendamento(paymentData);
         } else if (paymentId) {
           await atualizarPagamentoAgendamento(paymentId, {
             status: 'paid',
-            paymentMethod: paymentMethodString,
+            paymentMethod: 'pix',
             paidAt: new Date().toISOString(),
             amount: finalAmount,
-            cardData: paymentMethod === 'credit' || paymentMethod === 'debit' ? {
-              brand: cardData.brand,
-              lastDigits: cardData.savedCardId ? cardData.number.slice(-4) : cardData.number.replace(/\s/g, '').slice(-4),
-              holderName: cardData.holderName
-            } : undefined
           });
         }
 
-        if (
-          saveCardOption &&
-          (paymentMethod === 'credit' || paymentMethod === 'debit') &&
-          !cardData.savedCardId
-        ) {
-          await saveCard({
-            userId: currentUser.id,
-            number: cardData.number.replace(/\s/g, ''),
-            lastDigits: cardData.number.replace(/\s/g, '').slice(-4),
-            holderName: cardData.holderName,
-            expiryMonth: cardData.expiryMonth,
-            expiryYear: cardData.expiryYear,
-            brand: cardData.brand,
-            isMain: false
-          });
-        }
-
-        onSuccess && onSuccess(paymentMethodString);
-      } else {
-        const transactionId = `TRX-${Date.now()}-${Math.random().toString(36).substr(2, 7).toUpperCase()}`;
-
-        const paymentData = {
-          userId: currentUser.id,
-          userName: currentUser.name,
-          planId: selectedPlan.id,
-          planName: selectedPlan.name,
-          amount: finalAmount,
-          paymentMethod: paymentMethodString,
-          status: 'approved',
-          type: 'subscription',
-          transactionId,
-          cardData: paymentMethod === 'credit' || paymentMethod === 'debit' ? {
-            brand: cardData.brand,
-            lastDigits: cardData.savedCardId ? cardData.number.slice(-4) : cardData.number.replace(/\s/g, '').slice(-4),
-            holderName: cardData.holderName
-          } : undefined,
-          installments: paymentMethod === 'credit' ? installments : 1,
-          installmentAmount: (finalAmount / (paymentMethod === 'credit' ? installments : 1)).toFixed(2)
-        };
-
-        await criarPagamentoAgendamento(paymentData);
-
-        const subscriptionData = {
-          userId: currentUser.id,
-          userName: currentUser.name,
-          planId: selectedPlan.id,
-          planName: selectedPlan.name,
-          planPrice: selectedPlan.price,
-          amount: finalAmount,
-          status: 'active',
-          paymentMethod: paymentMethodString,
-          isRecurring: selectedPlan.isRecurring ?? true,
-          autoRenewal: selectedPlan.autoRenewal ?? true
-        };
-
-        const subscription = await criarAssinatura(subscriptionData);
-
-        try {
-          await enviarNotificacaoAssinatura(subscription);
-        } catch (error) {
-          console.error('Erro ao enviar notificação:', error);
-        }
-
-        if (
-          saveCardOption &&
-          (paymentMethod === 'credit' || paymentMethod === 'debit') &&
-          !cardData.savedCardId
-        ) {
-          await saveCard({
-            userId: currentUser.id,
-            number: cardData.number.replace(/\s/g, ''),
-            lastDigits: cardData.number.replace(/\s/g, '').slice(-4),
-            holderName: cardData.holderName,
-            expiryMonth: cardData.expiryMonth,
-            expiryYear: cardData.expiryYear,
-            brand: cardData.brand,
-            isMain: false
-          });
-        }
-
-        onSuccess && onSuccess(subscription);
+        onSuccess && onSuccess('pix');
       }
 
-      setCardData({
-        number: '',
-        holderName: '',
-        expiryMonth: '',
-        expiryYear: '',
-        cvv: '',
-        brand: 'unknown'
-      });
-      setSaveCardOption(false);
+      setProcessing(false);
+      onClose();
     } catch (error) {
-      console.error('Erro no pagamento:', error);
-      setErrorMessage('Pagamento não confirmado. Gostaria de selecionar outra forma de pagamento ou tentar novamente?');
+      console.error('Erro no pagamento PIX:', error);
+      setErrorMessage('Erro ao confirmar pagamento PIX. Tente novamente.');
       setShowErrorToast(true);
       setProcessing(false);
-      return;
     }
-  };
-
-  const handleCloseErrorToast = () => {
-    setShowErrorToast(false);
-    setErrorMessage('');
-  };
-
-  const getButtonLabel = () => {
-    if (paymentMethod === 'pix') {
-      return 'Confirmar Pagamento';
-    }
-    return 'Finalizar Pagamento';
-  };
-
-  const getInstallmentText = (num) => {
-    const value = getFinalPrice() / num;
-    return `${num}x de R$ ${value.toFixed(2)}${num === 1 ? ' à vista' : ''}`;
   };
 
   const formatTime = (seconds) => {
@@ -448,306 +575,220 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
     <>
       <div className="payment-modal-overlay" onClick={onClose}>
         <div className="payment-modal-content" onClick={(e) => e.stopPropagation()}>
-          <button className="payment-modal-close" onClick={onClose}>×</button>
+          <button className="payment-modal-close" onClick={onClose}>
+            ×
+          </button>
 
           <div className="payment-modal-header">
-            <h2>Pagamento</h2>
-            <p className="payment-modal-subtitle">
-              Complete os dados para finalizar sua compra
-            </p>
-
-            {showErrorToast && (
-              <div className="payment-error-toast">
-                <div className="payment-error-toast__icon">⚠️</div>
-                <div className="payment-error-toast__content">
-                  <p>{errorMessage}</p>
-                </div>
-                <button className="payment-error-toast__close" onClick={handleCloseErrorToast}>
-                  ×
-                </button>
-              </div>
+            <h2>
+              {isRecurringSubscription
+                ? 'Confirme sua assinatura'
+                : 'Complete os dados para finalizar sua compra'}
+            </h2>
+            {!isAppointmentPayment && (
+              <p className="payment-modal-subtitle">Assinatura do plano {selectedPlan.name}</p>
             )}
           </div>
 
-          <div className="payment-modal-body">
-            <div className="payment-plan-summary">
-              <h3>Plano: {selectedPlan.name}</h3>
-              <div className="payment-plan-price">
-                R$ {getFinalPrice().toFixed(2)}
+          {showErrorToast && (
+            <div className="toast-notification">
+              <div className="toast-notification__content">
+                <span className="toast-notification__icon">⚠️</span>
+                <p>{errorMessage}</p>
+              </div>
+              <button
+                className="toast-notification__close"
+                onClick={() => setShowErrorToast(false)}
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {validationToast.show && (
+            <div className="toast-notification">
+              <div className="toast-notification__content">
+                <span className="toast-notification__icon">❌</span>
+                <p>{validationToast.message}</p>
               </div>
             </div>
+          )}
 
-            <div className="payment-methods">
-              {availableMethods.includes('pix') && (
-                <button
-                  type="button"
-                  className={`payment-method-btn ${paymentMethod === 'pix' ? 'active' : ''}`}
-                  onClick={() => setPaymentMethod('pix')}
-                >
-                  PIX
-                </button>
-              )}
-              {availableMethods.includes('credit') && (
-                <button
-                  type="button"
-                  className={`payment-method-btn ${paymentMethod === 'credit' ? 'active' : ''}`}
-                  onClick={() => setPaymentMethod('credit')}
-                >
-                  Crédito
-                </button>
-              )}
-              {availableMethods.includes('debit') && (
-                <button
-                  type="button"
-                  className={`payment-method-btn ${paymentMethod === 'debit' ? 'active' : ''}`}
-                  onClick={() => setPaymentMethod('debit')}
-                >
-                  Débito
-                </button>
-              )}
+          <div className="payment-modal-body">
+            <div className="payment-plan-summary">
+              <h3>{selectedPlan.name}</h3>
+              <p className="payment-plan-price">
+                R$ {selectedPlan.price.toFixed(2).replace('.', ',')}
+                {isRecurringSubscription && <span className="recurring-badge"> /mês</span>}
+              </p>
             </div>
 
-            <form onSubmit={handleSubmit}>
-              {paymentMethod === 'pix' && (
-                <div className="pix-payment-section">
-                  <div className="pix-timer">
-                    Tempo restante: {pixExpired ? 'EXPIRADO' : formatTime(pixTimer)}
+            {isRecurringSubscription ? (
+              <div className="recurring-subscription-content">
+                <div className="recurring-info">
+                  <h4>🔄 Assinatura Recorrente</h4>
+                  <ul>
+                    <li>✓ Cobrança automática mensal</li>
+                    <li>✓ Cancele quando quiser</li>
+                    <li>✓ Sem taxas de cancelamento</li>
+                    <li>✓ Processamento seguro pelo Mercado Pago</li>
+                  </ul>
+                </div>
+
+                <div className="payment-terms-section">
+                  <div className="payment-terms-box">
+                    <h4>📄 Termos de Contratação</h4>
+                    <p>Leia atentamente nossos termos de contratação antes de prosseguir.</p>
+                    {termsDocUrl && (
+                      <a
+                        href={termsDocUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="payment-terms-download"
+                      >
+                        📥 Baixar Termos
+                      </a>
+                    )}
                   </div>
 
-                  {pixKey && !pixExpired && (
-                    <div className="pix-key-section">
+                  <label className="payment-terms-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={acceptedTerms}
+                      onChange={(e) => setAcceptedTerms(e.target.checked)}
+                    />
+                    <span>
+                      Li e aceito os termos de contratação e autorizo a cobrança recorrente mensal
+                    </span>
+                  </label>
+                </div>
+
+                <div className="payment-modal-footer">
+                  <button type="button" onClick={onClose}>
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRecurringSubscription}
+                    disabled={!acceptedTerms}
+                    className="recurring-button"
+                  >
+                    Prosseguir para Pagamento
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="payment-methods">
+                  {availableMethods.map((method) => (
+                    <button
+                      key={method}
+                      type="button"
+                      className={`payment-method-btn ${paymentMethod === method ? 'active' : ''}`}
+                      onClick={() => setPaymentMethod(method)}
+                    >
+                      {method === 'pix' ? 'PIX' : method === 'credit' ? 'Crédito' : 'Débito'}
+                    </button>
+                  ))}
+                </div>
+
+                {paymentMethod === 'pix' ? (
+                  <form onSubmit={handlePixSubmit}>
+                    <div className="pix-payment-section">
                       <div className="pix-qrcode">
                         <div className="pix-qrcode-placeholder">
-                          <p>QR Code PIX</p>
+                          <p>QR CODE PIX</p>
                         </div>
+                        {!pixExpired ? (
+                          <div className="pix-timer">⏱️ Expira em: {formatTime(pixTimer)}</div>
+                        ) : (
+                          <div className="pix-expired">❌ QR Code expirado</div>
+                        )}
                       </div>
 
-                      <h4>Chave PIX</h4>
-                      <div className="pix-key-container">
-                        <input 
-                          type="text" 
-                          value={pixKey} 
-                          readOnly 
-                          className="pix-key-input" 
-                        />
-                        <button
-                          type="button"
-                          onClick={handleCopyPixKey}
-                          className={`pix-copy-btn ${pixKeyCopied ? 'copied' : ''}`}
-                        >
-                          {pixKeyCopied ? '✓ Copiado!' : 'Copiar Chave'}
-                        </button>
-                      </div>
+                      {pixKey && (
+                        <div className="pix-key-section">
+                          <h4>Chave PIX</h4>
+                          <div className="pix-key-container">
+                            <input type="text" value={pixKey} readOnly className="pix-key-input" />
+                            <button
+                              type="button"
+                              className={`pix-copy-btn ${pixKeyCopied ? 'copied' : ''}`}
+                              onClick={handleCopyPixKey}
+                            >
+                              {pixKeyCopied ? '✓ Copiado' : 'Copiar'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
                       <div className="pix-instructions">
-                        <h4>Como pagar</h4>
+                        <h4>Como pagar:</h4>
                         <ol>
                           <li>Abra o app do seu banco</li>
                           <li>Escaneie o QR Code ou copie a chave PIX</li>
                           <li>Confirme o pagamento</li>
+                          <li>Aguarde a confirmação</li>
                         </ol>
                       </div>
                     </div>
-                  )}
 
-                  {pixExpired && (
-                    <div className="pix-expired">
-                      O tempo para pagamento expirou. Por favor, selecione outro método de pagamento ou feche e tente novamente.
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {(paymentMethod === 'credit' || paymentMethod === 'debit') && (
-                <div className="card-form">
-                  {hasCards && (
-                    <div className="saved-cards-section">
-                      <button
-                        type="button"
-                        className="use-saved-card-button"
-                        onClick={() => setShowSavedCards(true)}
-                      >
-                        Usar cartão salvo
+                    <div className="payment-modal-footer">
+                      <button type="button" onClick={onClose}>
+                        Cancelar
+                      </button>
+                      <button type="submit" disabled={processing || pixExpired}>
+                        {processing ? 'Processando...' : 'Confirmar Pagamento'}
                       </button>
                     </div>
-                  )}
+                  </form>
+                ) : (
+                  <>
+                    <div id="cardPaymentBrick_container"></div>
 
-                  <Input
-                    label="Número do Cartão"
-                    value={cardData.number}
-                    onChange={handleCardNumberChange}
-                    placeholder="0000 0000 0000 0000"
-                    maxLength={19}
-                    disabled={!!cardData.savedCardId}
-                  />
+                    {!isAppointmentPayment && (
+                      <div className="payment-terms-section">
+                        <div className="payment-terms-box">
+                          <h4>📄 Termos de Contratação</h4>
+                          <p>
+                            Leia atentamente nossos termos de contratação antes de prosseguir com o
+                            pagamento.
+                          </p>
+                          {termsDocUrl && (
+                            <a
+                              href={termsDocUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="payment-terms-download"
+                            >
+                              📥 Baixar Termos
+                            </a>
+                          )}
+                        </div>
 
-                  <Input
-                    label="Nome do Titular"
-                    value={cardData.holderName}
-                    onChange={(e) => setCardData({ ...cardData, holderName: e.target.value })}
-                    placeholder="Como está no cartão"
-                    disabled={!!cardData.savedCardId}
-                  />
-
-                  <div className="card-form-row">
-                    <div className="card-form-col">
-                      <label>Validade</label>
-                      <div className="card-expiry-inputs">
-                        <input
-                          type="text"
-                          value={cardData.expiryMonth}
-                          onChange={(e) => handleExpiryChange('expiryMonth', e.target.value)}
-                          placeholder="MM"
-                          maxLength={2}
-                          disabled={!!cardData.savedCardId}
-                        />
-                        <span>/</span>
-                        <input
-                          type="text"
-                          value={cardData.expiryYear}
-                          onChange={(e) => handleExpiryChange('expiryYear', e.target.value)}
-                          placeholder="AA"
-                          maxLength={2}
-                          disabled={!!cardData.savedCardId}
-                        />
+                        <label className="payment-terms-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={acceptedTerms}
+                            onChange={(e) => setAcceptedTerms(e.target.checked)}
+                          />
+                          <span>Li e aceito os termos de contratação</span>
+                        </label>
                       </div>
-                    </div>
-
-                    <div className="card-form-col">
-                      <Input
-                        label="CVV"
-                        value={cardData.cvv}
-                        onChange={handleCvvChange}
-                        placeholder="123"
-                        maxLength={cardData.brand === 'amex' ? 4 : 3}
-                      />
-                    </div>
-                  </div>
-
-                  {paymentMethod === 'credit' && !isAppointmentPayment && (
-                    <div className="installments-section">
-                      <label>Parcelas</label>
-                      <select
-                        value={installments}
-                        onChange={(e) => setInstallments(Number(e.target.value))}
-                        className="installments-select"
-                      >
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((num) => (
-                          <option key={num} value={num}>
-                            {getInstallmentText(num)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {!cardData.savedCardId && (
-                    <div className="save-card-option">
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={saveCardOption}
-                          onChange={(e) => setSaveCardOption(e.target.checked)}
-                        />
-                        <span>Salvar cartão para próximas compras</span>
-                      </label>
-                    </div>
-                  )}
-                </div>
-              )}
-
-            {!isAppointmentPayment && (
-  <div className="payment-terms-section">
-    <div className="payment-terms-box">
-      <h4>📋 Termos de Contratação</h4>
-      <p>
-        Ao contratar nosso plano de assinatura, você concorda com os termos e condições estabelecidos.
-      </p>
-      {termsDocUrl && (
-        <a
-          href={termsDocUrl}
-          download
-          className="payment-terms-download"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          📄 Baixar Contrato Completo
-        </a>
-      )}
-    </div>
-
-    <label className="payment-terms-checkbox">
-      <input
-        type="checkbox"
-        checked={acceptedTerms}
-        onChange={(e) => setAcceptedTerms(e.target.checked)}
-      />
-      <span>
-        Li e aceito os{' '}
-        {termsDocUrl ? (
-          <a
-            href={termsDocUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: '#c4a053', textDecoration: 'underline' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            termos de contratação
-          </a>
-        ) : (
-          <span style={{ color: '#c4a053' }}>termos de contratação</span>
-        )}
-      </span>
-    </label>
-  </div>
-)}
-
-              {!isAppointmentPayment && (
-                <div className="payment-recurring-info">
-                  ℹ️ Seu cartão será registrado para pagamento recorrente automático
-                </div>
-              )}
-
-              <div className="payment-modal-footer">
-                <button 
-                  type="button" 
-                  onClick={onClose} 
-                  disabled={processing}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={processing || (paymentMethod === 'pix' && pixExpired)}
-                >
-                  {processing ? 'Processando...' : getButtonLabel()}
-                </button>
-              </div>
-            </form>
+                    )}
+                  </>
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>
-
-      {validationToast.show && (
-        <div className="toast-notification">
-          <div className="toast-notification__content">
-            <div className="toast-notification__icon">⚠️</div>
-            <p>{validationToast.message}</p>
-          </div>
-          <button 
-            className="toast-notification__close"
-            onClick={() => setValidationToast({ show: false, message: '' })}
-          >
-            ×
-          </button>
-        </div>
-      )}
 
       {processing && (
         <div className="processing-overlay">
           <div className="processing-content">
             <div className="processing-spinner-large"></div>
-            <h2>Processando Pagamento...</h2>
+            <h2>Processando Pagamento</h2>
             <p>Aguarde enquanto confirmamos sua transação</p>
             <div className="processing-dots">
               <span></span>
@@ -762,8 +803,8 @@ export default function PaymentModal({ isOpen, onClose, selectedPlan, currentUse
         <SavedCardsModal
           isOpen={showSavedCards}
           onClose={() => setShowSavedCards(false)}
-          onSelectCard={handleSelectSavedCard}
           userId={currentUser.id}
+          onSelectCard={(card) => console.log('Card selected:', card)}
         />
       )}
     </>

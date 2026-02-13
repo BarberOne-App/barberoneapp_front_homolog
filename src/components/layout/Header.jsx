@@ -225,7 +225,7 @@ const handleNavClick = (e, href) => {
       {showManageModal && activeSubscription && (
   <ManageSubscriptionModal
     isOpen={showManageModal}
-    onClose={() => setShowManageModal(false)}  // <-- CORRIGIDO AQUI
+    onClose={() => setShowManageModal(false)}  
     subscription={activeSubscription}
   />
 )}

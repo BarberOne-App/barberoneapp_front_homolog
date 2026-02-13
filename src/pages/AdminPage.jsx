@@ -24,8 +24,9 @@ import {
   updateProduct,
   deleteProduct,
 } from '../services/productService';
-import { getPixKey, savePixKey } from '../services/settingsService';
+import { getPixKey, savePixKey, getHomeInfo, saveHomeInfo } from '../services/settingsService';
 import './AuthPages.css';
+
 import {
   getAllServices,
   createService,
@@ -38,11 +39,15 @@ export default function AdminPage() {
   const currentUser = getSession();
   const [uploadedTermsDoc, setUploadedTermsDoc] = useState(null);
   const [termsDocUrl, setTermsDocUrl] = useState('');
-  const [activeTab, setActiveTab] = useState('employees');
+  // const [activeTab, setActiveTab] = useState('employees');
+  const [activeTab, setActiveTab] = useState('homeInfo');
   const [barbers, setBarbers] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
+  const [blockedDates, setBlockedDates] = useState([]);
+  const [newBlockedDate, setNewBlockedDate] = useState({ date: '', reason: '', barberId: null });
+  const [loadingBlockedDates, setLoadingBlockedDates] = useState(false);
   const [appointmentPayments, setAppointmentPayments] = useState([]);
   const [clientSubscriptionStatus, setClientSubscriptionStatus] = useState({});
   const [products, setProducts] = useState([]);
@@ -66,6 +71,15 @@ export default function AdminPage() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
+
+  const [appointmentDateFilter, setAppointmentDateFilter] = useState('');
+  const [appointmentStartDate, setAppointmentStartDate] = useState('');
+  const [appointmentEndDate, setAppointmentEndDate] = useState('');
+  const [paymentDateFilter, setPaymentDateFilter] = useState('');
+  const [paymentStartDate, setPaymentStartDate] = useState('');
+  const [paymentEndDate, setPaymentEndDate] = useState('');
+  
+  const [selectedBarberFilter, setSelectedBarberFilter] = useState('all');
 
   const [showBarberModal, setShowBarberModal] = useState(false);
   const [editingBarber, setEditingBarber] = useState(null);
@@ -92,7 +106,20 @@ export default function AdminPage() {
     stock: 0,
     image: '',
   });
-
+const [homeInfo, setHomeInfo] = useState({
+  aboutTitle: '', 
+  aboutText1: '',
+  aboutText2: '',
+  aboutText3: '',
+  scheduleTitle: '',
+  scheduleLine1: '',
+  scheduleLine2: '',
+  scheduleLine3: '',
+  locationTitle: '',
+  locationAddress: '',
+  locationCity: ''
+});
+const [homeInfoLoading, setHomeInfoLoading] = useState(false);
   const [expandedBarbers, setExpandedBarbers] = useState({});
   const [showChangeBarberModal, setShowChangeBarberModal] = useState(false);
   const [selectedAppointmentForBarberChange, setSelectedAppointmentForBarberChange] = useState(null);
@@ -113,11 +140,27 @@ export default function AdminPage() {
   const [selectedUserPermissions, setSelectedUserPermissions] = useState(null);
   const [editingPermissions, setEditingPermissions] = useState({});
 
+
+  const [categoryFilter, setCategoryFilter] = useState('all');
+
   const isAdmin = currentUser?.role === 'admin' || currentUser?.isAdmin === true;
   const isReceptionist = currentUser?.role === 'receptionist';
   const hasAdminVisibility = isAdmin || isReceptionist || (currentUser?.permissions?.viewAdmin);
 
-  
+  useEffect(() => {
+  loadHomeInfo();
+}, []);
+
+const loadHomeInfo = async () => {
+  try {
+    const data = await getHomeInfo();
+    if (data) {
+      setHomeInfo(data);
+    }
+  } catch (error) {
+    console.error('Erro ao carregar informações da home:', error);
+  }
+};
   const permissionsConfig = {
     viewAdmin: { label: 'Acessar Painel Admin', category: 'Acesso Básico', icon: '🔓' },
     manageEmployees: { label: 'Gerenciar Funcionários', category: 'Gestão de Pessoas', icon: '👥' },
@@ -138,6 +181,241 @@ export default function AdminPage() {
     if (currentUser.role === 'admin' || currentUser.isAdmin === true) return true;
     return currentUser.permissions?.[permission] === true;
   };
+
+  const getFilteredEmployees = () => {
+    if (categoryFilter === 'all') {
+      return employees;
+    }
+    return employees.filter((emp) => emp.role === categoryFilter);
+  };
+
+  const isDateInRange = (dateStr, startDate, endDate) => {
+    if (!startDate && !endDate) return true;
+    
+    const date = new Date(dateStr);
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate) : null;
+    
+    if (start && end) {
+      return date >= start && date <= end;
+    } else if (start) {
+      return date >= start;
+    } else if (end) {
+      return date <= end;
+    }
+    return true;
+  };
+
+  const getFilteredAppointments = () => {
+    let filtered = [...appointments];
+
+    if (selectedMonth) {
+      const [year, month] = selectedMonth.split('-');
+      filtered = filtered.filter((appointment) => {
+        const appointmentDate = new Date(appointment.date);
+        return (
+          appointmentDate.getFullYear() === parseInt(year) &&
+          appointmentDate.getMonth() + 1 === parseInt(month)
+        );
+      });
+    }
+
+    if (appointmentDateFilter) {
+      filtered = filtered.filter((appointment) => {
+        const appointmentDateStr = new Date(appointment.date).toISOString().split('T')[0];
+        return appointmentDateStr === appointmentDateFilter;
+      });
+    } else if (appointmentStartDate || appointmentEndDate) {
+      filtered = filtered.filter((appointment) => {
+        const appointmentDateStr = new Date(appointment.date).toISOString().split('T')[0];
+        return isDateInRange(appointmentDateStr, appointmentStartDate, appointmentEndDate);
+      });
+    }
+
+    if (selectedBarberFilter !== 'all') {
+      filtered = filtered.filter((appointment) => appointment.barberId === selectedBarberFilter);
+    }
+
+    return filtered;
+  };
+
+  const getFilteredPayments = () => {
+    let filtered = [...appointmentPayments];
+
+    if (selectedMonth) {
+      const [year, month] = selectedMonth.split('-');
+      filtered = filtered.filter((payment) => {
+        const paymentDate = new Date(payment.createdAt);
+        return (
+          paymentDate.getFullYear() === parseInt(year) &&
+          paymentDate.getMonth() + 1 === parseInt(month)
+        );
+      });
+    }
+
+    if (paymentDateFilter) {
+      filtered = filtered.filter((payment) => {
+        const paymentDateStr = new Date(payment.createdAt).toISOString().split('T')[0];
+        return paymentDateStr === paymentDateFilter;
+      });
+    } else if (paymentStartDate || paymentEndDate) {
+      filtered = filtered.filter((payment) => {
+        const paymentDateStr = new Date(payment.createdAt).toISOString().split('T')[0];
+        return isDateInRange(paymentDateStr, paymentStartDate, paymentEndDate);
+      });
+    }
+
+
+    return filtered;
+  };
+
+  useEffect(() => {
+  const loadHomeInfoOnce = async () => {
+    try {
+      const data = await getHomeInfo();
+      setHomeInfo(data);
+    } catch (error) {
+      console.error('Erro ao carregar home info:', error);
+    }
+  };
+  
+  loadHomeInfoOnce();
+}, []);
+  const carregarHomeInfo = useCallback(async () => {
+  try {
+    const data = await getHomeInfo();
+    setHomeInfo(data);
+  } catch (error) {
+    console.error('Erro ao carregar informações da home:', error);
+  }
+}, []);
+
+const handleSaveHomeInfo = async (e) => {
+  e.preventDefault();
+  setHomeInfoLoading(true);
+  
+  try {
+    await saveHomeInfo(homeInfo);
+    showToast('Informações da home atualizadas com sucesso!', 'success');
+  } catch (error) {
+    console.error('Erro ao salvar informações da home:', error);
+    showToast('Erro ao salvar informações da home', 'danger');
+  } finally {
+    setHomeInfoLoading(false);
+  }
+};
+
+const handleHomeInfoChange = (field, value) => {
+  setHomeInfo(prev => ({
+    ...prev,
+    [field]: value
+  }));
+};
+
+  const getFilteredAppointmentPayments = () => {
+  let filtered = [...appointmentPayments];
+
+
+  if (selectedMonth) {
+    const [year, month] = selectedMonth.split('-');
+    filtered = filtered.filter(payment => {
+      const paymentDate = new Date(payment.paidAt || payment.appointmentDate || payment.createdAt);
+      return (
+        paymentDate.getFullYear() === parseInt(year) &&
+        paymentDate.getMonth() + 1 === parseInt(month)
+      );
+    });
+  }
+
+  if (appointmentDateFilter) {
+    filtered = filtered.filter(payment => {
+      const paidDateStr = new Date(payment.paidAt || payment.createdAt).toISOString().split('T')[0];
+      return paidDateStr === appointmentDateFilter;
+    });
+  } else if (appointmentStartDate && appointmentEndDate) {
+
+    filtered = filtered.filter(payment => {
+      const paidDateStr = new Date(payment.paidAt || payment.createdAt).toISOString().split('T')[0];
+      return isDateInRange(paidDateStr, appointmentStartDate, appointmentEndDate);
+    });
+  } else if (appointmentStartDate) {
+    filtered = filtered.filter(payment => {
+      const paidDateStr = new Date(payment.paidAt || payment.createdAt).toISOString().split('T')[0];
+      return paidDateStr >= appointmentStartDate;
+    });
+  } else if (appointmentEndDate) {
+    filtered = filtered.filter(payment => {
+      const paidDateStr = new Date(payment.paidAt || payment.createdAt).toISOString().split('T')[0];
+      return paidDateStr <= appointmentEndDate;
+    });
+  }
+
+  if (selectedBarberFilter !== 'all') {
+    filtered = filtered.filter(payment => {
+
+      const selectedBarber = barbers.find(b => b.id?.toString() === selectedBarberFilter.toString());
+      if (!selectedBarber) return false;
+
+      return payment.barberName === selectedBarber.name;
+    });
+  }
+
+  return filtered;
+};
+
+
+  const clearAppointmentFilters = () => {
+    setAppointmentDateFilter('');
+    setAppointmentStartDate('');
+    setAppointmentEndDate('');
+    setSelectedBarberFilter('all');
+  };
+
+  const clearPaymentFilters = () => {
+    setPaymentDateFilter('');
+    setPaymentStartDate('');
+    setPaymentEndDate('');
+  };
+
+  const getFilteredSubscriptions = () => {
+    let filtered = [...subscriptions];
+
+    if (selectedMonth) {
+      const [year, month] = selectedMonth.split('-');
+      filtered = filtered.filter(sub => {
+        const subDate = new Date(sub.createdAt || sub.startDate);
+        return (
+          subDate.getFullYear() === parseInt(year) &&
+          subDate.getMonth() + 1 === parseInt(month)
+        );
+      });
+    }
+
+    if (paymentDateFilter) {
+      filtered = filtered.filter(sub => {
+        const subDateStr = new Date(sub.createdAt || sub.startDate).toISOString().split('T')[0];
+        return subDateStr === paymentDateFilter;
+      });
+    } else if (paymentStartDate && paymentEndDate) {
+      filtered = filtered.filter(sub => {
+        const subDateStr = new Date(sub.createdAt || sub.startDate).toISOString().split('T')[0];
+        return isDateInRange(subDateStr, paymentStartDate, paymentEndDate);
+      });
+    } else if (paymentStartDate) {
+      filtered = filtered.filter(sub => {
+        const subDateStr = new Date(sub.createdAt || sub.startDate).toISOString().split('T')[0];
+        return subDateStr >= paymentStartDate;
+      });
+    } else if (paymentEndDate) {
+      filtered = filtered.filter(sub => {
+        const subDateStr = new Date(sub.createdAt || sub.startDate).toISOString().split('T')[0];
+        return subDateStr <= paymentEndDate;
+      });
+    }
+
+    return filtered;
+  };
+
 
   
   const validateCPF = (cpf) => {
@@ -190,6 +468,58 @@ export default function AdminPage() {
     const randomKeyRegex = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
     if (randomKeyRegex.test(key)) return { isValid: true, type: 'Chave Aleatória', message: 'Chave aleatória válida' };
     return { isValid: false, message: 'Formato inválido. Use CPF, CNPJ, Email, Telefone ou Chave Aleatória', type: '' };
+  };
+
+
+  const fetchBlockedDates = async () => {
+    try {
+      setLoadingBlockedDates(true);
+      const response = await fetch('http://localhost:3000/blockedDates');
+      const data = await response.json();
+      setBlockedDates(data);
+    } catch (error) {
+      console.error('Erro ao carregar dias bloqueados:', error);
+    } finally {
+      setLoadingBlockedDates(false);
+    }
+  };
+
+  const handleAddBlockedDate = async () => {
+    if (!newBlockedDate.date) {
+      alert('Por favor, selecione uma data');
+      return;
+    }
+    const dateExists = blockedDates.some((blocked) => blocked.date === newBlockedDate.date && blocked.barberId === newBlockedDate.barberId);
+    if (dateExists) {
+      alert('Esta data já está bloqueada!');
+      return;
+    }
+    try {
+      const blockData = { date: newBlockedDate.date, reason: newBlockedDate.reason || 'Dia bloqueado', barberId: newBlockedDate.barberId, createdBy: currentUser?.id, createdAt: new Date().toISOString() };
+      const response = await fetch('http://localhost:3000/blockedDates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(blockData) });
+      if (response.ok) {
+        alert('Data bloqueada com sucesso!');
+        fetchBlockedDates();
+        setNewBlockedDate({ date: '', reason: '', barberId: null });
+      }
+    } catch (error) {
+      console.error('Erro ao bloquear data:', error);
+      alert('Erro ao bloquear data');
+    }
+  };
+
+  const handleRemoveBlockedDate = async (id) => {
+    if (!window.confirm('Deseja realmente desbloquear esta data?')) return;
+    try {
+      const response = await fetch(`http://localhost:3000/blockedDates/${id}`, { method: 'DELETE' });
+      if (response.ok) {
+        alert('Data desbloqueada com sucesso!');
+        fetchBlockedDates();
+      }
+    } catch (error) {
+      console.error('Erro ao desbloquear data:', error);
+      alert('Erro ao desbloquear data');
+    }
   };
 
   const handlePixKeyChange = (value) => {
@@ -351,9 +681,14 @@ export default function AdminPage() {
       navigate('/appointments');
       return;
     }
+
     loadData();
   }, [currentUser, isAdmin, isReceptionist, navigate]);
-
+  useEffect(() => {
+  if (activeTab === 'calendario') {
+    fetchBlockedDates();
+  }
+}, [activeTab]);
   useEffect(() => {
     if (activeTab === 'benefits' && hasAdminVisibility && plans.length === 0) {
       console.log('🔄 Carregando planos pela primeira vez...');
@@ -825,7 +1160,7 @@ export default function AdminPage() {
   };
 
   const getAppointmentsByBarber = (barberId) => {
-    return appointments
+    return getFilteredAppointments()
       .filter((apt) => apt.barberId === barberId)
       .sort((a, b) => {
         const dateA = new Date(a.date + 'T' + a.time);
@@ -982,7 +1317,9 @@ export default function AdminPage() {
     return stats;
   };
 
-  const filteredAppointmentPayments = filterPaymentsByMonth(appointmentPayments);
+  const filteredAppointmentPayments = getFilteredPayments();
+
+  const filteredAppointmentPaymentsForAgendamentos = getFilteredAppointmentPayments();
 
   const calculateMonthlyTotals = () => {
     const pendingAppointments = filteredAppointmentPayments
@@ -1007,7 +1344,7 @@ export default function AdminPage() {
 
   const pendingPayments = filteredAppointmentPayments.filter((p) => p.status === 'pending' || p.status === 'pendinglocal');
 
-  const paidPayments = filteredAppointmentPayments.filter((p) => p.status === 'paid');
+  const paidPayments = filteredAppointmentPaymentsForAgendamentos.filter((p) => p.status === 'paid');
 
   const openBenefitModal = (planId, benefit = null, benefitIndex = null) => {
     setSelectedPlanForBenefit({ planId, benefitIndex });
@@ -1257,6 +1594,13 @@ export default function AdminPage() {
                 Termos e Documentos
               </button>
             )}
+
+           <button
+  onClick={() => setActiveTab('calendario')}
+  className={`tab-btn ${activeTab === 'calendario' ? 'tab-btn--active' : ''}`}
+>
+   Calendário
+</button>
             {hasPermission('manageServices') && (
               <button
                 className={`tab-btn ${activeTab === 'services' ? 'tab-btn--active' : ''}`}
@@ -1273,6 +1617,17 @@ export default function AdminPage() {
                 Configurações
               </button>
             )}
+
+           <button
+  className={`tab-btn ${activeTab === 'homeInfo' ? 'tab-btn--active' : ''}`}
+  onClick={() => setActiveTab('homeInfo')}
+  style={{
+    display: hasPermission('manageSettings') ? 'block' : 'none'
+  }}
+>
+   Informações do Site
+</button>
+
             {hasPermission('manageEmployees') && (
               <button onClick={() => setActiveTab('employees')} className={`tab-btn ${activeTab === 'employees' ? 'tab-btn--active' : ''}`}>
                 Gerenciar Funcionários
@@ -1303,24 +1658,177 @@ export default function AdminPage() {
               </button>
             )}
           </div>
+            {activeTab === 'homeInfo' && (
+  <div className="tab-content">
+    <div className="section-header">
+      <h2>🏠 Informações do Site</h2>
+      <p>Edite os textos que aparecem na página inicial</p>
+    </div>
 
+    <form onSubmit={handleSaveHomeInfo} className="home-info-form">
+
+      <div className="form-section">
+        <h3 className="section-subtitle">📖 Sobre Nós</h3>
+        
+        <Input
+          label="Título da Seção"
+          value={homeInfo.aboutTitle}
+          onChange={(e) => handleHomeInfoChange('aboutTitle', e.target.value)}
+          placeholder="Ex: Barbearia Rodrigues"
+        />
+
+        <div className="form-group">
+          <label>Parágrafo 1</label>
+          <textarea
+            value={homeInfo.aboutText1}
+            onChange={(e) => handleHomeInfoChange('aboutText1', e.target.value)}
+            placeholder="Ex: A Barbearia Rodrigues é referência em cortes masculinos há mais de 10 anos."
+            rows="3"
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              borderRadius: '8px',
+              border: '1px solid #ddd',
+              fontSize: '1rem',
+              fontFamily: 'inherit',
+              resize: 'vertical'
+            }}
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Parágrafo 2</label>
+          <textarea
+            value={homeInfo.aboutText2}
+            onChange={(e) => handleHomeInfoChange('aboutText2', e.target.value)}
+            placeholder="Ex: Combinamos técnicas tradicionais com tendências modernas..."
+            rows="3"
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              borderRadius: '8px',
+              border: '1px solid #ddd',
+              fontSize: '1rem',
+              fontFamily: 'inherit',
+              resize: 'vertical'
+            }}
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Parágrafo 3</label>
+          <textarea
+            value={homeInfo.aboutText3}
+            onChange={(e) => handleHomeInfoChange('aboutText3', e.target.value)}
+            placeholder="Ex: Nosso ambiente proporciona conforto e uma experiência única."
+            rows="3"
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              borderRadius: '8px',
+              border: '1px solid #ddd',
+              fontSize: '1rem',
+              fontFamily: 'inherit',
+              resize: 'vertical'
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="form-section" style={{ marginTop: '2rem' }}>
+        <h3 className="section-subtitle">🕐 Horário de Funcionamento</h3>
+        
+        <Input
+          label="Título da Seção"
+          value={homeInfo.scheduleTitle}
+          onChange={(e) => handleHomeInfoChange('scheduleTitle', e.target.value)}
+          placeholder="Ex: Horário de Funcionamento"
+        />
+
+        <Input
+          label="Linha 1"
+          value={homeInfo.scheduleLine1}
+          onChange={(e) => handleHomeInfoChange('scheduleLine1', e.target.value)}
+          placeholder="Ex: Seg - 14h as 20h"
+        />
+
+        <Input
+          label="Linha 2"
+          value={homeInfo.scheduleLine2}
+          onChange={(e) => handleHomeInfoChange('scheduleLine2', e.target.value)}
+          placeholder="Ex: Terça a Sab. - 09h as 20h"
+        />
+
+        <Input
+          label="Linha 3"
+          value={homeInfo.scheduleLine3}
+          onChange={(e) => handleHomeInfoChange('scheduleLine3', e.target.value)}
+          placeholder="Ex: Domingo: Fechado"
+        />
+      </div>
+
+      <div className="form-section" style={{ marginTop: '2rem' }}>
+        <h3 className="section-subtitle">📍 Localização</h3>
+        
+        <Input
+          label="Título da Seção"
+          value={homeInfo.locationTitle}
+          onChange={(e) => handleHomeInfoChange('locationTitle', e.target.value)}
+          placeholder="Ex: Localização"
+        />
+
+        <Input
+          label="Endereço"
+          value={homeInfo.locationAddress}
+          onChange={(e) => handleHomeInfoChange('locationAddress', e.target.value)}
+          placeholder="Ex: Av. val paraíso,1396"
+        />
+
+        <Input
+          label="Cidade/Bairro"
+          value={homeInfo.locationCity}
+          onChange={(e) => handleHomeInfoChange('locationCity', e.target.value)}
+          placeholder="Ex: Jangurussu - Fortaleza/CE"
+        />
+      </div>
+
+      <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
+        <Button type="submit" disabled={homeInfoLoading}>
+          {homeInfoLoading ? 'Salvando...' : '💾 Salvar Alterações'}
+        </Button>
+      </div>
+    </form>
+  </div>
+)}
           
           {activeTab === 'employees' && (
             <div className="manage-barbers">
               <div className="manage-barbers-header">
                 <h2>Gerenciar Funcionários</h2>
-                {isAdmin && (
-                  <button onClick={() => openBarberModal()} className="btn-add-barber">
-                    Adicionar Funcionário
-                  </button>
-                )}
+                <div className="filter-actions-container">
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="category-filter-select"
+                  >
+                    <option value="all">📋 Todas as Categorias</option>
+                    <option value="barber">✂️ Barbeiros</option>
+                    <option value="receptionist">📋 Recepcionistas</option>
+                    <option value="admin">👑 Administradores</option>
+                  </select>
+                  {isAdmin && (
+                    <button onClick={() => openBarberModal()} className="btn-add-barber">
+                      Adicionar Funcionário
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="barbers-table-container">
-                {employees.length === 0 ? (
-                  <p className="no-data">Nenhum funcionário cadastrado.</p>
+                {getFilteredEmployees().length === 0 ? (
+                  <p className="no-data">Nenhum funcionário encontrado nesta categoria.</p>
                 ) : (
-                  employees.map((employee) => {
+                  getFilteredEmployees().map((employee) => {
                     const barberData = employee.role === 'barber' ? barbers.find((b) => b.userId === employee.id) : null;
                     const barberAppointments = barberData ? getAppointmentsByBarber(barberData.id) : [];
                     const isExpanded = barberData && expandedBarbers[barberData.id];
@@ -1543,6 +2051,80 @@ export default function AdminPage() {
                 </div>
               </div>
 
+              <div className="filters-container">
+                <div className="filter-group">
+                  <label>Data Específica:</label>
+                  <input
+                    type="date"
+                    value={appointmentDateFilter}
+                    onChange={(e) => {
+                      setAppointmentDateFilter(e.target.value);
+                      if (e.target.value) {
+                        setAppointmentStartDate('');
+                        setAppointmentEndDate('');
+                      }
+                    }}
+                    className="filter-input"
+                  />
+                </div>
+
+                <div className="filter-group">
+                  <label>De:</label>
+                  <input
+                    type="date"
+                    value={appointmentStartDate}
+                    onChange={(e) => {
+                      setAppointmentStartDate(e.target.value);
+                      if (e.target.value) {
+                        setAppointmentDateFilter('');
+                      }
+                    }}
+                    className="filter-input"
+                    disabled={!!appointmentDateFilter}
+                  />
+                </div>
+
+                <div className="filter-group">
+                  <label>Até:</label>
+                  <input
+                    type="date"
+                    value={appointmentEndDate}
+                    onChange={(e) => {
+                      setAppointmentEndDate(e.target.value);
+                      if (e.target.value) {
+                        setAppointmentDateFilter('');
+                      }
+                    }}
+                    className="filter-input"
+                    disabled={!!appointmentDateFilter}
+                  />
+                </div>
+
+                <div className="filter-group">
+                  <label>Barbeiro:</label>
+                  <select
+                    value={selectedBarberFilter}
+                    onChange={(e) => setSelectedBarberFilter(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="all">Todos os Barbeiros</option>
+                    {barbers.map((barber) => (
+                      <option key={barber.id} value={barber.id}>
+                        {barber.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {(appointmentDateFilter || appointmentStartDate || appointmentEndDate || selectedBarberFilter !== 'all') && (
+                  <div className="filter-group">
+                    <button onClick={clearAppointmentFilters} className="clear-filters-btn">
+                      Limpar Filtros
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div className="payments-section">
                 {paidPayments.length > 0 && (
                 <div className="payments-list">
@@ -1562,7 +2144,7 @@ export default function AdminPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {paidPayments.map((payment) => {
+                        {getFilteredAppointmentPayments().filter(p => p.status === 'paid').map((payment) => {
                           const isSubscriber = clientSubscriptionStatus[payment.userId] || false;
                           const appointment = appointments.find(apt => apt.id === payment.appointmentId);
                           const productsList = appointment?.products || [];
@@ -2040,6 +2622,64 @@ export default function AdminPage() {
                 </div>
               </div>
 
+              <div className="filters-container">
+                <div className="filter-group">
+                  <label>Data Específica:</label>
+                  <input
+                    type="date"
+                    value={paymentDateFilter}
+                    onChange={(e) => {
+                      setPaymentDateFilter(e.target.value);
+                      if (e.target.value) {
+                        setPaymentStartDate('');
+                        setPaymentEndDate('');
+                      }
+                    }}
+                    className="filter-input"
+                  />
+                </div>
+
+                <div className="filter-group">
+                  <label>De:</label>
+                  <input
+                    type="date"
+                    value={paymentStartDate}
+                    onChange={(e) => {
+                      setPaymentStartDate(e.target.value);
+                      if (e.target.value) {
+                        setPaymentDateFilter('');
+                      }
+                    }}
+                    className="filter-input"
+                    disabled={!!paymentDateFilter}
+                  />
+                </div>
+
+                <div className="filter-group">
+                  <label>Até:</label>
+                  <input
+                    type="date"
+                    value={paymentEndDate}
+                    onChange={(e) => {
+                      setPaymentEndDate(e.target.value);
+                      if (e.target.value) {
+                        setPaymentDateFilter('');
+                      }
+                    }}
+                    className="filter-input"
+                    disabled={!!paymentDateFilter}
+                  />
+                </div>
+
+                {(paymentDateFilter || paymentStartDate || paymentEndDate) && (
+                  <div className="filter-group">
+                    <button onClick={clearPaymentFilters} className="clear-filters-btn">
+                      Limpar Filtros
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div className="monthly-summary" style={{ marginBottom: '2rem' }}>
                 <div
                   style={{ background: 'rgba(212, 175, 55, 0.1)', border: '1px solid var(--gold)', borderRadius: '8px', padding: '1.5rem' }}
@@ -2187,7 +2827,7 @@ export default function AdminPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {subscriptions.map((sub) => (
+                        {getFilteredSubscriptions().map((sub) => (
                           <tr key={sub.id}>
                             <td>{new Date(sub.createdAt || sub.startDate).toLocaleDateString('pt-BR')}</td>
                             <td>{sub.userName || 'N/A'}</td>
@@ -2210,6 +2850,122 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+
+          {activeTab === 'calendario' && (
+            <div className="calendario-container">
+              <h2 className="calendario-titulo">Gerenciar Calendário</h2>
+
+              <div className="bloqueio-form-card">
+                <h3 className="bloqueio-form-titulo">Bloquear Dia no Calendário</h3>
+
+                <div className="bloqueio-form-grid">
+                  <div className="bloqueio-form-campo">
+                    <label className="bloqueio-form-label">Data *</label>
+                    <input
+                      type="date"
+                      value={newBlockedDate.date}
+                      onChange={(e) => setNewBlockedDate({ ...newBlockedDate, date: e.target.value })}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="bloqueio-form-input"
+                    />
+                  </div>
+
+                  <div className="bloqueio-form-campo">
+                    <label className="bloqueio-form-label">Barbeiro (opcional)</label>
+                    <select
+                      value={newBlockedDate.barberId || ''}
+                      onChange={(e) => setNewBlockedDate({ ...newBlockedDate, barberId: e.target.value || null })}
+                      className="bloqueio-form-select"
+                    >
+                      <option value="">Todos os barbeiros</option>
+                      {barbers.map((barber) => (
+                        <option key={barber.id} value={barber.id}>{barber.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="bloqueio-form-campo">
+                    <label className="bloqueio-form-label">Motivo (opcional)</label>
+                    <input
+                      type="text"
+                      value={newBlockedDate.reason}
+                      onChange={(e) => setNewBlockedDate({ ...newBlockedDate, reason: e.target.value })}
+                      placeholder="Ex: Feriado, Manutenção..."
+                      className="bloqueio-form-input"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleAddBlockedDate}
+                  disabled={!isAdmin}
+                  className="bloqueio-btn"
+                >
+                  Bloquear Data
+                </button>
+
+                {!isAdmin && (
+                  <p className="bloqueio-aviso">Apenas administradores podem bloquear datas</p>
+                )}
+              </div>
+
+              <div className="datas-bloqueadas-card">
+                <h3 className="datas-bloqueadas-titulo">Datas Bloqueadas</h3>
+
+                {loadingBlockedDates ? (
+                  <p className="datas-loading">Carregando...</p>
+                ) : blockedDates.length === 0 ? (
+                  <p className="datas-vazio">Nenhuma data bloqueada.</p>
+                ) : (
+                  <div className="datas-tabela-container">
+                    <table className="datas-tabela">
+                      <thead>
+                        <tr>
+                          <th>Data</th>
+                          <th>Barbeiro</th>
+                          <th>Motivo</th>
+                          <th>Criado em</th>
+                          <th>Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {blockedDates.sort((a, b) => new Date(a.date) - new Date(b.date)).map((blocked) => {
+                          const barber = blocked.barberId ? barbers.find((b) => b.id === blocked.barberId) : null;
+                          return (
+                            <tr key={blocked.id}>
+                              <td className="datas-tabela-data">
+                                {new Date(blocked.date + 'T12:00:00').toLocaleDateString('pt-BR')}
+                              </td>
+                              <td className="datas-tabela-barbeiro">
+                                {barber ? barber.name : 'Todos'}
+                              </td>
+                              <td className="datas-tabela-motivo">
+                                {blocked.reason || '-'}
+                              </td>
+                              <td className="datas-tabela-criado">
+                                {new Date(blocked.createdAt).toLocaleDateString('pt-BR')}
+                              </td>
+                              <td>
+                                {isAdmin && (
+                                  <button
+                                    onClick={() => handleRemoveBlockedDate(blocked.id)}
+                                    className="datas-btn-desbloquear"
+                                  >
+                                    Desbloquear
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
         </div>
       </section>
 

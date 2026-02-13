@@ -13,28 +13,28 @@ export default function ManageSubscriptionModal({ isOpen, onClose, subscription,
     basic: {
       color: '#6b7280',
       gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      icon: Calendar
+      icon: Calendar,
     },
     basico: {
       color: '#6b7280',
       gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      icon: Calendar
+      icon: Calendar,
     },
     premium: {
       color: '#ff7a1a',
       gradient: 'linear-gradient(135deg, #ff7a1a 0%, #ff9a4a 100%)',
-      icon: Crown
+      icon: Crown,
     },
     vip: {
       color: '#d4af37',
       gradient: 'linear-gradient(135deg, #ffd700 0%, #d4af37 100%)',
-      icon: Sparkles
+      icon: Sparkles,
     },
     'vip gold': {
       color: '#d4af37',
       gradient: 'linear-gradient(135deg, #ffd700 0%, #d4af37 100%)',
-      icon: Sparkles
-    }
+      icon: Sparkles,
+    },
   };
 
   const defaultBenefits = {
@@ -42,13 +42,13 @@ export default function ManageSubscriptionModal({ isOpen, onClose, subscription,
       '2 cortes por mês',
       '10% de desconto em produtos',
       'Agendamento prioritário',
-      'Suporte por WhatsApp'
+      'Suporte por WhatsApp',
     ],
     basico: [
       '2 cortes por mês',
       '10% de desconto em produtos',
       'Agendamento prioritário',
-      'Suporte por WhatsApp'
+      'Suporte por WhatsApp',
     ],
     premium: [
       '4 cortes por mês',
@@ -56,7 +56,7 @@ export default function ManageSubscriptionModal({ isOpen, onClose, subscription,
       '20% de desconto em produtos',
       'Agendamento prioritário',
       'Acesso a eventos exclusivos',
-      'Suporte VIP 24/7'
+      'Suporte VIP 24/7',
     ],
     vip: [
       'Cortes ilimitados',
@@ -67,7 +67,7 @@ export default function ManageSubscriptionModal({ isOpen, onClose, subscription,
       'Bebidas premium inclusas',
       'Acesso a eventos exclusivos',
       'Suporte VIP 24/7',
-      'Presente de aniversário'
+      'Presente de aniversário',
     ],
     'vip gold': [
       'Cortes ilimitados',
@@ -78,10 +78,9 @@ export default function ManageSubscriptionModal({ isOpen, onClose, subscription,
       'Bebidas premium inclusas',
       'Acesso a eventos exclusivos',
       'Suporte VIP 24/7',
-      'Presente de aniversário'
-    ]
+      'Presente de aniversário',
+    ],
   };
-
 
   useEffect(() => {
     async function loadPlanDetails() {
@@ -92,7 +91,9 @@ export default function ManageSubscriptionModal({ isOpen, onClose, subscription,
 
       setLoading(true);
       try {
-        const { data } = await axios.get(`http://localhost:3000/subscriptionPlans/${subscription.planId}`);
+        const { data } = await axios.get(
+          `http://localhost:3000/subscriptionPlans/${subscription.planId}`,
+        );
         setPlanDetails(data);
         console.log('✅ Plano carregado:', data);
       } catch (error) {
@@ -112,9 +113,8 @@ export default function ManageSubscriptionModal({ isOpen, onClose, subscription,
   const config = planConfigs[planKey] || planConfigs.premium;
   const PlanIcon = config.icon;
 
-  
   const benefits = planDetails?.features || defaultBenefits[planKey] || defaultBenefits.premium;
-  const planPrice = planDetails?.price || subscription.price || subscription.amount || 149.90;
+  const planPrice = planDetails?.price || subscription.price || subscription.amount || 150;
 
   const formatDate = (date) => {
     if (!date) return 'N/A';
@@ -122,12 +122,10 @@ export default function ManageSubscriptionModal({ isOpen, onClose, subscription,
     return d.toLocaleDateString('pt-BR');
   };
 
-const handleContactWhatsApp = () => {
+  const handleContactWhatsApp = () => {
+    const nomeUsuario = user?.name || subscription?.userName || 'Cliente';
 
-    const nomeUsuario = user?.name || subscription?.userName || "Cliente";
-    
-
-    const idPlano = subscription?.id || "Não identificado";
+    const idPlano = subscription?.id || 'Não identificado';
 
     const message = `Me chamo ${nomeUsuario},  id do plano ${idPlano} e gostaria de realizar o cancelamento`;
 
@@ -152,10 +150,7 @@ const handleContactWhatsApp = () => {
         </div>
 
         <div className="subscription-card">
-          <div 
-            className="subscription-card__header"
-            style={{ background: config.gradient }}
-          >
+          <div className="subscription-card__header" style={{ background: config.gradient }}>
             <div className="plan-icon-wrapper">
               <PlanIcon size={40} />
             </div>
@@ -172,9 +167,7 @@ const handleContactWhatsApp = () => {
               <Calendar size={20} color="#d4af37" />
               <div>
                 <span className="detail-label">Próximo Pagamento</span>
-                <span className="detail-value">
-                  {formatDate(subscription.nextBillingDate)}
-                </span>
+                <span className="detail-value">{formatDate(subscription.nextBillingDate)}</span>
               </div>
             </div>
 
@@ -192,9 +185,7 @@ const handleContactWhatsApp = () => {
               <Check size={20} color="#4caf50" />
               <div>
                 <span className="detail-label">Data de Início</span>
-                <span className="detail-value">
-                  {formatDate(subscription.startDate)}
-                </span>
+                <span className="detail-value">{formatDate(subscription.startDate)}</span>
               </div>
             </div>
           </div>
@@ -202,11 +193,13 @@ const handleContactWhatsApp = () => {
           <div className="benefits-section">
             <h4>Benefícios Inclusos</h4>
             {loading ? (
-              <div style={{ 
-                textAlign: 'center', 
-                padding: '20px',
-                color: '#d4af37' 
-              }}>
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: '20px',
+                  color: '#d4af37',
+                }}
+              >
                 <p>Carregando benefícios...</p>
               </div>
             ) : (
@@ -228,7 +221,10 @@ const handleContactWhatsApp = () => {
           </div>
           <div className="info-content">
             <h4>Precisa cancelar?</h4>
-            <p>Entre em contato conosco pelo WhatsApp para solicitar o cancelamento. Estamos prontos para ajudá-lo!</p>
+            <p>
+              Entre em contato conosco pelo WhatsApp para solicitar o cancelamento. Estamos prontos
+              para ajudá-lo!
+            </p>
             <button className="whatsapp-button" onClick={handleContactWhatsApp}>
               <FaWhatsapp size={20} />
               Cancelar via WhatsApp
