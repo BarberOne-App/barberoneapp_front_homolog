@@ -2,21 +2,44 @@ import api from "./api";
 
 export async function login(email, password) {
   try {
-  
     const { data } = await api.get("/users");
-    
-   
     const user = data.find(u => u.email === email && u.password === password);
-    
     if (!user) return null;
-    
-    
     saveSession(user);
-    
     return user;
   } catch (error) {
-
     return null;
+  }
+}
+
+export async function loginWithGoogle(googleUser) {
+  try {
+    const { data } = await api.get("/users");
+
+    
+    let user = data.find(u => u.email === googleUser.email);
+
+    if (!user) {
+    
+      const newUser = {
+        name: googleUser.name,
+        email: googleUser.email,
+        picture: googleUser.picture,
+        googleId: googleUser.sub,
+        role: "client",
+        isAdmin: false,
+        password: null, 
+        createdAt: new Date().toISOString(),
+      };
+
+      const { data: created } = await api.post("/users", newUser);
+      user = created;
+    }
+
+    saveSession(user);
+    return user;
+  } catch (error) {
+    throw error;
   }
 }
 
@@ -28,13 +51,9 @@ export async function register(userData) {
       isAdmin: userData.isAdmin || false,
       createdAt: new Date().toISOString()
     });
-    
-  
     saveSession(data);
-    
     return data;
   } catch (error) {
-
     throw error;
   }
 }
@@ -48,7 +67,6 @@ export function getSession() {
     const user = localStorage.getItem("currentUser");
     return user ? JSON.parse(user) : null;
   } catch (error) {
-
     return null;
   }
 }

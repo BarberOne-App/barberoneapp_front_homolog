@@ -1,7 +1,6 @@
 
 
 export const processMercadoPagoPayment = async (paymentData) => {
-  console.log('🔄 MODO TESTE - Simulando pagamento...', paymentData);
   
 
   await new Promise(resolve => setTimeout(resolve, 3000));

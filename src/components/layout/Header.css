@@ -82,6 +82,9 @@
   font-weight: 600;
   transition: all 0.3s;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .header__contato:hover {
@@ -89,157 +92,28 @@
   transform: translateY(-2px);
 }
 
-.header__profile {
-  position: relative;
-}
 
 .header__profile-btn {
-  background: none;
-  border: none;
+  background: rgba(255, 122, 26, 0.1);
+  border: 1px solid rgba(255, 122, 26, 0.35);
+  border-radius: 6px;
+  padding: 0.5rem 1.1rem;
   cursor: pointer;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  position: relative;
-}
-
-.header__profile-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #ff7a1a, #ff944d);
-  color: #1a1a1a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  font-size: 1.2rem;
-  border: 2px solid #d4af37;
-  transition: all 0.3s;
-}
-
-.header__profile-btn:hover .header__profile-avatar {
-  transform: scale(1.1);
-  box-shadow: 0 0 15px rgba(212, 175, 55, 0.5);
-}
-
-.header__profile-status {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 12px;
-  height: 12px;
-  background: #00ff00;
-  border-radius: 50%;
-  border: 2px solid #1a1a1a;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-.header__profile-menu {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
-  background: #2a2a2a;
-  border: 1px solid #444;
-  border-radius: 8px;
-  padding: 0.5rem;
-  min-width: 220px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-  animation: slideDown 0.2s ease-out;
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.header__profile-info {
-  padding: 0.8rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.header__profile-info strong {
+  transition: all 0.25s;
   color: #fff;
-  font-size: 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 
-.header__admin-badge {
-  background: #d4af37;
-  color: #1a1a1a;
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: bold;
-  display: inline-block;
-  margin-top: 0.3rem;
+.header__profile-btn:hover {
+  background: rgba(255, 122, 26, 0.2);
+  border-color: #ff7a1a;
+  color: #ff7a1a;
+  transform: translateY(-1px);
 }
 
-.header__subscription-badge {
-  background: linear-gradient(135deg, #ff7a1a, #ff944d);
-  color: #1a1a1a;
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: bold;
-  display: inline-block;
-  margin-top: 0.3rem;
-  box-shadow: 0 2px 8px rgba(255, 122, 26, 0.3);
-}
-
-.header__profile-menu hr {
-  border: none;
-  border-top: 1px solid #444;
-  margin: 0.5rem 0;
-}
-
-.header__profile-menu button {
-  width: 100%;
-  background: none;
-  border: none;
-  color: #fff;
-  padding: 0.8rem;
-  text-align: left;
-  cursor: pointer;
-  font-size: 0.95rem;
-  border-radius: 4px;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.header__profile-menu button:hover {
-  background: #333;
-  color: #d4af37;
-}
-
-.header__subscription-btn:hover {
-  background: rgba(255, 122, 26, 0.2) !important;
-  color: #ff7a1a !important;
-}
-
-.header__logout-btn:hover {
-  background: #c0392b !important;
-  color: #fff !important;
-}
 
 .header__login-btn {
   background: #d4af37;
@@ -257,55 +131,6 @@
   transform: translateY(-2px);
 }
 
-.cart-button {
-  position: relative;
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  padding: 8px 12px;
-  transition: transform 0.3s;
-  color: #d4af37;
-}
-
-.cart-button:hover {
-  transform: scale(1.1);
-}
-
-.cart-badge {
-  position: absolute;
-  top: 0;
-  right: 0;
-  background: #ff7a1a;
-  color: white;
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.75rem;
-  font-weight: bold;
-  animation: pulseBadge 0.5s ease-in-out;
-}
-
-@keyframes pulseBadge {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.2);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
 
 @media (max-width: 768px) {
   .header {
@@ -347,19 +172,11 @@
   .header__login-btn {
     width: 100%;
     text-align: center;
-  }
-
-  .header__profile {
-    width: 100%;
-  }
-
-  .header__profile-btn {
     justify-content: center;
   }
 
-  .header__profile-menu {
-    position: static;
-    margin-top: 1rem;
+  .header__profile-btn {
     width: 100%;
+    text-align: center;
   }
 }

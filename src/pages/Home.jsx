@@ -25,6 +25,9 @@ export default function Home() {
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
   const [siteInfo, setSiteInfo] = useState({
+    heroTitle: "",
+    heroSubtitle: "",
+    heroImage: "",
     aboutTitle: "Barbearia Rodrigues",
     aboutText1: "",
     aboutText2: "",
@@ -147,17 +150,17 @@ export default function Home() {
         <section className="hero" id="inicio">
           <div className="hero__background">
             <img
-              src="https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=2070"
-              alt="Barbearia ADDEV"
+              src={siteInfo.heroImage || "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=2070"}
+              alt="Banner da Barbearia"
               className="hero__background-image"
             />
             <div className="hero__overlay"></div>
           </div>
 
           <div className="hero__content">
-            <h1 className="hero__title">Estilo e Tradição em um só lugar</h1>
+            <h1 className="hero__title">{siteInfo.heroTitle || "Estilo e Tradição em um só lugar"}</h1>
             <p className="hero__subtitle">
-              Há mais de 10 anos cuidando do seu visual com excelência e profissionalismo
+              {siteInfo.heroSubtitle || "Há mais de 10 anos cuidando do seu visual com excelência e profissionalismo"}
             </p>
             <div className="hero__buttons">
               <Link to="/agendamentos">

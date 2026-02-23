@@ -13,6 +13,8 @@ export default function RegisterPage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+  const [barbershop, setBarbershop] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminSecret, setAdminSecret] = useState("");
   const [message, setMessage] = useState({ type: "", text: "" });
@@ -102,7 +104,7 @@ export default function RegisterPage() {
     setMessage({ type: "", text: "" });
 
     
-    if (!name || !email || !cpf || !phone || !password || !confirmPassword) {
+    if (!name || !email || !cpf || !phone || !birthDate || !barbershop || !password || !confirmPassword) {
       setMessage({ type: "error", text: "Preencha todos os campos." });
       setIsSubmitting(false);
       return;
@@ -163,7 +165,9 @@ export default function RegisterPage() {
         name,
         email,
         cpf: cleanCPF,
-        phone: phoneNumbers, 
+        phone: phoneNumbers,
+        birthDate,
+        barbershops: [barbershop.trim()],
         password,
         role: isAdmin ? "admin" : "client",
         isAdmin: isAdmin
@@ -224,6 +228,20 @@ export default function RegisterPage() {
               onChange={handlePhoneChange}
               placeholder="(85) 99999-9999"
               maxLength="15"
+            />
+            <Input
+              label="Data de Nascimento"
+              type="date"
+              value={birthDate}
+              onChange={(e) => setBirthDate(e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
+            />
+            <Input
+              label="Nome da Barbearia"
+              type="text"
+              value={barbershop}
+              onChange={(e) => setBarbershop(e.target.value)}
+              placeholder="Ex: Barbearia Rodrigues"
             />
             <Input 
               label="Senha" 

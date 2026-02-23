@@ -275,8 +275,22 @@ export const buscarAssinaturasUsuario = async (userId) => {
 
 export const buscarAssinaturaAtiva = async (userId) => {
   try {
-    const response = await api.get(`/subscriptions?userId=${userId}&status=active`);
-    return response.data.length > 0 ? response.data[0] : null;
+    
+    const [resActive, resPending] = await Promise.all([
+      api.get(`/subscriptions?userId=${userId}&status=active`),
+      api.get(`/subscriptions?userId=${userId}&status=cancel_pending`),
+    ]);
+
+    const todas = [...resActive.data, ...resPending.data];
+    const hoje = new Date();
+
+    
+    const valida = todas.find(s => {
+      if (!s.nextBillingDate) return false;
+      return new Date(s.nextBillingDate) > hoje;
+    });
+
+    return valida || null;
   } catch (error) {
     console.error('Erro ao buscar assinatura ativa:', error);
     return null;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BaseLayout from '../components/layout/BaseLayout';
 import Button from '../components/ui/Button';
@@ -34,9 +34,21 @@ import {
   deleteService,
 } from '../services/serviceServices';
 
+import {
+  getGallery,
+  createGalleryImage,
+  updateGalleryImage,
+  deleteGalleryImage,
+} from '../services/homeServices';
+import { uploadImagem } from '../services/cloudinaryService';
+
+
+
 export default function AdminPage() {
   const navigate = useNavigate();
-  const currentUser = getSession();
+
+  const currentUserRef = useRef(getSession());
+  const currentUser = currentUserRef.current;
   const [uploadedTermsDoc, setUploadedTermsDoc] = useState(null);
   const [termsDocUrl, setTermsDocUrl] = useState('');
   // const [activeTab, setActiveTab] = useState('employees');
@@ -45,6 +57,10 @@ export default function AdminPage() {
   const [employees, setEmployees] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
+  const [confirmCancelSub, setConfirmCancelSub] = useState(null); 
+  const [confirmModal, setConfirmModal] = useState({ open: false, message: '', onConfirm: null });
+  const [subscriptionSearch, setSubscriptionSearch] = useState('');
+  const [subscriptionSearchType, setSubscriptionSearchType] = useState('name');
   const [blockedDates, setBlockedDates] = useState([]);
   const [newBlockedDate, setNewBlockedDate] = useState({ date: '', reason: '', barberId: null });
   const [loadingBlockedDates, setLoadingBlockedDates] = useState(false);
@@ -107,6 +123,9 @@ export default function AdminPage() {
     image: '',
   });
 const [homeInfo, setHomeInfo] = useState({
+  heroTitle: '',
+  heroSubtitle: '',
+  heroImage: '',
   aboutTitle: '', 
   aboutText1: '',
   aboutText2: '',
@@ -143,24 +162,35 @@ const [homeInfoLoading, setHomeInfoLoading] = useState(false);
 
   const [categoryFilter, setCategoryFilter] = useState('all');
 
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.isAdmin === true;
-  const isReceptionist = currentUser?.role === 'receptionist';
-  const hasAdminVisibility = isAdmin || isReceptionist || (currentUser?.permissions?.viewAdmin);
 
-  useEffect(() => {
-  loadHomeInfo();
-}, []);
+  const [gallery, setGallery] = useState([]);
+  const [showGalleryModal, setShowGalleryModal] = useState(false);
+  const [editingGalleryImage, setEditingGalleryImage] = useState(null);
+  const [galleryForm, setGalleryForm] = useState({ url: '', alt: '' });
+  const [galleryLoading, setGalleryLoading] = useState(false);
+  const MAX_GALLERY_IMAGES = 15;
 
-const loadHomeInfo = async () => {
-  try {
-    const data = await getHomeInfo();
-    if (data) {
-      setHomeInfo(data);
+  const [barberPhotoUploading, setBarberPhotoUploading] = useState(false);
+  const [serviceImageUploading, setServiceImageUploading] = useState(false);
+  const [productImageUploading, setProductImageUploading] = useState(false);
+  const [heroImageUploading, setHeroImageUploading] = useState(false);
+  const [galleryImageUploading, setGalleryImageUploading] = useState(false);
+  
+
+  const isAdmin = useMemo(() => currentUser?.role === 'admin' || currentUser?.isAdmin === true, [currentUser?.role, currentUser?.isAdmin]);
+  const isReceptionist = useMemo(() => currentUser?.role === 'receptionist', [currentUser?.role]);
+  const hasAdminVisibility = useMemo(() => isAdmin || isReceptionist || (currentUser?.permissions?.viewAdmin), [isAdmin, isReceptionist, currentUser?.permissions?.viewAdmin]);
+
+  const loadHomeInfo = useCallback(async () => {
+    try {
+      const data = await getHomeInfo();
+      if (data) {
+        setHomeInfo(data);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar informações da home:', error);
     }
-  } catch (error) {
-    console.error('Erro ao carregar informações da home:', error);
-  }
-};
+  }, []);
   const permissionsConfig = {
     viewAdmin: { label: 'Acessar Painel Admin', category: 'Acesso Básico', icon: '🔓' },
     manageEmployees: { label: 'Gerenciar Funcionários', category: 'Gestão de Pessoas', icon: '👥' },
@@ -174,6 +204,7 @@ const loadHomeInfo = async () => {
     manageAgendamentos: { label: 'Ver Aba Agendamentos', category: 'Agendamentos', icon: '📅' },
     manageBenefits: { label: 'Gerenciar Benefícios dos Planos', category: 'Configurações', icon: '🎁' },
     manageSettings: { label: 'Alterar Configurações (PIX, Termos)', category: 'Configurações', icon: '⚙️' },
+    manageGallery: { label: 'Gerenciar Galeria de Fotos', category: 'Conteúdo', icon: '🖼️' },
   };
 
   const hasPermission = (permission) => {
@@ -188,6 +219,89 @@ const loadHomeInfo = async () => {
     }
     return employees.filter((emp) => emp.role === categoryFilter);
   };
+
+  const loadGallery = async () => {
+    try {
+      setGalleryLoading(true);
+      const data = await getGallery();
+      setGallery(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar galeria:', error);
+      showToast('Erro ao carregar galeria', 'danger');
+    } finally {
+      setGalleryLoading(false);
+    }
+  };
+
+  const openGalleryModal = (image = null) => {
+    if (image) {
+      setEditingGalleryImage(image);
+      setGalleryForm({ url: image.url, alt: image.alt });
+    } else {
+      setEditingGalleryImage(null);
+      setGalleryForm({ url: '', alt: '' });
+    }
+    setShowGalleryModal(true);
+  };
+
+  const closeGalleryModal = () => {
+    setShowGalleryModal(false);
+    setEditingGalleryImage(null);
+    setGalleryForm({ url: '', alt: '' });
+  };
+
+  const handleGalleryFormChange = (field, value) => {
+    setGalleryForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveGalleryImage = async (e) => {
+    e.preventDefault();
+    if (!galleryForm.url.trim()) {
+      showToast('URL da imagem é obrigatória', 'danger');
+      return;
+    }
+    if (!editingGalleryImage && gallery.length >= MAX_GALLERY_IMAGES) {
+      showToast(`Limite de ${MAX_GALLERY_IMAGES} imagens atingido`, 'danger');
+      return;
+    }
+    try {
+      const imageData = {
+        url: galleryForm.url.trim(),
+        alt: galleryForm.alt.trim() || 'Imagem da galeria',
+      };
+      if (editingGalleryImage) {
+        await updateGalleryImage(editingGalleryImage.id, imageData);
+        showToast('Imagem atualizada com sucesso!', 'success');
+      } else {
+        await createGalleryImage(imageData);
+        showToast('Imagem adicionada com sucesso!', 'success');
+      }
+      await loadGallery();
+      closeGalleryModal();
+    } catch (error) {
+      console.error('Erro ao salvar imagem:', error);
+      showToast('Erro ao salvar imagem', 'danger');
+    }
+  };
+
+  const handleDeleteGalleryImage = (imageId) => {
+    showConfirm('Tem certeza que deseja excluir esta imagem?', async () => {
+      try {
+        await deleteGalleryImage(imageId);
+        setGallery((prev) => prev.filter((img) => img.id !== imageId));
+        showToast('Imagem excluída com sucesso!', 'success');
+      } catch (error) {
+        console.error('Erro ao excluir imagem:', error);
+        showToast('Erro ao excluir imagem', 'danger');
+      }
+    });
+  };
+
+  useEffect(() => {
+    if (activeTab === 'gallery') {
+      loadGallery();
+    }
+  }, [activeTab]);
 
   const isDateInRange = (dateStr, startDate, endDate) => {
     if (!startDate && !endDate) return true;
@@ -269,18 +383,6 @@ const loadHomeInfo = async () => {
     return filtered;
   };
 
-  useEffect(() => {
-  const loadHomeInfoOnce = async () => {
-    try {
-      const data = await getHomeInfo();
-      setHomeInfo(data);
-    } catch (error) {
-      console.error('Erro ao carregar home info:', error);
-    }
-  };
-  
-  loadHomeInfoOnce();
-}, []);
   const carregarHomeInfo = useCallback(async () => {
   try {
     const data = await getHomeInfo();
@@ -486,40 +588,41 @@ const handleHomeInfoChange = (field, value) => {
 
   const handleAddBlockedDate = async () => {
     if (!newBlockedDate.date) {
-      alert('Por favor, selecione uma data');
+      showToast('Por favor, selecione uma data', 'danger');
       return;
     }
     const dateExists = blockedDates.some((blocked) => blocked.date === newBlockedDate.date && blocked.barberId === newBlockedDate.barberId);
     if (dateExists) {
-      alert('Esta data já está bloqueada!');
+      showToast('Esta data já está bloqueada!', 'danger');
       return;
     }
     try {
       const blockData = { date: newBlockedDate.date, reason: newBlockedDate.reason || 'Dia bloqueado', barberId: newBlockedDate.barberId, createdBy: currentUser?.id, createdAt: new Date().toISOString() };
       const response = await fetch('http://localhost:3000/blockedDates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(blockData) });
       if (response.ok) {
-        alert('Data bloqueada com sucesso!');
+        showToast('Data bloqueada com sucesso!', 'success');
         fetchBlockedDates();
         setNewBlockedDate({ date: '', reason: '', barberId: null });
       }
     } catch (error) {
       console.error('Erro ao bloquear data:', error);
-      alert('Erro ao bloquear data');
+      showToast('Erro ao bloquear data', 'danger');
     }
   };
 
-  const handleRemoveBlockedDate = async (id) => {
-    if (!window.confirm('Deseja realmente desbloquear esta data?')) return;
-    try {
-      const response = await fetch(`http://localhost:3000/blockedDates/${id}`, { method: 'DELETE' });
-      if (response.ok) {
-        alert('Data desbloqueada com sucesso!');
-        fetchBlockedDates();
+  const handleRemoveBlockedDate = (id) => {
+    showConfirm('Deseja realmente desbloquear esta data?', async () => {
+      try {
+        const response = await fetch(`http://localhost:3000/blockedDates/${id}`, { method: 'DELETE' });
+        if (response.ok) {
+          showToast('Data desbloqueada com sucesso!', 'success');
+          fetchBlockedDates();
+        }
+      } catch (error) {
+        console.error('Erro ao desbloquear data:', error);
+        showToast('Erro ao desbloquear data', 'danger');
       }
-    } catch (error) {
-      console.error('Erro ao desbloquear data:', error);
-      alert('Erro ao desbloquear data');
-    }
+    });
   };
 
   const handlePixKeyChange = (value) => {
@@ -610,7 +713,7 @@ const handleHomeInfoChange = (field, value) => {
     }
   };
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
       const [barbersData, appointmentsData, subscriptionsData, paymentsData, productsData, servicesData] = await Promise.all([
         getBarbers(),
@@ -637,7 +740,28 @@ const handleHomeInfoChange = (field, value) => {
       setBarbers(barbersData);
       setEmployees(allEmployees);
       setAppointments(appointmentsData);
-      setSubscriptions(subscriptionsData);
+     
+      const today = new Date();
+      const toExpire = subscriptionsData.filter(
+        s => s.status === 'cancel_pending' && s.nextBillingDate && new Date(s.nextBillingDate) < today
+      );
+      for (const s of toExpire) {
+        await fetch(`http://localhost:3000/subscriptions/${s.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'cancelled', updatedAt: new Date().toISOString() }),
+        });
+      }
+      const updatedSubs = toExpire.length > 0
+        ? subscriptionsData.map(s => toExpire.find(e => e.id === s.id) ? { ...s, status: 'cancelled' } : s)
+        : subscriptionsData;
+
+      const subsWithCpf = updatedSubs.map(sub => {
+        const user = allUsers.find(u => u.id === sub.userId);
+        return user?.cpf ? { ...sub, userCpf: user.cpf } : sub;
+      });
+
+      setSubscriptions(subsWithCpf);
       setAppointmentPayments(paymentsData);
       setProducts(productsData);
       setServices(servicesData);
@@ -647,7 +771,7 @@ const handleHomeInfoChange = (field, value) => {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   const loadPlans = useCallback(async () => {
     setPlansLoading(true);
@@ -671,7 +795,12 @@ const handleHomeInfoChange = (field, value) => {
     }
   }, []);
 
+  const adminInitializedRef = useRef(false);
+
   useEffect(() => {
+    
+    if (adminInitializedRef.current) return;
+
     if (!currentUser) {
       navigate('/login');
       return;
@@ -682,8 +811,11 @@ const handleHomeInfoChange = (field, value) => {
       return;
     }
 
+    adminInitializedRef.current = true;
     loadData();
-  }, [currentUser, isAdmin, isReceptionist, navigate]);
+    loadHomeInfo();
+  
+  }, []); 
   useEffect(() => {
   if (activeTab === 'calendario') {
     fetchBlockedDates();
@@ -707,6 +839,14 @@ const handleHomeInfoChange = (field, value) => {
 
   const closeToast = () => {
     setToast({ show: false, message: '', type: 'success' });
+  };
+
+  const showConfirm = (message, onConfirm) => {
+    setConfirmModal({ open: true, message, onConfirm });
+  };
+
+  const closeConfirmModal = () => {
+    setConfirmModal({ open: false, message: '', onConfirm: null });
   };
 
   
@@ -917,27 +1057,28 @@ const handleHomeInfoChange = (field, value) => {
     }
   };
 
-  const handleDeleteBarber = async (id, isUserOnly = false) => {
+  const handleDeleteBarber = (id, isUserOnly = false) => {
     if (!isAdmin) {
       showToast('Apenas administradores podem excluir funcionários.', 'danger');
       return;
     }
-    if (!confirm('Deseja realmente excluir este funcionário?')) return;
-    try {
-      if (isUserOnly) {
-        await fetch(`http://localhost:3000/users/${id}`, { method: 'DELETE' });
-      } else {
-        await deleteBarber(id);
-        const barber = barbers.find((b) => b.id === id);
-        if (barber?.userId) {
-          await fetch(`http://localhost:3000/users/${barber.userId}`, { method: 'DELETE' });
+    showConfirm('Deseja realmente excluir este funcionário?', async () => {
+      try {
+        if (isUserOnly) {
+          await fetch(`http://localhost:3000/users/${id}`, { method: 'DELETE' });
+        } else {
+          await deleteBarber(id);
+          const barber = barbers.find((b) => b.id === id);
+          if (barber?.userId) {
+            await fetch(`http://localhost:3000/users/${barber.userId}`, { method: 'DELETE' });
+          }
         }
+        await loadData();
+        showToast('Funcionário excluído com sucesso!', 'success');
+      } catch (error) {
+        showToast('Erro ao excluir funcionário.', 'danger');
       }
-      await loadData();
-      showToast('Funcionário excluído com sucesso!', 'success');
-    } catch (error) {
-      showToast('Erro ao excluir funcionário.', 'danger');
-    }
+    });
   };
 
   const handleTermsDocUpload = async (e) => {
@@ -965,18 +1106,18 @@ const handleHomeInfoChange = (field, value) => {
     }
   };
 
-  const handleRemoveTermsDoc = async () => {
-    if (!confirm('Deseja realmente remover o documento de termos?')) return;
-    
-    try {
-      await deleteTermsDocument();
-      setTermsDocUrl('');
-      setUploadedTermsDoc(null);
-      showToast('Documento removido com sucesso!', 'success');
-    } catch (error) {
-      console.error('Erro ao remover documento:', error);
-      showToast('Erro ao remover documento', 'danger');
-    }
+  const handleRemoveTermsDoc = () => {
+    showConfirm('Deseja realmente remover o documento de termos?', async () => {
+      try {
+        await deleteTermsDocument();
+        setTermsDocUrl('');
+        setUploadedTermsDoc(null);
+        showToast('Documento removido com sucesso!', 'success');
+      } catch (error) {
+        console.error('Erro ao remover documento:', error);
+        showToast('Erro ao remover documento', 'danger');
+      }
+    });
   };
 
   const openProductModal = (product = null) => {
@@ -1066,19 +1207,20 @@ const handleHomeInfoChange = (field, value) => {
     }
   };
 
-  const handleDeleteProduct = async (id) => {
+  const handleDeleteProduct = (id) => {
     if (!hasPermission('editProducts')) {
       showToast('Você não tem permissão para excluir produtos.', 'danger');
       return;
     }
-    if (!confirm('Deseja realmente excluir este produto?')) return;
-    try {
-      await deleteProduct(id);
-      await loadData();
-      showToast('Produto excluído com sucesso!', 'success');
-    } catch (error) {
-      showToast('Erro ao excluir produto.', 'danger');
-    }
+    showConfirm('Deseja realmente excluir este produto?', async () => {
+      try {
+        await deleteProduct(id);
+        await loadData();
+        showToast('Produto excluído com sucesso!', 'success');
+      } catch (error) {
+        showToast('Erro ao excluir produto.', 'danger');
+      }
+    });
   };
 
   const handleConfirmAppointment = async (appointmentId) => {
@@ -1130,15 +1272,62 @@ const handleHomeInfoChange = (field, value) => {
     }
   };
 
-  const handleDeleteAppointment = async (id) => {
-    if (!confirm('Deseja realmente cancelar este agendamento?')) return;
+
+  const handleScheduleCancelSubscription = (sub) => {
+    setConfirmCancelSub(sub);
+  };
+
+  const confirmCancelSubscription = async () => {
+    const sub = confirmCancelSub;
+    setConfirmCancelSub(null);
+    const expDate = sub.nextBillingDate
+      ? new Date(sub.nextBillingDate).toLocaleDateString('pt-BR')
+      : 'data não definida';
     try {
-      await deleteAppointment(id);
-      await loadData();
-      showToast('Agendamento cancelado com sucesso!', 'success');
-    } catch (error) {
-      showToast('Erro ao cancelar agendamento.', 'danger');
+      
+      await fetch(`http://localhost:3000/subscriptions/${sub.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'cancel_pending',
+          autoRenewal: false,
+          cancelScheduledAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }),
+      });
+
+      const userRes = await fetch(`http://localhost:3000/users/${sub.userId}`);
+      if (userRes.ok) {
+        const userData = await userRes.json();
+        const phone = userData.phone?.replace(/\D/g, '');
+        if (phone) {
+          const msg = encodeURIComponent(
+            `Olá ${userData.name}, seu plano *${sub.planName}* na Barbearia Rodrigues foi cancelado.\n\nVocê mantém acesso aos benefícios até *${expDate}*. Após essa data o plano não será renovado.\n\nQualquer dúvida estamos à disposição!`
+          );
+          window.open(`https://wa.me/55${phone}?text=${msg}`, '_blank');
+        }
+      }
+
+      setSubscriptions(prev =>
+        prev.map(s => s.id === sub.id ? { ...s, status: 'cancel_pending', autoRenewal: false } : s)
+      );
+      showToast(`Plano de ${sub.userName} cancelado. Cliente notificado via WhatsApp.`, 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Erro ao cancelar plano.', 'danger');
     }
+  };
+
+  const handleDeleteAppointment = (id) => {
+    showConfirm('Deseja realmente cancelar este agendamento?', async () => {
+      try {
+        await deleteAppointment(id);
+        await loadData();
+        showToast('Agendamento cancelado com sucesso!', 'success');
+      } catch (error) {
+        showToast('Erro ao cancelar agendamento.', 'danger');
+      }
+    });
   };
 
   const handleMarkAsPaid = async (payment, method) => {
@@ -1397,26 +1586,27 @@ const handleHomeInfoChange = (field, value) => {
     }
   };
 
-  const handleDeleteBenefit = async (planId, benefitIndex) => {
+  const handleDeleteBenefit = (planId, benefitIndex) => {
     if (!isAdmin) {
       showToast('Apenas administradores podem excluir benefícios.', 'danger');
       return;
     }
-    if (!confirm('Deseja realmente excluir este benefício?')) return;
-    try {
-      const plan = plans.find((p) => p.id === planId);
-      if (!plan) return;
-      const updatedFeatures = plan.features.filter((_, idx) => idx !== benefitIndex);
-      await fetch(`http://localhost:3000/subscriptionPlans/${plan.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ features: updatedFeatures }),
-      });
-      await loadPlans();
-      showToast('Benefício excluído com sucesso!', 'success');
-    } catch (error) {
-      showToast('Erro ao excluir benefício.', 'danger');
-    }
+    showConfirm('Deseja realmente excluir este benefício?', async () => {
+      try {
+        const plan = plans.find((p) => p.id === planId);
+        if (!plan) return;
+        const updatedFeatures = plan.features.filter((_, idx) => idx !== benefitIndex);
+        await fetch(`http://localhost:3000/subscriptionPlans/${plan.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ features: updatedFeatures }),
+        });
+        await loadPlans();
+        showToast('Benefício excluído com sucesso!', 'success');
+      } catch (error) {
+        showToast('Erro ao excluir benefício.', 'danger');
+      }
+    });
   };
 
   const loadServices = useCallback(async () => {
@@ -1532,21 +1722,21 @@ const handleHomeInfoChange = (field, value) => {
     }
   };
 
-  const handleDeleteService = async (serviceId) => {
+  const handleDeleteService = (serviceId) => {
     if (!hasPermission('editServices')) {
       showToast('Você não tem permissão para excluir serviços.', 'danger');
       return;
     }
-    if (!window.confirm('Tem certeza que deseja excluir este serviço?')) return;
-
-    try {
-      await deleteService(serviceId);
-      showToast('Serviço excluído com sucesso!', 'success');
-      await loadServices();
-    } catch (error) {
-      console.error('Erro ao excluir serviço:', error);
-      showToast('Erro ao excluir serviço', 'danger');
-    }
+    showConfirm('Tem certeza que deseja excluir este serviço?', async () => {
+      try {
+        await deleteService(serviceId);
+        showToast('Serviço excluído com sucesso!', 'success');
+        await loadServices();
+      } catch (error) {
+        console.error('Erro ao excluir serviço:', error);
+        showToast('Erro ao excluir serviço', 'danger');
+      }
+    });
   };
 
   if (loading) {
@@ -1628,6 +1818,13 @@ const handleHomeInfoChange = (field, value) => {
    Informações do Site
 </button>
 
+            <button 
+              className={`tab-btn ${activeTab === 'gallery' ? 'tab-btn--active' : ''}`}
+              onClick={() => setActiveTab('gallery')}
+            >
+               Galeria
+            </button>
+
             {hasPermission('manageEmployees') && (
               <button onClick={() => setActiveTab('employees')} className={`tab-btn ${activeTab === 'employees' ? 'tab-btn--active' : ''}`}>
                 Gerenciar Funcionários
@@ -1657,7 +1854,87 @@ const handleHomeInfoChange = (field, value) => {
                 Pagamentos {pendingPayments.length > 0 && `(${pendingPayments.length})`}
               </button>
             )}
+            {hasPermission('managePayments') && (
+              <button
+                onClick={() => setActiveTab('cancelPlanos')}
+                className={`tab-btn ${activeTab === 'cancelPlanos' ? 'tab-btn--active' : ''}`}
+              >
+                Cancelamento de Planos
+              </button>
+            )}
           </div>
+
+            {activeTab === 'gallery' && (
+              <div className="tab-content gallery-admin-container">
+                <div className="gallery-section-header">
+                  <div className="gallery-header-content">
+                    <h2>
+                       Galeria de Fotos
+                      <span className="gallery-counter-badge">{gallery.length}/{MAX_GALLERY_IMAGES}</span>
+                    </h2>
+                    <p>Gerencie as fotos exibidas na galeria da página inicial</p>
+                  </div>
+                  {gallery.length < MAX_GALLERY_IMAGES && (
+                    <Button onClick={() => openGalleryModal()}>➕ Adicionar Foto</Button>
+                  )}
+                </div>
+
+                {galleryLoading ? (
+                  <div className="gallery-loading">
+                    <div className="gallery-loading-spinner"></div>
+                    <p className="gallery-loading-text">Carregando galeria...</p>
+                  </div>
+                ) : gallery.length === 0 ? (
+                  <div className="gallery-empty-state">
+                    <div className="gallery-empty-icon">📷</div>
+                    <h3 className="gallery-empty-title">Nenhuma foto na galeria ainda</h3>
+                    <p className="gallery-empty-subtitle">
+                      Clique em "Adicionar Foto" para começar a construir sua galeria!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="gallery-grid">
+                    {gallery.map((image, index) => (
+                      <div key={image.id} className="gallery-card">
+                        <div className="gallery-card-image-wrapper">
+                          <img 
+                            src={image.url} 
+                            alt={image.alt} 
+                            className="gallery-card-image"
+                            onError={(e) => { e.target.src = 'https://via.placeholder.com/280x220?text=Erro+ao+Carregar'; }} 
+                          />
+                          <div className="gallery-card-overlay">
+                            <span className="gallery-card-overlay-text">{image.alt || 'Sem descrição'}</span>
+                          </div>
+                        </div>
+                        <div className="gallery-card-info">
+                          <p className="gallery-card-description">{image.alt || 'Sem descrição'}</p>
+                          <div className="gallery-card-actions">
+                            <button onClick={() => openGalleryModal(image)} className="gallery-btn gallery-btn-edit">
+                              ✏️ Editar
+                            </button>
+                            <button onClick={() => handleDeleteGalleryImage(image.id)} className="gallery-btn gallery-btn-delete">
+                              🗑️ Excluir
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {gallery.length >= MAX_GALLERY_IMAGES && (
+                  <div className="gallery-limit-alert">
+                    <div><strong>⚠️ Limite atingido</strong></div>
+                    <p className="gallery-limit-alert-text">
+                      Você atingiu o limite de {MAX_GALLERY_IMAGES} fotos na galeria. 
+                      Exclua uma foto para adicionar uma nova.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {activeTab === 'homeInfo' && (
   <div className="tab-content">
     <div className="section-header">
@@ -1668,7 +1945,81 @@ const handleHomeInfoChange = (field, value) => {
     <form onSubmit={handleSaveHomeInfo} className="home-info-form">
 
       <div className="form-section">
-        <h3 className="section-subtitle">📖 Sobre Nós</h3>
+        <h3 className="section-subtitle">Banner de Início</h3>
+
+        <Input
+          label="Título do Banner"
+          value={homeInfo.heroTitle}
+          onChange={(e) => handleHomeInfoChange('heroTitle', e.target.value)}
+          placeholder="Ex: Estilo e Tradição em um só lugar"
+        />
+
+        <Input
+          label="Subtítulo do Banner"
+          value={homeInfo.heroSubtitle}
+          onChange={(e) => handleHomeInfoChange('heroSubtitle', e.target.value)}
+          placeholder="Ex: Há mais de 10 anos cuidando do seu visual..."
+        />
+
+        
+        <div style={{ marginBottom: '1rem' }}>
+          <label className="form-label">Imagem de Fundo do Banner</label>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+            {homeInfo.heroImage && (
+              <img
+                src={homeInfo.heroImage}
+                alt="Preview do banner"
+                style={{ width: 80, height: 60, objectFit: 'cover', borderRadius: 8, border: '1px solid #2a2a2a', flexShrink: 0 }}
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+            )}
+            <div style={{ flex: 1 }}>
+              <label
+                htmlFor="hero-image-upload"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                  background: 'transparent', border: '1px solid rgba(255,122,26,0.5)',
+                  color: '#ff7a1a', borderRadius: '6px', padding: '7px 14px',
+                  cursor: heroImageUploading ? 'not-allowed' : 'pointer',
+                  fontSize: '0.85rem', fontWeight: 600,
+                  opacity: heroImageUploading ? 0.6 : 1,
+                }}
+              >
+                {heroImageUploading ? '⏳ Enviando...' : '🖼️ ' + (homeInfo.heroImage ? 'Alterar imagem' : 'Enviar imagem')}
+              </label>
+              <input
+                id="hero-image-upload"
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                style={{ display: 'none' }}
+                disabled={heroImageUploading}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setHeroImageUploading(true);
+                  try {
+                    const url = await uploadImagem(file, 'banner');
+                    handleHomeInfoChange('heroImage', url);
+                    showToast('Imagem do banner enviada!', 'success');
+                  } catch (err) { showToast(err.message || 'Erro ao enviar imagem.', 'danger'); }
+                  finally { setHeroImageUploading(false); e.target.value = ''; }
+                }}
+              />
+              <p style={{ color: '#555', fontSize: '0.72rem', marginTop: '0.4rem' }}>JPG, PNG, GIF, WebP • Máx. 5MB</p>
+              <input
+                type="text"
+                value={homeInfo.heroImage}
+                onChange={(e) => handleHomeInfoChange('heroImage', e.target.value)}
+                placeholder="Ou cole a URL aqui (Ex: https://images.unsplash.com/...)"
+                style={{ marginTop: '0.5rem', width: '100%', padding: '6px 10px', background: '#1a1a1a', border: '1px solid #333', borderRadius: 6, color: '#aaa', fontSize: '0.78rem' }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="form-section" style={{ marginTop: '2rem' }}>
+        <h3 className="section-subtitle">Sobre Nós</h3>
         
         <Input
           label="Título da Seção"
@@ -1793,8 +2144,8 @@ const handleHomeInfoChange = (field, value) => {
       </div>
 
       <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
-        <Button type="submit" disabled={homeInfoLoading}>
-          {homeInfoLoading ? 'Salvando...' : '💾 Salvar Alterações'}
+        <Button type="submit" disabled={homeInfoLoading} className="btn-admin-save">
+          {homeInfoLoading ? 'Salvando...' : 'Salvar Alterações'}
         </Button>
       </div>
     </form>
@@ -2487,7 +2838,7 @@ const handleHomeInfoChange = (field, value) => {
                     )}
 
                     {isAdmin && (
-                      <Button onClick={handleSavePixKey} style={{ marginTop: '12px', width: '100%' }}>
+                      <Button onClick={handleSavePixKey} className="btn-admin-save">
                         Salvar Chave PIX
                       </Button>
                     )}
@@ -2592,6 +2943,224 @@ const handleHomeInfoChange = (field, value) => {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'cancelPlanos' && hasPermission('managePayments') && (
+            <div className="tab-content">
+              <div className="section-header" style={{ marginBottom: '1.5rem' }}>
+                <h2>Cancelamento de Planos</h2>
+                <p style={{ color: 'var(--text-gray)', fontSize: '0.9rem', marginTop: '4px' }}>
+                  Cancele planos ativos de clientes. O plano permanece ativo até o fim do período já pago.
+                </p>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+                <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '10px', padding: '1.25rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--orange)' }}>
+                    {subscriptions.filter(s => s.status === 'active').length}
+                  </div>
+                  <div style={{ color: 'var(--text-gray)', fontSize: '0.85rem', marginTop: '4px' }}>Planos Ativos</div>
+                </div>
+                <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '10px', padding: '1.25rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 700, color: '#f59e0b' }}>
+                    {subscriptions.filter(s => s.status === 'cancel_pending').length}
+                  </div>
+                  <div style={{ color: 'var(--text-gray)', fontSize: '0.85rem', marginTop: '4px' }}>Cancelamento Pendente</div>
+                </div>
+                <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '10px', padding: '1.25rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--gold)' }}>
+                    R$ {subscriptions.filter(s => s.status === 'active').reduce((acc, s) => acc + (parseFloat(s.planPrice) || 0), 0).toFixed(2)}
+                  </div>
+                  <div style={{ color: 'var(--text-gray)', fontSize: '0.85rem', marginTop: '4px' }}>Receita Mensal Ativa</div>
+                </div>
+              </div>
+
+        
+              <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '8px', overflow: 'hidden' }}>
+                  <button
+                    onClick={() => { setSubscriptionSearchType('name'); setSubscriptionSearch(''); }}
+                    style={{
+                      padding: '0.55rem 1rem',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      background: subscriptionSearchType === 'name' ? 'var(--orange)' : 'transparent',
+                      color: subscriptionSearchType === 'name' ? '#0c0c0c' : '#a8a8a8',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                     Nome
+                  </button>
+                  <button
+                    onClick={() => { setSubscriptionSearchType('cpf'); setSubscriptionSearch(''); }}
+                    style={{
+                      padding: '0.55rem 1rem',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      background: subscriptionSearchType === 'cpf' ? 'var(--orange)' : 'transparent',
+                      color: subscriptionSearchType === 'cpf' ? '#0c0c0c' : '#a8a8a8',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                     CPF
+                  </button>
+                </div>
+                <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+                  <input
+                    type="text"
+                    placeholder={subscriptionSearchType === 'name' ? 'Buscar por nome do cliente...' : 'Buscar por CPF (ex: 123.456.789-00)...'}
+                    value={subscriptionSearch}
+                    onChange={(e) => setSubscriptionSearch(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.6rem 2.4rem 0.6rem 1rem',
+                      background: '#1a1a1a',
+                      border: '1px solid #2a2a2a',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontSize: '0.9rem',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      transition: 'border-color 0.2s',
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = 'var(--orange)'}
+                    onBlur={(e) => e.target.style.borderColor = '#2a2a2a'}
+                  />
+                  {subscriptionSearch && (
+                    <button
+                      onClick={() => setSubscriptionSearch('')}
+                      style={{
+                        position: 'absolute',
+                        right: '0.6rem',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: '#666',
+                        cursor: 'pointer',
+                        fontSize: '1rem',
+                        lineHeight: 1,
+                        padding: 0,
+                      }}
+                      title="Limpar busca"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                {subscriptionSearch && (
+                  <span style={{ color: '#a8a8a8', fontSize: '0.83rem', whiteSpace: 'nowrap' }}>
+                    {subscriptions.filter(s =>
+                      (s.status === 'active' || s.status === 'cancel_pending') &&
+                      (subscriptionSearchType === 'name'
+                        ? (s.userName || '').toLowerCase().includes(subscriptionSearch.toLowerCase())
+                        : (s.userCpf || '').replace(/\D/g, '').includes(subscriptionSearch.replace(/\D/g, '')))
+                    ).length} resultado(s)
+                  </span>
+                )}
+              </div>
+
+           
+              <div className="payments-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Cliente</th>
+                      <th>Plano</th>
+                      <th>Valor/mês</th>
+                      <th>Ativo até</th>
+                      <th>Status</th>
+                      <th>Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {subscriptions.filter(s => s.status === 'active' || s.status === 'cancel_pending').length === 0 ? (
+                      <tr>
+                        <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-gray)', padding: '2rem' }}>
+                          Nenhuma assinatura encontrada.
+                        </td>
+                      </tr>
+                    ) : subscriptions
+                        .filter(s => s.status === 'active' || s.status === 'cancel_pending')
+                        .filter(s => {
+                          if (!subscriptionSearch.trim()) return true;
+                          if (subscriptionSearchType === 'name') {
+                            return (s.userName || '').toLowerCase().includes(subscriptionSearch.toLowerCase());
+                          } else {
+                            return (s.userCpf || '').replace(/\D/g, '').includes(subscriptionSearch.replace(/\D/g, ''));
+                          }
+                        }).length === 0 ? (
+                      <tr>
+                        <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-gray)', padding: '2rem' }}>
+                          Nenhum resultado para "{subscriptionSearch}".
+                        </td>
+                      </tr>
+                    ) : (
+                      subscriptions
+                        .filter(s => s.status === 'active' || s.status === 'cancel_pending')
+                        .filter(s => {
+                          if (!subscriptionSearch.trim()) return true;
+                          if (subscriptionSearchType === 'name') {
+                            return (s.userName || '').toLowerCase().includes(subscriptionSearch.toLowerCase());
+                          } else {
+                            return (s.userCpf || '').replace(/\D/g, '').includes(subscriptionSearch.replace(/\D/g, ''));
+                          }
+                        })
+                        .map(sub => (
+                          <tr key={sub.id} style={{ opacity: sub.status === 'cancel_pending' ? 0.75 : 1 }}>
+                            <td>
+                              <div style={{ fontWeight: 600, color: '#fff' }}>{sub.userName || 'N/A'}</div>
+                            </td>
+                            <td>
+                              <span style={{ background: 'rgba(255,122,26,0.15)', color: 'var(--orange)', padding: '3px 10px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 600 }}>
+                                {sub.planName}
+                              </span>
+                            </td>
+                            <td style={{ color: 'var(--gold)', fontWeight: 600 }}>
+                              R$ {parseFloat(sub.planPrice || 0).toFixed(2)}
+                            </td>
+                            <td style={{ color: 'var(--text-gray)', fontSize: '0.85rem' }}>
+                              {sub.nextBillingDate
+                                ? new Date(sub.nextBillingDate).toLocaleDateString('pt-BR')
+                                : 'N/A'}
+                            </td>
+                            <td>
+                              {sub.status === 'active' && (
+                                <span style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.35)', padding: '3px 10px', borderRadius: '20px', fontSize: '0.78rem', fontWeight: 700 }}>
+                                  Ativo
+                                </span>
+                              )}
+                              {sub.status === 'cancel_pending' && (
+                                <span style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.35)', padding: '3px 10px', borderRadius: '20px', fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                  Cancelamento Pendente
+                                </span>
+                              )}
+                            </td>
+                            <td>
+                              {sub.status === 'active' ? (
+                                <button
+                                  onClick={() => handleScheduleCancelSubscription(sub)}
+                                  className="fluig-btn fluig-btn-delete"
+                                  title="Cancelar ao fim do período atual"
+                                >
+                                  Cancelar Plano
+                                </button>
+                              ) : (
+                                <span style={{ color: '#555', fontSize: '0.8rem' }}>Aguardando expiração</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
             </div>
           )}
 
@@ -2994,12 +3563,63 @@ const handleHomeInfoChange = (field, value) => {
                   required
                 />
               )}
-              <Input
-                label="URL da Foto"
-                value={barberForm.photo}
-                onChange={(e) => handleBarberFormChange('photo', e.target.value)}
-                placeholder="https://exemplo.com/foto.jpg"
-              />
+           
+              <div style={{ marginBottom: '1rem' }}>
+                <label className="form-label">Foto do Funcionário</label>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                  {barberForm.photo && (
+                    <img
+                      src={barberForm.photo}
+                      alt="Preview"
+                      style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid #333', flexShrink: 0 }}
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <label
+                      htmlFor="barber-photo-upload"
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                        background: 'transparent', border: '1px solid rgba(255,122,26,0.5)',
+                        color: '#ff7a1a', borderRadius: '6px', padding: '7px 14px',
+                        cursor: barberPhotoUploading ? 'not-allowed' : 'pointer',
+                        fontSize: '0.85rem', fontWeight: 600,
+                        opacity: barberPhotoUploading ? 0.6 : 1,
+                      }}
+                    >
+                      {barberPhotoUploading ? '⏳ Enviando...' : '📷 ' + (barberForm.photo ? 'Alterar foto' : 'Enviar foto')}
+                    </label>
+                    <input
+                      id="barber-photo-upload"
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      style={{ display: 'none' }}
+                      disabled={barberPhotoUploading}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setBarberPhotoUploading(true);
+                        try {
+                          const url = await uploadImagem(file, 'barbeiros');
+                          handleBarberFormChange('photo', url);
+                          showToast('Foto enviada!', 'success');
+                        } catch (err) { showToast(err.message || 'Erro ao enviar foto.', 'danger'); }
+                        finally { setBarberPhotoUploading(false); e.target.value = ''; }
+                      }}
+                    />
+                    <p style={{ color: '#555', fontSize: '0.72rem', marginTop: '0.4rem' }}>JPG, PNG, GIF, WebP • Máx. 5MB</p>
+                    {barberForm.photo && (
+                      <input
+                        type="text"
+                        value={barberForm.photo}
+                        onChange={(e) => handleBarberFormChange('photo', e.target.value)}
+                        placeholder="Ou cole a URL aqui"
+                        style={{ marginTop: '0.5rem', width: '100%', padding: '6px 10px', background: '#1a1a1a', border: '1px solid #333', borderRadius: 6, color: '#aaa', fontSize: '0.78rem' }}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
 
               {editingBarber?.isUserOnly && (
                 <Input
@@ -3228,22 +3848,61 @@ const handleHomeInfoChange = (field, value) => {
                 onChange={(e) => handleProductFormChange('stock', e.target.value)}
                 required
               />
-              <Input
-                label="URL da Imagem"
-                value={productForm.image}
-                onChange={(e) => handleProductFormChange('image', e.target.value)}
-                placeholder="https://exemplo.com/produto.jpg"
-              />
-              {productForm.image && (
-                <div className="image-preview-container">
-                  <img
-                    src={productForm.image}
-                    alt="Preview"
-                    className="image-preview"
-                    onError={(e) => (e.target.style.display = 'none')}
-                  />
+            
+              <div style={{ marginBottom: '1rem' }}>
+                <label className="form-label">Imagem do Produto</label>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                  {productForm.image && (
+                    <img
+                      src={productForm.image}
+                      alt="Preview"
+                      style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid #333', flexShrink: 0 }}
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <label
+                      htmlFor="product-image-upload"
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                        background: 'transparent', border: '1px solid rgba(255,122,26,0.5)',
+                        color: '#ff7a1a', borderRadius: '6px', padding: '7px 14px',
+                        cursor: productImageUploading ? 'not-allowed' : 'pointer',
+                        fontSize: '0.85rem', fontWeight: 600,
+                        opacity: productImageUploading ? 0.6 : 1,
+                      }}
+                    >
+                      {productImageUploading ? '⏳ Enviando...' : '🖼️ ' + (productForm.image ? 'Alterar imagem' : 'Enviar imagem')}
+                    </label>
+                    <input
+                      id="product-image-upload"
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      style={{ display: 'none' }}
+                      disabled={productImageUploading}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setProductImageUploading(true);
+                        try {
+                          const url = await uploadImagem(file, 'produtos');
+                          handleProductFormChange('image', url);
+                          showToast('Imagem enviada!', 'success');
+                        } catch (err) { showToast(err.message || 'Erro ao enviar imagem.', 'danger'); }
+                        finally { setProductImageUploading(false); e.target.value = ''; }
+                      }}
+                    />
+                    <p style={{ color: '#555', fontSize: '0.72rem', marginTop: '0.4rem' }}>JPG, PNG, GIF, WebP • Máx. 5MB</p>
+                    <input
+                      type="text"
+                      value={productForm.image}
+                      onChange={(e) => handleProductFormChange('image', e.target.value)}
+                      placeholder="Ou cole a URL aqui"
+                      style={{ marginTop: '0.5rem', width: '100%', padding: '6px 10px', background: '#1a1a1a', border: '1px solid #333', borderRadius: 6, color: '#aaa', fontSize: '0.78rem' }}
+                    />
+                  </div>
                 </div>
-              )}
+              </div>
               <div className="modal-actions">
                 <Button type="button" onClick={closeProductModal}>
                   Cancelar
@@ -3380,12 +4039,61 @@ const handleHomeInfoChange = (field, value) => {
                 </div>
               )}
               
-              <Input
-                label="URL da Imagem"
-                value={serviceForm.image}
-                onChange={(e) => handleServiceFormChange('image', e.target.value)}
-                placeholder="https://..."
-              />
+             
+              <div style={{ marginBottom: '1rem' }}>
+                <label className="form-label">Imagem do Serviço</label>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                  {serviceForm.image && (
+                    <img
+                      src={serviceForm.image}
+                      alt="Preview"
+                      style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid #333', flexShrink: 0 }}
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <label
+                      htmlFor="service-image-upload"
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                        background: 'transparent', border: '1px solid rgba(255,122,26,0.5)',
+                        color: '#ff7a1a', borderRadius: '6px', padding: '7px 14px',
+                        cursor: serviceImageUploading ? 'not-allowed' : 'pointer',
+                        fontSize: '0.85rem', fontWeight: 600,
+                        opacity: serviceImageUploading ? 0.6 : 1,
+                      }}
+                    >
+                      {serviceImageUploading ? '⏳ Enviando...' : '🖼️ ' + (serviceForm.image ? 'Alterar imagem' : 'Enviar imagem')}
+                    </label>
+                    <input
+                      id="service-image-upload"
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      style={{ display: 'none' }}
+                      disabled={serviceImageUploading}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setServiceImageUploading(true);
+                        try {
+                          const url = await uploadImagem(file, 'servicos');
+                          handleServiceFormChange('image', url);
+                          showToast('Imagem enviada!', 'success');
+                        } catch (err) { showToast(err.message || 'Erro ao enviar imagem.', 'danger'); }
+                        finally { setServiceImageUploading(false); e.target.value = ''; }
+                      }}
+                    />
+                    <p style={{ color: '#555', fontSize: '0.72rem', marginTop: '0.4rem' }}>JPG, PNG, GIF, WebP • Máx. 5MB</p>
+                    <input
+                      type="text"
+                      value={serviceForm.image}
+                      onChange={(e) => handleServiceFormChange('image', e.target.value)}
+                      placeholder="Ou cole a URL aqui"
+                      style={{ marginTop: '0.5rem', width: '100%', padding: '6px 10px', background: '#1a1a1a', border: '1px solid #333', borderRadius: 6, color: '#aaa', fontSize: '0.78rem' }}
+                    />
+                  </div>
+                </div>
+              </div>
               
               <Input
                 label="Duração (minutos)"
@@ -3471,7 +4179,7 @@ const handleHomeInfoChange = (field, value) => {
               </button>
               {selectedUserPermissions.role !== 'admin' && (
                 <button onClick={handleSavePermissions} className="btn-save-permissions">
-                  💾 Salvar Permissões
+                  Salvar Permissões
                 </button>
               )}
             </div>
@@ -3479,7 +4187,130 @@ const handleHomeInfoChange = (field, value) => {
         </div>
       )}
 
+      {showGalleryModal && (
+        <div className="modal-overlay" onClick={closeGalleryModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{editingGalleryImage ? '✏️ Editar Foto' : '➕ Adicionar Foto'}</h2>
+            </div>
+            <form onSubmit={handleSaveGalleryImage} className="modal-form">
+        
+              <div style={{ marginBottom: '1rem' }}>
+                <label className="form-label">Imagem da Galeria *</label>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                  {galleryForm.url && (
+                    <img
+                      src={galleryForm.url}
+                      alt="Preview"
+                      style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, border: '1px solid #333', flexShrink: 0 }}
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <label
+                      htmlFor="gallery-image-upload"
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                        background: 'transparent', border: '1px solid rgba(255,122,26,0.5)',
+                        color: '#ff7a1a', borderRadius: '6px', padding: '7px 14px',
+                        cursor: galleryImageUploading ? 'not-allowed' : 'pointer',
+                        fontSize: '0.85rem', fontWeight: 600,
+                        opacity: galleryImageUploading ? 0.6 : 1,
+                      }}
+                    >
+                      {galleryImageUploading ? '⏳ Enviando...' : '🖼️ ' + (galleryForm.url ? 'Alterar imagem' : 'Enviar imagem')}
+                    </label>
+                    <input
+                      id="gallery-image-upload"
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      style={{ display: 'none' }}
+                      disabled={galleryImageUploading}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setGalleryImageUploading(true);
+                        try {
+                          const url = await uploadImagem(file, 'galeria');
+                          handleGalleryFormChange('url', url);
+                          showToast('Imagem enviada!', 'success');
+                        } catch (err) { showToast(err.message || 'Erro ao enviar imagem.', 'danger'); }
+                        finally { setGalleryImageUploading(false); e.target.value = ''; }
+                      }}
+                    />
+                    <p style={{ color: '#555', fontSize: '0.72rem', marginTop: '0.4rem' }}>JPG, PNG, GIF, WebP • Máx. 5MB</p>
+                    <input
+                      type="text"
+                      value={galleryForm.url}
+                      onChange={(e) => handleGalleryFormChange('url', e.target.value)}
+                      placeholder="Ou cole a URL aqui"
+                      style={{ marginTop: '0.5rem', width: '100%', padding: '6px 10px', background: '#1a1a1a', border: '1px solid #333', borderRadius: 6, color: '#aaa', fontSize: '0.78rem' }}
+                    />
+                  </div>
+                </div>
+              </div>
+              <Input label="Descrição/Alt Text" value={galleryForm.alt} onChange={(e) => handleGalleryFormChange('alt', e.target.value)} placeholder="Ex: Corte masculino degradê" />
+              <div className="modal-actions">
+                <Button type="button" onClick={closeGalleryModal} className="btn-cancel">Cancelar</Button>
+                <Button type="submit">{editingGalleryImage ? 'Atualizar' : 'Adicionar'}</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {toast.show && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
+
+      {confirmModal.open && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '14px', padding: '2rem', maxWidth: '380px', width: '100%', boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }}>
+            <h3 style={{ color: '#fff', margin: '0 0 0.75rem', fontSize: '1rem' }}>Confirmar ação</h3>
+            <p style={{ color: '#a8a8a8', fontSize: '0.9rem', margin: '0 0 1.5rem' }}>{confirmModal.message}</p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button
+                onClick={closeConfirmModal}
+                style={{ background: 'transparent', border: '1px solid #333', color: '#a8a8a8', borderRadius: '8px', padding: '8px 18px', cursor: 'pointer', fontSize: '0.9rem' }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => { confirmModal.onConfirm(); closeConfirmModal(); }}
+                style={{ background: '#e74c3c', border: 'none', color: '#fff', borderRadius: '8px', padding: '8px 18px', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem' }}
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmCancelSub && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '14px', padding: '2rem', maxWidth: '420px', width: '100%', boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }}>
+            <h3 style={{ color: '#fff', margin: '0 0 0.5rem', fontSize: '1.1rem' }}>Cancelar plano</h3>
+            <p style={{ color: '#a8a8a8', fontSize: '0.9rem', margin: '0 0 0.4rem' }}>
+              Tem certeza que deseja cancelar o plano <strong style={{ color: '#ff7a1a' }}>{confirmCancelSub.planName}</strong> de <strong style={{ color: '#fff' }}>{confirmCancelSub.userName}</strong>?
+            </p>
+            <p style={{ color: '#a8a8a8', fontSize: '0.85rem', margin: '0 0 1.5rem' }}>
+              O plano permanece ativo até <strong style={{ color: '#fff' }}>{confirmCancelSub.nextBillingDate ? new Date(confirmCancelSub.nextBillingDate).toLocaleDateString('pt-BR') : 'data não definida'}</strong> e não será renovado. O cliente será notificado via WhatsApp.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setConfirmCancelSub(null)}
+                style={{ background: 'transparent', border: '1px solid #333', color: '#a8a8a8', borderRadius: '8px', padding: '8px 18px', cursor: 'pointer', fontSize: '0.9rem' }}
+              >
+                Voltar
+              </button>
+              <button
+                onClick={confirmCancelSubscription}
+                style={{ background: '#e74c3c', border: 'none', color: '#fff', borderRadius: '8px', padding: '8px 18px', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem' }}
+              >
+                Confirmar cancelamento
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </BaseLayout>
   );
 }

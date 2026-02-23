@@ -27,7 +27,8 @@ import './AuthPages.css';
 export default function AppointmentsPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const currentUser = getSession();
+  const currentUserRef = useRef(getSession());
+  const currentUser = currentUserRef.current;
 
   const [view, setView] = useState('calendar');
   const [selectedDate, setSelectedDate] = useState(null);
@@ -91,7 +92,7 @@ export default function AppointmentsPage() {
     );
   }, [userSubscriptions, currentUser?.id]);
 
-  const fetchBlockedDates = async () => {
+  const fetchBlockedDates = useCallback(async () => {
     try {
       const response = await fetch('http://localhost:3000/blockedDates');
       const data = await response.json();
@@ -99,7 +100,7 @@ export default function AppointmentsPage() {
     } catch (error) {
       console.error('Erro ao buscar datas bloqueadas:', error);
     }
-  };
+  }, []);
 
   const isDateBlocked = (dateStr, barberId = null) => {
     return blockedDates.some((blocked) => {
@@ -122,11 +123,11 @@ export default function AppointmentsPage() {
   }, [location.state]);
 
   const activeUserSubscription = useMemo(() => {
-    if (!currentUser || !userSubscriptions || userSubscriptions.length === 0) {
+    if (!currentUser?.id || !userSubscriptions || userSubscriptions.length === 0) {
       return null;
     }
     return userSubscriptions.find((s) => s.userId === currentUser.id && s.status === 'active') || null;
-  }, [currentUser, userSubscriptions]);
+  }, [currentUser?.id, userSubscriptions]);
 
   useEffect(() => {
     if (!userSubscriptions.length || !hasLoadedOnce.current) return;
@@ -265,7 +266,11 @@ export default function AppointmentsPage() {
     }
   }, []);
 
+  const initializedRef = useRef(false);
+
   useEffect(() => {
+    if (initializedRef.current) return;
+
     if (!currentUser) {
       navigate('/login');
       return;
@@ -276,9 +281,11 @@ export default function AppointmentsPage() {
       return;
     }
 
+    initializedRef.current = true;
     loadData();
     fetchBlockedDates();
-  }, [currentUser, navigate, loadData]);
+ 
+  }, []); 
 
   const handleLogout = () => {
     logout();
@@ -483,7 +490,7 @@ export default function AppointmentsPage() {
     selectedDate,
     isRescheduling,
     appointments,
-    currentUser,
+    currentUser?.id,
     getAvailableTimes,
     showToast,
     loadData,
@@ -637,7 +644,7 @@ export default function AppointmentsPage() {
     pendingBookingData,
     isRescheduling,
     existingAppointment,
-    currentUser,
+    currentUser?.id,
     loadData,
     showToast,
     activeUserSubscription,
@@ -771,7 +778,7 @@ export default function AppointmentsPage() {
     purchaseData,
     isRescheduling,
     existingAppointment,
-    currentUser,
+    currentUser?.id,
     loadData,
     showToast,
     clearPaymentCache

@@ -1,5 +1,3 @@
-
-
 const API_URL = 'http://localhost:3000';
 
 export async function getPixKey() {
@@ -60,6 +58,9 @@ export async function getHomeInfo() {
     }
 
     return {
+      heroTitle: "",
+      heroSubtitle: "",
+      heroImage: "",
       aboutTitle: "Barbearia Rodrigues",
       aboutText1: "A Barbearia Rodrigues é referência em cortes masculinos há mais de 10 anos.",
       aboutText2: "Combinamos técnicas tradicionais com tendências modernas para garantir o melhor atendimento.",
@@ -76,6 +77,9 @@ export async function getHomeInfo() {
     console.error('Erro ao buscar informações da home:', error);
     
     return {
+      heroTitle: "",
+      heroSubtitle: "",
+      heroImage: "",
       aboutTitle: "Barbearia Rodrigues",
       aboutText1: "A Barbearia Rodrigues é referência em cortes masculinos há mais de 10 anos.",
       aboutText2: "Combinamos técnicas tradicionais com tendências modernas para garantir o melhor atendimento.",

@@ -6,7 +6,7 @@ import RegisterPage from './pages/RegisterPage.jsx';
 import AppointmentsPage from './pages/AppointmentsPage.jsx';
 import AdminPage from './pages/AdminPage.jsx';
 import BarberPage from './pages/BarberPage.jsx';
-
+import ProfilePage from './components/ui/ProfilePage.jsx';
 const router = createBrowserRouter([
   { path: '/', element: <Home /> },
   { path: '/login', element: <LoginPage /> },
@@ -16,6 +16,7 @@ const router = createBrowserRouter([
   { path: '/appointments', element: <AppointmentsPage /> },
   { path: '/admin', element: <AdminPage /> },
   { path: '/barber', element: <BarberPage /> },
+  { path: '/profile', element: <ProfilePage  /> },
   { path: '*', element: <Home /> },
 ]);
 
