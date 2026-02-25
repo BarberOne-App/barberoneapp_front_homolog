@@ -5,6 +5,13 @@ import api from '../services/api';
 import { saveSession } from '../services/authService';
 import './CompleteProfileModal.css';
 
+const BARBERSHOPS_OPTIONS = [
+  { id: '001', name: 'Barbearia Rodrigues' },
+  { id: '002', name: 'Barbearia Lucas' },
+  { id: '003', name: 'Barbearia Abilton' },
+  { id: '004', name: 'Barbearia Rodolpho' },
+];
+
 export default function CompleteProfileModal({ user, onComplete }) {
   const [cpf, setCpf] = useState('');
   const [phone, setPhone] = useState('');
@@ -51,7 +58,6 @@ export default function CompleteProfileModal({ user, onComplete }) {
     const cleanCPF = cpf.replace(/\D/g, '');
     const cleanPhone = phone.replace(/\D/g, '');
 
-
     if (!cpf || !phone || !birthDate || !barbershop || !password) {
       setError('Preencha todos os campos.');
       return;
@@ -71,13 +77,13 @@ export default function CompleteProfileModal({ user, onComplete }) {
 
     setIsSubmitting(true);
     try {
-  
+      const selectedBarbershop = BARBERSHOPS_OPTIONS.find((b) => b.id === barbershop);
       const updatedUser = {
         ...user,
         cpf: cleanCPF,
         phone: cleanPhone,
         birthDate,
-        barbershops: [barbershop.trim()],
+        barbershops: selectedBarbershop ? [selectedBarbershop] : [],
         password,  
         profileComplete: true,
       };
@@ -96,7 +102,12 @@ export default function CompleteProfileModal({ user, onComplete }) {
       <div className="cpm-modal">
         <div className="cpm-header">
           {user.picture && (
-            <img src={user.picture} alt={user.name} className="cpm-avatar" />
+            <img
+              src={user.picture}
+              alt={user.name}
+              className="cpm-avatar"
+              referrerPolicy="no-referrer"
+            />
           )}
           <h2 className="cpm-title">
             Quase lá, {user.name?.split(' ')[0]}!
@@ -130,14 +141,22 @@ export default function CompleteProfileModal({ user, onComplete }) {
             onChange={(e) => setBirthDate(e.target.value)}
             max={new Date().toISOString().split('T')[0]}
           />
-          <Input
-            label="Nome da Barbearia"
-            type="text"
-            value={barbershop}
-            onChange={(e) => setBarbershop(e.target.value)}
-            placeholder="Ex: Barbearia Rodrigues"
-          />
-       
+          <div className="input-wrapper">
+            <label className="input-label">Barbearia</label>
+            <select
+              className="select-field"
+              value={barbershop}
+              onChange={(e) => setBarbershop(e.target.value)}
+              required
+            >
+              <option value="">Selecione uma barbearia</option>
+              {BARBERSHOPS_OPTIONS.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <Input
             label="Senha para login"
             type="password"
