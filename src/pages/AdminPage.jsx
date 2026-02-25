@@ -203,7 +203,7 @@ const [homeInfoLoading, setHomeInfoLoading] = useState(false);
     managePayments: { label: 'Ver Relatórios de Pagamentos', category: 'Financeiro', icon: '💰' },
     manageAgendamentos: { label: 'Ver Aba Agendamentos', category: 'Agendamentos', icon: '📅' },
     manageBenefits: { label: 'Gerenciar Benefícios dos Planos', category: 'Configurações', icon: '🎁' },
-    // manageSettings: { label: 'Alterar Configurações (PIX, Termos)', category: 'Configurações', icon: '⚙️' },
+    manageSettings: { label: 'Alterar Configurações (PIX, Termos)', category: 'Configurações', icon: '⚙️' },
     manageGallery: { label: 'Gerenciar Galeria de Fotos', category: 'Conteúdo', icon: '🖼️' },
   };
 
@@ -1769,7 +1769,7 @@ const handleHomeInfoChange = (field, value) => {
 >
    Calendário
 </button>
-            {/* {hasPermission('manageServices') && (
+            {hasPermission('manageServices') && (
               <button
                 className={`tab-btn ${activeTab === 'services' ? 'tab-btn--active' : ''}`}
                 onClick={() => setActiveTab('services')}
@@ -1777,14 +1777,14 @@ const handleHomeInfoChange = (field, value) => {
                 Serviços ({services.length})
               </button>
             )}
-            {hasPermission('manageSettings') && (
-              <button
-                className={`tab-btn ${activeTab === 'settings' ? 'tab-btn--active' : ''}`}
-                onClick={() => setActiveTab('settings')}
-              >
-                Configurações
-              </button>
-            )} */}
+              {/* {hasPermission('manageSettings') && (
+                <button
+                  className={`tab-btn ${activeTab === 'settings' ? 'tab-btn--active' : ''}`}
+                  onClick={() => setActiveTab('settings')}
+                >
+                  Configurações
+                </button>
+              )} */}
 
            <button
   className={`tab-btn ${activeTab === 'homeInfo' ? 'tab-btn--active' : ''}`}

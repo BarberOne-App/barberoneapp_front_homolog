@@ -6,6 +6,13 @@ import Input from "../components/ui/Input.jsx";
 import { userExists, createUser } from "../services/userServices.js";
 import "./AuthPages.css";
 
+const BARBERSHOPS_OPTIONS = [
+  { id: "001", name: "Barbearia Rodrigues" },
+  { id: "002", name: "Barbearia Lucas" },
+  { id: "003", name: "Barbearia Abilton" },
+  { id: "004", name: "Barbearia Rodolpho" },
+];
+
 export default function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -23,55 +30,36 @@ export default function RegisterPage() {
 
   const ADMIN_SECRET_CODE = "ADDEV2024";
 
-  
   const isValidEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
 
-  
   const isValidCPF = (cpf) => {
-    const cleanCPF = cpf.replace(/\D/g, '');
-    
+    const cleanCPF = cpf.replace(/\D/g, "");
     if (cleanCPF.length !== 11) return false;
-    
-    
     if (/^(\d)\1{10}$/.test(cleanCPF)) return false;
-    
-    
     let sum = 0;
-    for (let i = 0; i < 9; i++) {
-      sum += parseInt(cleanCPF.charAt(i)) * (10 - i);
-    }
+    for (let i = 0; i < 9; i++) sum += parseInt(cleanCPF.charAt(i)) * (10 - i);
     let checkDigit = 11 - (sum % 11);
     if (checkDigit === 10 || checkDigit === 11) checkDigit = 0;
     if (checkDigit !== parseInt(cleanCPF.charAt(9))) return false;
-    
-    
     sum = 0;
-    for (let i = 0; i < 10; i++) {
-      sum += parseInt(cleanCPF.charAt(i)) * (11 - i);
-    }
+    for (let i = 0; i < 10; i++) sum += parseInt(cleanCPF.charAt(i)) * (11 - i);
     checkDigit = 11 - (sum % 11);
     if (checkDigit === 10 || checkDigit === 11) checkDigit = 0;
     if (checkDigit !== parseInt(cleanCPF.charAt(10))) return false;
-    
     return true;
   };
 
-  
   const formatCPF = (value) => {
-    const cleaned = value.replace(/\D/g, '');
-    
-    if (cleaned.length <= 3) {
-      return cleaned;
-    } else if (cleaned.length <= 6) {
-      return `${cleaned.slice(0, 3)}.${cleaned.slice(3)}`;
-    } else if (cleaned.length <= 9) {
+    const cleaned = value.replace(/\D/g, "");
+    if (cleaned.length <= 3) return cleaned;
+    else if (cleaned.length <= 6) return `${cleaned.slice(0, 3)}.${cleaned.slice(3)}`;
+    else if (cleaned.length <= 9)
       return `${cleaned.slice(0, 3)}.${cleaned.slice(3, 6)}.${cleaned.slice(6)}`;
-    } else {
+    else
       return `${cleaned.slice(0, 3)}.${cleaned.slice(3, 6)}.${cleaned.slice(6, 9)}-${cleaned.slice(9, 11)}`;
-    }
   };
 
   const handleCpfChange = (e) => {
@@ -79,17 +67,12 @@ export default function RegisterPage() {
     setCpf(formatted);
   };
 
-  
   const formatPhone = (value) => {
-    const cleaned = value.replace(/\D/g, '');
-    
-    if (cleaned.length <= 2) {
-      return cleaned;
-    } else if (cleaned.length <= 7) {
-      return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
-    } else if (cleaned.length <= 11) {
+    const cleaned = value.replace(/\D/g, "");
+    if (cleaned.length <= 2) return cleaned;
+    else if (cleaned.length <= 7) return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
+    else if (cleaned.length <= 11)
       return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7)}`;
-    }
     return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7, 11)}`;
   };
 
@@ -103,37 +86,32 @@ export default function RegisterPage() {
     setIsSubmitting(true);
     setMessage({ type: "", text: "" });
 
-    
     if (!name || !email || !cpf || !phone || !birthDate || !barbershop || !password || !confirmPassword) {
       setMessage({ type: "error", text: "Preencha todos os campos." });
       setIsSubmitting(false);
       return;
     }
 
-    
     if (!isValidEmail(email)) {
-      setMessage({ type: "error", text: "Digite um e-mail válido (exemplo@dominio.com)" });
+      setMessage({ type: "error", text: "Digite um e-mail válido. exemplo@dominio.com" });
       setIsSubmitting(false);
       return;
     }
 
-    
-    const cleanCPF = cpf.replace(/\D/g, '');
+    const cleanCPF = cpf.replace(/\D/g, "");
     if (!isValidCPF(cleanCPF)) {
       setMessage({ type: "error", text: "CPF inválido. Verifique os dígitos digitados." });
       setIsSubmitting(false);
       return;
     }
 
-    
-    const phoneNumbers = phone.replace(/\D/g, '');
+    const phoneNumbers = phone.replace(/\D/g, "");
     if (phoneNumbers.length < 10 || phoneNumbers.length > 11) {
       setMessage({ type: "error", text: "Telefone inválido. Use o formato (85) 99999-9999" });
       setIsSubmitting(false);
       return;
     }
 
-    
     if (password !== confirmPassword) {
       setMessage({ type: "error", text: "As senhas precisam ser iguais." });
       setIsSubmitting(false);
@@ -146,7 +124,6 @@ export default function RegisterPage() {
       return;
     }
 
-    
     if (isAdmin && adminSecret !== ADMIN_SECRET_CODE) {
       setMessage({ type: "error", text: "Código secreto de administrador inválido." });
       setIsSubmitting(false);
@@ -161,22 +138,24 @@ export default function RegisterPage() {
         return;
       }
 
+      const selectedBarbershop = BARBERSHOPS_OPTIONS.find((b) => b.id === barbershop);
+
       const userData = {
         name,
         email,
         cpf: cleanCPF,
         phone: phoneNumbers,
         birthDate,
-        barbershops: [barbershop.trim()],
+        barbershops: selectedBarbershop ? [selectedBarbershop] : [],
         password,
         role: isAdmin ? "admin" : "client",
-        isAdmin: isAdmin
+        isAdmin,
       };
 
       await createUser(userData);
-      setMessage({ 
-        type: "success", 
-        text: `Cadastro ${isAdmin ? 'de administrador' : ''} realizado! Redirecionando...` 
+      setMessage({
+        type: "success",
+        text: `Cadastro ${isAdmin ? "de administrador " : ""}realizado! Redirecionando...`,
       });
       setTimeout(() => navigate("/login"), 800);
     } catch (err) {
@@ -189,82 +168,92 @@ export default function RegisterPage() {
   return (
     <BaseLayout>
       <section className="auth">
-        <div className="auth__card">
-          <h1 className="auth__title">Criar Conta</h1>
-          <p className="auth__subtitle">Cadastre-se para agendar seu próximo corte.</p>
+        <div className="auth-card">
+          <h1 className="auth-title">Criar Conta</h1>
+          <p className="auth-subtitle">Cadastre-se para agendar seu próximo corte.</p>
 
           {message.text && (
-            <p className={`auth__message ${message.type === "error" ? "auth__message--error" : "auth__message--success"}`}>
+            <p className={`auth-message ${message.type === "error" ? "auth-message--error" : "auth-message--success"}`}>
               {message.text}
             </p>
           )}
 
-          <form className="auth__form" onSubmit={handleSubmit}>
-            <Input 
-              label="Nome Completo" 
-              value={name} 
+          <form className="auth-form" onSubmit={handleSubmit}>
+            <Input
+              label="Nome Completo"
+              value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Digite seu nome completo"
             />
-            <Input 
-              label="E-mail" 
-              type="email" 
-              value={email} 
+            <Input
+              label="E-mail"
+              type="email"
+              value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="seuemail@exemplo.com"
             />
-            <Input 
-              label="CPF" 
-              type="text" 
-              value={cpf} 
+            <Input
+              label="CPF"
+              type="text"
+              value={cpf}
               onChange={handleCpfChange}
               placeholder="000.000.000-00"
-              maxLength="14"
+              maxLength={14}
             />
-            <Input 
-              label="Telefone/WhatsApp" 
-              type="tel" 
-              value={phone} 
+            <Input
+              label="Telefone/WhatsApp"
+              type="tel"
+              value={phone}
               onChange={handlePhoneChange}
               placeholder="(85) 99999-9999"
-              maxLength="15"
+              maxLength={15}
             />
             <Input
               label="Data de Nascimento"
               type="date"
               value={birthDate}
               onChange={(e) => setBirthDate(e.target.value)}
-              max={new Date().toISOString().split('T')[0]}
+              max={new Date().toISOString().split("T")[0]}
             />
+
+            {/* SELECT de Barbearia */}
+            <div className="input-wrapper">
+              <label className="input-label">Barbearia</label>
+              <select
+                className="select-field"
+                value={barbershop}
+                onChange={(e) => setBarbershop(e.target.value)}
+                required
+              >
+                <option value="">Selecione uma barbearia</option>
+                {BARBERSHOPS_OPTIONS.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <Input
-              label="Nome da Barbearia"
-              type="text"
-              value={barbershop}
-              onChange={(e) => setBarbershop(e.target.value)}
-              placeholder="Ex: Barbearia Rodrigues"
-            />
-            <Input 
-              label="Senha" 
-              type="password" 
-              value={password} 
+              label="Senha"
+              type="password"
+              value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Mínimo 4 caracteres"
             />
-            <Input 
-              label="Confirmar senha" 
-              type="password" 
-              value={confirmPassword} 
+            <Input
+              label="Confirmar senha"
+              type="password"
+              value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Digite a senha novamente"
             />
 
-         
-
             {isAdmin && (
-              <Input 
-                label="Código Secreto de Admin" 
+              <Input
+                label="Código Secreto de Admin"
                 type="password"
-                value={adminSecret} 
+                value={adminSecret}
                 onChange={(e) => setAdminSecret(e.target.value)}
                 placeholder="Digite o código secreto"
               />
@@ -275,7 +264,9 @@ export default function RegisterPage() {
             </Button>
           </form>
 
-          <p className="auth__switch">Já tem conta? <Link to="/login">Entrar</Link></p>
+          <p className="auth-switch">
+            Já tem conta? <Link to="/login">Entrar</Link>
+          </p>
         </div>
       </section>
     </BaseLayout>

@@ -9,7 +9,11 @@ import {
   enviarNotificacaoAssinatura,
 } from '../../services/paymentService';
 import { getTermsDocument } from '../../services/termsService';
-import { processMercadoPagoPayment, processMercadoPagoPaymentPix } from '../../services/mercadoPagoService';
+import {
+  processMercadoPagoPayment,
+  processMercadoPagoPaymentPix,
+  checkPixStatus,
+} from '../../services/mercadoPagoService';
 import './PaymentModal.css';
 
 const SUBSCRIPTION_LINKS = {
@@ -28,6 +32,7 @@ export default function PaymentModal({
 }) {
   const [paymentMethod, setPaymentMethod] = useState(isAppointmentPayment ? 'pix' : 'credit');
   const [processing, setProcessing] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState(null);
   const [showSavedCards, setShowSavedCards] = useState(false);
   const [hasCards, setHasCards] = useState(false);
   const [pixTimer, setPixTimer] = useState(600);
@@ -45,33 +50,29 @@ export default function PaymentModal({
   const [mercadoPagoInstance, setMercadoPagoInstance] = useState(null);
   const [brickController, setBrickController] = useState(null);
   const [brickLoaded, setBrickLoaded] = useState(false);
+  const [pixApproved, setPixApproved] = useState(false);
 
   const cardPaymentBrickRef = useRef(null);
   const isRenderingBrick = useRef(false);
+  const pixPollingRef = useRef(null);
 
-  // const MERCADO_PAGO_PUBLIC_KEY = 'APP_USR-b1b4acc6-b66a-4a00-abdf-b31df28a8d7e';
+  const pixPaymentIdRef = useRef(null);
+
   const MERCADO_PAGO_PUBLIC_KEY = 'TEST-e60cf7cf-2a92-4f82-bfec-978eaa9139f8';
   const isRecurringSubscription = !isAppointmentPayment && selectedPlan?.isRecurring;
 
   const getAvailablePaymentMethods = () => {
-    if (isAppointmentPayment) {
-      return ['pix', 'credit', 'debit'];
-    }
+    if (isAppointmentPayment) return ['pix', 'credit', 'debit'];
     return ['credit'];
   };
 
   const availableMethods = getAvailablePaymentMethods();
 
   const getFinalPrice = () => {
-    if (isAppointmentPayment) {
-      return selectedPlan.price;
-    }
-    if (paymentMethod === 'credit') {
-      return selectedPlan.price * 1.05;
-    }
+    if (isAppointmentPayment) return selectedPlan.price;
+    if (paymentMethod === 'credit') return selectedPlan.price * 1.05;
     return selectedPlan.price;
   };
-
 
   useEffect(() => {
     if (
@@ -88,9 +89,7 @@ export default function PaymentModal({
         setMercadoPagoInstance(mp);
       };
       document.body.appendChild(script);
-      return () => {
-        if (script.parentNode) document.body.removeChild(script);
-      };
+      return () => { if (script.parentNode) document.body.removeChild(script); };
     } else if (!isRecurringSubscription && window.MercadoPago && !mercadoPagoInstance) {
       const mp = new window.MercadoPago(MERCADO_PAGO_PUBLIC_KEY, { locale: 'pt-BR' });
       setMercadoPagoInstance(mp);
@@ -104,7 +103,8 @@ export default function PaymentModal({
       (paymentMethod === 'credit' || paymentMethod === 'debit') &&
       isOpen &&
       !brickLoaded &&
-      !isRenderingBrick.current
+      !isRenderingBrick.current &&
+      !paymentStatus
     ) {
       renderCardPaymentBrick();
     }
@@ -115,7 +115,7 @@ export default function PaymentModal({
         setBrickLoaded(false);
       }
     };
-  }, [mercadoPagoInstance, paymentMethod, isOpen, brickLoaded, isRecurringSubscription]);
+  }, [mercadoPagoInstance, paymentMethod, isOpen, brickLoaded, isRecurringSubscription, paymentStatus]);
 
   useEffect(() => {
     if (paymentMethod === 'pix' && brickController) {
@@ -123,50 +123,47 @@ export default function PaymentModal({
       setBrickController(null);
       setBrickLoaded(false);
     }
+    if (paymentMethod !== 'pix' && pixPollingRef.current) {
+      clearInterval(pixPollingRef.current);
+      pixPollingRef.current = null;
+    }
   }, [paymentMethod]);
-
 
   useEffect(() => {
     if (isOpen && paymentMethod === 'pix') {
       setPixQrCodeBase64('');
       setPixQrCode('');
       setPixPaymentId(null);
+      pixPaymentIdRef.current = null;
       setPixTimer(600);
       setPixExpired(false);
+      setPixApproved(false);
       gerarPixPayment();
     }
   }, [isOpen, paymentMethod]);
 
-  const gerarPixPayment = async () => {
-    setPixGenerating(true);
-    setShowErrorToast(false);
-    try {
-      const pixPayload = {
-        transaction_amount: getFinalPrice(),
-        payment_method_id: 'pix',
-        payer: {
-          email: currentUser.email,
-        },
-        description: isAppointmentPayment
-          ? `Pagamento - ${selectedPlan.serviceName || 'Serviço'}`
-          : `Assinatura - ${selectedPlan.name}`,
-      };
 
-      const result = await processMercadoPagoPaymentPix(pixPayload);
-      const txData = result?.point_of_interaction?.transaction_data;
-
-      setPixQrCodeBase64(txData?.qr_code_base64 || '');
-      setPixQrCode(txData?.qr_code || '');
-      setPixPaymentId(result.id);
-    } catch (error) {
-      console.error('Erro ao gerar PIX:', error);
-      setErrorMessage('Erro ao gerar QR Code PIX. Tente novamente.');
-      setShowErrorToast(true);
-    } finally {
-      setPixGenerating(false);
+  useEffect(() => {
+    if (pixPollingRef.current) {
+      clearInterval(pixPollingRef.current);
+      pixPollingRef.current = null;
     }
-  };
 
+    if (isOpen && paymentMethod === 'pix' && pixQrCodeBase64 && !pixExpired && pixPaymentId) {
+      pixPollingRef.current = setInterval(() => {
+        if (pixPaymentIdRef.current) {
+          verificarStatusPix(pixPaymentIdRef.current);
+        }
+      }, 10000);
+    }
+
+    return () => {
+      if (pixPollingRef.current) {
+        clearInterval(pixPollingRef.current);
+        pixPollingRef.current = null;
+      }
+    };
+  }, [isOpen, paymentMethod, pixQrCodeBase64, pixExpired, pixPaymentId]);
 
   useEffect(() => {
     let interval;
@@ -175,6 +172,10 @@ export default function PaymentModal({
         setPixTimer((prev) => {
           if (prev <= 1) {
             clearInterval(interval);
+            if (pixPollingRef.current) {
+              clearInterval(pixPollingRef.current);
+              pixPollingRef.current = null;
+            }
             setPixExpired(true);
             return 0;
           }
@@ -185,11 +186,116 @@ export default function PaymentModal({
     return () => { if (interval) clearInterval(interval); };
   }, [isOpen, paymentMethod, pixQrCodeBase64, pixExpired]);
 
+  useEffect(() => {
+    setShowErrorToast(false);
+    setErrorMessage('');
+  }, [paymentMethod]);
+
+  useEffect(() => {
+    setPaymentStatus(null);
+  }, [paymentMethod]);
+
+  useEffect(() => {
+    if (isOpen && currentUser?.id && !isRecurringSubscription) checkUserCards();
+  }, [isOpen, currentUser, isRecurringSubscription]);
+
+  useEffect(() => {
+    const loadTermsDoc = async () => {
+      try {
+        const data = await getTermsDocument();
+        setTermsDocUrl(data.documentUrl || '');
+      } catch (error) {
+        console.error('Erro ao carregar documento de termos:', error);
+      }
+    };
+    if (isOpen) loadTermsDoc();
+  }, [isOpen]);
+
+
+  const gerarPixPayment = async () => {
+    setPixGenerating(true);
+    setShowErrorToast(false);
+    try {
+      const pixPayload = {
+        transaction_amount: getFinalPrice(),
+        payment_method_id: 'pix',
+        payer: { email: currentUser.email },
+        description: isAppointmentPayment
+          ? `Pagamento - ${selectedPlan.serviceName || 'Serviço'}`
+          : `Assinatura - ${selectedPlan.name}`,
+      };
+
+      const result = await processMercadoPagoPaymentPix(pixPayload);
+
+      setPixQrCodeBase64(result?.qr_code_base64 || '');
+      setPixQrCode(result?.qr_code || '');
+      setPixPaymentId(result.id);
+ 
+      pixPaymentIdRef.current = result.id;
+    } catch (error) {
+      console.error('Erro ao gerar PIX:', error);
+      setErrorMessage('Erro ao gerar QR Code PIX. Tente novamente.');
+      setShowErrorToast(true);
+    } finally {
+      setPixGenerating(false);
+    }
+  };
+
+  const verificarStatusPix = async (idPix) => {
+    try {
+      const result = await checkPixStatus(idPix);
+      if (result.status === 'approved') {
+        clearInterval(pixPollingRef.current);
+        pixPollingRef.current = null;
+        setPixApproved(true);
+        await confirmarPagamentoPix(idPix);
+      }
+ 
+    } catch (error) {
+      console.error('Erro ao verificar status PIX:', error);
+    }
+  };
+
+  const confirmarPagamentoPix = async (idPix) => {
+    setProcessing(true);
+    try {
+      const finalAmount = getFinalPrice();
+
+      if (isAppointmentPayment && paymentId) {
+        await atualizarPagamentoAgendamento(paymentId, {
+          status: 'paid',
+          paymentMethod: 'pix',
+          paidAt: new Date().toISOString(),
+          amount: finalAmount,
+          mercadoPagoId: idPix,
+        });
+        onSuccess && onSuccess('pix');
+      }
+
+      setProcessing(false);
+      onClose();
+    } catch (error) {
+      console.error('Erro ao confirmar pagamento PIX:', error);
+      setErrorMessage('Erro ao confirmar pagamento PIX. Tente novamente.');
+      setShowErrorToast(true);
+      setProcessing(false);
+    }
+  };
+
+  const handlePixSubmit = async (e) => {
+    e.preventDefault();
+    if (pixExpired || !pixPaymentId) return;
+    
+    if (pixApproved) {
+      await confirmarPagamentoPix(pixPaymentId);
+      return;
+    }
+    await verificarStatusPix(pixPaymentId);
+  };
 
   const renderCardPaymentBrick = async () => {
     if (isRenderingBrick.current) return;
     isRenderingBrick.current = true;
-
     try {
       if (brickController) {
         await brickController.unmount();
@@ -249,6 +355,13 @@ export default function PaymentModal({
     }
   };
 
+  const handleResetPayment = () => {
+    setPaymentStatus(null);
+    setShowErrorToast(false);
+    setErrorMessage('');
+    setBrickLoaded(false);
+    setBrickController(null);
+  };
 
   const handleMercadoPagoSubmit = async (cardFormData) => {
     if (!isAppointmentPayment && !acceptedTerms) {
@@ -288,7 +401,8 @@ export default function PaymentModal({
 
         if (isAppointmentPayment) {
           if (selectedPlan.needsCreation && selectedPlan.appointmentData && selectedPlan.paymentData) {
-            const appointmentResponse = await fetch('http://localhost:3000/appointments', {
+       
+            const appointmentResponse = await fetch(`http://localhost:3000/appointments`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(selectedPlan.appointmentData),
@@ -374,14 +488,13 @@ export default function PaymentModal({
         setProcessing(false);
         onClose();
         return { status: 'success' };
-      } else if (paymentResult.status === 'pending' || paymentResult.status === 'in_process') {
-        setErrorMessage(`Pagamento pendente. Status: ${paymentResult.status_detail || 'Aguardando confirmação'}`);
-        setShowErrorToast(true);
+
+      } else if (paymentResult.status === 'rejected') {
+        setPaymentStatus('rejected');
         setProcessing(false);
-        return new Promise((_, reject) => reject(new Error('Payment pending')));
-      } else {
-        throw new Error(paymentResult.status_detail || 'Pagamento não aprovado');
+        return new Promise((_, reject) => reject(new Error('Payment rejected')));
       }
+
     } catch (error) {
       setErrorMessage(error.message || 'Erro ao processar pagamento. Tente novamente.');
       setShowErrorToast(true);
@@ -389,57 +502,6 @@ export default function PaymentModal({
       return new Promise((_, reject) => reject(error));
     }
   };
-
-
-  const handlePixSubmit = async (e) => {
-    e.preventDefault();
-    if (pixExpired || !pixPaymentId) return;
-
-    setProcessing(true);
-    try {
-      const finalAmount = getFinalPrice();
-
-      if (isAppointmentPayment) {
-        if (selectedPlan.needsCreation && selectedPlan.appointmentData && selectedPlan.paymentData) {
-          const appointmentResponse = await fetch('http://localhost:3000/appointments', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(selectedPlan.appointmentData),
-          });
-          if (!appointmentResponse.ok) throw new Error('Erro ao criar agendamento');
-          const createdAppointment = await appointmentResponse.json();
-
-          await criarPagamentoAgendamento({
-            ...selectedPlan.paymentData,
-            appointmentId: createdAppointment.id,
-            status: 'paid',
-            paymentMethod: 'pix',
-            paidAt: new Date().toISOString(),
-            amount: finalAmount,
-            mercadoPagoId: pixPaymentId,
-          });
-        } else if (paymentId) {
-          await atualizarPagamentoAgendamento(paymentId, {
-            status: 'paid',
-            paymentMethod: 'pix',
-            paidAt: new Date().toISOString(),
-            amount: finalAmount,
-            mercadoPagoId: pixPaymentId,
-          });
-        }
-        onSuccess && onSuccess('pix');
-      }
-
-      setProcessing(false);
-      onClose();
-    } catch (error) {
-      console.error('Erro no pagamento PIX:', error);
-      setErrorMessage('Erro ao confirmar pagamento PIX. Tente novamente.');
-      setShowErrorToast(true);
-      setProcessing(false);
-    }
-  };
-
 
   const handleCopyPixKey = () => {
     if (pixQrCode) {
@@ -489,27 +551,6 @@ export default function PaymentModal({
     window.location.href = subscriptionLink;
   };
 
-  useEffect(() => {
-    if (isOpen && currentUser?.id && !isRecurringSubscription) checkUserCards();
-  }, [isOpen, currentUser, isRecurringSubscription]);
-
-  useEffect(() => {
-    const loadTermsDoc = async () => {
-      try {
-        const data = await getTermsDocument();
-        setTermsDocUrl(data.documentUrl || '');
-      } catch (error) {
-        console.error('Erro ao carregar documento de termos:', error);
-      }
-    };
-    if (isOpen) loadTermsDoc();
-  }, [isOpen]);
-
-  useEffect(() => {
-    setShowErrorToast(false);
-    setErrorMessage('');
-  }, [paymentMethod]);
-
   const checkUserCards = async () => {
     try {
       const cards = await getUserCards(currentUser.id);
@@ -557,174 +598,228 @@ export default function PaymentModal({
             </div>
           )}
 
-          <div className="payment-modal-body">
-            <div className="payment-plan-summary">
-              <h3>{selectedPlan.name}</h3>
-              <p className="payment-plan-price">
-                R$ {selectedPlan.price.toFixed(2).replace('.', ',')}
-                {isRecurringSubscription && <span className="recurring-badge"> /mês</span>}
-              </p>
-            </div>
-
-            {isRecurringSubscription ? (
-              <div className="recurring-subscription-content">
-                <div className="recurring-info">
-                  <h4>🔄 Assinatura Recorrente</h4>
-                  <ul>
-                    <li>✓ Cobrança automática mensal</li>
-                    <li>✓ Cancele quando quiser</li>
-                    <li>✓ Sem taxas de cancelamento</li>
-                    <li>✓ Processamento seguro pelo Mercado Pago</li>
-                  </ul>
-                </div>
-
-                <div className="payment-terms-section">
-                  <div className="payment-terms-box">
-                    <h4>📄 Termos de Contratação</h4>
-                    <p>Leia atentamente nossos termos de contratação antes de prosseguir.</p>
-                    {termsDocUrl && (
-                      <a href={termsDocUrl} onClick={handleDownloadTerms} className="payment-terms-download">
-                        📥 Baixar Termos
-                      </a>
-                    )}
-                  </div>
-                  <label className="payment-terms-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={acceptedTerms}
-                      onChange={(e) => setAcceptedTerms(e.target.checked)}
-                    />
-                    <span>Li e aceito os termos de contratação e autorizo a cobrança recorrente mensal</span>
-                  </label>
-                </div>
-
-                <div className="payment-modal-footer">
-                  <button type="button" onClick={onClose}>Cancelar</button>
-                  <button
-                    type="button"
-                    onClick={handleRecurringSubscription}
-                    disabled={!acceptedTerms}
-                    className="recurring-button"
-                  >
-                    Prosseguir para Pagamento
-                  </button>
-                </div>
+          {paymentStatus === 'in_process' && (
+            <div className="payment-status-screen">
+              <div className="payment-status-icon processing-icon">
+                <div className="processing-spinner-large"></div>
               </div>
-            ) : (
-              <>
-                <div className="payment-methods">
-                  {availableMethods.map((method) => (
-                    <button
-                      key={method}
-                      type="button"
-                      className={`payment-method-btn ${paymentMethod === method ? 'active' : ''}`}
-                      onClick={() => setPaymentMethod(method)}
-                    >
-                      {method === 'pix' ? 'PIX' : method === 'credit' ? 'Crédito' : 'Débito'}
-                    </button>
-                  ))}
-                </div>
+              <h2>Pagamento em Análise</h2>
+              <p>Seu pagamento está sendo processado pela operadora. Você receberá uma confirmação em breve.</p>
+              <button type="button" className="payment-status-btn" onClick={onClose}>
+                Fechar
+              </button>
+            </div>
+          )}
 
-                {paymentMethod === 'pix' ? (
-                  <form onSubmit={handlePixSubmit}>
-                    <div className="pix-payment-section">
+          {paymentStatus === 'rejected' && (
+            <div className="payment-status-screen">
+              <div className="payment-status-icon rejected-icon">
+                <span>✕</span>
+              </div>
+              <h2>Pagamento Recusado</h2>
+              <p>Verifique os dados do cartão ou tente outra forma de pagamento.</p>
+              <div className="payment-status-actions">
+                <button type="button" className="payment-status-btn retry" onClick={handleResetPayment}>
+                  Tentar Novamente
+                </button>
+                <button type="button" className="payment-status-btn cancel" onClick={onClose}>
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
 
-            
-                      <div className="pix-qrcode-wrapper">
-                        {pixGenerating ? (
-                          <div className="pix-loading">
-                            <div className="pix-spinner" />
-                            <p>Gerando QR Code...</p>
-                          </div>
-                        ) : pixQrCodeBase64 ? (
-                          <>
-                            <img
-                              className="pix-qrcode-img"
-                              width="220"
-                              src={`data:image/png;base64,${pixQrCodeBase64}`}
-                              alt="QR Code PIX"
-                            />
-                            {!pixExpired ? (
-                              <div className="pix-timer">⏱ Expira em: <strong>{formatTime(pixTimer)}</strong></div>
-                            ) : (
-                              <div className="pix-expired">❌ QR Code expirado</div>
-                            )}
-                          </>
-                        ) : (
-                          <div className="pix-error-state">
-                            <p>Não foi possível gerar o QR Code.</p>
-                            <button type="button" className="pix-retry-btn" onClick={gerarPixPayment}>
-                              Tentar novamente
-                            </button>
-                          </div>
-                        )}
-                      </div>
+          {!paymentStatus && (
+            <div className="payment-modal-body">
+              <div className="payment-plan-summary">
+                <h3>{selectedPlan.name}</h3>
+                <p className="payment-plan-price">
+                  R$ {selectedPlan.price.toFixed(2).replace('.', ',')}
+                  {isRecurringSubscription && <span className="recurring-badge"> /mês</span>}
+                </p>
+              </div>
 
-                      {pixQrCode && (
-                        <div className="pix-copy-section">
-                          <p className="pix-copy-label">📋 Pix Copia e Cola</p>
-                          <div className="pix-copy-box">
-                            <span className="pix-copy-value">{pixQrCode}</span>
-                            <button
-                              type="button"
-                              className={`pix-copy-btn ${pixQrCopied ? 'copied' : ''}`}
-                              onClick={handleCopyPixKey}
-                              disabled={pixExpired}
-                            >
-                              {pixQrCopied ? '✓ Copiado!' : 'Copiar'}
-                            </button>
-                          </div>
-                        </div>
+              {isRecurringSubscription ? (
+                <div className="recurring-subscription-content">
+                  <div className="recurring-info">
+                    <h4>🔄 Assinatura Recorrente</h4>
+                    <ul>
+                      <li>✓ Cobrança automática mensal</li>
+                      <li>✓ Cancele quando quiser</li>
+                      <li>✓ Sem taxas de cancelamento</li>
+                      <li>✓ Processamento seguro pelo Mercado Pago</li>
+                    </ul>
+                  </div>
+
+                  <div className="payment-terms-section">
+                    <div className="payment-terms-box">
+                      <h4>📄 Termos de Contratação</h4>
+                      <p>Leia atentamente nossos termos de contratação antes de prosseguir.</p>
+                      {termsDocUrl && (
+                        <a href={termsDocUrl} onClick={handleDownloadTerms} className="payment-terms-download">
+                          📥 Baixar Termos
+                        </a>
                       )}
-
-                      <div className="pix-instructions">
-                        <h4>Como pagar:</h4>
-                        <ol>
-                          <li>Abra o app do seu banco</li>
-                          <li>Escaneie o QR Code ou copie a chave Pix acima</li>
-                          <li>Confirme o pagamento no banco</li>
-                          <li>Clique em <strong>"Confirmar Pagamento"</strong> abaixo</li>
-                        </ol>
-                      </div>
                     </div>
+                    <label className="payment-terms-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={acceptedTerms}
+                        onChange={(e) => setAcceptedTerms(e.target.checked)}
+                      />
+                      <span>Li e aceito os termos de contratação e autorizo a cobrança recorrente mensal</span>
+                    </label>
+                  </div>
 
-                    <div className="payment-modal-footer">
-                      <button type="button" onClick={onClose}>Cancelar</button>
-                      <button type="submit" disabled={processing || pixExpired || pixGenerating || !pixPaymentId}>
-                        {processing ? 'Processando...' : 'Confirmar Pagamento'}
+                  <div className="payment-modal-footer">
+                    <button type="button" onClick={onClose}>Cancelar</button>
+                    <button
+                      type="button"
+                      onClick={handleRecurringSubscription}
+                      disabled={!acceptedTerms}
+                      className="recurring-button"
+                    >
+                      Prosseguir para Pagamento
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="payment-methods">
+                    {availableMethods.map((method) => (
+                      <button
+                        key={method}
+                        type="button"
+                        className={`payment-method-btn ${paymentMethod === method ? 'active' : ''}`}
+                        onClick={() => setPaymentMethod(method)}
+                      >
+                        {method === 'pix' ? 'PIX' : method === 'credit' ? 'Crédito' : 'Débito'}
                       </button>
-                    </div>
-                  </form>
-                ) : (
-                  <>
-                    <div id="cardPaymentBrick_container"></div>
+                    ))}
+                  </div>
 
-                    {!isAppointmentPayment && (
-                      <div className="payment-terms-section">
-                        <div className="payment-terms-box">
-                          <h4>📄 Termos de Contratação</h4>
-                          <p>Leia atentamente nossos termos de contratação antes de prosseguir com o pagamento.</p>
-                          {termsDocUrl && (
-                            <a href={termsDocUrl} onClick={handleDownloadTerms} className="payment-terms-download">
-                              📥 Baixar Termos
-                            </a>
+                  {paymentMethod === 'pix' ? (
+                    <form onSubmit={handlePixSubmit}>
+                      <div className="pix-payment-section">
+                        <div className="pix-qrcode-wrapper">
+                          {pixGenerating ? (
+                            <div className="pix-loading">
+                              <div className="pix-spinner" />
+                              <p>Gerando QR Code...</p>
+                            </div>
+                          ) : pixQrCodeBase64 ? (
+                            <>
+                              <img
+                                className="pix-qrcode-img"
+                                width="220"
+                                src={`data:image/png;base64,${pixQrCodeBase64}`}
+                                alt="QR Code PIX"
+                              />
+                              {!pixExpired ? (
+                                <div className="pix-timer">
+                                  ⏱ Expira em: <strong>{formatTime(pixTimer)}</strong>
+                                </div>
+                              ) : (
+                                <div className="pix-expired">
+                                  <span>❌ QR Code expirado</span>
+                                  <button
+                                    type="button"
+                                    className="pix-retry-btn"
+                                    onClick={() => {
+                                      setPixExpired(false);
+                                      setPixTimer(600);
+                                      setPixQrCodeBase64('');
+                                      setPixQrCode('');
+                                      setPixPaymentId(null);
+                                      pixPaymentIdRef.current = null;
+                                      setPixApproved(false);
+                                      gerarPixPayment();
+                                    }}
+                                  >
+                                    🔄 Gerar novo QR Code
+                                  </button>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <div className="pix-error-state">
+                              <p>Não foi possível gerar o QR Code.</p>
+                              <button type="button" className="pix-retry-btn" onClick={gerarPixPayment}>
+                                Tentar novamente
+                              </button>
+                            </div>
                           )}
                         </div>
-                        <label className="payment-terms-checkbox">
-                          <input
-                            type="checkbox"
-                            checked={acceptedTerms}
-                            onChange={(e) => setAcceptedTerms(e.target.checked)}
-                          />
-                          <span>Li e aceito os termos de contratação</span>
-                        </label>
+
+                        {pixQrCode && (
+                          <div className="pix-copy-section">
+                            <p className="pix-copy-label">📋 Pix Copia e Cola</p>
+                            <div className="pix-copy-box">
+                              <span className="pix-copy-value">{pixQrCode}</span>
+                              <button
+                                type="button"
+                                className={`pix-copy-btn ${pixQrCopied ? 'copied' : ''}`}
+                                onClick={handleCopyPixKey}
+                                disabled={pixExpired}
+                              >
+                                {pixQrCopied ? '✓ Copiado!' : 'Copiar'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="pix-instructions">
+                          <h4>Como pagar:</h4>
+                          <ol>
+                            <li>Abra o app do seu banco</li>
+                            <li>Escaneie o QR Code ou copie a chave Pix acima</li>
+                            <li>Confirme o pagamento no banco</li>
+                            <li>Clique em <strong>"Confirmar Pagamento"</strong> abaixo</li>
+                          </ol>
+                        </div>
                       </div>
-                    )}
-                  </>
-                )}
-              </>
-            )}
-          </div>
+
+                      <div className="payment-modal-footer">
+                        <button type="button" onClick={onClose}>Cancelar</button>
+                        <button
+                          type="submit"
+                          disabled={processing || pixExpired || pixGenerating || !pixPaymentId}
+                        >
+                          {processing ? 'Verificando...' : 'Confirmar Pagamento'}
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <>
+                      <div id="cardPaymentBrick_container"></div>
+
+                      {!isAppointmentPayment && (
+                        <div className="payment-terms-section">
+                          <div className="payment-terms-box">
+                            <h4>📄 Termos de Contratação</h4>
+                            <p>Leia atentamente nossos termos de contratação antes de prosseguir com o pagamento.</p>
+                            {termsDocUrl && (
+                              <a href={termsDocUrl} onClick={handleDownloadTerms} className="payment-terms-download">
+                                📥 Baixar Termos
+                              </a>
+                            )}
+                          </div>
+                          <label className="payment-terms-checkbox">
+                            <input
+                              type="checkbox"
+                              checked={acceptedTerms}
+                              onChange={(e) => setAcceptedTerms(e.target.checked)}
+                            />
+                            <span>Li e aceito os termos de contratação</span>
+                          </label>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

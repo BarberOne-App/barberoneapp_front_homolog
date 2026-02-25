@@ -966,7 +966,7 @@
   line-height: 1.5;
 }
 
-/* ─── PIX – adicionar ao PaymentModal.css ─────────────────────────────────── */
+
 
 .pix-payment-section {
   display: flex;
@@ -976,7 +976,7 @@
   padding: 16px 0;
 }
 
-/* QR Code wrapper */
+
 .pix-qrcode-wrapper {
   display: flex;
   flex-direction: column;
@@ -995,7 +995,7 @@
   display: block;
 }
 
-/* Loading */
+
 .pix-loading {
   display: flex;
   flex-direction: column;
@@ -1019,7 +1019,7 @@
   to { transform: rotate(360deg); }
 }
 
-/* Timer */
+
 .pix-timer {
   font-size: 0.85rem;
   color: #b0b0b0;
@@ -1036,7 +1036,7 @@
   font-weight: 600;
 }
 
-/* Error state / retry */
+
 .pix-error-state {
   display: flex;
   flex-direction: column;
@@ -1062,7 +1062,7 @@
   background: rgba(255, 122, 26, 0.1);
 }
 
-/* Copia e Cola */
+
 .pix-copy-section {
   width: 100%;
 }
@@ -1125,7 +1125,7 @@
   cursor: not-allowed;
 }
 
-/* Instruções */
+
 .pix-instructions {
   width: 100%;
   background: #1a1a1a;
@@ -1156,4 +1156,97 @@
 
 .pix-instructions li strong {
   color: #ffffff;
+}
+
+
+
+.payment-status-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  text-align: center;
+  gap: 16px;
+  min-height: 300px;
+}
+
+.payment-status-screen h2 {
+  color: #ffffff;
+  font-size: 1.4rem;
+  margin: 0;
+}
+
+.payment-status-screen p {
+  color: #b0b0b0;
+  font-size: 0.95rem;
+  max-width: 320px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+
+
+.payment-status-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.processing-icon {
+  background-color: rgba(255, 122, 26, 0.1);
+  border: 2px solid rgba(255, 122, 26, 0.4);
+}
+
+.rejected-icon {
+  background-color: rgba(220, 53, 69, 0.15);
+  color: #dc3545;
+  border: 2px solid #dc3545;
+}
+
+
+
+.payment-status-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.payment-status-btn {
+  padding: 10px 24px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.payment-status-btn:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+}
+
+.payment-status-btn:active {
+  transform: translateY(0);
+}
+
+.payment-status-btn.retry {
+  background-color: #ff7a1a;
+  color: #ffffff;
+}
+
+.payment-status-btn.cancel,
+.payment-status-btn:not(.retry):not(.cancel) {
+  background-color: #2a2a2a;
+  color: #b0b0b0;
+  border: 1px solid #444;
 }
