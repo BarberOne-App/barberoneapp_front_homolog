@@ -10,6 +10,7 @@ export default function CompleteProfileModal({ user, onComplete }) {
   const [phone, setPhone] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [barbershop, setBarbershop] = useState('');
+  const [password, setPassword] = useState(''); 
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -47,12 +48,16 @@ export default function CompleteProfileModal({ user, onComplete }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-
     const cleanCPF = cpf.replace(/\D/g, '');
     const cleanPhone = phone.replace(/\D/g, '');
 
-    if (!cpf || !phone || !birthDate || !barbershop) {
+
+    if (!cpf || !phone || !birthDate || !barbershop || !password) {
       setError('Preencha todos os campos.');
+      return;
+    }
+    if (password.length < 4) {
+      setError('Senha deve ter pelo menos 4 caracteres.');
       return;
     }
     if (!isValidCPF(cleanCPF)) {
@@ -66,15 +71,16 @@ export default function CompleteProfileModal({ user, onComplete }) {
 
     setIsSubmitting(true);
     try {
+  
       const updatedUser = {
         ...user,
         cpf: cleanCPF,
         phone: cleanPhone,
         birthDate,
         barbershops: [barbershop.trim()],
+        password,  
         profileComplete: true,
       };
-
       await api.put(`/users/${user.id}`, updatedUser);
       saveSession(updatedUser);
       onComplete(updatedUser);
@@ -92,14 +98,14 @@ export default function CompleteProfileModal({ user, onComplete }) {
           {user.picture && (
             <img src={user.picture} alt={user.name} className="cpm-avatar" />
           )}
-          <h2 className="cpm-title">Quase lá, {user.name?.split(' ')[0]}!</h2>
+          <h2 className="cpm-title">
+            Quase lá, {user.name?.split(' ')[0]}!
+          </h2>
           <p className="cpm-subtitle">
             Complete seu perfil para continuar usando o sistema.
           </p>
         </div>
-
         {error && <p className="cpm-error">{error}</p>}
-
         <form className="cpm-form" onSubmit={handleSubmit}>
           <Input
             label="CPF"
@@ -107,7 +113,7 @@ export default function CompleteProfileModal({ user, onComplete }) {
             value={cpf}
             onChange={(e) => setCpf(formatCPF(e.target.value))}
             placeholder="000.000.000-00"
-            maxLength="14"
+            maxLength={14}
           />
           <Input
             label="Telefone/WhatsApp"
@@ -115,7 +121,7 @@ export default function CompleteProfileModal({ user, onComplete }) {
             value={phone}
             onChange={(e) => setPhone(formatPhone(e.target.value))}
             placeholder="(85) 99999-9999"
-            maxLength="15"
+            maxLength={15}
           />
           <Input
             label="Data de Nascimento"
@@ -131,7 +137,15 @@ export default function CompleteProfileModal({ user, onComplete }) {
             onChange={(e) => setBarbershop(e.target.value)}
             placeholder="Ex: Barbearia Rodrigues"
           />
-
+       
+          <Input
+            label="Senha para login"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Mínimo 4 caracteres"
+            minLength={6}
+          />
           <Button type="submit" fullWidth disabled={isSubmitting}>
             {isSubmitting ? 'Salvando...' : 'Salvar e continuar'}
           </Button>

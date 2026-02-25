@@ -102,6 +102,8 @@ export default function AppointmentsPage() {
     }
   }, []);
 
+
+
   const isDateBlocked = (dateStr, barberId = null) => {
     return blockedDates.some((blocked) => {
       const matchDate = blocked.date === dateStr;
@@ -371,39 +373,16 @@ export default function AppointmentsPage() {
       });
   }, [appointments]);
 
-  const getAvailableTimes = useCallback((barberId, date, intervalMinutes = 30) => {
-    if (!date) return [];
-
-    const allTimes = generateTimes(intervalMinutes);
-    const dateStr = date.toLocaleDateString('en-CA');
-    const today = new Date();
-    const todayStr = today.toLocaleDateString('en-CA');
-    const isToday = dateStr === todayStr;
-
-    let currentHour = 0;
-    let currentMinute = 0;
-    if (isToday) {
-      currentHour = today.getHours();
-      currentMinute = today.getMinutes();
-    }
-
-    const bookedTimes = appointments
-      .filter((apt) => apt.barberId === barberId && apt.date === dateStr)
-      .map((apt) => apt.time);
-
-    return allTimes.filter((time) => {
-      if (bookedTimes.includes(time)) return false;
-
-      if (isToday) {
-        const [hour, minute] = time.split(':').map(Number);
-        if (hour < currentHour) return false;
-        if (hour === currentHour && minute < currentMinute) return false;
-      }
-
-      return true;
-    });
-  }, [appointments, generateTimes]);
-
+const getAvailableTimes = useCallback((barberId, date) => { 
+  if (!date) return [];
+  const allTimes = generateTimes(30); 
+  const dateStr = date.toLocaleDateString('en-CA');
+  const bookedTimes = getBookedSlots(barberId, date); 
+  
+  console.log('DEBUG bookedTimes:', bookedTimes); 
+  
+  return allTimes.filter(time => !bookedTimes.includes(time));
+}, [appointments]);
   const showToast = useCallback((message, type = 'success') => {
     setToast({ show: true, message, type });
   }, []);
@@ -1172,18 +1151,19 @@ export default function AppointmentsPage() {
         </div>
       </section>
 
-      <ProductsModal
-        isOpen={showProductsModal}
-        onClose={() => {
-          setShowProductsModal(false);
-          setPendingBookingData(null);
-        }}
-        products={products}
-        onConfirm={handleProductsConfirm}
-        hasActiveSubscription={hasActiveSubscription}
-        servicePrice={pendingBookingData?.servicePrice || 0}
-        onUpdateStock={handleUpdateStock}
-      />
+     <ProductsModal
+  isOpen={showProductsModal}
+  onClose={() => {
+    setShowProductsModal(false);
+    // ← remover o setPendingBookingData(null) daqui
+  }}
+  products={products}
+  onConfirm={handleProductsConfirm}
+  hasActiveSubscription={hasActiveSubscription}
+  servicePrice={pendingBookingData?.servicePrice || 0}
+  serviceName={pendingBookingData?.services?.map(s => s.name).join(', ') || ''}  
+  onUpdateStock={handleUpdateStock}
+/>
 
       <PaymentChoiceModal
         isOpen={showPaymentChoiceModal}

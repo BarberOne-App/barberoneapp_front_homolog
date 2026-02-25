@@ -8,9 +8,8 @@ import {
   atualizarPagamentoAgendamento,
   enviarNotificacaoAssinatura,
 } from '../../services/paymentService';
-import { getPixKey } from '../../services/settingsService';
 import { getTermsDocument } from '../../services/termsService';
-import { processMercadoPagoPayment } from '../../services/mercadoPagoService';
+import { processMercadoPagoPayment, processMercadoPagoPaymentPix } from '../../services/mercadoPagoService';
 import './PaymentModal.css';
 
 const SUBSCRIPTION_LINKS = {
@@ -33,8 +32,11 @@ export default function PaymentModal({
   const [hasCards, setHasCards] = useState(false);
   const [pixTimer, setPixTimer] = useState(600);
   const [pixExpired, setPixExpired] = useState(false);
-  const [pixKey, setPixKey] = useState('');
-  const [pixKeyCopied, setPixKeyCopied] = useState(false);
+  const [pixQrCodeBase64, setPixQrCodeBase64] = useState('');
+  const [pixQrCode, setPixQrCode] = useState('');
+  const [pixPaymentId, setPixPaymentId] = useState(null);
+  const [pixQrCopied, setPixQrCopied] = useState(false);
+  const [pixGenerating, setPixGenerating] = useState(false);
   const [showErrorToast, setShowErrorToast] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -47,8 +49,8 @@ export default function PaymentModal({
   const cardPaymentBrickRef = useRef(null);
   const isRenderingBrick = useRef(false);
 
-  const MERCADO_PAGO_PUBLIC_KEY = 'APP_USR-b1b4acc6-b66a-4a00-abdf-b31df28a8d7e';
-
+  // const MERCADO_PAGO_PUBLIC_KEY = 'APP_USR-b1b4acc6-b66a-4a00-abdf-b31df28a8d7e';
+  const MERCADO_PAGO_PUBLIC_KEY = 'TEST-e60cf7cf-2a92-4f82-bfec-978eaa9139f8';
   const isRecurringSubscription = !isAppointmentPayment && selectedPlan?.isRecurring;
 
   const getAvailablePaymentMethods = () => {
@@ -70,6 +72,7 @@ export default function PaymentModal({
     return selectedPlan.price;
   };
 
+
   useEffect(() => {
     if (
       !isRecurringSubscription &&
@@ -81,22 +84,15 @@ export default function PaymentModal({
       script.src = 'https://sdk.mercadopago.com/js/v2';
       script.async = true;
       script.onload = () => {
-        const mp = new window.MercadoPago(MERCADO_PAGO_PUBLIC_KEY, {
-          locale: 'pt-BR',
-        });
+        const mp = new window.MercadoPago(MERCADO_PAGO_PUBLIC_KEY, { locale: 'pt-BR' });
         setMercadoPagoInstance(mp);
       };
       document.body.appendChild(script);
-
       return () => {
-        if (script.parentNode) {
-          document.body.removeChild(script);
-        }
+        if (script.parentNode) document.body.removeChild(script);
       };
     } else if (!isRecurringSubscription && window.MercadoPago && !mercadoPagoInstance) {
-      const mp = new window.MercadoPago(MERCADO_PAGO_PUBLIC_KEY, {
-        locale: 'pt-BR',
-      });
+      const mp = new window.MercadoPago(MERCADO_PAGO_PUBLIC_KEY, { locale: 'pt-BR' });
       setMercadoPagoInstance(mp);
     }
   }, [isOpen, paymentMethod, mercadoPagoInstance, isRecurringSubscription]);
@@ -112,7 +108,6 @@ export default function PaymentModal({
     ) {
       renderCardPaymentBrick();
     }
-
     return () => {
       if (brickController && !isOpen) {
         brickController.unmount();
@@ -130,34 +125,82 @@ export default function PaymentModal({
     }
   }, [paymentMethod]);
 
-  const renderCardPaymentBrick = async () => {
-    if (isRenderingBrick.current) {
-      console.log('⚠️ Brick já está sendo renderizado, ignorando...');
-      return;
-    }
 
+  useEffect(() => {
+    if (isOpen && paymentMethod === 'pix') {
+      setPixQrCodeBase64('');
+      setPixQrCode('');
+      setPixPaymentId(null);
+      setPixTimer(600);
+      setPixExpired(false);
+      gerarPixPayment();
+    }
+  }, [isOpen, paymentMethod]);
+
+  const gerarPixPayment = async () => {
+    setPixGenerating(true);
+    setShowErrorToast(false);
+    try {
+      const pixPayload = {
+        transaction_amount: getFinalPrice(),
+        payment_method_id: 'pix',
+        payer: {
+          email: currentUser.email,
+        },
+        description: isAppointmentPayment
+          ? `Pagamento - ${selectedPlan.serviceName || 'Serviço'}`
+          : `Assinatura - ${selectedPlan.name}`,
+      };
+
+      const result = await processMercadoPagoPaymentPix(pixPayload);
+      const txData = result?.point_of_interaction?.transaction_data;
+
+      setPixQrCodeBase64(txData?.qr_code_base64 || '');
+      setPixQrCode(txData?.qr_code || '');
+      setPixPaymentId(result.id);
+    } catch (error) {
+      console.error('Erro ao gerar PIX:', error);
+      setErrorMessage('Erro ao gerar QR Code PIX. Tente novamente.');
+      setShowErrorToast(true);
+    } finally {
+      setPixGenerating(false);
+    }
+  };
+
+
+  useEffect(() => {
+    let interval;
+    if (isOpen && paymentMethod === 'pix' && pixQrCodeBase64 && !pixExpired) {
+      interval = setInterval(() => {
+        setPixTimer((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            setPixExpired(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => { if (interval) clearInterval(interval); };
+  }, [isOpen, paymentMethod, pixQrCodeBase64, pixExpired]);
+
+
+  const renderCardPaymentBrick = async () => {
+    if (isRenderingBrick.current) return;
     isRenderingBrick.current = true;
 
     try {
       if (brickController) {
-        console.log('🧹 Limpando brick anterior...');
         await brickController.unmount();
         setBrickController(null);
       }
-
       const container = document.getElementById('cardPaymentBrick_container');
-      if (container) {
-        container.innerHTML = '';
-      }
-
-      console.log('🔄 Renderizando Card Payment Brick...');
+      if (container) container.innerHTML = '';
 
       const bricksBuilder = mercadoPagoInstance.bricks();
-
       const controller = await bricksBuilder.create('cardPayment', 'cardPaymentBrick_container', {
-        initialization: {
-          amount: getFinalPrice(),
-        },
+        initialization: { amount: getFinalPrice() },
         customization: {
           visual: {
             style: {
@@ -184,15 +227,12 @@ export default function PaymentModal({
         },
         callbacks: {
           onReady: () => {
-            console.log('✅ Card Payment Brick pronto');
             setBrickLoaded(true);
             isRenderingBrick.current = false;
           },
-          onSubmit: async (cardFormData) => {
-            return handleMercadoPagoSubmit(cardFormData);
-          },
+          onSubmit: async (cardFormData) => handleMercadoPagoSubmit(cardFormData),
           onError: (error) => {
-            console.error('❌ Erro no Card Payment Brick:', error);
+            console.error('Erro no Card Payment Brick:', error);
             setErrorMessage('Erro ao processar pagamento. Verifique os dados do cartão.');
             setShowErrorToast(true);
             isRenderingBrick.current = false;
@@ -202,16 +242,15 @@ export default function PaymentModal({
 
       setBrickController(controller);
     } catch (error) {
-      console.error('❌ Erro ao renderizar Card Payment Brick:', error);
+      console.error('Erro ao renderizar Card Payment Brick:', error);
       setErrorMessage('Erro ao carregar formulário de pagamento. Tente novamente.');
       setShowErrorToast(true);
       isRenderingBrick.current = false;
     }
   };
 
-  const handleMercadoPagoSubmit = async (cardFormData) => {
-    console.log('🔵 Iniciando processo de pagamento...');
 
+  const handleMercadoPagoSubmit = async (cardFormData) => {
     if (!isAppointmentPayment && !acceptedTerms) {
       setValidationToast({ show: true, message: 'Você precisa aceitar os termos de contratação' });
       setTimeout(() => setValidationToast({ show: false, message: '' }), 4000);
@@ -230,7 +269,7 @@ export default function PaymentModal({
         payment_method_id: cardFormData.payment_method_id,
         issuer_id: cardFormData.issuer_id,
         payer: {
-          email: currentUser.email || `${currentUser.id}@barbearia.com`,
+          email: currentUser.email,
           identification: {
             type: cardFormData.payer.identification.type,
             number: cardFormData.payer.identification.number,
@@ -241,64 +280,37 @@ export default function PaymentModal({
           : `Assinatura - ${selectedPlan.name}`,
       };
 
-      console.log('💳 Processando pagamento com Mercado Pago...');
       const paymentResult = await processMercadoPagoPayment(paymentData);
-      console.log('✅ Pagamento processado:', paymentResult);
 
       if (paymentResult.status === 'approved' || paymentResult.status === 'authorized') {
         const finalAmount = getFinalPrice();
         const paymentMethodString = paymentMethod === 'credit' ? 'credito' : 'debito';
 
-        console.log('💾 Salvando dados no banco...');
-
         if (isAppointmentPayment) {
-          if (
-            selectedPlan.needsCreation &&
-            selectedPlan.appointmentData &&
-            selectedPlan.paymentData
-          ) {
-            console.log('📅 Criando novo agendamento...');
+          if (selectedPlan.needsCreation && selectedPlan.appointmentData && selectedPlan.paymentData) {
+            const appointmentResponse = await fetch('http://localhost:3000/appointments', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(selectedPlan.appointmentData),
+            });
+            if (!appointmentResponse.ok) throw new Error('Erro ao criar agendamento');
+            const createdAppointment = await appointmentResponse.json();
 
-            try {
-              const appointmentResponse = await fetch('http://localhost:3000/appointments', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(selectedPlan.appointmentData),
-              });
-
-              if (!appointmentResponse.ok) {
-                const errorText = await appointmentResponse.text();
-                console.error('❌ Erro ao criar agendamento:', errorText);
-                throw new Error('Erro ao criar agendamento');
-              }
-
-              const createdAppointment = await appointmentResponse.json();
-              console.log('✅ Agendamento criado:', createdAppointment);
-
-              const paymentDataToSave = {
-                ...selectedPlan.paymentData,
-                appointmentId: createdAppointment.id,
-                status: 'paid',
-                paymentMethod: paymentMethodString,
-                paidAt: new Date().toISOString(),
-                amount: finalAmount,
-                mercadoPagoId: paymentResult.id,
-                mercadoPagoStatus: paymentResult.status,
-                cardData: {
-                  brand: paymentResult.payment_method_id,
-                  lastDigits: paymentResult.card?.last_four_digits || '****',
-                },
-              };
-
-              console.log('💰 Salvando pagamento do agendamento...');
-              await criarPagamentoAgendamento(paymentDataToSave);
-              console.log('✅ Pagamento salvo com sucesso!');
-            } catch (error) {
-              console.error('❌ Erro no fluxo de agendamento:', error);
-              throw error;
-            }
+            await criarPagamentoAgendamento({
+              ...selectedPlan.paymentData,
+              appointmentId: createdAppointment.id,
+              status: 'paid',
+              paymentMethod: paymentMethodString,
+              paidAt: new Date().toISOString(),
+              amount: finalAmount,
+              mercadoPagoId: paymentResult.id,
+              mercadoPagoStatus: paymentResult.status,
+              cardData: {
+                brand: paymentResult.payment_method_id,
+                lastDigits: paymentResult.card?.last_four_digits || '****',
+              },
+            });
           } else if (paymentId) {
-            console.log('🔄 Atualizando pagamento existente...');
             await atualizarPagamentoAgendamento(paymentId, {
               status: 'paid',
               paymentMethod: paymentMethodString,
@@ -311,16 +323,11 @@ export default function PaymentModal({
                 lastDigits: paymentResult.card?.last_four_digits || '****',
               },
             });
-            console.log('✅ Pagamento atualizado!');
           }
-
-          console.log('🎉 Processo de pagamento concluído com sucesso!');
           onSuccess && onSuccess(paymentMethodString);
         } else {
-          console.log('📝 Criando assinatura...');
           const transactionId = `TRX-${Date.now()}-${Math.random().toString(36).substr(2, 7).toUpperCase()}`;
-
-          const paymentDataToSave = {
+          await criarPagamentoAgendamento({
             userId: currentUser.id,
             userName: currentUser.name,
             planId: selectedPlan.id,
@@ -340,11 +347,9 @@ export default function PaymentModal({
             },
             createdAt: new Date().toISOString(),
             approvedAt: new Date().toISOString(),
-          };
+          });
 
-          await criarPagamentoAgendamento(paymentDataToSave);
-
-          const subscriptionData = {
+          const subscription = await criarAssinatura({
             userId: currentUser.id,
             userName: currentUser.name,
             planId: selectedPlan.id,
@@ -355,15 +360,12 @@ export default function PaymentModal({
             paymentMethod: paymentMethodString,
             isRecurring: selectedPlan.isRecurring ?? true,
             autoRenewal: selectedPlan.autoRenewal ?? true,
-          };
-
-          const subscription = await criarAssinatura(subscriptionData);
-          console.log('✅ Assinatura criada:', subscription);
+          });
 
           try {
             await enviarNotificacaoAssinatura(subscription);
           } catch (error) {
-            console.error('⚠️ Erro ao enviar notificação (não crítico):', error);
+            console.error('Erro ao enviar notificação (não crítico):', error);
           }
 
           onSuccess && onSuccess(subscription);
@@ -373,20 +375,14 @@ export default function PaymentModal({
         onClose();
         return { status: 'success' };
       } else if (paymentResult.status === 'pending' || paymentResult.status === 'in_process') {
-        console.warn('⏳ Pagamento pendente:', paymentResult);
-        setErrorMessage(
-          `Pagamento pendente. Status: ${paymentResult.status_detail || 'Aguardando confirmação'}`,
-        );
+        setErrorMessage(`Pagamento pendente. Status: ${paymentResult.status_detail || 'Aguardando confirmação'}`);
         setShowErrorToast(true);
         setProcessing(false);
         return new Promise((_, reject) => reject(new Error('Payment pending')));
       } else {
-        console.error('❌ Pagamento rejeitado:', paymentResult);
         throw new Error(paymentResult.status_detail || 'Pagamento não aprovado');
       }
     } catch (error) {
-      console.error('❌ ERRO GERAL no pagamento:', error);
-      console.error('Stack trace:', error.stack);
       setErrorMessage(error.message || 'Erro ao processar pagamento. Tente novamente.');
       setShowErrorToast(true);
       setProcessing(false);
@@ -394,162 +390,43 @@ export default function PaymentModal({
     }
   };
 
-  const handleRecurringSubscription = () => {
-    if (!acceptedTerms) {
-      setValidationToast({ show: true, message: 'Você precisa aceitar os termos de contratação' });
-      setTimeout(() => setValidationToast({ show: false, message: '' }), 4000);
-      return;
-    }
-
-    const subscriptionLink = SUBSCRIPTION_LINKS[selectedPlan.price];
-
-    if (!subscriptionLink) {
-      setErrorMessage('Plano de assinatura não encontrado. Entre em contato com o suporte.');
-      setShowErrorToast(true);
-      return;
-    }
-
-    window.location.href = subscriptionLink;
-  };
-
-  useEffect(() => {
-    if (isOpen && currentUser?.id && !isRecurringSubscription) {
-      checkUserCards();
-    }
-  }, [isOpen, currentUser, isRecurringSubscription]);
-
-  useEffect(() => {
-    const loadTermsDoc = async () => {
-      try {
-        const data = await getTermsDocument();
-        setTermsDocUrl(data.documentUrl || '');
-      } catch (error) {
-        console.error('Erro ao carregar documento de termos:', error);
-      }
-    };
-
-    if (isOpen) {
-      loadTermsDoc();
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (isOpen && paymentMethod === 'pix') {
-      const loadPixKey = async () => {
-        try {
-          const data = await getPixKey();
-          setPixKey(data.pixKey || '');
-        } catch (error) {
-          console.error('Erro ao carregar chave PIX:', error);
-        }
-      };
-
-      loadPixKey();
-    }
-  }, [isOpen, paymentMethod]);
-
-  useEffect(() => {
-    let interval;
-    if (isOpen && paymentMethod === 'pix' && !pixExpired) {
-      interval = setInterval(() => {
-        setPixTimer((prev) => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            setPixExpired(true);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
-  }, [isOpen, paymentMethod, pixExpired]);
-
-  useEffect(() => {
-    if (paymentMethod === 'pix') {
-      setPixTimer(600);
-      setPixExpired(false);
-    }
-  }, [paymentMethod]);
-
-  useEffect(() => {
-    setShowErrorToast(false);
-    setErrorMessage('');
-  }, [paymentMethod]);
-
-  const checkUserCards = async () => {
-    try {
-      const cards = await getUserCards(currentUser.id);
-      setHasCards(cards.length > 0);
-    } catch (error) {
-      setHasCards(false);
-    }
-  };
-
-  const handleCopyPixKey = () => {
-    if (pixKey) {
-      navigator.clipboard.writeText(pixKey);
-      setPixKeyCopied(true);
-      setTimeout(() => setPixKeyCopied(false), 3000);
-    }
-  };
 
   const handlePixSubmit = async (e) => {
     e.preventDefault();
-
-    if (pixExpired) {
-      return;
-    }
+    if (pixExpired || !pixPaymentId) return;
 
     setProcessing(true);
-
     try {
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-
       const finalAmount = getFinalPrice();
 
       if (isAppointmentPayment) {
-        if (
-          selectedPlan.needsCreation &&
-          selectedPlan.appointmentData &&
-          selectedPlan.paymentData
-        ) {
+        if (selectedPlan.needsCreation && selectedPlan.appointmentData && selectedPlan.paymentData) {
           const appointmentResponse = await fetch('http://localhost:3000/appointments', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(selectedPlan.appointmentData),
           });
-
-          if (!appointmentResponse.ok) {
-            throw new Error('Erro ao criar agendamento');
-          }
-
+          if (!appointmentResponse.ok) throw new Error('Erro ao criar agendamento');
           const createdAppointment = await appointmentResponse.json();
 
-          const paymentData = {
+          await criarPagamentoAgendamento({
             ...selectedPlan.paymentData,
             appointmentId: createdAppointment.id,
             status: 'paid',
             paymentMethod: 'pix',
             paidAt: new Date().toISOString(),
             amount: finalAmount,
-          };
-
-          await criarPagamentoAgendamento(paymentData);
+            mercadoPagoId: pixPaymentId,
+          });
         } else if (paymentId) {
           await atualizarPagamentoAgendamento(paymentId, {
             status: 'paid',
             paymentMethod: 'pix',
             paidAt: new Date().toISOString(),
             amount: finalAmount,
+            mercadoPagoId: pixPaymentId,
           });
         }
-
         onSuccess && onSuccess('pix');
       }
 
@@ -563,10 +440,83 @@ export default function PaymentModal({
     }
   };
 
+
+  const handleCopyPixKey = () => {
+    if (pixQrCode) {
+      navigator.clipboard.writeText(pixQrCode);
+      setPixQrCopied(true);
+      setTimeout(() => setPixQrCopied(false), 3000);
+    }
+  };
+
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleDownloadTerms = async (e) => {
+    e.preventDefault();
+    if (!termsDocUrl) return;
+    try {
+      const response = await fetch(termsDocUrl);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'termos-contratacao.pdf';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      console.error('Erro ao baixar documento de termos:', error);
+    }
+  };
+
+  const handleRecurringSubscription = () => {
+    if (!acceptedTerms) {
+      setValidationToast({ show: true, message: 'Você precisa aceitar os termos de contratação' });
+      setTimeout(() => setValidationToast({ show: false, message: '' }), 4000);
+      return;
+    }
+    const subscriptionLink = SUBSCRIPTION_LINKS[selectedPlan.price];
+    if (!subscriptionLink) {
+      setErrorMessage('Plano de assinatura não encontrado. Entre em contato com o suporte.');
+      setShowErrorToast(true);
+      return;
+    }
+    window.location.href = subscriptionLink;
+  };
+
+  useEffect(() => {
+    if (isOpen && currentUser?.id && !isRecurringSubscription) checkUserCards();
+  }, [isOpen, currentUser, isRecurringSubscription]);
+
+  useEffect(() => {
+    const loadTermsDoc = async () => {
+      try {
+        const data = await getTermsDocument();
+        setTermsDocUrl(data.documentUrl || '');
+      } catch (error) {
+        console.error('Erro ao carregar documento de termos:', error);
+      }
+    };
+    if (isOpen) loadTermsDoc();
+  }, [isOpen]);
+
+  useEffect(() => {
+    setShowErrorToast(false);
+    setErrorMessage('');
+  }, [paymentMethod]);
+
+  const checkUserCards = async () => {
+    try {
+      const cards = await getUserCards(currentUser.id);
+      setHasCards(cards.length > 0);
+    } catch {
+      setHasCards(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -575,9 +525,7 @@ export default function PaymentModal({
     <>
       <div className="payment-modal-overlay" onClick={onClose}>
         <div className="payment-modal-content" onClick={(e) => e.stopPropagation()}>
-          <button className="payment-modal-close" onClick={onClose}>
-            ×
-          </button>
+          <button className="payment-modal-close" onClick={onClose}>×</button>
 
           <div className="payment-modal-header">
             <h2>
@@ -596,12 +544,7 @@ export default function PaymentModal({
                 <span className="toast-notification__icon">⚠️</span>
                 <p>{errorMessage}</p>
               </div>
-              <button
-                className="toast-notification__close"
-                onClick={() => setShowErrorToast(false)}
-              >
-                ×
-              </button>
+              <button className="toast-notification__close" onClick={() => setShowErrorToast(false)}>×</button>
             </div>
           )}
 
@@ -640,33 +583,23 @@ export default function PaymentModal({
                     <h4>📄 Termos de Contratação</h4>
                     <p>Leia atentamente nossos termos de contratação antes de prosseguir.</p>
                     {termsDocUrl && (
-                      <a
-                        href={termsDocUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="payment-terms-download"
-                      >
+                      <a href={termsDocUrl} onClick={handleDownloadTerms} className="payment-terms-download">
                         📥 Baixar Termos
                       </a>
                     )}
                   </div>
-
                   <label className="payment-terms-checkbox">
                     <input
                       type="checkbox"
                       checked={acceptedTerms}
                       onChange={(e) => setAcceptedTerms(e.target.checked)}
                     />
-                    <span>
-                      Li e aceito os termos de contratação e autorizo a cobrança recorrente mensal
-                    </span>
+                    <span>Li e aceito os termos de contratação e autorizo a cobrança recorrente mensal</span>
                   </label>
                 </div>
 
                 <div className="payment-modal-footer">
-                  <button type="button" onClick={onClose}>
-                    Cancelar
-                  </button>
+                  <button type="button" onClick={onClose}>Cancelar</button>
                   <button
                     type="button"
                     onClick={handleRecurringSubscription}
@@ -695,28 +628,50 @@ export default function PaymentModal({
                 {paymentMethod === 'pix' ? (
                   <form onSubmit={handlePixSubmit}>
                     <div className="pix-payment-section">
-                      <div className="pix-qrcode">
-                        <div className="pix-qrcode-placeholder">
-                          <p>QR CODE PIX</p>
-                        </div>
-                        {!pixExpired ? (
-                          <div className="pix-timer">⏱️ Expira em: {formatTime(pixTimer)}</div>
+
+            
+                      <div className="pix-qrcode-wrapper">
+                        {pixGenerating ? (
+                          <div className="pix-loading">
+                            <div className="pix-spinner" />
+                            <p>Gerando QR Code...</p>
+                          </div>
+                        ) : pixQrCodeBase64 ? (
+                          <>
+                            <img
+                              className="pix-qrcode-img"
+                              width="220"
+                              src={`data:image/png;base64,${pixQrCodeBase64}`}
+                              alt="QR Code PIX"
+                            />
+                            {!pixExpired ? (
+                              <div className="pix-timer">⏱ Expira em: <strong>{formatTime(pixTimer)}</strong></div>
+                            ) : (
+                              <div className="pix-expired">❌ QR Code expirado</div>
+                            )}
+                          </>
                         ) : (
-                          <div className="pix-expired">❌ QR Code expirado</div>
+                          <div className="pix-error-state">
+                            <p>Não foi possível gerar o QR Code.</p>
+                            <button type="button" className="pix-retry-btn" onClick={gerarPixPayment}>
+                              Tentar novamente
+                            </button>
+                          </div>
                         )}
                       </div>
 
-                      {pixKey && (
-                        <div className="pix-key-section">
-                          <h4>Chave PIX</h4>
-                          <div className="pix-key-container">
-                            <input type="text" value={pixKey} readOnly className="pix-key-input" />
+                      {pixQrCode && (
+                        <div className="pix-copy-section">
+                          <p className="pix-copy-label">📋 Pix Copia e Cola</p>
+                          <div className="pix-copy-box">
+                            <span className="pix-copy-value">{pixQrCode}</span>
                             <button
                               type="button"
-                              className={`pix-copy-btn ${pixKeyCopied ? 'copied' : ''}`}
+                              className={`pix-copy-btn ${pixQrCopied ? 'copied' : ''}`}
                               onClick={handleCopyPixKey}
+                              disabled={pixExpired}
                             >
-                              {pixKeyCopied ? '✓ Copiado' : 'Copiar'}
+                              {pixQrCopied ? '✓ Copiado!' : 'Copiar'}
                             </button>
                           </div>
                         </div>
@@ -726,18 +681,16 @@ export default function PaymentModal({
                         <h4>Como pagar:</h4>
                         <ol>
                           <li>Abra o app do seu banco</li>
-                          <li>Escaneie o QR Code ou copie a chave PIX</li>
-                          <li>Confirme o pagamento</li>
-                          <li>Aguarde a confirmação</li>
+                          <li>Escaneie o QR Code ou copie a chave Pix acima</li>
+                          <li>Confirme o pagamento no banco</li>
+                          <li>Clique em <strong>"Confirmar Pagamento"</strong> abaixo</li>
                         </ol>
                       </div>
                     </div>
 
                     <div className="payment-modal-footer">
-                      <button type="button" onClick={onClose}>
-                        Cancelar
-                      </button>
-                      <button type="submit" disabled={processing || pixExpired}>
+                      <button type="button" onClick={onClose}>Cancelar</button>
+                      <button type="submit" disabled={processing || pixExpired || pixGenerating || !pixPaymentId}>
                         {processing ? 'Processando...' : 'Confirmar Pagamento'}
                       </button>
                     </div>
@@ -750,22 +703,13 @@ export default function PaymentModal({
                       <div className="payment-terms-section">
                         <div className="payment-terms-box">
                           <h4>📄 Termos de Contratação</h4>
-                          <p>
-                            Leia atentamente nossos termos de contratação antes de prosseguir com o
-                            pagamento.
-                          </p>
+                          <p>Leia atentamente nossos termos de contratação antes de prosseguir com o pagamento.</p>
                           {termsDocUrl && (
-                            <a
-                              href={termsDocUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="payment-terms-download"
-                            >
+                            <a href={termsDocUrl} onClick={handleDownloadTerms} className="payment-terms-download">
                               📥 Baixar Termos
                             </a>
                           )}
                         </div>
-
                         <label className="payment-terms-checkbox">
                           <input
                             type="checkbox"

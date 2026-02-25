@@ -965,3 +965,195 @@
 .payment-terms-checkbox span {
   line-height: 1.5;
 }
+
+/* ─── PIX – adicionar ao PaymentModal.css ─────────────────────────────────── */
+
+.pix-payment-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 0;
+}
+
+/* QR Code wrapper */
+.pix-qrcode-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  background: #1e1e1e;
+  border: 1px solid #2e2e2e;
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.pix-qrcode-img {
+  border-radius: 8px;
+  display: block;
+}
+
+/* Loading */
+.pix-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0;
+  color: #b0b0b0;
+  font-size: 0.9rem;
+}
+
+.pix-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #333;
+  border-top-color: #ff7a1a;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Timer */
+.pix-timer {
+  font-size: 0.85rem;
+  color: #b0b0b0;
+}
+
+.pix-timer strong {
+  color: #ff7a1a;
+  font-variant-numeric: tabular-nums;
+}
+
+.pix-expired {
+  font-size: 0.9rem;
+  color: #e74c3c;
+  font-weight: 600;
+}
+
+/* Error state / retry */
+.pix-error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #b0b0b0;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.pix-retry-btn {
+  background: transparent;
+  border: 1px solid #ff7a1a;
+  color: #ff7a1a;
+  border-radius: 8px;
+  padding: 6px 16px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.pix-retry-btn:hover {
+  background: rgba(255, 122, 26, 0.1);
+}
+
+/* Copia e Cola */
+.pix-copy-section {
+  width: 100%;
+}
+
+.pix-copy-label {
+  font-size: 0.85rem;
+  color: #b0b0b0;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.pix-copy-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #1e1e1e;
+  border: 1px solid #2e2e2e;
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+.pix-copy-value {
+  flex: 1;
+  font-size: 0.75rem;
+  color: #d0d0d0;
+  word-break: break-all;
+  line-height: 1.4;
+  font-family: monospace;
+  white-space: pre-wrap;
+}
+
+.pix-copy-btn {
+  flex-shrink: 0;
+  background: #ff7a1a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  white-space: nowrap;
+}
+
+.pix-copy-btn:hover:not(:disabled) {
+  background: #e06010;
+}
+
+.pix-copy-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.pix-copy-btn.copied {
+  background: #27ae60;
+}
+
+.pix-copy-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Instruções */
+.pix-instructions {
+  width: 100%;
+  background: #1a1a1a;
+  border-radius: 10px;
+  padding: 16px 20px;
+  border: 1px solid #2a2a2a;
+}
+
+.pix-instructions h4 {
+  font-size: 0.9rem;
+  color: #ff7a1a;
+  margin: 0 0 10px 0;
+}
+
+.pix-instructions ol {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pix-instructions li {
+  font-size: 0.85rem;
+  color: #b0b0b0;
+  line-height: 1.4;
+}
+
+.pix-instructions li strong {
+  color: #ffffff;
+}

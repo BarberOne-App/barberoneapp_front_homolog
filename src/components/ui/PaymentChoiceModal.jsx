@@ -2,13 +2,7 @@ import { X, CreditCard, Store } from 'lucide-react';
 import Button from './Button.jsx';
 import './PaymentChoiceModal.css';
 
-export default function PaymentChoiceModal({ 
-  isOpen, 
-  onClose, 
-  onChoose, 
-  appointmentDetails,
-  purchaseData
-}) {
+export default function PaymentChoiceModal({ isOpen, onClose, onChoose, appointmentDetails, purchaseData }) {
   if (!isOpen) return null;
 
   const handleChoice = (payNow) => {
@@ -20,93 +14,101 @@ export default function PaymentChoiceModal({
   const isFreeForSubscriber = purchaseData?.hasActiveSubscription && !hasProducts;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="payment-choice-modal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay">
+      <div className="payment-choice-modal">
         <button className="modal-close-btn" onClick={onClose}>
-          <X size={24} />
+          <X size={20} />
         </button>
 
         {isFreeForSubscriber ? (
           <div className="subscription-active-message">
             <div className="success-icon">✓</div>
-            <h2>Você possui um plano ativo! Seu agendamento será confirmado sem cobrança adicional.</h2>
+            <h2>Agendamento Coberto pelo Plano!</h2>
+
             <div className="appointment-details-summary">
               <p><strong>Barbeiro:</strong> {appointmentDetails?.barberName}</p>
               <p><strong>Data:</strong> {appointmentDetails?.date}</p>
               <p><strong>Horário:</strong> {appointmentDetails?.time}</p>
-              <p><strong>Serviço:</strong> {appointmentDetails?.serviceName}</p>
+              <p>
+                <strong>Serviço:</strong>{' '}
+                {appointmentDetails?.serviceName || 'Serviço não informado'}
+              </p>
             </div>
-            <div className="included-badge">
-              Incluído no seu plano ativo
-            </div>
-            <Button onClick={() => handleChoice(false)} className="btn-confirm-free">
+
+            <span className="included-badge">✓ Incluído no seu plano</span>
+
+            <button className="btn-confirm-free" onClick={() => handleChoice(false)}>
               Confirmar Agendamento
-            </Button>
+            </button>
           </div>
         ) : (
           <>
-            <h2>Escolha a forma de pagamento para seu agendamento</h2>
-            
-            {purchaseData && (
-              <div className="purchase-summary">
-                <div className="summary-details">
-                  {hasProducts && (
-                    <div className="summary-section">
-                      <h4>Produtos Selecionados:</h4>
-                      <ul>
-                        {purchaseData.products.map((product, index) => (
-                          <li key={index}>
-                            {product.name} x{product.quantity} - R$ {(product.totalPrice || product.calculatedPrice * product.quantity).toFixed(2)}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  
-                  <div className="summary-totals">
-                    {hasProducts && (
-                      <div className="summary-row">
-                        <span>Produtos:</span>
-                        <span>R$ {purchaseData.productsTotal.toFixed(2)}</span>
-                      </div>
-                    )}
-                    {purchaseData.servicePrice > 0 && (
-                      <div className="summary-row">
-                        <span>Serviço:</span>
-                        <span>R$ {purchaseData.servicePrice.toFixed(2)}</span>
-                      </div>
-                    )}
-                    <div className="summary-row total">
-                      <span><strong>Total:</strong></span>
-                      <span>R$ {purchaseData.finalTotal.toFixed(2)}</span>
-                    </div>
-                    {purchaseData.hasActiveSubscription && (
-                      <div className="subscriber-badge">
-                        ✓ Desconto de assinante aplicado nos produtos
-                      </div>
-                    )}
+            <h2>Como deseja pagar?</h2>
+
+            <div className="purchase-summary">
+              <div className="summary-details">
+                <div className="summary-section">
+                  <h4>Detalhes do Agendamento</h4>
+                  <ul>
+                    <li><strong>Barbeiro:</strong> {appointmentDetails?.barberName}</li>
+                    <li><strong>Data:</strong> {appointmentDetails?.date}</li>
+                    <li><strong>Horário:</strong> {appointmentDetails?.time}</li>
+                    <li>
+                      <strong>Serviço:</strong>{' '}
+                      {appointmentDetails?.serviceName || 'Serviço não informado'}
+                    </li>
+                  </ul>
+                </div>
+
+                {hasProducts && (
+                  <div className="summary-section">
+                    <h4>Produtos</h4>
+                    <ul>
+                      {purchaseData.products.map((p, i) => (
+                        <li key={i}>{p.name} x{p.quantity}</li>
+                      ))}
+                    </ul>
                   </div>
+                )}
+              </div>
+
+              <div className="summary-totals">
+                {hasProducts && (
+                  <div className="summary-row">
+                    <span>Serviço</span>
+                    <span>R$ {purchaseData?.servicePrice?.toFixed(2)}</span>
+                  </div>
+                )}
+                {hasProducts && (
+                  <div className="summary-row">
+                    <span>Produtos</span>
+                    <span>R$ {purchaseData?.productsTotal?.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="summary-row total">
+                  <span>Total</span>
+                  <span>R$ {purchaseData?.finalTotal?.toFixed(2)}</span>
                 </div>
               </div>
-            )}
+            </div>
 
             <div className="payment-choices">
               <div className="choice-card" onClick={() => handleChoice(true)}>
                 <div className="choice-icon">
-                  <CreditCard size={48} />
+                  <CreditCard size={28} />
                 </div>
-                <h3>Pagar Agora</h3>
+                <h3>Pagar Online</h3>
                 <p>Finalize o pagamento online de forma rápida e segura</p>
-                <Button className="btn-choice">Escolher</Button>
+                <button className="btn-choice">Pagar Agora</button>
               </div>
 
               <div className="choice-card" onClick={() => handleChoice(false)}>
                 <div className="choice-icon">
-                  <Store size={48} />
+                  <Store size={28} />
                 </div>
                 <h3>Pagar no Local</h3>
                 <p>Realize o pagamento diretamente na barbearia</p>
-                <Button className="btn-choice">Escolher</Button>
+                <button className="btn-choice">Pagar no Local</button>
               </div>
             </div>
           </>

@@ -2,14 +2,15 @@ import { useState } from 'react';
 import PropTypes from 'prop-types';
 import './ProductsModal.css';
 
-export default function ProductsModal({ 
-  isOpen, 
-  onClose, 
-  products, 
-  onConfirm, 
+export default function ProductsModal({
+  isOpen,
+  onClose,
+  products,
+  onConfirm,
   hasActiveSubscription,
   servicePrice = 0,
-  onUpdateStock
+  serviceName = '',
+  onUpdateStock,
 }) {
   const [selectedProducts, setSelectedProducts] = useState([]);
 
@@ -31,34 +32,28 @@ export default function ProductsModal({
       return prev.map(p => {
         if (p.id === productId) {
           const newQuantity = p.quantity + change;
-          
           if (newQuantity <= 0) {
             return null;
           }
-          
           return { ...p, quantity: newQuantity };
         }
         return p;
-      }).filter(p => p !== null); 
+      }).filter(p => p !== null);
     });
   };
 
   const parsePrice = (priceString) => {
     if (typeof priceString === 'number') return priceString;
-    
     let cleanPrice = priceString.toString().replace(/R\$/g, '').trim();
-    
     if (cleanPrice.includes(',')) {
       cleanPrice = cleanPrice.replace(/\./g, '').replace(',', '.');
     }
-    
     const price = parseFloat(cleanPrice);
     return isNaN(price) ? 0 : price;
   };
 
   const calculateProductPrice = (product) => {
     const basePrice = parsePrice(product.price);
-    
     if (hasActiveSubscription && product.subscriberDiscount) {
       const discount = product.subscriberDiscount / 100;
       return basePrice * (1 - discount);
@@ -81,29 +76,23 @@ export default function ProductsModal({
   const handleConfirm = async () => {
     const productsTotal = calculateProductsTotal();
     const finalTotal = calculateFinalTotal();
-    
     const productsWithCalculatedPrice = selectedProducts.map(product => {
       const calculatedPrice = calculateProductPrice(product);
-      return {
-        ...product,
-        calculatedPrice,
-        totalPrice: calculatedPrice * product.quantity
-      };
+      return { ...product, calculatedPrice, totalPrice: calculatedPrice * product.quantity };
     });
-    
 
     if (onUpdateStock && selectedProducts.length > 0) {
       for (const product of selectedProducts) {
         await onUpdateStock(product.id, product.quantity);
       }
     }
-    
+
     onConfirm({
       products: productsWithCalculatedPrice,
       productsTotal,
       servicePrice: hasActiveSubscription ? 0 : servicePrice,
       finalTotal,
-      hasActiveSubscription
+      hasActiveSubscription,
     });
     setSelectedProducts([]);
   };
@@ -114,7 +103,7 @@ export default function ProductsModal({
       productsTotal: 0,
       servicePrice: hasActiveSubscription ? 0 : servicePrice,
       finalTotal: hasActiveSubscription ? 0 : servicePrice,
-      hasActiveSubscription
+      hasActiveSubscription,
     });
     setSelectedProducts([]);
   };
@@ -124,15 +113,16 @@ export default function ProductsModal({
   const finalTotal = calculateFinalTotal();
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="products-modal-container" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay">
+      <div className="products-modal-container">
         <div className="products-modal-header">
-          <h2>Produtos Disponíveis</h2>
-          <button className="products-close-button" onClick={onClose}>×</button>
+          <h2>Adicionar Produtos</h2>
+          <p>{serviceName || 'Serviço não informado'}</p>
+          <button className="products-close-button" onClick={onClose}>✕</button>
         </div>
 
         <div className="products-modal-subtitle">
-          Aproveite para levar produtos de qualidade com você!
+          Deseja adicionar algum produto ao seu atendimento?
         </div>
 
         <div className="products-modal-content">
@@ -141,78 +131,62 @@ export default function ProductsModal({
           ) : (
             <div className="products-grid">
               {availableProducts.map(product => {
-                const isSelected = selectedProducts.find(p => p.id === product.id);
-                const selectedProduct = selectedProducts.find(p => p.id === product.id);
+                const selected = selectedProducts.find(p => p.id === product.id);
                 const price = calculateProductPrice(product);
-                const originalPrice = parsePrice(product.price);
-                const hasDiscount = hasActiveSubscription && product.subscriberDiscount;
-                const isOutOfStock = product.stock === 0;
+                const isOutOfStock = product.stock !== undefined && product.stock <= 0;
 
                 return (
-                  <div 
-                    key={product.id} 
-                    className={`product-card ${isSelected ? 'selected' : ''} ${isOutOfStock ? 'out-of-stock' : ''}`}
+                  <div
+                    key={product.id}
+                    className={`product-card ${selected ? 'selected' : ''} ${isOutOfStock ? 'out-of-stock' : ''}`}
                     onClick={() => !isOutOfStock && handleProductToggle(product)}
-                    style={{ opacity: isOutOfStock ? 0.5 : 1, cursor: isOutOfStock ? 'not-allowed' : 'pointer' }}
                   >
-                    <div className="product-image">
-                      <img src={product.image} alt={product.name} />
-                      {hasDiscount && !isOutOfStock && (
-                        <span className="discount-badge">-{product.subscriberDiscount}%</span>
-                      )}
-                      {isOutOfStock && (
-                        <span className="discount-badge" style={{ background: '#dc3545' }}>ESGOTADO</span>
-                      )}
-                    </div>
+                    {product.image && (
+                      <div className="product-image">
+                        <img src={product.image} alt={product.name} />
+                        {hasActiveSubscription && product.subscriberDiscount && (
+                          <span className="discount-badge">-{product.subscriberDiscount}%</span>
+                        )}
+                      </div>
+                    )}
 
                     <div className="product-info">
                       <h3>{product.name}</h3>
                       <p className="product-description">{product.description}</p>
-                      
+
                       <div className="product-pricing">
-                        {hasDiscount && !isOutOfStock ? (
+                        {hasActiveSubscription && product.subscriberDiscount ? (
                           <>
-                            <span className="original-price">R$ {originalPrice.toFixed(2)}</span>
-                            <span className="discounted-price">R$ {price.toFixed(2)}</span>
+                            <span className="original-price">
+                              R$ {parsePrice(product.price).toFixed(2)}
+                            </span>
+                            <span className="discounted-price">
+                              R$ {price.toFixed(2)}
+                            </span>
                           </>
                         ) : (
-                          <span className="product-price" style={{ color: isOutOfStock ? '#666' : '#d4af37' }}>
-                            {isOutOfStock ? 'Indisponível' : `R$ ${price.toFixed(2)}`}
-                          </span>
+                          <span className="product-price">R$ {price.toFixed(2)}</span>
                         )}
                       </div>
 
-                      <div className="product-stock">
-                        {isOutOfStock ? (
-                          <span style={{ color: '#dc3545', fontWeight: 700 }}>Produto esgotado</span>
-                        ) : (
-                          <>Estoque: {product.stock} {product.stock === 1 ? 'unidade' : 'unidades'}</>
-                        )}
-                      </div>
+                      {product.stock !== undefined && (
+                        <span className="product-stock">
+                          {isOutOfStock ? 'Sem estoque' : `Estoque: ${product.stock}`}
+                        </span>
+                      )}
                     </div>
 
-                    {isSelected && !isOutOfStock && (
-                      <div className="quantity-controls" onClick={(e) => e.stopPropagation()}>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleQuantityChange(product.id, -1);
-                          }}
-                          title="Diminuir quantidade (0 remove o produto)"
-                        >
-                          -
-                        </button>
-                        <span>{selectedProduct.quantity}</span>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleQuantityChange(product.id, 1);
-                          }}
-                          disabled={selectedProduct.quantity >= product.stock}
-                          title="Aumentar quantidade"
-                        >
-                          +
-                        </button>
+                    {selected && (
+                      <div
+                        className="quantity-controls"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <button onClick={() => handleQuantityChange(product.id, -1)}>−</button>
+                        <span>{selected.quantity}</span>
+                        <button
+                          onClick={() => handleQuantityChange(product.id, 1)}
+                          disabled={product.stock !== undefined && selected.quantity >= product.stock}
+                        >+</button>
                       </div>
                     )}
                   </div>
@@ -222,44 +196,40 @@ export default function ProductsModal({
           )}
         </div>
 
-        {(selectedProducts.length > 0 || (!hasActiveSubscription && servicePrice > 0)) && (
-          <div className="products-modal-summary">
-            <div className="summary-breakdown">
-              {selectedProducts.length > 0 && (
-                <div className="summary-row">
-                  <span>Produtos ({selectedProducts.length}):</span>
-                  <span>R$ {productsTotal.toFixed(2)}</span>
-                </div>
-              )}
-              {!hasActiveSubscription && servicePrice > 0 && (
-                <div className="summary-row">
-                  <span>Serviço:</span>
-                  <span>R$ {servicePrice.toFixed(2)}</span>
-                </div>
-              )}
-              <div className="summary-row total">
-                <span><strong>Total:</strong></span>
-                <span>R$ {finalTotal.toFixed(2)}</span>
+        <div className="products-modal-summary">
+          <div className="summary-breakdown">
+            {!hasActiveSubscription && (
+              <div className="summary-row">
+                <span>Serviço ({serviceName || 'Serviço não informado'})</span>
+                <span>R$ {parsePrice(servicePrice).toFixed(2)}</span>
               </div>
-              {hasActiveSubscription && (
-                <div className="subscriber-note">
-                  ✓ Serviço incluído no plano
-                </div>
-              )}
+            )}
+            {selectedProducts.length > 0 && (
+              <div className="summary-row">
+                <span>Produtos</span>
+                <span>R$ {productsTotal.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="summary-row total">
+              <span>Total</span>
+              <span>
+                {hasActiveSubscription && finalTotal === 0
+                  ? 'Grátis (Plano)'
+                  : `R$ ${finalTotal.toFixed(2)}`}
+              </span>
             </div>
+            {hasActiveSubscription && (
+              <p className="subscriber-note">✓ Serviço coberto pelo seu plano ativo</p>
+            )}
           </div>
-        )}
+        </div>
 
         <div className="products-modal-footer">
           <button className="btn-secondary" onClick={handleSkip}>
-            {hasActiveSubscription && selectedProducts.length === 0 ? 'Confirmar' : 'Pular'}
+            Pular
           </button>
-          <button 
-            className="btn-primary" 
-            onClick={handleConfirm}
-            disabled={selectedProducts.length === 0 && (!hasActiveSubscription || servicePrice === 0)}
-          >
-            {selectedProducts.length > 0 ? `Adicionar (${selectedProducts.length})` : 'Continuar'}
+          <button className="btn-primary" onClick={handleConfirm} disabled={selectedProducts.length === 0}>
+            Confirmar
           </button>
         </div>
       </div>
@@ -272,7 +242,8 @@ ProductsModal.propTypes = {
   onClose: PropTypes.func.isRequired,
   products: PropTypes.array.isRequired,
   onConfirm: PropTypes.func.isRequired,
-  hasActiveSubscription: PropTypes.bool.isRequired,
+  hasActiveSubscription: PropTypes.bool,
   servicePrice: PropTypes.number,
-  onUpdateStock: PropTypes.func
+  serviceName: PropTypes.string,
+  onUpdateStock: PropTypes.func,
 };

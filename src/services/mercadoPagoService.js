@@ -1,22 +1,57 @@
+import axios from "axios";
 
+function makeIdempotencyKey() {
+  return `mp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
 
 export const processMercadoPagoPayment = async (paymentData) => {
-  
+  try {
+    const res = await axios.post(
+        `${import.meta.env.VITE_API_URL}/process_payment`,
+      paymentData,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Idempotency-Key": makeIdempotencyKey(),
+          "Authorization": `Bearer ${import.meta.env.VITE_MERCADO_PAGO_ACESS_TOKEN}`,
+        },
+      }
+    );
 
-  await new Promise(resolve => setTimeout(resolve, 3000));
-  
-  return {
-    id: `TEST-${Date.now()}`,
-    status: 'approved',
-    status_detail: 'accredited',
-    transaction_amount: paymentData.transaction_amount,
-    installments: paymentData.installments,
-    payment_method_id: paymentData.payment_method_id,
-    date_created: new Date().toISOString(),
-    date_approved: new Date().toISOString(),
-    card: {
-      last_four_digits: '1234'
-    }
-  };
+    return res.data;
+  } catch (err) {
+    const msg =
+      err?.response?.data?.message ||
+      err?.response?.data?.error ||
+      err?.message ||
+      "Erro ao processar pagamento";
+
+    throw new Error(msg);
+  }
 };
 
+
+export const processMercadoPagoPaymentPix = async (paymentData) => {
+  try {
+    const res = await axios.post(
+      `${import.meta.env.VITE_API_URL}/criar_pix`,
+      paymentData, 
+      {
+        timeout: 15000,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Idempotency-Key": makeIdempotencyKey(),
+          "Authorization": `Bearer ${import.meta.env.VITE_MERCADO_PAGO_ACESS_TOKEN}`,
+        },
+      }
+    );
+    return res.data; 
+  } catch (err) {
+    const msg =
+      err?.response?.data?.message ||
+      err?.response?.data?.error ||
+      err?.message ||
+      "Erro ao processar pagamento PIX";
+    throw new Error(msg);
+  }
+};

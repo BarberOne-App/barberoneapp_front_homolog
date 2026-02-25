@@ -49,10 +49,9 @@ export default function BarberCard({
   const totalDuration = getTotalDuration();
   const slotsNeeded = Math.ceil(totalDuration / 30);
 
-
-  const bookedSlots = selectedServices.length > 0 ? getBookedSlots(barberId, selectedDate) : [];
-  const availableTimes = selectedServices.length > 0 ? getAvailableTimes(barberId, selectedDate, totalDuration) : [];
-  const allTimes = selectedServices.length > 0 ? generateTimes(totalDuration) : [];
+const bookedSlots = getBookedSlots(barberId, selectedDate) || [];
+const availableTimes = getAvailableTimes(barberId, selectedDate) || [];  
+const allTimes = generateTimes(30);  
 
   const isTimeAvailableForSelection = (time) => {
     if (!slotsNeeded) return false;

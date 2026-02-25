@@ -21,8 +21,10 @@
     {
       "name": "Luzes",
       "price": "R$ 4,00",
+      "promotionalPrice": "",
+      "coveredByPlan": false,
       "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-      "duration": 120,
+      "duration": 90,
       "id": "OH9P0zb"
     },
     {
@@ -42,15 +44,6 @@
       "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
       "duration": 50,
       "id": "IfAEfgx"
-    },
-    {
-      "name": "teste",
-      "price": "R$ 22,00",
-      "promotionalPrice": "R$ 21,00",
-      "coveredByPlan": false,
-      "image": "https://res.cloudinary.com/dx2tvrzdr/image/upload/v1771853609/barbearia-rodrigues/servicos/naruto-itachi-eyes-closeup-desktop-wallpaper-cover.jpg",
-      "duration": 30,
-      "id": "tfRKxDL"
     }
   ],
   "barbers": [
@@ -115,31 +108,6 @@
       "id": "4",
       "alt": "Corte 4",
       "url": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c"
-    },
-    {
-      "url": "https://metagalaxia.com.br/wp-content/uploads/2023/11/Pikachu-1.webp",
-      "alt": "pikachu",
-      "id": "7yYrLfl"
-    },
-    {
-      "url": "https://res.cloudinary.com/dx2tvrzdr/image/upload/v1771855957/galeria/naruto-itachi-eyes-closeup-desktop-wallpaper-cover.jpg",
-      "alt": "teste",
-      "id": "o5EEuhv"
-    },
-    {
-      "url": "https://res.cloudinary.com/dx2tvrzdr/image/upload/v1771856231/barbearia_rodrigues/barbearia_rodrigues/galeria/download_1771856238195.png",
-      "alt": "Imagem da galeria",
-      "id": "GtQOMZ7"
-    },
-    {
-      "url": "https://res.cloudinary.com/dx2tvrzdr/image/upload/v1771856574/barbearia_rodrigues/galeria/download_1771856581084.png",
-      "alt": "Imagem da galeria",
-      "id": "GAXpQOz"
-    },
-    {
-      "url": "https://res.cloudinary.com/dx2tvrzdr/image/upload/v1771857749/barbearia_rodrigues/Gemini_Generated_Image_3skmlt3skmlt3skm.png",
-      "alt": "Imagem da galeria",
-      "id": "p0blRsH"
     }
   ],
   "users": [
@@ -503,597 +471,56 @@
       "password": null,
       "createdAt": "2026-02-23T19:53:13.081Z",
       "id": "bjrWggJ"
+    },
+    {
+      "name": "LUCAS",
+      "email": "souza1234@gmail.com",
+      "cpf": "62160113328",
+      "phone": "85982299499",
+      "birthDate": "2000-06-16",
+      "barbershops": [
+        "barbearia rodrigues"
+      ],
+      "password": "1234",
+      "role": "client",
+      "isAdmin": false,
+      "id": "GWvD0iR"
+    },
+    {
+      "name": "LUCAS",
+      "email": "lucas1234@gmail.com",
+      "cpf": "62160113328",
+      "phone": "85982299499",
+      "birthDate": "2000-06-16",
+      "barbershops": [
+        "Barbearia rodrigues"
+      ],
+      "password": "1234",
+      "role": "client",
+      "isAdmin": false,
+      "id": "CBAkQkQ"
+    },
+    {
+      "name": "Lucas Souza",
+      "email": "froid5070@gmail.com",
+      "picture": "https://lh3.googleusercontent.com/a/ACg8ocKGlJVz21kLsDhuOxff-usYOlG5jK-APT85LuXEoJAfeNLd1Q=s96-c",
+      "googleId": "110845098356001346363",
+      "role": "client",
+      "isAdmin": false,
+      "password": "1234",
+      "createdAt": "2026-02-24T14:12:24.262Z",
+      "id": "L5dtIvQ",
+      "cpf": "62160113328",
+      "phone": "85982299499",
+      "birthDate": "2000-06-16",
+      "barbershops": [
+        "Barbearia Rodrigues"
+      ],
+      "profileComplete": true
     }
   ],
   "appointments": [
     {
-      "id": "6349",
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "id": "2",
-          "name": "Barba",
-          "price": "R$ 30",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30
-        }
-      ],
-      "date": "2026-01-21",
-      "time": "18:00",
-      "client": "Lucas S",
-      "clientId": "887c",
-      "products": [],
-      "status": "confirmed"
-    },
-    {
-      "id": "0304",
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "id": "2",
-          "name": "Barba",
-          "price": "R$ 30",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30
-        }
-      ],
-      "date": "2026-01-21",
-      "time": "17:30",
-      "client": "Lucas S",
-      "clientId": "887c",
-      "products": [],
-      "status": "confirmed"
-    },
-    {
-      "id": "b5da",
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "id": "2",
-          "name": "Barba",
-          "price": "R$ 30",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30
-        }
-      ],
-      "date": "2026-02-18",
-      "time": "08:30",
-      "client": "Lucas S",
-      "clientId": "887c",
-      "products": [],
-      "status": "confirmed"
-    },
-    {
-      "id": "b441",
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "id": "1",
-          "name": "Corte Clássico",
-          "price": "R$ 40",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30
-        }
-      ],
-      "date": "2026-01-21",
-      "time": "18:30",
-      "client": "Lucas S",
-      "clientId": "887c",
-      "products": [
-        {
-          "id": "5",
-          "name": "Cera Modeladora Matte",
-          "description": "Efeito fosco com fixação duradoura",
-          "category": "Pomadas",
-          "price": "R$ 38.00",
-          "subscriberDiscount": 20,
-          "image": "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=400",
-          "stock": 12,
-          "quantity": 1,
-          "calculatedPrice": 38,
-          "totalPrice": 38
-        }
-      ],
-      "status": "confirmed"
-    },
-    {
-      "barberId": "2",
-      "barberName": "Pedro Santos",
-      "services": [
-        {
-          "id": "1",
-          "name": "Corte Clássico",
-          "price": "R$ 40",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30
-        }
-      ],
-      "date": "2026-01-22",
-      "time": "15:00",
-      "client": "Lucas S",
-      "clientId": "887c",
-      "products": [],
-      "id": "nogzlIb"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "id": "1",
-          "name": "Corte Clássico",
-          "price": "R$ 40",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30
-        }
-      ],
-      "date": "2026-01-26",
-      "time": "16:00",
-      "client": "LUCAS SOUZA ARAUJO",
-      "clientId": "L2FLU7C",
-      "products": [],
-      "id": "LDDOSLd",
-      "status": "confirmed"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "id": "1",
-          "name": "Corte Clássico",
-          "price": "R$ 40",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30
-        }
-      ],
-      "date": "2026-01-26",
-      "time": "17:30",
-      "client": "Nay",
-      "clientId": "b15c",
-      "products": [],
-      "id": "1V0WCbK",
-      "status": "confirmed"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "id": "2",
-          "name": "Barba",
-          "price": "R$ 30",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30
-        }
-      ],
-      "date": "2026-01-26",
-      "time": "18:00",
-      "client": "Nay",
-      "clientId": "b15c",
-      "products": [],
-      "id": "7aH5y1I",
-      "status": "confirmed"
-    },
-    {
-      "barberId": "2",
-      "barberName": "Pedro Santos",
-      "services": [
-        {
-          "id": "3",
-          "name": "Corte + Barba",
-          "price": "R$ 60",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 60
-        }
-      ],
-      "date": "2026-01-26",
-      "time": "18:00",
-      "client": "Luca",
-      "clientId": "I_O8wQI",
-      "products": [],
-      "id": "01mY2bX"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "id": "1",
-          "name": "Corte Clássico",
-          "price": "R$ 40",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30
-        }
-      ],
-      "date": "2026-01-28",
-      "time": "11:00",
-      "client": "Luca",
-      "clientId": "I_O8wQI",
-      "products": [],
-      "id": "hdFoCzu",
-      "status": "confirmed"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "id": "1",
-          "name": "Corte Clássico",
-          "price": "R$ 40",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30
-        }
-      ],
-      "date": "2026-01-28",
-      "time": "15:30",
-      "client": "Luca",
-      "clientId": "I_O8wQI",
-      "products": [],
-      "id": "j7Bf5kw",
-      "status": "confirmed"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "id": "3",
-          "name": "Corte + Barba",
-          "price": "R$ 60",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 60
-        }
-      ],
-      "date": "2026-01-28",
-      "time": "18:00",
-      "client": "Luca",
-      "clientId": "I_O8wQI",
-      "products": [],
-      "id": "ALuZLT0",
-      "status": "confirmed"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "id": "1",
-          "name": "Corte Clássico",
-          "price": "R$ 40",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30
-        }
-      ],
-      "date": "2026-01-28",
-      "time": "16:00",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [],
-      "id": "VCC5823",
-      "status": "confirmed"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "id": "1",
-          "name": "Corte Clássico",
-          "price": "R$ 40",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30
-        }
-      ],
-      "date": "2026-01-28",
-      "time": "17:00",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [],
-      "id": "Uzj372X",
-      "status": "confirmed"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "id": "4",
-          "name": "Sobrancelha",
-          "price": "R$ 15",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30
-        }
-      ],
-      "date": "2026-01-28",
-      "time": "17:30",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [],
-      "id": "3FXCgqU",
-      "status": "confirmed"
-    },
-    {
-      "barberId": "2",
-      "barberName": "Pedro Santos",
-      "services": [
-        {
-          "id": 1,
-          "name": "Corte Clássico",
-          "price": "R$ 40",
-          "promotionalPrice": "",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30
-        },
-        {
-          "id": 2,
-          "name": "Barba",
-          "price": "R$ 30",
-          "promotionalPrice": "R$ 25",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30
-        },
-        {
-          "id": 3,
-          "name": "Corte + Barba",
-          "price": "R$ 60",
-          "promotionalPrice": "",
-          "coveredByPlan": true,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 60
-        },
-        {
-          "id": 4,
-          "name": "Sobrancelha",
-          "price": "R$ 15",
-          "promotionalPrice": "",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30
-        },
-        {
-          "name": "Luzes",
-          "price": "R$ 4,00",
-          "promotionalPrice": "",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 120,
-          "id": "OH9P0zb"
-        }
-      ],
-      "date": "2026-01-28",
-      "time": "17:30",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [],
-      "id": "4cNbny1"
-    },
-    {
-      "barberId": "2",
-      "barberName": "Pedro Santos",
-      "services": [
-        {
-          "id": "3",
-          "name": "Corte + Barba",
-          "price": "R$ 60",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 60
-        }
-      ],
-      "date": "2026-01-28",
-      "time": "18:00",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [],
-      "id": "-KvLxKI"
-    },
-    {
-      "barberId": "b5a3",
-      "barberName": "LUCAS SOUZA ARAUJO",
-      "services": [
-        {
-          "id": "2",
-          "name": "Barba",
-          "price": "R$ 30",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30
-        }
-      ],
-      "date": "2026-01-28",
-      "time": "18:00",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [],
-      "id": "zftva4m"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "id": "3",
-          "name": "Corte + Barba",
-          "price": "R$ 60",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 60
-        }
-      ],
-      "date": "2026-01-29",
-      "time": "16:00",
-      "client": "TESTEEEE",
-      "clientId": "9FoZTHE",
-      "products": [],
-      "id": "cn-qRvd",
-      "status": "confirmed"
-    },
-    {
-      "barberId": "b5a3",
-      "barberName": "LUCAS SOUZA ARAUJO",
-      "services": [
-        {
-          "id": "3",
-          "name": "Corte + Barba",
-          "price": "R$ 60",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 60
-        }
-      ],
-      "date": "2026-02-02",
-      "time": "13:00",
-      "client": "Usuario Teste",
-      "clientId": "5GvVqys",
-      "products": [
-        {
-          "id": "3",
-          "name": "Óleo para Barba",
-          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
-          "category": "Óleos",
-          "price": "R$ 35.00",
-          "subscriberDiscount": 20,
-          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
-          "stock": 10,
-          "quantity": 2,
-          "calculatedPrice": 35,
-          "totalPrice": 70
-        }
-      ],
-      "id": "pdlS20W"
-    },
-    {
-      "barberId": "2",
-      "barberName": "Pedro Santos",
-      "services": [
-        {
-          "id": "3",
-          "name": "Corte + Barba",
-          "price": "R$ 60",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 60
-        }
-      ],
-      "date": "2026-02-02",
-      "time": "13:00",
-      "client": "Usuario Teste",
-      "clientId": "5GvVqys",
-      "products": [],
-      "id": "VwtWSaZ"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "id": "3",
-          "name": "Corte + Barba",
-          "price": "R$ 60",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 60
-        }
-      ],
-      "date": "2026-02-02",
-      "time": "17:00",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [
-        {
-          "id": "5",
-          "name": "Cera Modeladora Matte",
-          "description": "Efeito fosco com fixação duradoura",
-          "category": "Pomadas",
-          "price": "R$ 38.00",
-          "subscriberDiscount": 20,
-          "image": "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=400",
-          "stock": 12,
-          "quantity": 1,
-          "calculatedPrice": 30.400000000000002,
-          "totalPrice": 30.400000000000002
-        }
-      ],
-      "id": "6dqTXjX",
-      "status": "confirmed"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "id": "3",
-          "name": "Corte + Barba",
-          "price": "R$ 60",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 60
-        }
-      ],
-      "date": "2026-02-02",
-      "time": "18:00",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [
-        {
-          "id": "2",
-          "name": "Pomada Modeladora Premium",
-          "description": "Fixação forte e brilho natural para seu cabelo",
-          "category": "Pomadas",
-          "price": "R$ 45.00",
-          "subscriberDiscount": 20,
-          "image": "https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?w=400",
-          "stock": 15,
-          "quantity": 1,
-          "calculatedPrice": 36,
-          "totalPrice": 36
-        }
-      ],
-      "id": "kwtTS4c",
-      "status": "confirmed"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "id": "1",
-          "name": "Corte Clássico",
-          "price": "R$ 40",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30
-        }
-      ],
-      "date": "2026-02-03",
-      "time": "12:00",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [],
-      "id": "S7rpoVt",
-      "status": "confirmed"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "id": "1",
-          "name": "Corte Clássico",
-          "price": "R$ 40",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30
-        }
-      ],
-      "date": "2026-02-03",
-      "time": "15:30",
-      "client": "teste123",
-      "clientId": "GMZ-hNB",
-      "products": [],
-      "id": "GgGR_NC",
-      "status": "confirmed"
-    },
-    {
       "barberId": "1",
       "barberName": "João",
       "services": [
@@ -1105,115 +532,6 @@
           "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
           "duration": 30,
           "id": "1"
-        }
-      ],
-      "date": "2026-02-06",
-      "time": "08:00",
-      "client": "Sem plano",
-      "clientId": "6f1SvYK",
-      "products": [
-        {
-          "id": "3",
-          "name": "Óleo para Barba",
-          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
-          "category": "Óleos",
-          "price": "R$ 35.00",
-          "subscriberDiscount": 20,
-          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
-          "stock": 10,
-          "quantity": 2,
-          "calculatedPrice": 35,
-          "totalPrice": 70
-        }
-      ],
-      "id": "_ukmZxo",
-      "status": "confirmed"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "name": "Corte Clássico",
-          "price": "R$ 40,00",
-          "promotionalPrice": "R$ 23,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "1"
-        }
-      ],
-      "date": "2026-02-04",
-      "time": "14:30",
-      "client": "Sem plano",
-      "clientId": "6f1SvYK",
-      "products": [],
-      "id": "-2O0O3i",
-      "status": "confirmed"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "name": "Corte Clássico",
-          "price": "R$ 40,00",
-          "promotionalPrice": "R$ 23,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "1"
-        }
-      ],
-      "date": "2026-02-07",
-      "time": "08:00",
-      "client": "Sem plano",
-      "clientId": "6f1SvYK",
-      "products": [],
-      "id": "2plup0K",
-      "status": "confirmed"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "name": "Corte Clássico",
-          "price": "R$ 40,00",
-          "promotionalPrice": "R$ 23,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "1"
-        }
-      ],
-      "date": "2026-03-04",
-      "time": "10:00",
-      "client": "Sem plano",
-      "clientId": "6f1SvYK",
-      "products": [],
-      "id": "Q2YizSd",
-      "status": "confirmed"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "name": "Corte Clássico",
-          "price": "R$ 40,00",
-          "promotionalPrice": "R$ 23,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "1"
-        },
-        {
-          "id": "4",
-          "name": "Sobrancelha",
-          "price": "R$ 15",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30
         },
         {
           "name": "DEGRADEZIN",
@@ -1223,578 +541,36 @@
           "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
           "duration": 30,
           "id": "Dw22hi_"
-        }
-      ],
-      "date": "2026-02-27",
-      "time": "09:30",
-      "client": "RECEPCIONISTA",
-      "clientId": "97gZWNW",
-      "products": [],
-      "id": "uE5hAKr",
-      "status": "confirmed"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "name": "Corte Clássico",
-          "price": "R$ 40,00",
-          "promotionalPrice": "R$ 23,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "1"
-        }
-      ],
-      "date": "2026-02-06",
-      "time": "15:00",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [],
-      "id": "fgZJDrd",
-      "status": "confirmed"
-    },
-    {
-      "barberId": "2",
-      "barberName": "Pedro Santos",
-      "services": [
-        {
-          "name": "TESTE AQUI",
-          "price": "R$ 2,00",
-          "promotionalPrice": "R$ 2,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 50,
-          "id": "IfAEfgx"
-        }
-      ],
-      "date": "2026-02-05",
-      "time": "08:50",
-      "client": "Lucas Souza",
-      "clientId": "2_VM9Pq",
-      "products": [],
-      "id": "0nVFEpq"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "name": "Corte Clássico",
-          "price": "R$ 40,00",
-          "promotionalPrice": "R$ 23,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "1"
-        }
-      ],
-      "date": "2026-02-07",
-      "time": "08:30",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [
-        {
-          "id": "2",
-          "name": "Pomada Modeladora Premium",
-          "description": "Fixação forte e brilho natural para seu cabelo",
-          "category": "Pomadas",
-          "price": "R$ 45.00",
-          "subscriberDiscount": 20,
-          "image": "https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?w=400",
-          "stock": 15,
-          "quantity": 1,
-          "calculatedPrice": 36,
-          "totalPrice": 36
-        }
-      ],
-      "id": "bk7iJ9e"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "name": "Luzes",
-          "price": "R$ 4,00",
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 120,
-          "id": "OH9P0zb"
-        }
-      ],
-      "date": "2026-02-05",
-      "time": "14:00",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [
-        {
-          "id": "2",
-          "name": "Pomada Modeladora Premium",
-          "description": "Fixação forte e brilho natural para seu cabelo",
-          "category": "Pomadas",
-          "price": "R$ 45.00",
-          "subscriberDiscount": 20,
-          "image": "https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?w=400",
-          "stock": 15,
-          "quantity": 1,
-          "calculatedPrice": 36,
-          "totalPrice": 36
         },
         {
-          "id": "6",
-          "name": "Água Tônica",
-          "description": "Refrigerante premium para acompanhar seu corte",
-          "category": "Bebidas",
-          "price": "R$ 8.00",
-          "subscriberDiscount": 10,
-          "image": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400",
-          "stock": 30,
-          "quantity": 1,
-          "calculatedPrice": 7.2,
-          "totalPrice": 7.2
-        },
-        {
-          "id": "5",
-          "name": "Cera Modeladora Matte",
-          "description": "Efeito fosco com fixação duradoura",
-          "category": "Pomadas",
-          "price": "R$ 38.00",
-          "subscriberDiscount": 20,
-          "image": "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=400",
-          "stock": 12,
-          "quantity": 1,
-          "calculatedPrice": 30.400000000000002,
-          "totalPrice": 30.400000000000002
-        }
-      ],
-      "id": "iH0ZwmS"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "name": "TESTE AQUI",
-          "price": "R$ 2,00",
+          "name": "Barba",
+          "price": "R$ 30,00",
           "promotionalPrice": "R$ 2,00",
           "coveredByPlan": false,
           "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 50,
-          "id": "IfAEfgx"
-        }
-      ],
-      "date": "2026-02-05",
-      "time": "12:10",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [
-        {
-          "id": "2",
-          "name": "Pomada Modeladora Premium",
-          "description": "Fixação forte e brilho natural para seu cabelo",
-          "category": "Pomadas",
-          "price": "R$ 45.00",
-          "subscriberDiscount": 20,
-          "image": "https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?w=400",
-          "stock": 15,
-          "quantity": 15,
-          "calculatedPrice": 36,
-          "totalPrice": 540
-        }
-      ],
-      "id": "qm0uWl2"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "name": "Corte Clássico",
-          "price": "R$ 40,00",
-          "promotionalPrice": "R$ 23,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
           "duration": 30,
-          "id": "1"
-        }
-      ],
-      "date": "2026-02-14",
-      "time": "08:00",
-      "client": "LUCAS",
-      "clientId": "K_752vS",
-      "products": [
-        {
-          "id": "8",
-          "name": "Pente de Madeira",
-          "description": "Pente artesanal de madeira nobre",
-          "category": "Acessórios",
-          "price": "R$ 25.00",
-          "subscriberDiscount": 10,
-          "image": "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400",
-          "stock": 8,
-          "quantity": 8,
-          "calculatedPrice": 25,
-          "totalPrice": 200
-        }
-      ],
-      "id": "Mm9M5gH"
-    },
-    {
-      "barberId": "2",
-      "barberName": "Pedro Santos",
-      "services": [
-        {
-          "name": "Corte Clássico",
-          "price": "R$ 40,00",
-          "promotionalPrice": "R$ 23,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "1"
-        }
-      ],
-      "date": "2026-02-10",
-      "time": "14:30",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [],
-      "id": "THDZS8z"
-    },
-    {
-      "barberId": "2",
-      "barberName": "Pedro Santos",
-      "services": [
-        {
-          "name": "Corte Clássico",
-          "price": "R$ 40,00",
-          "promotionalPrice": "R$ 23,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "1"
-        }
-      ],
-      "date": "2026-02-16",
-      "time": "16:30",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [],
-      "id": "MDcHyc1"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "name": "Corte Clássico",
-          "price": "R$ 40,00",
-          "promotionalPrice": "R$ 23,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "1"
-        }
-      ],
-      "date": "2026-02-12",
-      "time": "14:00",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [
-        {
-          "id": "5",
-          "name": "Cera Modeladora Matte",
-          "description": "Efeito fosco com fixação duradoura",
-          "category": "Pomadas",
-          "price": "R$ 38.00",
-          "subscriberDiscount": 20,
-          "image": "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=400",
-          "stock": 5,
-          "quantity": 1,
-          "calculatedPrice": 30.400000000000002,
-          "totalPrice": 30.400000000000002
-        }
-      ],
-      "id": "qN58N0D"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "name": "Corte Clássico",
-          "price": "R$ 40,00",
-          "promotionalPrice": "R$ 23,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "1"
-        }
-      ],
-      "date": "2026-02-14",
-      "time": "15:00",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [
-        {
-          "id": "5",
-          "name": "Cera Modeladora Matte",
-          "description": "Efeito fosco com fixação duradoura",
-          "category": "Pomadas",
-          "price": "R$ 38.00",
-          "subscriberDiscount": 20,
-          "image": "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=400",
-          "stock": 3,
-          "quantity": 1,
-          "calculatedPrice": 30.400000000000002,
-          "totalPrice": 30.400000000000002
-        }
-      ],
-      "id": "uhSf_rD"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "name": "Corte Clássico",
-          "price": "R$ 40,00",
-          "promotionalPrice": "R$ 23,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "1"
-        }
-      ],
-      "date": "2026-02-19",
-      "time": "08:30",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [
-        {
-          "id": "5",
-          "name": "Cera Modeladora Matte",
-          "description": "Efeito fosco com fixação duradoura",
-          "category": "Pomadas",
-          "price": "R$ 38.00",
-          "subscriberDiscount": 20,
-          "image": "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=400",
-          "stock": 2,
-          "quantity": 1,
-          "calculatedPrice": 30.400000000000002,
-          "totalPrice": 30.400000000000002
-        }
-      ],
-      "id": "TtvJx0E"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "name": "Corte Clássico",
-          "price": "R$ 40,00",
-          "promotionalPrice": "R$ 23,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "1"
-        }
-      ],
-      "date": "2026-02-21",
-      "time": "08:30",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [
-        {
-          "name": "Pomada Modeladora Premium",
-          "category": "Pomadas",
-          "description": "Fixação forte e brilho natural para seu cabelo",
-          "price": "R$ 45.00",
-          "subscriberDiscount": 20,
-          "stock": 25,
-          "image": "https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?w=400",
-          "id": "2",
-          "quantity": 1,
-          "calculatedPrice": 36,
-          "totalPrice": 36
-        }
-      ],
-      "id": "5emJ7Hn"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "name": "Corte Clássico",
-          "price": "R$ 40,00",
-          "promotionalPrice": "R$ 23,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "1"
-        }
-      ],
-      "date": "2026-02-12",
-      "time": "16:30",
-      "client": "Lucas",
-      "clientId": "wtLvL7W",
-      "products": [
-        {
-          "name": "Pomada Modeladora Premium",
-          "category": "Pomadas",
-          "description": "Fixação forte e brilho natural para seu cabelo",
-          "price": "R$ 45.00",
-          "subscriberDiscount": 20,
-          "stock": 25,
-          "image": "https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?w=400",
-          "id": "2",
-          "quantity": 1,
-          "calculatedPrice": 45,
-          "totalPrice": 45
-        }
-      ],
-      "id": "uE8hLzd"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "name": "Corte Clássico",
-          "price": "R$ 40,00",
-          "promotionalPrice": "R$ 23,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "1"
-        }
-      ],
-      "date": "2026-02-14",
-      "time": "16:00",
-      "client": "Lucas",
-      "clientId": "wtLvL7W",
-      "products": [
-        {
-          "name": "Pomada Modeladora Premium",
-          "category": "Pomadas",
-          "description": "Fixação forte e brilho natural para seu cabelo",
-          "price": "R$ 45.00",
-          "subscriberDiscount": 20,
-          "stock": 25,
-          "image": "https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?w=400",
-          "id": "2",
-          "quantity": 1,
-          "calculatedPrice": 45,
-          "totalPrice": 45
-        }
-      ],
-      "id": "VNuo9pa"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "name": "Corte Clássico",
-          "price": "R$ 40,00",
-          "promotionalPrice": "R$ 23,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "1"
-        }
-      ],
-      "date": "2026-02-15",
-      "time": "08:00",
-      "client": "Lucas",
-      "clientId": "wtLvL7W",
-      "products": [
-        {
-          "name": "Pomada Modeladora Premium",
-          "category": "Pomadas",
-          "description": "Fixação forte e brilho natural para seu cabelo",
-          "price": "R$ 45.00",
-          "subscriberDiscount": 20,
-          "stock": 24,
-          "image": "https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?w=400",
-          "id": "2",
-          "quantity": 1,
-          "calculatedPrice": 45,
-          "totalPrice": 45
-        }
-      ],
-      "id": "7UH37Ag"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "name": "TESTE AQUI",
-          "price": "R$ 2,00",
-          "promotionalPrice": "R$ 2,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 50,
-          "id": "IfAEfgx"
-        }
-      ],
-      "date": "2026-02-20",
-      "time": "18:50",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [],
-      "id": "F9i8vY1"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "name": "Corte Clássico",
-          "price": "R$ 40,00",
-          "promotionalPrice": "R$ 23,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "1"
+          "id": "2"
         }
       ],
       "date": "2026-02-24",
-      "time": "08:00",
+      "time": "08:30",
       "client": "LUCAS",
       "clientId": "ff1a",
-      "products": [
-        {
-          "name": "Pomada Modeladora Premium",
-          "category": "Pomadas",
-          "description": "Fixação forte e brilho natural para seu cabelo",
-          "price": "R$ 45.00",
-          "subscriberDiscount": 20,
-          "stock": 23,
-          "image": "https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?w=400",
-          "id": "2",
-          "quantity": 1,
-          "calculatedPrice": 36,
-          "totalPrice": 36
-        }
-      ],
-      "id": "9JuvmM_"
+      "products": [],
+      "id": 2
     },
     {
       "barberId": "1",
       "barberName": "João",
       "services": [
         {
-          "name": "Corte Clássico",
-          "price": "R$ 40,00",
-          "promotionalPrice": "R$ 23,00",
+          "name": "Barba",
+          "price": "R$ 30,00",
+          "promotionalPrice": "R$ 2,00",
           "coveredByPlan": false,
           "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
           "duration": 30,
-          "id": "1"
+          "id": "2"
         }
       ],
       "date": "2026-02-25",
@@ -1803,6 +579,111 @@
       "clientId": "ff1a",
       "products": [
         {
+          "id": "3",
+          "name": "Óleo para Barba",
+          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
+          "category": "Óleos",
+          "price": "R$ 35.00",
+          "subscriberDiscount": 20,
+          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
+          "stock": 4,
+          "quantity": 1,
+          "calculatedPrice": 28,
+          "totalPrice": 28
+        }
+      ],
+      "id": 3
+    },
+    {
+      "barberId": "1",
+      "barberName": "João",
+      "services": [
+        {
+          "name": "TESTE AQUI",
+          "price": "R$ 2,00",
+          "promotionalPrice": "R$ 2,00",
+          "coveredByPlan": false,
+          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
+          "duration": 50,
+          "id": "IfAEfgx"
+        }
+      ],
+      "date": "2026-02-27",
+      "time": "09:00",
+      "client": "LUCAS",
+      "clientId": "ff1a",
+      "products": [
+        {
+          "id": "3",
+          "name": "Óleo para Barba",
+          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
+          "category": "Óleos",
+          "price": "R$ 35.00",
+          "subscriberDiscount": 20,
+          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
+          "stock": 3,
+          "quantity": 1,
+          "calculatedPrice": 28,
+          "totalPrice": 28
+        }
+      ],
+      "id": 4
+    },
+    {
+      "barberId": "1",
+      "barberName": "João",
+      "services": [
+        {
+          "name": "Luzes",
+          "price": "R$ 4,00",
+          "promotionalPrice": "",
+          "coveredByPlan": false,
+          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
+          "duration": 90,
+          "id": "OH9P0zb"
+        }
+      ],
+      "date": "2026-03-01",
+      "time": "08:30",
+      "client": "LUCAS",
+      "clientId": "ff1a",
+      "products": [
+        {
+          "id": "3",
+          "name": "Óleo para Barba",
+          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
+          "category": "Óleos",
+          "price": "R$ 35.00",
+          "subscriberDiscount": 20,
+          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
+          "stock": 2,
+          "quantity": 1,
+          "calculatedPrice": 28,
+          "totalPrice": 28
+        }
+      ],
+      "id": 5
+    },
+    {
+      "barberId": "1",
+      "barberName": "João",
+      "services": [
+        {
+          "name": "Luzes",
+          "price": "R$ 4,00",
+          "promotionalPrice": "",
+          "coveredByPlan": false,
+          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
+          "duration": 90,
+          "id": "OH9P0zb"
+        }
+      ],
+      "date": "2026-03-02",
+      "time": "10:30",
+      "client": "LUCAS",
+      "clientId": "ff1a",
+      "products": [
+        {
           "name": "Pomada Modeladora Premium",
           "category": "Pomadas",
           "description": "Fixação forte e brilho natural para seu cabelo",
@@ -1814,43 +695,9 @@
           "quantity": 1,
           "calculatedPrice": 36,
           "totalPrice": 36
-        },
-        {
-          "id": "6",
-          "name": "Água Tônica",
-          "description": "Refrigerante premium para acompanhar seu corte",
-          "category": "Bebidas",
-          "price": "R$ 8.00",
-          "subscriberDiscount": 10,
-          "image": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400",
-          "stock": 30,
-          "quantity": 1,
-          "calculatedPrice": 7.2,
-          "totalPrice": 7.2
         }
       ],
-      "id": "iiCYzF0"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "name": "DEGRADEZIN",
-          "price": "R$ 23,00",
-          "promotionalPrice": "",
-          "coveredByPlan": true,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "Dw22hi_"
-        }
-      ],
-      "date": "2026-02-26",
-      "time": "13:00",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [],
-      "id": "VRCyciM"
+      "id": 6
     }
   ],
   "clientes": [],
@@ -2070,6 +917,29 @@
       "monthlyBarberId": null,
       "monthlyBarberName": null,
       "monthlyBarberSetDate": null
+    },
+    {
+      "userId": "6f1SvYK",
+      "userName": "Sem plano",
+      "planId": "premium",
+      "planName": "Premium",
+      "planPrice": 150,
+      "amount": 157.395,
+      "status": "active",
+      "startDate": "2026-02-04T16:42:24.697Z",
+      "nextBillingDate": "2026-03-04T16:42:24.697Z",
+      "lastBillingDate": "2026-02-04T16:42:24.697Z",
+      "paymentMethod": "credito",
+      "isRecurring": true,
+      "autoRenewal": true,
+      "daysOverdue": 0,
+      "monthlyBarberId": "1",
+      "monthlyBarberName": "João",
+      "monthlyBarberSetDate": "2026-02-04T16:45:38.437Z",
+      "overdueNotificationSent": false,
+      "createdAt": "2026-02-24T16:42:24.697Z",
+      "updatedAt": "2026-02-24T16:42:24.697Z",
+      "id": "N9E-UKE"
     }
   ],
   "payments": [],
@@ -4882,6 +3752,237 @@
       "createdAt": "2026-02-23T20:10:54.916Z",
       "updatedAt": "2026-02-23T20:10:54.916Z",
       "id": "cpunXn7"
+    },
+    {
+      "appointmentId": "d-eq5Gj",
+      "userId": "CBAkQkQ",
+      "userName": "LUCAS",
+      "amount": 58,
+      "serviceName": "Barba",
+      "barberName": "João",
+      "appointmentDate": "2026-02-26",
+      "appointmentTime": "09:30",
+      "status": "paid",
+      "paymentMethod": "cartao",
+      "type": "appointment",
+      "createdAt": "2026-02-24T13:31:37.458Z",
+      "updatedAt": "2026-02-24T17:54:29.130Z",
+      "id": "Rc2yG7C",
+      "paidAt": "2026-02-24T17:54:29.130Z"
+    },
+    {
+      "appointmentId": "-gzCGgz",
+      "userId": "ff1a",
+      "userName": "LUCAS",
+      "amount": 0,
+      "serviceName": "TESTE AQUI, Luzes, Corte Clássico, Barba, DEGRADEZIN",
+      "barberName": "João",
+      "appointmentDate": "2026-02-28",
+      "appointmentTime": "08:30",
+      "status": "plancovered",
+      "paymentMethod": "subscription",
+      "type": "appointment",
+      "createdAt": "2026-02-24T14:04:11.316Z",
+      "updatedAt": "2026-02-24T14:04:11.316Z",
+      "id": "AY8W6GE"
+    },
+    {
+      "appointmentId": "3dMt1Yq",
+      "userId": "ff1a",
+      "userName": "LUCAS",
+      "amount": 0,
+      "serviceName": "DEGRADEZIN, Luzes, TESTE AQUI, Corte Clássico, Barba",
+      "barberName": "João",
+      "appointmentDate": "2026-02-28",
+      "appointmentTime": "08:00",
+      "status": "plancovered",
+      "paymentMethod": "subscription",
+      "type": "appointment",
+      "createdAt": "2026-02-24T14:06:23.531Z",
+      "updatedAt": "2026-02-24T14:06:23.531Z",
+      "id": "UHczXhd"
+    },
+    {
+      "appointmentId": "1OANQKe",
+      "userId": "L5dtIvQ",
+      "userName": "Lucas Souza",
+      "amount": 58,
+      "serviceName": "Barba",
+      "barberName": "João",
+      "appointmentDate": "2026-02-27",
+      "appointmentTime": "11:00",
+      "status": "paid",
+      "paymentMethod": "cartao",
+      "type": "appointment",
+      "createdAt": "2026-02-24T14:15:39.284Z",
+      "updatedAt": "2026-02-24T17:54:28.594Z",
+      "id": "-DeLsDv",
+      "paidAt": "2026-02-24T17:54:28.594Z"
+    },
+    {
+      "appointmentId": "PjFVWc-",
+      "userId": "ff1a",
+      "userName": "LUCAS",
+      "amount": 0,
+      "serviceName": "Corte Clássico",
+      "barberName": "João",
+      "appointmentDate": "2026-02-27",
+      "appointmentTime": "08:00",
+      "status": "plancovered",
+      "paymentMethod": "subscription",
+      "type": "appointment",
+      "createdAt": "2026-02-24T15:01:06.840Z",
+      "updatedAt": "2026-02-24T15:01:06.840Z",
+      "id": "5CpqwWs"
+    },
+    {
+      "appointmentId": 1,
+      "userId": "CBAkQkQ",
+      "userName": "LUCAS",
+      "amount": 40,
+      "serviceName": "Corte Clássico",
+      "barberName": "João",
+      "appointmentDate": "2026-02-28",
+      "appointmentTime": "08:00",
+      "status": "paid",
+      "paymentMethod": "cartao",
+      "type": "appointment",
+      "createdAt": "2026-02-24T15:07:54.919Z",
+      "updatedAt": "2026-02-24T17:54:27.591Z",
+      "id": "kqAmC4X",
+      "paidAt": "2026-02-24T17:54:27.591Z"
+    },
+    {
+      "appointmentId": 2,
+      "userId": "ff1a",
+      "userName": "LUCAS",
+      "amount": 0,
+      "serviceName": "Corte Clássico, DEGRADEZIN, Barba",
+      "barberName": "João",
+      "appointmentDate": "2026-02-28",
+      "appointmentTime": "08:30",
+      "status": "plancovered",
+      "paymentMethod": "subscription",
+      "type": "appointment",
+      "createdAt": "2026-02-24T15:08:37.261Z",
+      "updatedAt": "2026-02-24T15:08:37.261Z",
+      "id": "K_EMSzA"
+    },
+    {
+      "appointmentId": 3,
+      "userId": "CBAkQkQ",
+      "userName": "LUCAS",
+      "amount": 12,
+      "serviceName": "Luzes",
+      "barberName": "João",
+      "appointmentDate": "2026-02-28",
+      "appointmentTime": "09:00",
+      "status": "plancovered",
+      "paymentMethod": "local",
+      "type": "appointment",
+      "createdAt": "2026-02-24T17:58:59.620Z",
+      "updatedAt": "2026-02-24T17:58:59.620Z",
+      "id": "OPK4Wy2"
+    },
+    {
+      "appointmentId": 3,
+      "userId": "CBAkQkQ",
+      "userName": "LUCAS",
+      "amount": 12,
+      "serviceName": "Luzes",
+      "barberName": "João",
+      "appointmentDate": "2026-02-24",
+      "appointmentTime": "09:00",
+      "status": "pendinglocal",
+      "paymentMethod": "local",
+      "type": "appointment",
+      "createdAt": "2026-02-24T17:58:59.620Z",
+      "updatedAt": "2026-02-24T17:58:59.620Z",
+      "id": "OPK4Wy2"
+    },
+    {
+      "appointmentId": 4,
+      "userId": "CBAkQkQ",
+      "userName": "LUCAS",
+      "amount": 65,
+      "serviceName": "Barba",
+      "barberName": "João",
+      "appointmentDate": "2026-02-25",
+      "appointmentTime": "11:00",
+      "status": "pendinglocal",
+      "paymentMethod": "local",
+      "type": "appointment",
+      "createdAt": "2026-02-24T17:59:17.764Z",
+      "updatedAt": "2026-02-24T17:59:17.764Z",
+      "id": "SHOIIwg"
+    },
+    {
+      "appointmentId": 3,
+      "userId": "ff1a",
+      "userName": "LUCAS",
+      "amount": 28,
+      "serviceName": "Barba",
+      "barberName": "João",
+      "appointmentDate": "2026-02-25",
+      "appointmentTime": "08:30",
+      "status": "paid",
+      "paymentMethod": "credito",
+      "paidAt": "2026-02-24T19:11:55.947Z",
+      "type": "appointment",
+      "createdAt": "2026-02-24T19:11:55.948Z",
+      "updatedAt": "2026-02-24T19:11:55.948Z",
+      "id": "dlIAxLL"
+    },
+    {
+      "appointmentId": 4,
+      "userId": "ff1a",
+      "userName": "LUCAS",
+      "amount": 28,
+      "serviceName": "TESTE AQUI",
+      "barberName": "João",
+      "appointmentDate": "2026-02-27",
+      "appointmentTime": "09:00",
+      "status": "paid",
+      "paymentMethod": "credito",
+      "paidAt": "2026-02-24T19:12:45.224Z",
+      "type": "appointment",
+      "createdAt": "2026-02-24T19:12:45.224Z",
+      "updatedAt": "2026-02-24T19:12:45.224Z",
+      "id": "xNf8ckn"
+    },
+    {
+      "appointmentId": 5,
+      "userId": "ff1a",
+      "userName": "LUCAS",
+      "amount": 28,
+      "serviceName": "Luzes",
+      "barberName": "João",
+      "appointmentDate": "2026-03-01",
+      "appointmentTime": "08:30",
+      "status": "paid",
+      "paymentMethod": "credito",
+      "paidAt": "2026-02-24T19:19:23.641Z",
+      "type": "appointment",
+      "createdAt": "2026-02-24T19:19:23.641Z",
+      "updatedAt": "2026-02-24T19:19:23.641Z",
+      "id": "c0gR95O"
+    },
+    {
+      "appointmentId": 6,
+      "userId": "ff1a",
+      "userName": "LUCAS",
+      "amount": 36,
+      "serviceName": "Luzes",
+      "barberName": "João",
+      "appointmentDate": "2026-03-02",
+      "appointmentTime": "10:30",
+      "status": "paid",
+      "paymentMethod": "pix",
+      "paidAt": "2026-02-24T19:23:38.198Z",
+      "type": "appointment",
+      "createdAt": "2026-02-24T19:23:38.198Z",
+      "updatedAt": "2026-02-24T19:23:38.198Z",
+      "id": "Uxv0f5V"
     }
   ],
   "savedCards": [
@@ -4924,22 +4025,12 @@
   ],
   "products": [
     {
-      "name": "Cerveja Artesanal IPA",
-      "category": "Bebidas",
-      "description": "Cerveja artesanal com sabor marcante e refrescante",
-      "price": "R$ 10.00",
-      "subscriberDiscount": 15,
-      "stock": 25,
-      "image": "https://res.cloudinary.com/dx2tvrzdr/image/upload/v1771614052/barba_ubjoxv.jpg",
-      "id": "1"
-    },
-    {
       "name": "Pomada Modeladora Premium",
       "category": "Pomadas",
       "description": "Fixação forte e brilho natural para seu cabelo",
       "price": "R$ 45.00",
       "subscriberDiscount": 20,
-      "stock": 23,
+      "stock": 21,
       "image": "https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?w=400",
       "id": "2"
     },
@@ -4951,7 +4042,7 @@
       "price": "R$ 35.00",
       "subscriberDiscount": 20,
       "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
-      "stock": 9
+      "stock": 0
     },
     {
       "id": "4",
@@ -4961,7 +4052,7 @@
       "price": "R$ 28.00",
       "subscriberDiscount": 15,
       "image": "https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=400",
-      "stock": 20
+      "stock": 12
     },
     {
       "id": "5",
@@ -4981,7 +4072,7 @@
       "price": "R$ 8.00",
       "subscriberDiscount": 10,
       "image": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400",
-      "stock": 30
+      "stock": 20
     },
     {
       "name": "Balm Pós-Barba",
@@ -5010,7 +4101,7 @@
       "description": "A MELHOR CERVEJA ARTESANAL PURO MALTE",
       "price": "R$ 50.00",
       "subscriberDiscount": 20,
-      "stock": 50,
+      "stock": 49,
       "image": "https://images.unsplash.com/photo-1608270586620-248524c67de9?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
     }
   ],

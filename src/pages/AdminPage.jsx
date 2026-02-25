@@ -203,7 +203,7 @@ const [homeInfoLoading, setHomeInfoLoading] = useState(false);
     managePayments: { label: 'Ver Relatórios de Pagamentos', category: 'Financeiro', icon: '💰' },
     manageAgendamentos: { label: 'Ver Aba Agendamentos', category: 'Agendamentos', icon: '📅' },
     manageBenefits: { label: 'Gerenciar Benefícios dos Planos', category: 'Configurações', icon: '🎁' },
-    manageSettings: { label: 'Alterar Configurações (PIX, Termos)', category: 'Configurações', icon: '⚙️' },
+    // manageSettings: { label: 'Alterar Configurações (PIX, Termos)', category: 'Configurações', icon: '⚙️' },
     manageGallery: { label: 'Gerenciar Galeria de Fotos', category: 'Conteúdo', icon: '🖼️' },
   };
 
@@ -303,20 +303,23 @@ const [homeInfoLoading, setHomeInfoLoading] = useState(false);
     }
   }, [activeTab]);
 
+  const toDateStr = (val) => {
+    if (!val) return '';
+    const s = String(val);
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+   
+    return s.slice(0, 10);
+  };
+
   const isDateInRange = (dateStr, startDate, endDate) => {
     if (!startDate && !endDate) return true;
-    
-    const date = new Date(dateStr);
-    const start = startDate ? new Date(startDate) : null;
-    const end = endDate ? new Date(endDate) : null;
-    
-    if (start && end) {
-      return date >= start && date <= end;
-    } else if (start) {
-      return date >= start;
-    } else if (end) {
-      return date <= end;
-    }
+    const d = toDateStr(dateStr);
+    const s = toDateStr(startDate);
+    const e = toDateStr(endDate);
+    if (s && e) return d >= s && d <= e;
+    if (s) return d >= s;
+    if (e) return d <= e;
     return true;
   };
 
@@ -353,35 +356,27 @@ const [homeInfoLoading, setHomeInfoLoading] = useState(false);
     return filtered;
   };
 
-  const getFilteredPayments = () => {
-    let filtered = [...appointmentPayments];
+  
+const getFilteredPayments = () => {
+  let filtered = [...appointmentPayments];
 
-    if (selectedMonth) {
-      const [year, month] = selectedMonth.split('-');
-      filtered = filtered.filter((payment) => {
-        const paymentDate = new Date(payment.createdAt);
-        return (
-          paymentDate.getFullYear() === parseInt(year) &&
-          paymentDate.getMonth() + 1 === parseInt(month)
-        );
-      });
-    }
+  const getPaymentDate = (payment) =>
+    toDateStr(payment.appointmentDate) || toDateStr(payment.createdAt);
 
-    if (paymentDateFilter) {
-      filtered = filtered.filter((payment) => {
-        const paymentDateStr = new Date(payment.createdAt).toISOString().split('T')[0];
-        return paymentDateStr === paymentDateFilter;
-      });
-    } else if (paymentStartDate || paymentEndDate) {
-      filtered = filtered.filter((payment) => {
-        const paymentDateStr = new Date(payment.createdAt).toISOString().split('T')[0];
-        return isDateInRange(paymentDateStr, paymentStartDate, paymentEndDate);
-      });
-    }
+  if (paymentDateFilter) {
+    filtered = filtered.filter(payment => getPaymentDate(payment) === toDateStr(paymentDateFilter));
+  } else if (paymentStartDate || paymentEndDate) {
+    filtered = filtered.filter(payment => isDateInRange(getPaymentDate(payment), paymentStartDate, paymentEndDate));
+  } else if (selectedMonth) {
+    const [year, month] = selectedMonth.split('-');
+    filtered = filtered.filter(payment => {
+      const [y, m] = getPaymentDate(payment).split('-');
+      return parseInt(y) === parseInt(year) && parseInt(m) === parseInt(month);
+    });
+  }
 
-
-    return filtered;
-  };
+  return filtered;
+};
 
   const carregarHomeInfo = useCallback(async () => {
   try {
@@ -417,47 +412,30 @@ const handleHomeInfoChange = (field, value) => {
   const getFilteredAppointmentPayments = () => {
   let filtered = [...appointmentPayments];
 
-
-  if (selectedMonth) {
-    const [year, month] = selectedMonth.split('-');
-    filtered = filtered.filter(payment => {
-      const paymentDate = new Date(payment.paidAt || payment.appointmentDate || payment.createdAt);
-      return (
-        paymentDate.getFullYear() === parseInt(year) &&
-        paymentDate.getMonth() + 1 === parseInt(month)
-      );
-    });
-  }
+  
+  const getDate = (payment) =>
+    payment.appointmentDate || new Date(payment.paidAt || payment.createdAt).toISOString().split('T')[0];
 
   if (appointmentDateFilter) {
-    filtered = filtered.filter(payment => {
-      const paidDateStr = new Date(payment.paidAt || payment.createdAt).toISOString().split('T')[0];
-      return paidDateStr === appointmentDateFilter;
-    });
-  } else if (appointmentStartDate && appointmentEndDate) {
 
+    filtered = filtered.filter(payment => getDate(payment) === appointmentDateFilter);
+  } else if (appointmentStartDate || appointmentEndDate) {
+
+    filtered = filtered.filter(payment => isDateInRange(getDate(payment), appointmentStartDate, appointmentEndDate));
+  } else if (selectedMonth) {
+
+    const [year, month] = selectedMonth.split('-');
     filtered = filtered.filter(payment => {
-      const paidDateStr = new Date(payment.paidAt || payment.createdAt).toISOString().split('T')[0];
-      return isDateInRange(paidDateStr, appointmentStartDate, appointmentEndDate);
-    });
-  } else if (appointmentStartDate) {
-    filtered = filtered.filter(payment => {
-      const paidDateStr = new Date(payment.paidAt || payment.createdAt).toISOString().split('T')[0];
-      return paidDateStr >= appointmentStartDate;
-    });
-  } else if (appointmentEndDate) {
-    filtered = filtered.filter(payment => {
-      const paidDateStr = new Date(payment.paidAt || payment.createdAt).toISOString().split('T')[0];
-      return paidDateStr <= appointmentEndDate;
+      const d = getDate(payment);
+      const [y, m] = d.split('-');
+      return parseInt(y) === parseInt(year) && parseInt(m) === parseInt(month);
     });
   }
 
   if (selectedBarberFilter !== 'all') {
     filtered = filtered.filter(payment => {
-
       const selectedBarber = barbers.find(b => b.id?.toString() === selectedBarberFilter.toString());
       if (!selectedBarber) return false;
-
       return payment.barberName === selectedBarber.name;
     });
   }
@@ -480,44 +458,28 @@ const handleHomeInfoChange = (field, value) => {
   };
 
   const getFilteredSubscriptions = () => {
-    let filtered = [...subscriptions];
+  let filtered = [...subscriptions];
 
-    if (selectedMonth) {
-      const [year, month] = selectedMonth.split('-');
-      filtered = filtered.filter(sub => {
-        const subDate = new Date(sub.createdAt || sub.startDate);
-        return (
-          subDate.getFullYear() === parseInt(year) &&
-          subDate.getMonth() + 1 === parseInt(month)
-        );
-      });
-    }
+  const getSubDate = (sub) =>
+    new Date(sub.createdAt || sub.startDate).toISOString().split('T')[0];
 
-    if (paymentDateFilter) {
-      filtered = filtered.filter(sub => {
-        const subDateStr = new Date(sub.createdAt || sub.startDate).toISOString().split('T')[0];
-        return subDateStr === paymentDateFilter;
-      });
-    } else if (paymentStartDate && paymentEndDate) {
-      filtered = filtered.filter(sub => {
-        const subDateStr = new Date(sub.createdAt || sub.startDate).toISOString().split('T')[0];
-        return isDateInRange(subDateStr, paymentStartDate, paymentEndDate);
-      });
-    } else if (paymentStartDate) {
-      filtered = filtered.filter(sub => {
-        const subDateStr = new Date(sub.createdAt || sub.startDate).toISOString().split('T')[0];
-        return subDateStr >= paymentStartDate;
-      });
-    } else if (paymentEndDate) {
-      filtered = filtered.filter(sub => {
-        const subDateStr = new Date(sub.createdAt || sub.startDate).toISOString().split('T')[0];
-        return subDateStr <= paymentEndDate;
-      });
-    }
+  if (paymentDateFilter) {
+   
+    filtered = filtered.filter(sub => getSubDate(sub) === paymentDateFilter);
+  } else if (paymentStartDate || paymentEndDate) {
 
-    return filtered;
-  };
-
+    filtered = filtered.filter(sub => isDateInRange(getSubDate(sub), paymentStartDate, paymentEndDate));
+  } else if (selectedMonth) {
+    
+    const [year, month] = selectedMonth.split('-');
+    filtered = filtered.filter(sub => {
+      const d = getSubDate(sub);
+      const [y, m] = d.split('-');
+      return parseInt(y) === parseInt(year) && parseInt(m) === parseInt(month);
+    });
+  }
+  return filtered;
+};
 
   
   const validateCPF = (cpf) => {
@@ -645,7 +607,7 @@ const handleHomeInfoChange = (field, value) => {
         return;
       }
       const phone = userData.phone.replace(/\D/g, '');
-      const date = new Date(appointment.date).toLocaleDateString('pt-BR');
+      const date = appointment.date?.split('-').reverse().join('/');
       const serviceName = Array.isArray(appointment.services)
         ? appointment.services.map((s) => s.name).join(', ')
         : 'Serviço';
@@ -1531,7 +1493,23 @@ const handleHomeInfoChange = (field, value) => {
 
   const paymentStats = calculatePaymentStats(filteredAppointmentPayments);
 
-  const pendingPayments = filteredAppointmentPayments.filter((p) => p.status === 'pending' || p.status === 'pendinglocal');
+  const pendingPayments = (() => {
+    let base = appointmentPayments.filter((p) => p.status === 'pending' || p.status === 'pendinglocal');
+   
+    const getDate = (p) => toDateStr(p.appointmentDate) || toDateStr(p.createdAt);
+    if (paymentDateFilter) {
+      base = base.filter((p) => getDate(p) === toDateStr(paymentDateFilter));
+    } else if (paymentStartDate || paymentEndDate) {
+      base = base.filter((p) => isDateInRange(getDate(p), paymentStartDate, paymentEndDate));
+    } else if (selectedMonth) {
+      const [year, month] = selectedMonth.split('-');
+      base = base.filter((p) => {
+        const [y, m] = getDate(p).split('-');
+        return parseInt(y) === parseInt(year) && parseInt(m) === parseInt(month);
+      });
+    }
+    return base;
+  })();
 
   const paidPayments = filteredAppointmentPaymentsForAgendamentos.filter((p) => p.status === 'paid');
 
@@ -1791,7 +1769,7 @@ const handleHomeInfoChange = (field, value) => {
 >
    Calendário
 </button>
-            {hasPermission('manageServices') && (
+            {/* {hasPermission('manageServices') && (
               <button
                 className={`tab-btn ${activeTab === 'services' ? 'tab-btn--active' : ''}`}
                 onClick={() => setActiveTab('services')}
@@ -1806,7 +1784,7 @@ const handleHomeInfoChange = (field, value) => {
               >
                 Configurações
               </button>
-            )}
+            )} */}
 
            <button
   className={`tab-btn ${activeTab === 'homeInfo' ? 'tab-btn--active' : ''}`}
@@ -2308,7 +2286,7 @@ const handleHomeInfoChange = (field, value) => {
                                         <td>
                                           <strong>{apt.client}</strong>
                                         </td>
-                                        <td>{new Date(apt.date).toLocaleDateString('pt-BR')}</td>
+                                        <td>{apt.date?.split('-').reverse().join('/')}</td>
                                         <td>{apt.time}</td>
                                         <td>
                                           <div className="services-list">
@@ -2511,9 +2489,9 @@ const handleHomeInfoChange = (field, value) => {
                           
                           return (
                           <tr key={payment.id}>
-                            <td>{new Date(payment.paidAt).toLocaleDateString('pt-BR')}</td>
+                            <td>{(payment.paidAt ? payment.paidAt.slice(0,10).split('-').reverse().join('/') : '-')}</td>
                             <td>
-                              {new Date(payment.appointmentDate).toLocaleDateString('pt-BR')} {payment.appointmentTime}
+                              {payment.appointmentDate?.split('-').reverse().join('/')} {payment.appointmentTime}
                             </td>
                             <td>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2798,7 +2776,7 @@ const handleHomeInfoChange = (field, value) => {
           )}
 
           
-          {activeTab === 'settings' && hasPermission('manageSettings') && (
+          {/* {activeTab === 'settings' && hasPermission('manageSettings') && (
             <div className="settings-section">
               <div className="settings-container">
                 <div className="settings-card">
@@ -2846,7 +2824,7 @@ const handleHomeInfoChange = (field, value) => {
                 </div>
               </div>
             </div>
-          )}
+          )} */}
 
           {activeTab === 'terms' && hasPermission('manageSettings') && (
             <div className="settings-section">
@@ -3317,9 +3295,13 @@ const handleHomeInfoChange = (field, value) => {
                 </div>
               </div>
 
-              {pendingPayments.length > 0 && (
-                <div className="pending-payments">
-                  <h3>Pagamentos Pendentes de Agendamentos</h3>
+              <div className="pending-payments">
+                <h3>Pagamentos Pendentes de Agendamentos {pendingPayments.length > 0 && `(${pendingPayments.length})`}</h3>
+                {pendingPayments.length === 0 ? (
+                  <p className="calendar-empty" style={{ color: '#888', fontSize: '0.9rem', padding: '1rem 0' }}>
+                    Nenhum pagamento pendente encontrado para o período selecionado.
+                  </p>
+                ) : (
                   <div className="payments-table">
                     <table>
                       <thead>
@@ -3337,7 +3319,7 @@ const handleHomeInfoChange = (field, value) => {
                       <tbody>
                         {pendingPayments.map((payment) => (
                           <tr key={payment.id}>
-                            <td>{new Date(payment.appointmentDate).toLocaleDateString('pt-BR')}</td>
+                            <td>{payment.appointmentDate?.split('-').reverse().join('/')}</td>
                             <td>{payment.appointmentTime}</td>
                             <td>{payment.userName}</td>
                             <td>{payment.barberName}</td>
@@ -3375,8 +3357,8 @@ const handleHomeInfoChange = (field, value) => {
                       </tbody>
                     </table>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
               <div className="payments-list">
                 <h3>Histórico de Assinaturas</h3>
@@ -3503,7 +3485,7 @@ const handleHomeInfoChange = (field, value) => {
                           return (
                             <tr key={blocked.id}>
                               <td className="datas-tabela-data">
-                                {new Date(blocked.date + 'T12:00:00').toLocaleDateString('pt-BR')}
+                                {blocked.date?.split('-').reverse().join('/')}
                               </td>
                               <td className="datas-tabela-barbeiro">
                                 {barber ? barber.name : 'Todos'}
