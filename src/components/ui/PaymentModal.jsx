@@ -18,7 +18,7 @@ import './PaymentModal.css';
 
 const SUBSCRIPTION_LINKS = {
   150: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=248f6838b5a0470c96b23a4edd1905d8',
-  89.9: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=6a4820f29af0439eaedd4ffa13a0acbf',
+  1: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=6a4820f29af0439eaedd4ffa13a0acbf',
 };
 
 export default function PaymentModal({
@@ -55,7 +55,6 @@ export default function PaymentModal({
   const cardPaymentBrickRef = useRef(null);
   const isRenderingBrick = useRef(false);
   const pixPollingRef = useRef(null);
-
   const pixPaymentIdRef = useRef(null);
 
   // const MERCADO_PAGO_PUBLIC_KEY = 'TEST-e60cf7cf-2a92-4f82-bfec-978eaa9139f8';
@@ -143,7 +142,6 @@ export default function PaymentModal({
     }
   }, [isOpen, paymentMethod]);
 
-
   useEffect(() => {
     if (pixPollingRef.current) {
       clearInterval(pixPollingRef.current);
@@ -154,7 +152,6 @@ export default function PaymentModal({
       pixPollingRef.current = setInterval(() => {
         if (pixPaymentIdRef.current) {
           verificarStatusPix(pixPaymentIdRef.current);
-          console.log(pixPaymentIdRef.current)
         }
       }, 10000);
     }
@@ -213,7 +210,6 @@ export default function PaymentModal({
     if (isOpen) loadTermsDoc();
   }, [isOpen]);
 
-
   const gerarPixPayment = async () => {
     setPixGenerating(true);
     setShowErrorToast(false);
@@ -223,7 +219,7 @@ export default function PaymentModal({
         payment_method_id: 'pix',
         payer: { email: currentUser.email },
         description: isAppointmentPayment
-          ? `Pagamento - ${selectedPlan.serviceName || 'Serviço'}`
+          ? `Pagamento - ${selectedPlan.serviceName || selectedPlan.name || 'Serviço'}`
           : `Assinatura - ${selectedPlan.name}`,
       };
 
@@ -232,7 +228,6 @@ export default function PaymentModal({
       setPixQrCodeBase64(result?.qr_code_base64 || '');
       setPixQrCode(result?.qr_code || '');
       setPixPaymentId(result.id);
- 
       pixPaymentIdRef.current = result.id;
     } catch (error) {
       console.error('Erro ao gerar PIX:', error);
@@ -246,39 +241,65 @@ export default function PaymentModal({
   const verificarStatusPix = async (idPix) => {
     try {
       const result = await checkPixStatus(idPix);
-      console.log(result)
-      if (result.status === 'approved') {
-        clearInterval(pixPollingRef.current);
-        pixPollingRef.current = null;
-        setPixApproved(true);
-        await confirmarPagamentoPix(idPix);
+
+      if (isAppointmentPayment && result === 'approved') {
+        if (selectedPlan.needsCreation && selectedPlan.appointmentData && selectedPlan.paymentData) {
+          clearInterval(pixPollingRef.current);
+          pixPollingRef.current = null;
+          setPixApproved(true);
+
+          const paymentMethodString = 'pix';
+          const finalAmount = getFinalPrice();
+
+          const appointmentResponse = await fetch(`http://localhost:3000/appointments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(selectedPlan.appointmentData),
+          });
+          if (!appointmentResponse.ok) throw new Error('Erro ao criar agendamento');
+          const createdAppointment = await appointmentResponse.json();
+
+          await criarPagamentoAgendamento({
+            ...selectedPlan.paymentData,
+            appointmentId: createdAppointment.id,
+            status: 'paid',
+            paymentMethod: paymentMethodString,
+            paidAt: new Date().toISOString(),
+            amount: finalAmount,
+            mercadoPagoId: idPix,
+            cardData: {
+              brand: undefined,
+              lastDigits: '****',
+            },
+          });
+
+          onSuccess && onSuccess(paymentMethodString);
+          setProcessing(false);
+          onClose();
+
+        } else if (paymentId) {
+          const paymentMethodString = 'pix';
+          const finalAmount = getFinalPrice();
+
+          await atualizarPagamentoAgendamento(paymentId, {
+            status: 'paid',
+            paymentMethod: paymentMethodString,
+            paidAt: new Date().toISOString(),
+            amount: finalAmount,
+            mercadoPagoId: idPix,
+            cardData: {
+              brand: undefined,
+              lastDigits: '****',
+            },
+          });
+
+          onSuccess && onSuccess(paymentMethodString);
+          setProcessing(false);
+          onClose();
+        }
       }
- 
     } catch (error) {
       console.error('Erro ao verificar status PIX:', error);
-    }
-  };
-
-  const confirmarPagamentoPix = async (idPix) => {
-    setProcessing(true);
-    try {
-      const finalAmount = getFinalPrice();
-
-      if (isAppointmentPayment && paymentId) {
-        await atualizarPagamentoAgendamento(paymentId, {
-          status: 'paid',
-          paymentMethod: 'pix',
-          paidAt: new Date().toISOString(),
-          amount: finalAmount,
-          mercadoPagoId: idPix,
-        });
-        onSuccess && onSuccess('pix');
-      }
-
-      setProcessing(false);
-      onClose();
-    } catch (error) {
-      console.error('Erro ao confirmar pagamento PIX:', error);
       setErrorMessage('Erro ao confirmar pagamento PIX. Tente novamente.');
       setShowErrorToast(true);
       setProcessing(false);
@@ -288,11 +309,6 @@ export default function PaymentModal({
   const handlePixSubmit = async (e) => {
     e.preventDefault();
     if (pixExpired || !pixPaymentId) return;
-    
-    if (pixApproved) {
-      await confirmarPagamentoPix(pixPaymentId);
-      return;
-    }
     await verificarStatusPix(pixPaymentId);
   };
 
@@ -392,7 +408,7 @@ export default function PaymentModal({
           },
         },
         description: isAppointmentPayment
-          ? `Pagamento - ${selectedPlan.serviceName || 'Serviço'}`
+          ? `Pagamento - ${selectedPlan.serviceName || selectedPlan.name || 'Serviço'}`
           : `Assinatura - ${selectedPlan.name}`,
       };
 
@@ -404,12 +420,14 @@ export default function PaymentModal({
 
         if (isAppointmentPayment) {
           if (selectedPlan.needsCreation && selectedPlan.appointmentData && selectedPlan.paymentData) {
-       
-            const appointmentResponse = await fetch(`http://localhost:3000/appointments`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(selectedPlan.appointmentData),
-            });
+            const appointmentResponse = await fetch(
+              `${import.meta.env.VITE_API_URL}/appointments`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(selectedPlan.appointmentData),
+              }
+            );
             if (!appointmentResponse.ok) throw new Error('Erro ao criar agendamento');
             const createdAppointment = await appointmentResponse.json();
 
@@ -496,6 +514,16 @@ export default function PaymentModal({
         setPaymentStatus('rejected');
         setProcessing(false);
         return new Promise((_, reject) => reject(new Error('Payment rejected')));
+
+      } else {
+
+        setPaymentStatus('pending');
+        setErrorMessage(
+          `Pagamento em análise (status: ${paymentResult.status}). Você receberá uma confirmação em breve.`
+        );
+        setShowErrorToast(true);
+        setProcessing(false);
+        return { status: paymentResult.status };
       }
 
     } catch (error) {
@@ -551,7 +579,6 @@ export default function PaymentModal({
       setShowErrorToast(true);
       return;
     }
-    // window.location.href = subscriptionLink;
     window.open(subscriptionLink, '_blank');
   };
 

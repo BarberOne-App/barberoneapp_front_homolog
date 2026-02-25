@@ -507,9 +507,19 @@
       "googleId": "110845098356001346363",
       "role": "client",
       "isAdmin": false,
-      "password": null,
+      "password": "1234",
       "createdAt": "2026-02-25T18:39:41.090Z",
-      "id": "fkYQSpq"
+      "id": "fkYQSpq",
+      "cpf": "62160113328",
+      "phone": "85982299499",
+      "birthDate": "2026-02-25",
+      "barbershops": [
+        {
+          "id": "001",
+          "name": "Barbearia Rodrigues"
+        }
+      ],
+      "profileComplete": true
     }
   ],
   "appointments": [
