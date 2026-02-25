@@ -28,7 +28,7 @@ export default function RegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
-  const ADMIN_SECRET_CODE = "ADDEV2024";
+  // const ADMIN_SECRET_CODE = "ADDEV2024";
 
   const isValidEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -216,7 +216,7 @@ export default function RegisterPage() {
               max={new Date().toISOString().split("T")[0]}
             />
 
-            {/* SELECT de Barbearia */}
+      
             <div className="input-wrapper">
               <label className="input-label">Barbearia</label>
               <select

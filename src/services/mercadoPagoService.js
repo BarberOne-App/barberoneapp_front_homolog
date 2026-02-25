@@ -64,6 +64,7 @@ export const checkPixStatus = async (pixId) => {
       //   },
       // }
     );
+    console.log(res.data)
     return res.data; 
   } catch (err) {
     const msg =

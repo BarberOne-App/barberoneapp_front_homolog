@@ -58,7 +58,8 @@ export default function PaymentModal({
 
   const pixPaymentIdRef = useRef(null);
 
-  const MERCADO_PAGO_PUBLIC_KEY = 'TEST-e60cf7cf-2a92-4f82-bfec-978eaa9139f8';
+  // const MERCADO_PAGO_PUBLIC_KEY = 'TEST-e60cf7cf-2a92-4f82-bfec-978eaa9139f8';
+  const MERCADO_PAGO_PUBLIC_KEY = 'APP_USR-3c24dcad-27ac-4f14-996c-d0ef917404b0';
   const isRecurringSubscription = !isAppointmentPayment && selectedPlan?.isRecurring;
 
   const getAvailablePaymentMethods = () => {
@@ -153,6 +154,7 @@ export default function PaymentModal({
       pixPollingRef.current = setInterval(() => {
         if (pixPaymentIdRef.current) {
           verificarStatusPix(pixPaymentIdRef.current);
+          console.log(pixPaymentIdRef.current)
         }
       }, 10000);
     }
@@ -244,6 +246,7 @@ export default function PaymentModal({
   const verificarStatusPix = async (idPix) => {
     try {
       const result = await checkPixStatus(idPix);
+      console.log(result)
       if (result.status === 'approved') {
         clearInterval(pixPollingRef.current);
         pixPollingRef.current = null;
@@ -382,7 +385,7 @@ export default function PaymentModal({
         payment_method_id: cardFormData.payment_method_id,
         issuer_id: cardFormData.issuer_id,
         payer: {
-          email: currentUser.email,
+          email: cardFormData.payer.email,
           identification: {
             type: cardFormData.payer.identification.type,
             number: cardFormData.payer.identification.number,
@@ -548,7 +551,8 @@ export default function PaymentModal({
       setShowErrorToast(true);
       return;
     }
-    window.location.href = subscriptionLink;
+    // window.location.href = subscriptionLink;
+    window.open(subscriptionLink, '_blank');
   };
 
   const checkUserCards = async () => {
