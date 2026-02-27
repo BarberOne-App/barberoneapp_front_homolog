@@ -116,12 +116,21 @@ export default function AppointmentsPage() {
     return blockedDates.some((blocked) => {
       const matchDate = blocked.date === dateStr;
       const matchBarber = !blocked.barberId || blocked.barberId === barberId;
-      return matchDate && matchBarber;
+      const isDayBlock = !blocked.startTime;
+      return matchDate && matchBarber && isDayBlock;
     });
   };
 
   const isDateBlockedForAll = (dateStr) => {
-    return blockedDates.some((blocked) => blocked.date === dateStr && !blocked.barberId);
+    return blockedDates.some((blocked) => blocked.date === dateStr && !blocked.barberId && !blocked.startTime);
+  };
+
+  const getBlockedTimeSlots = (dateStr, barberId = null) => {
+    return blockedDates.filter((blocked) => {
+      const matchDate = blocked.date === dateStr;
+      const matchBarber = !blocked.barberId || blocked.barberId === barberId;
+      return matchDate && matchBarber && blocked.startTime && blocked.endTime;
+    });
   };
 
   useEffect(() => {
@@ -307,7 +316,7 @@ export default function AppointmentsPage() {
   const handleSelectDate = (date) => {
     const dateStr = date.toLocaleDateString('en-CA');
 
-    const blockedInfo = blockedDates.find(b => b.date === dateStr && !b.barberId);
+    const blockedInfo = blockedDates.find(b => b.date === dateStr && !b.barberId && !b.startTime);
 
     if (blockedInfo) {
       showToast(`📅 Data bloqueada: ${blockedInfo.reason}`, 'warning');
@@ -383,27 +392,43 @@ export default function AppointmentsPage() {
       });
   }, [appointments]);
 
-const getAvailableTimes = useCallback((barberId, date) => { 
+const getAvailableTimes = useCallback((barberId, date) => {
   if (!date) return [];
-  const allTimes = generateTimes(30); 
-  const bookedTimes = getBookedSlots(barberId, date); 
+  const allTimes = generateTimes(30);
+  const dateStr = date.toLocaleDateString('en-CA');
+  const bookedTimes = getBookedSlots(barberId, date);
+  const blockedSlots = getBlockedTimeSlots(dateStr, barberId);
 
   const today = new Date();
-  const isToday = date.toLocaleDateString('en-CA') === today.toLocaleDateString('en-CA');
+  const isToday = dateStr === today.toLocaleDateString('en-CA');
+
+  const timeToMinutes = (t) => {
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+  };
 
   return allTimes.filter(time => {
     if (bookedTimes.includes(time)) return false;
 
     if (isToday) {
-      const [hour, minute] = time.split(':').map(Number);
-      const slotMinutes = hour * 60 + minute;
+      const slotMinutes = timeToMinutes(time);
       const nowMinutes = today.getHours() * 60 + today.getMinutes();
       if (slotMinutes <= nowMinutes) return false;
     }
 
+    if (blockedSlots.length > 0) {
+      const slotMinutes = timeToMinutes(time);
+      const isBlocked = blockedSlots.some(blocked => {
+        const start = timeToMinutes(blocked.startTime);
+        const end = timeToMinutes(blocked.endTime);
+        return slotMinutes >= start && slotMinutes <= end;
+      });
+      if (isBlocked) return false;
+    }
+
     return true;
   });
-}, [appointments]);
+}, [appointments, blockedDates]);
   const showToast = useCallback((message, type = 'success') => {
     setToast({ show: true, message, type });
   }, []);
@@ -1053,12 +1078,12 @@ const getAvailableTimes = useCallback((barberId, date) => {
               <DatePicker
                 onSelectDate={handleSelectDate}
                 selectedDate={selectedDate}
-                disabledDates={blockedDates.map(b => b.date)}
+                disabledDates={blockedDates.filter(b => !b.startTime).map(b => b.date)}
               />
 
               {selectedDate && (() => {
                 const dateStr = selectedDate.toLocaleDateString('en-CA');
-                const blockedInfo = blockedDates.find(b => b.date === dateStr && !b.barberId);
+                const blockedInfo = blockedDates.find(b => b.date === dateStr && !b.barberId && !b.startTime);
 
                 if (blockedInfo) {
                   return (
@@ -1083,7 +1108,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
 
               {selectedDate && !showConflictModal && (() => {
                 const dateStr = selectedDate.toLocaleDateString('en-CA');
-                const isBlockedForAll = blockedDates.some(b => b.date === dateStr && !b.barberId);
+                const isBlockedForAll = blockedDates.some(b => b.date === dateStr && !b.barberId && !b.startTime);
 
                 if (isBlockedForAll) {
                   return null;
@@ -1103,7 +1128,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
 
                         const dateStr = selectedDate.toLocaleDateString('en-CA');
                         const isBarberBlocked = blockedDates.some(
-                          b => b.date === dateStr && b.barberId === barber.id
+                          b => b.date === dateStr && b.barberId === barber.id && !b.startTime
                         );
 
                         if (isBarberBlocked) {

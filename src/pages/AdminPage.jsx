@@ -64,7 +64,7 @@ export default function AdminPage() {
   const [subscriptionSearch, setSubscriptionSearch] = useState('');
   const [subscriptionSearchType, setSubscriptionSearchType] = useState('name');
   const [blockedDates, setBlockedDates] = useState([]);
-  const [newBlockedDate, setNewBlockedDate] = useState({ date: '', reason: '', barberId: null });
+  const [newBlockedDate, setNewBlockedDate] = useState({ date: '', reason: '', barberId: null, blockType: 'day', startTime: '', endTime: '' });
   const [loadingBlockedDates, setLoadingBlockedDates] = useState(false);
   const [appointmentPayments, setAppointmentPayments] = useState([]);
   const [productSales, setProductSales] = useState([]);
@@ -562,18 +562,51 @@ const handleHomeInfoChange = (field, value) => {
       showToast('Por favor, selecione uma data', 'danger');
       return;
     }
-    const dateExists = blockedDates.some((blocked) => blocked.date === newBlockedDate.date && blocked.barberId === newBlockedDate.barberId);
+
+    const isTimeBlock = newBlockedDate.blockType === 'time';
+
+    if (isTimeBlock) {
+      if (!newBlockedDate.startTime || !newBlockedDate.endTime) {
+        showToast('Informe o horário de início e fim do bloqueio', 'danger');
+        return;
+      }
+      if (newBlockedDate.startTime >= newBlockedDate.endTime) {
+        showToast('O horário de início deve ser menor que o de fim', 'danger');
+        return;
+      }
+    }
+
+    // Verificar duplicata: mesmo dia + barbeiro + tipo
+    const dateExists = blockedDates.some((blocked) => {
+      const sameDate = blocked.date === newBlockedDate.date;
+      const sameBarber = blocked.barberId === newBlockedDate.barberId;
+      if (!sameDate || !sameBarber) return false;
+      if (!isTimeBlock) return !blocked.startTime; // dia inteiro duplicado
+      // bloqueio de horário: checar sobreposição
+      if (!blocked.startTime) return false;
+      return newBlockedDate.startTime < blocked.endTime && newBlockedDate.endTime > blocked.startTime;
+    });
+
     if (dateExists) {
-      showToast('Esta data já está bloqueada!', 'danger');
+      showToast(isTimeBlock ? 'Já existe um bloqueio nesse intervalo!' : 'Esta data já está bloqueada!', 'danger');
       return;
     }
+
     try {
-      const blockData = { date: newBlockedDate.date, reason: newBlockedDate.reason || 'Dia bloqueado', barberId: newBlockedDate.barberId, createdBy: currentUser?.id, createdAt: new Date().toISOString() };
+      const blockData = {
+        date: newBlockedDate.date,
+        reason: newBlockedDate.reason || (isTimeBlock ? 'Horário bloqueado' : 'Dia bloqueado'),
+        barberId: newBlockedDate.barberId,
+        startTime: isTimeBlock ? newBlockedDate.startTime : null,
+        endTime: isTimeBlock ? newBlockedDate.endTime : null,
+        createdBy: currentUser?.id,
+        createdAt: new Date().toISOString(),
+      };
       const response = await fetch('http://localhost:3000/blockedDates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(blockData) });
       if (response.ok) {
-        showToast('Data bloqueada com sucesso!', 'success');
+        showToast(isTimeBlock ? 'Horário bloqueado com sucesso!' : 'Data bloqueada com sucesso!', 'success');
         fetchBlockedDates();
-        setNewBlockedDate({ date: '', reason: '', barberId: null });
+        setNewBlockedDate({ date: '', reason: '', barberId: null, blockType: 'day', startTime: '', endTime: '' });
       }
     } catch (error) {
       console.error('Erro ao bloquear data:', error);
@@ -3900,7 +3933,32 @@ const handleHomeInfoChange = (field, value) => {
               <h2 className="calendario-titulo">Gerenciar Calendário</h2>
 
               <div className="bloqueio-form-card">
-                <h3 className="bloqueio-form-titulo">Bloquear Dia no Calendário</h3>
+                <h3 className="bloqueio-form-titulo">Bloquear Calendário</h3>
+
+                {/* Toggle tipo de bloqueio */}
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
+                  {[{ value: 'day', label: ' Dia inteiro' }, { value: 'time', label: ' Horário específico' }].map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setNewBlockedDate({ ...newBlockedDate, blockType: opt.value, startTime: '', endTime: '' })}
+                      style={{
+                        flex: 1,
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: newBlockedDate.blockType === opt.value ? '1.5px solid #ff7a1a' : '1.5px solid #444',
+                        background: newBlockedDate.blockType === opt.value ? 'rgba(255,122,26,0.12)' : 'transparent',
+                        color: newBlockedDate.blockType === opt.value ? '#ff7a1a' : '#888',
+                        fontWeight: newBlockedDate.blockType === opt.value ? 600 : 400,
+                        cursor: 'pointer',
+                        fontSize: '0.85rem',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
 
                 <div className="bloqueio-form-grid">
                   <div className="bloqueio-form-campo">
@@ -3928,13 +3986,40 @@ const handleHomeInfoChange = (field, value) => {
                     </select>
                   </div>
 
+                  {newBlockedDate.blockType === 'time' && (
+                    <>
+                      <div className="bloqueio-form-campo">
+                        <label className="bloqueio-form-label">Horário início *</label>
+                        <input
+                          type="time"
+                          value={newBlockedDate.startTime}
+                          onChange={(e) => setNewBlockedDate({ ...newBlockedDate, startTime: e.target.value })}
+                          className="bloqueio-form-input"
+                          min="08:00"
+                          max="20:00"
+                        />
+                      </div>
+                      <div className="bloqueio-form-campo">
+                        <label className="bloqueio-form-label">Horário fim *</label>
+                        <input
+                          type="time"
+                          value={newBlockedDate.endTime}
+                          onChange={(e) => setNewBlockedDate({ ...newBlockedDate, endTime: e.target.value })}
+                          className="bloqueio-form-input"
+                          min="08:00"
+                          max="20:00"
+                        />
+                      </div>
+                    </>
+                  )}
+
                   <div className="bloqueio-form-campo">
                     <label className="bloqueio-form-label">Motivo (opcional)</label>
                     <input
                       type="text"
                       value={newBlockedDate.reason}
                       onChange={(e) => setNewBlockedDate({ ...newBlockedDate, reason: e.target.value })}
-                      placeholder="Ex: Feriado, Manutenção..."
+                      placeholder={newBlockedDate.blockType === 'time' ? 'Ex: Reunião, Intervalo...' : 'Ex: Feriado, Manutenção...'}
                       className="bloqueio-form-input"
                     />
                   </div>
@@ -3945,7 +4030,7 @@ const handleHomeInfoChange = (field, value) => {
                   disabled={!isAdmin}
                   className="bloqueio-btn"
                 >
-                  Bloquear Data
+                  {newBlockedDate.blockType === 'time' ? 'Bloquear Horário' : 'Bloquear Data'}
                 </button>
 
                 {!isAdmin && (
@@ -3966,6 +4051,7 @@ const handleHomeInfoChange = (field, value) => {
                       <thead>
                         <tr>
                           <th>Data</th>
+                          <th>Horário</th>
                           <th>Barbeiro</th>
                           <th>Motivo</th>
                           <th>Criado em</th>
@@ -3979,6 +4065,11 @@ const handleHomeInfoChange = (field, value) => {
                             <tr key={blocked.id}>
                               <td className="datas-tabela-data">
                                 {blocked.date?.split('-').reverse().join('/')}
+                              </td>
+                              <td className="datas-tabela-horario">
+                                {blocked.startTime && blocked.endTime
+                                  ? <span style={{ color: '#ff7a1a', fontWeight: 500, fontSize: '0.85rem' }}>🕐 {blocked.startTime} – {blocked.endTime}</span>
+                                  : <span style={{ color: '#666', fontSize: '0.82rem' }}>Dia inteiro</span>}
                               </td>
                               <td className="datas-tabela-barbeiro">
                                 {barber ? barber.name : 'Todos'}

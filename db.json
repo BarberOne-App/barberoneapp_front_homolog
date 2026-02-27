@@ -609,41 +609,6 @@
       "barberName": "João",
       "services": [
         {
-          "name": "Luzes",
-          "price": "R$ 4,00",
-          "promotionalPrice": "",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 90,
-          "id": "OH9P0zb"
-        }
-      ],
-      "date": "2026-03-02",
-      "time": "10:30",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [
-        {
-          "name": "Pomada Modeladora Premium",
-          "category": "Pomadas",
-          "description": "Fixação forte e brilho natural para seu cabelo",
-          "price": "R$ 45.00",
-          "subscriberDiscount": 20,
-          "stock": 23,
-          "image": "https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?w=400",
-          "id": "2",
-          "quantity": 1,
-          "calculatedPrice": 36,
-          "totalPrice": 36
-        }
-      ],
-      "id": 6
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
           "name": "Barba",
           "price": "R$ 30,00",
           "promotionalPrice": "R$ 2,00",
@@ -4612,7 +4577,9 @@
       "barberId": null,
       "createdBy": "ff1a",
       "createdAt": "2026-02-10T14:53:48.012Z",
-      "id": 1
+      "id": 1,
+      "startTime": null,
+      "endTime": null
     },
     {
       "date": "2026-02-12",
@@ -4620,7 +4587,9 @@
       "barberId": "2",
       "createdBy": "ff1a",
       "createdAt": "2026-02-10T16:36:24.733Z",
-      "id": 2
+      "id": 2,
+      "startTime": null,
+      "endTime": null
     },
     {
       "date": "2026-02-13",
@@ -4628,7 +4597,9 @@
       "barberId": null,
       "createdBy": "ff1a",
       "createdAt": "2026-02-10T19:03:27.286Z",
-      "id": 3
+      "id": 3,
+      "startTime": null,
+      "endTime": null
     },
     {
       "date": "2026-02-23",
@@ -4636,7 +4607,19 @@
       "barberId": null,
       "createdBy": "ff1a",
       "createdAt": "2026-02-12T17:05:22.959Z",
-      "id": 4
+      "id": 4,
+      "startTime": null,
+      "endTime": null
+    },
+    {
+      "date": "2026-03-02",
+      "reason": "teste",
+      "barberId": null,
+      "startTime": "12:00",
+      "endTime": "17:00",
+      "createdBy": "ff1a",
+      "createdAt": "2026-02-27T17:27:49.140Z",
+      "id": 5
     }
   ],
   "homeInfo": [
