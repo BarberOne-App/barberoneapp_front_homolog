@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getSession, logout } from '../../services/authService';
+import { getSession } from '../../services/authService';
 import logoImg from '../../assets/logo-barber-rodrigues-new.jpg';
 import { FaWhatsapp } from 'react-icons/fa';
+import { BARBERSHOPS, getActiveBarbershop, setActiveBarbershop } from './Barbershops';
 import './Header.css';
+import './Barbershopswitcher.css';
 
 const navItems = [
   { label: 'Início', href: '#inicio' },
@@ -15,12 +17,38 @@ const navItems = [
 export default function Header() {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [dropOpen, setDropOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [activeBarbershop, setActiveBarbershopState] = useState(getActiveBarbershop);
+  const dropRef = useRef(null);
 
   useEffect(() => {
     const user = getSession();
     setCurrentUser(user);
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropRef.current && !dropRef.current.contains(e.target)) {
+        setDropOpen(false);
+      }
+    };
+    if (dropOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [dropOpen]);
+
+  const handleSelectBarbershop = (shop) => {
+    setActiveBarbershop(shop);
+    setActiveBarbershopState(shop);
+    setDropOpen(false);
+    if (window.location.pathname === '/') {
+      window.location.reload();
+    } else {
+      window.location.href = '/';
+    }
+  };
 
   const handleLogoClick = (e) => {
     e.preventDefault();
@@ -31,22 +59,16 @@ export default function Header() {
   const handleNavClick = (e, href) => {
     e.preventDefault();
     setMenuOpen(false);
-
     if (href.startsWith('#')) {
       const isHomePage = window.location.pathname === '/';
-
       if (isHomePage) {
         const element = document.querySelector(href);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth' });
-        }
+        if (element) element.scrollIntoView({ behavior: 'smooth' });
       } else {
         navigate('/');
         setTimeout(() => {
           const element = document.querySelector(href);
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth' });
-          }
+          if (element) element.scrollIntoView({ behavior: 'smooth' });
         }, 100);
       }
     } else {
@@ -61,11 +83,8 @@ export default function Header() {
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (!e.target.closest('.header')) {
-        setMenuOpen(false);
-      }
+      if (!e.target.closest('.header')) setMenuOpen(false);
     };
-
     if (menuOpen) {
       document.addEventListener('click', handleClickOutside);
       return () => document.removeEventListener('click', handleClickOutside);
@@ -74,13 +93,11 @@ export default function Header() {
 
   useEffect(() => {
     const handleScroll = () => setMenuOpen(false);
-
     if (menuOpen) {
       window.addEventListener('scroll', handleScroll);
       return () => window.removeEventListener('scroll', handleScroll);
     }
   }, [menuOpen]);
-
 
   return (
     <header className="header">
@@ -116,6 +133,31 @@ export default function Header() {
         >
           <FaWhatsapp /> Fale conosco
         </a>
+
+        <div className="bs-dropdown" ref={dropRef}>
+          <button
+            className="bs-dropdown__trigger"
+            onClick={() => setDropOpen((v) => !v)}
+          >
+             Trocar de Barbearia
+            <span className={`bs-dropdown__arrow ${dropOpen ? 'bs-dropdown__arrow--open' : ''}`}>▾</span>
+          </button>
+
+          {dropOpen && (
+            <ul className="bs-dropdown__menu">
+              {BARBERSHOPS.map((shop) => (
+                <li
+                  key={shop.id}
+                  className={`bs-dropdown__item ${activeBarbershop.id === shop.id ? 'bs-dropdown__item--active' : ''}`}
+                  onClick={() => handleSelectBarbershop(shop)}
+                >
+                  {shop.name}
+                  {activeBarbershop.id === shop.id && <span className="bs-dropdown__check">✓</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         {currentUser ? (
           <button

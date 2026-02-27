@@ -17,6 +17,8 @@ import {
   buscarTodasAssinaturas,
   buscarTodosPagamentosAgendamentos,
   atualizarPagamentoAgendamento,
+  buscarTodasVendasProdutos,
+  atualizarVendaProduto,
 } from '../services/paymentService';
 import {
   getProducts,
@@ -65,6 +67,7 @@ export default function AdminPage() {
   const [newBlockedDate, setNewBlockedDate] = useState({ date: '', reason: '', barberId: null });
   const [loadingBlockedDates, setLoadingBlockedDates] = useState(false);
   const [appointmentPayments, setAppointmentPayments] = useState([]);
+  const [productSales, setProductSales] = useState([]);
   const [clientSubscriptionStatus, setClientSubscriptionStatus] = useState({});
   const [products, setProducts] = useState([]);
   const [services, setServices] = useState([]);
@@ -109,6 +112,7 @@ export default function AdminPage() {
     userPassword: '',
     userPhone: '',
     userRole: 'barber',
+    serviceIds: [],
   });
 
   const [showProductModal, setShowProductModal] = useState(false);
@@ -202,6 +206,7 @@ const [homeInfoLoading, setHomeInfoLoading] = useState(false);
     editServices: { label: 'Editar/Excluir Serviços', category: 'Gestão de Serviços', icon: '✏️' },
     managePayments: { label: 'Ver Relatórios de Pagamentos', category: 'Financeiro', icon: '💰' },
     manageAgendamentos: { label: 'Ver Aba Agendamentos', category: 'Agendamentos', icon: '📅' },
+    scheduleForOthers: { label: 'Agendar para Outros Clientes', category: 'Agendamentos', icon: '🗓️' },
     manageBenefits: { label: 'Gerenciar Benefícios dos Planos', category: 'Configurações', icon: '🎁' },
     manageSettings: { label: 'Alterar Configurações (PIX, Termos)', category: 'Configurações', icon: '⚙️' },
     manageGallery: { label: 'Gerenciar Galeria de Fotos', category: 'Conteúdo', icon: '🖼️' },
@@ -360,8 +365,12 @@ const [homeInfoLoading, setHomeInfoLoading] = useState(false);
 const getFilteredPayments = () => {
   let filtered = [...appointmentPayments];
 
-  const getPaymentDate = (payment) =>
-    toDateStr(payment.appointmentDate) || toDateStr(payment.createdAt);
+  
+  const getPaymentDate = (payment) => {
+    if (payment.appointmentDate) return String(payment.appointmentDate).slice(0, 10);
+    if (payment.createdAt) return String(payment.createdAt).slice(0, 10);
+    return '';
+  };
 
   if (paymentDateFilter) {
     filtered = filtered.filter(payment => getPaymentDate(payment) === toDateStr(paymentDateFilter));
@@ -616,6 +625,8 @@ const handleHomeInfoChange = (field, value) => {
         message = `Olá ${appointment.client}! Estamos entrando em contato para CONFIRMAR seu agendamento de ${date} às ${appointment.time}: ${serviceName} com ${appointment.barberName}. Por favor, responda esta mensagem para confirmar sua presença.`;
       } else if (type === 'cancel') {
         message = `Olá ${appointment.client}! Informamos que infelizmente precisaremos realizar o CANCELAMENTO do seu agendamento de ${date} às ${appointment.time}: ${serviceName}. Nossas desculpas pelo transtorno. Entre em contato conosco para reagendar.`;
+      } else if (type === 'noshow') {
+        message = `Olá ${appointment.client}! Notamos que você não compareceu ao seu agendamento de ${date} às ${appointment.time}: ${serviceName}. Sentimos pela ausência! Entre em contato conosco para reagendar quando quiser.`;
       }
       const encodedMessage = encodeURIComponent(message);
       const whatsappUrl = `https://wa.me/55${phone}?text=${encodedMessage}`;
@@ -677,13 +688,14 @@ const handleHomeInfoChange = (field, value) => {
 
   const loadData = useCallback(async () => {
     try {
-      const [barbersData, appointmentsData, subscriptionsData, paymentsData, productsData, servicesData] = await Promise.all([
+      const [barbersData, appointmentsData, subscriptionsData, paymentsData, productsData, servicesData, productSalesData] = await Promise.all([
         getBarbers(),
         getAppointments(),
         buscarTodasAssinaturas(),
         buscarTodosPagamentosAgendamentos(),
         getProducts(),
         getAllServices(),
+        buscarTodasVendasProdutos(),
       ]);
       const usersResponse = await fetch('http://localhost:3000/users');
       const allUsers = await usersResponse.json();
@@ -727,6 +739,7 @@ const handleHomeInfoChange = (field, value) => {
       setAppointmentPayments(paymentsData);
       setProducts(productsData);
       setServices(servicesData);
+      setProductSales(productSalesData);
       setClientSubscriptionStatus(subscriptionStatusMap);
     } catch (error) {
       console.error('Erro ao carregar dados', error);
@@ -878,6 +891,7 @@ const handleHomeInfoChange = (field, value) => {
         userPassword: '',
         userPhone: '',
         userRole: 'barber',
+        serviceIds: barber.serviceIds || [],
       });
     } else {
       setEditingBarber(null);
@@ -891,6 +905,7 @@ const handleHomeInfoChange = (field, value) => {
         userPassword: '',
         userPhone: '',
         userRole: 'barber',
+        serviceIds: [],
       });
     }
     setShowBarberModal(true);
@@ -909,6 +924,7 @@ const handleHomeInfoChange = (field, value) => {
       userPassword: '',
       userPhone: '',
       userRole: 'barber',
+      serviceIds: [],
     });
   };
 
@@ -983,7 +999,11 @@ const handleHomeInfoChange = (field, value) => {
           specialty: barberForm.specialty,
           photo: barberForm.photo,
           commissionPercent: barberForm.commissionPercent,
-          userId: userId,
+          serviceIds: barberForm.serviceIds || [],
+          
+          ...(editingBarber && !editingBarber.isUserOnly
+            ? { userId: editingBarber.userId }
+            : { userId: userId }),
         };
         if (editingBarber && !editingBarber.isUserOnly) {
           await updateBarber(editingBarber.id, barberData);
@@ -1192,6 +1212,19 @@ const handleHomeInfoChange = (field, value) => {
       await updateAppointment(appointmentId, updatedAppointment);
       await loadData();
       showToast('Agendamento confirmado!', 'success');
+
+    
+      try {
+        const userData = await getUserById(appointment.clientId);
+        if (userData?.phone) {
+          const phone = userData.phone.replace(/\D/g, '');
+          const message = `Olá ${appointment.client}! Seu agendamento foi confirmado. Obrigado pela preferência e confiança em nosso serviço! 😊✂️`;
+          const whatsappUrl = `https://wa.me/55${phone}?text=${encodeURIComponent(message)}`;
+          window.open(whatsappUrl, '_blank');
+        }
+      } catch (whatsErr) {
+        console.warn('Não foi possível abrir WhatsApp:', whatsErr);
+      }
     } catch (error) {
       showToast('Erro ao confirmar agendamento.', 'danger');
     }
@@ -1294,15 +1327,72 @@ const handleHomeInfoChange = (field, value) => {
 
   const handleMarkAsPaid = async (payment, method) => {
     try {
-      await atualizarPagamentoAgendamento(payment.id, {
+      const updated = await atualizarPagamentoAgendamento(payment.id, {
         status: 'paid',
         paymentMethod: method,
         paidAt: new Date().toISOString(),
       });
-      await loadData();
+      
+      setAppointmentPayments(prev =>
+        prev.map(p => p.id === payment.id ? { ...p, status: 'paid', paymentMethod: method, paidAt: new Date().toISOString() } : p)
+      );
       showToast('Pagamento marcado como pago!', 'success');
     } catch (error) {
+      console.error('Erro handleMarkAsPaid:', error);
       showToast('Erro ao atualizar pagamento.', 'danger');
+    }
+  };
+
+  
+  const handleConfirmCutDone = async (payment) => {
+    try {
+      const alreadyHasMethod = payment.paymentMethod && payment.paymentMethod !== '' && payment.paymentMethod !== 'local';
+      const newStatus = alreadyHasMethod ? 'paid' : 'confirmed_unpaid';
+      await atualizarPagamentoAgendamento(payment.id, {
+        status: newStatus,
+        confirmedAt: new Date().toISOString(),
+        ...(newStatus === 'paid' ? { paidAt: new Date().toISOString() } : {}),
+      });
+      setAppointmentPayments(prev =>
+        prev.map(p => p.id === payment.id ? { ...p, status: newStatus, confirmedAt: new Date().toISOString() } : p)
+      );
+      showToast(newStatus === 'paid' ? 'Agendamento confirmado e pago!' : 'Corte confirmado! Pagamento ainda pendente.', 'success');
+    } catch (error) {
+      console.error('Erro handleConfirmCutDone:', error);
+      showToast('Erro ao confirmar agendamento.', 'danger');
+    }
+  };
+
+  
+  const handleCancelFromPending = (payment) => {
+    showConfirm('Deseja realmente cancelar este agendamento?', async () => {
+      try {
+        if (payment.appointmentId) {
+          await deleteAppointment(payment.appointmentId);
+        }
+        setAppointmentPayments(prev => prev.filter(p => p.id !== payment.id));
+        showToast('Agendamento cancelado com sucesso!', 'success');
+      } catch (error) {
+        showToast('Erro ao cancelar agendamento.', 'danger');
+      }
+    });
+  };
+
+  
+  const handleNoShow = async (payment) => {
+    try {
+      const appointment = appointments.find(apt => apt.id === payment.appointmentId);
+      await atualizarPagamentoAgendamento(payment.id, { noShow: true });
+      setAppointmentPayments(prev =>
+        prev.map(p => p.id === payment.id ? { ...p, noShow: true } : p)
+      );
+      if (appointment) {
+        await sendWhatsApp(appointment.id, 'noshow');
+      } else {
+        showToast('Não comparecimento registrado.', 'success');
+      }
+    } catch (error) {
+      showToast('Erro ao registrar não comparecimento.', 'danger');
     }
   };
 
@@ -1468,13 +1558,41 @@ const handleHomeInfoChange = (field, value) => {
     return stats;
   };
 
+  const handleMarkProductSalePaid = async (sale, method) => {
+    try {
+      await atualizarVendaProduto(sale.id, {
+        status: 'paid',
+        paymentMethod: method,
+        paidAt: new Date().toISOString(),
+      });
+      setProductSales(prev =>
+        prev.map(s => s.id === sale.id ? { ...s, status: 'paid', paymentMethod: method, paidAt: new Date().toISOString() } : s)
+      );
+      showToast('Venda marcada como paga!', 'success');
+    } catch (error) {
+      showToast('Erro ao atualizar venda.', 'danger');
+    }
+  };
+
+  const handleCancelProductSale = (sale) => {
+    showConfirm('Deseja realmente cancelar esta venda?', async () => {
+      try {
+        await atualizarVendaProduto(sale.id, { status: 'cancelled' });
+        setProductSales(prev => prev.filter(s => s.id !== sale.id));
+        showToast('Venda cancelada.', 'success');
+      } catch (error) {
+        showToast('Erro ao cancelar venda.', 'danger');
+      }
+    });
+  };
+
   const filteredAppointmentPayments = getFilteredPayments();
 
   const filteredAppointmentPaymentsForAgendamentos = getFilteredAppointmentPayments();
 
   const calculateMonthlyTotals = () => {
     const pendingAppointments = filteredAppointmentPayments
-      .filter((p) => p.status === 'pending' || p.status === 'pendinglocal')
+      .filter((p) => p.status === 'pending' || p.status === 'pendinglocal' || p.status === 'confirmed_unpaid')
       .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
     const paidAppointments = filteredAppointmentPayments
       .filter((p) => p.status === 'paid')
@@ -1494,7 +1612,9 @@ const handleHomeInfoChange = (field, value) => {
   const paymentStats = calculatePaymentStats(filteredAppointmentPayments);
 
   const pendingPayments = (() => {
-    let base = appointmentPayments.filter((p) => p.status === 'pending' || p.status === 'pendinglocal');
+    let base = appointmentPayments.filter(
+      (p) => p.status === 'pending' || p.status === 'pendinglocal' || p.status === 'confirmed_unpaid'
+    );
    
     const getDate = (p) => toDateStr(p.appointmentDate) || toDateStr(p.createdAt);
     if (paymentDateFilter) {
@@ -1508,7 +1628,16 @@ const handleHomeInfoChange = (field, value) => {
         return parseInt(y) === parseInt(year) && parseInt(m) === parseInt(month);
       });
     }
-    return base;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return base.map((p) => {
+      const apptDate = p.appointmentDate ? new Date(p.appointmentDate) : null;
+      const isPast = apptDate && apptDate < today;
+      const isConfirmedUnpaid = p.status === 'confirmed_unpaid';
+      const displayStatus = isConfirmedUnpaid ? 'confirmed_unpaid' : isPast ? 'overdue' : p.status;
+      return { ...p, displayStatus };
+    });
   })();
 
   const paidPayments = filteredAppointmentPaymentsForAgendamentos.filter((p) => p.status === 'paid');
@@ -1728,6 +1857,32 @@ const handleHomeInfoChange = (field, value) => {
       </BaseLayout>
     );
   }
+
+  const PaymentBadge = ({ method }) => {
+    const raw = (method || '').toLowerCase().trim();
+    
+    const m = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const map = {
+      pix:          { label: 'PIX',      bg: '#00b37722', color: '#00b377', border: '#00b37755' },
+      credito:      { label: 'Crédito',  bg: '#8b5cf622', color: '#a78bfa', border: '#8b5cf655' },
+      debito:       { label: 'Débito',   bg: '#3b82f622', color: '#60a5fa', border: '#3b82f655' },
+      cartao:       { label: 'Cartão',   bg: '#f59e0b22', color: '#fbbf24', border: '#f59e0b55' },
+      dinheiro:     { label: 'Dinheiro', bg: '#22c55e22', color: '#4ade80', border: '#22c55e55' },
+      subscription: { label: 'Plano',    bg: '#d4af3722', color: '#d4af37', border: '#d4af3755' },
+      local:        { label: 'No Local', bg: '#64748b22', color: '#94a3b8', border: '#64748b55' },
+    };
+    const s = map[m] || { label: method || 'N/A', bg: '#33333322', color: '#888', border: '#44444455' };
+    return (
+      <span style={{
+        display: 'inline-block', padding: '3px 10px', borderRadius: '10px',
+        fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap',
+        background: s.bg, color: s.color, border: `1px solid ${s.border}`,
+      }}>
+        {s.label}
+      </span>
+    );
+  };
+
 
   return (
     <BaseLayout>
@@ -2309,9 +2464,11 @@ const handleHomeInfoChange = (field, value) => {
                                             <button onClick={() => openEditModal(apt)} className="action-btn btn-edit-apt">
                                               Editar
                                             </button>
-                                            <button onClick={() => openChangeBarberModal(apt)} className="action-btn btn-transfer">
-                                              Transferir
-                                            </button>
+                                            {apt.status !== 'confirmed' && (
+                                              <button onClick={() => openChangeBarberModal(apt)} className="action-btn btn-transfer">
+                                                Transferir
+                                              </button>
+                                            )}
                                             <button onClick={() => sendWhatsApp(apt.id, 'confirm')} className="action-btn btn-whatsapp">
                                               WhatsApp
                                             </button>
@@ -2462,7 +2619,6 @@ const handleHomeInfoChange = (field, value) => {
                     <table>
                       <thead>
                         <tr>
-                          <th>Data Pag.</th>
                           <th>Data Agend.</th>
                           <th>Cliente</th>
                           <th>Barbeiro</th>
@@ -2473,10 +2629,19 @@ const handleHomeInfoChange = (field, value) => {
                         </tr>
                       </thead>
                       <tbody>
-                        {getFilteredAppointmentPayments().filter(p => p.status === 'paid').map((payment) => {
-                          const isSubscriber = clientSubscriptionStatus[payment.userId] || false;
-                          const appointment = appointments.find(apt => apt.id === payment.appointmentId);
-                          const productsList = appointment?.products || [];
+                        {getFilteredAppointmentPayments()
+                          .filter(p => p.status === 'paid')
+                          .sort((a, b) => (b.appointmentDate || b.paidAt || '').localeCompare(a.appointmentDate || a.paidAt || ''))
+                          .map((payment) => {
+                          const isSubscriber = clientSubscriptionStatus[payment.userId] || payment.status === 'plan_covered' || payment.status === 'plancovered' || payment.paymentMethod === 'subscription' || false;
+                          const appointment = payment.appointmentId
+                          ? appointments.find(apt => apt.id?.toString() === payment.appointmentId?.toString())
+                          : appointments.find(apt =>
+                              apt.clientId === payment.userId &&
+                              apt.date === payment.appointmentDate &&
+                              apt.time === payment.appointmentTime
+                            );
+                          const productsList = appointment?.products?.filter(pr => pr && pr.name) || [];
                           
                           const productsTotal = productsList.reduce((sum, prod) => {
                             const price = typeof prod.price === 'string'
@@ -2489,7 +2654,6 @@ const handleHomeInfoChange = (field, value) => {
                           
                           return (
                           <tr key={payment.id}>
-                            <td>{(payment.paidAt ? payment.paidAt.slice(0,10).split('-').reverse().join('/') : '-')}</td>
                             <td>
                               {payment.appointmentDate?.split('-').reverse().join('/')} {payment.appointmentTime}
                             </td>
@@ -2551,9 +2715,7 @@ const handleHomeInfoChange = (field, value) => {
                               )}
                             </td>
                             <td>
-                              <span className={`payment-method payment-method--${payment.paymentMethod?.toLowerCase()}`}>
-                                {payment.paymentMethod || 'N/A'}
-                              </span>
+                              <PaymentBadge method={payment.paymentMethod} />
                             </td>
                           </tr>
                           );
@@ -3306,25 +3468,43 @@ const handleHomeInfoChange = (field, value) => {
                     <table>
                       <thead>
                         <tr>
-                          <th>Data</th>
+                          <th>Data Agend.</th>
                           <th>Horário</th>
                           <th>Cliente</th>
                           <th>Barbeiro</th>
-                          <th>Serviço</th> 
+                          <th>Serviço</th>
                           <th>Valor</th>
                           <th>Status</th>
+                          <th>Data Pagamento</th>
                           <th>Ações</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {pendingPayments.map((payment) => (
-                          <tr key={payment.id}>
+                        {[...pendingPayments].sort((a, b) => (b.appointmentDate || b.createdAt || '').localeCompare(a.appointmentDate || a.createdAt || '')).map((payment) => (
+                          <tr
+                            key={payment.id}
+                            style={{
+                              opacity: payment.noShow ? 0.65 : 1,
+                              background: payment.displayStatus === 'overdue'
+                                ? 'rgba(231,76,60,0.06)'
+                                : payment.displayStatus === 'confirmed_unpaid'
+                                ? 'rgba(243,156,18,0.06)'
+                                : 'transparent'
+                            }}
+                          >
                             <td>{payment.appointmentDate?.split('-').reverse().join('/')}</td>
                             <td>{payment.appointmentTime}</td>
-                            <td>{payment.userName}</td>
+                            <td>
+                              {payment.userName}
+                              {payment.noShow && (
+                                <span style={{ marginLeft: 6, fontSize: '0.72rem', background: '#555', color: '#fff', borderRadius: 8, padding: '1px 6px' }}>
+                                  Não compareceu
+                                </span>
+                              )}
+                            </td>
                             <td>{payment.barberName}</td>
                             <td style={{ whiteSpace: 'pre-line' }}>
-                              {Array.isArray(payment.serviceName) 
+                              {Array.isArray(payment.serviceName)
                                 ? payment.serviceName.join('\n')
                                 : payment.serviceName?.includes(',')
                                 ? payment.serviceName.split(',').map(s => s.trim()).join('\n')
@@ -3333,22 +3513,61 @@ const handleHomeInfoChange = (field, value) => {
                             </td>
                             <td>R$ {parseFloat(payment.amount || 0).toFixed(2)}</td>
                             <td>
-                              {payment.status === 'pendinglocal' ? (
+                              {payment.displayStatus === 'overdue' ? (
+                                <span className="status-badge" style={{ background: '#e74c3c22', color: '#e74c3c', border: '1px solid #e74c3c55' }}>Em Atraso</span>
+                              ) : payment.displayStatus === 'confirmed_unpaid' ? (
+                                <span className="status-badge" style={{ background: '#f39c1222', color: '#f39c12', border: '1px solid #f39c1255' }}>Confirmado · Pag. Pendente</span>
+                              ) : payment.status === 'pendinglocal' ? (
                                 <span className="status-badge status-pending-local">Pagar no Local</span>
                               ) : (
                                 <span className="status-badge status-pending-online">Pagar Online</span>
                               )}
                             </td>
                             <td>
-                              <div className="payment-action-buttons">
+                              {payment.paidAt
+                                ? payment.paidAt.slice(0, 10).split('-').reverse().join('/')
+                                : <span style={{ color: '#666' }}>—</span>
+                              }
+                            </td>
+                            <td>
+                              <div className="payment-action-buttons" style={{ flexWrap: 'wrap', gap: '4px' }}>
+                                {payment.displayStatus !== 'confirmed_unpaid' && (
+                                  <button
+                                    onClick={() => handleConfirmCutDone(payment)}
+                                    className="btn-edit btn-payment-small"
+                                    style={{ background: '#27ae6022', color: '#27ae60', border: '1px solid #27ae6055' }}
+                                    title="Marcar corte como realizado"
+                                  >
+                                    ✓ Confirmado
+                                  </button>
+                                )}
                                 <button onClick={() => handleMarkAsPaid(payment, 'dinheiro')} className="btn-edit btn-payment-small">
                                   Dinheiro
                                 </button>
                                 <button onClick={() => handleMarkAsPaid(payment, 'pix')} className="btn-edit btn-payment-small">
                                   PIX
                                 </button>
-                                <button onClick={() => handleMarkAsPaid(payment, 'cartao')} className="btn-edit btn-payment-small">
-                                  Cartão
+                                <button onClick={() => handleMarkAsPaid(payment, 'credito')} className="btn-edit btn-payment-small">
+                                  Crédito
+                                </button>
+                                <button onClick={() => handleMarkAsPaid(payment, 'debito')} className="btn-edit btn-payment-small">
+                                  Débito
+                                </button>
+                                {!payment.noShow && (
+                                  <button
+                                    onClick={() => handleNoShow(payment)}
+                                    className="btn-edit btn-payment-small"
+                                    style={{ background: '#8e44ad22', color: '#8e44ad', border: '1px solid #8e44ad55' }}
+                                  >
+                                    👻 Não compareceu
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleCancelFromPending(payment)}
+                                  className="btn-edit btn-payment-small"
+                                  style={{ background: '#e74c3c22', color: '#e74c3c', border: '1px solid #e74c3c55' }}
+                                >
+                                  ✕ Cancelar
                                 </button>
                               </div>
                             </td>
@@ -3358,6 +3577,282 @@ const handleHomeInfoChange = (field, value) => {
                     </table>
                   </div>
                 )}
+              </div>
+
+            
+              <div className="payments-list" style={{ marginBottom: '2rem' }}>
+                <h3>
+                  Pagamentos de Agendamentos
+                  {' '}
+                  {(() => {
+                    const allPaid = getFilteredPayments().filter(p => p.status === 'paid' || p.status === 'plan_covered' || p.status === 'plancovered');
+                    return allPaid.length > 0 ? `(${allPaid.length})` : '';
+                  })()}
+                </h3>
+                {(() => {
+                  const allPaid = (() => {
+                    let base = getFilteredPayments().filter(p => p.status === 'paid' || p.status === 'plan_covered' || p.status === 'plancovered');
+                    if (selectedBarberFilter !== 'all') {
+                      const sel = barbers.find(b => b.id?.toString() === selectedBarberFilter.toString());
+                      if (sel) base = base.filter(p => p.barberName === sel.name);
+                    }
+                    return base;
+                  })();
+                  if (allPaid.length === 0) {
+                    return <p className="calendar-empty" style={{ color: '#888', fontSize: '0.9rem', padding: '1rem 0' }}>Nenhum pagamento de agendamento encontrado para o período selecionado.</p>;
+                  }
+
+                  
+                  const grandTotal = allPaid.reduce((sum, p) => {
+                    const isSubscriber = clientSubscriptionStatus[p.userId] || p.status === 'plan_covered' || p.status === 'plancovered' || p.paymentMethod === 'subscription' || false;
+                    const appointment = p.appointmentId
+                      ? appointments.find(apt => apt.id?.toString() === p.appointmentId?.toString())
+                      : appointments.find(apt =>
+                          apt.clientId === p.userId &&
+                          apt.date === p.appointmentDate &&
+                          apt.time === p.appointmentTime
+                        );
+                    const productsList = appointment?.products?.filter(pr => pr && pr.name) || [];
+                    const productsTotal = productsList.reduce((s, prod) => {
+                      const price = typeof prod.price === 'string'
+                        ? parseFloat(prod.price.replace(/R\$/g, '').replace(/,/g, '.').trim()) || 0
+                        : prod.price || 0;
+                      return s + (price * (prod.quantity || 1));
+                    }, 0);
+                    const serviceVal = isSubscriber ? 0 : parseFloat(p.amount || 0);
+                    return sum + serviceVal + productsTotal;
+                  }, 0);
+
+                  return (
+                    <>
+                      <div style={{ marginBottom: '0.75rem', color: '#a8a8a8', fontSize: '0.88rem' }}>
+                        Total do período: <strong style={{ color: '#ff7a1a', fontSize: '1rem' }}>R$ {grandTotal.toFixed(2)}</strong>
+                      </div>
+                      <div className="payments-table">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Data Agend.</th>
+                              <th>Cliente</th>
+                              <th>Barbeiro</th>
+                              <th>Serviço</th>
+                              <th>Produtos</th>
+                              <th>Data Pag.</th>
+                              <th>Valor Total</th>
+                              <th>Método</th>
+                              <th>Tipo</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {[...allPaid].sort((a, b) => (b.appointmentDate || b.paidAt || b.createdAt || '').localeCompare(a.appointmentDate || a.paidAt || a.createdAt || '')).map((payment) => {
+                              const isSubscriber = clientSubscriptionStatus[payment.userId] || payment.status === 'plan_covered' || payment.status === 'plancovered' || payment.paymentMethod === 'subscription' || false;
+                              
+                              const appointment = (() => {
+                                if (payment.appointmentId) {
+                                  return appointments.find(apt => apt.id?.toString() === payment.appointmentId?.toString());
+                                }
+                                
+                                return appointments.find(apt =>
+                                  apt.clientId === payment.userId &&
+                                  apt.date === payment.appointmentDate &&
+                                  apt.time === payment.appointmentTime
+                                );
+                              })();
+                              const productsList = appointment?.products?.filter(p => p && p.name) || [];
+                              const hasProducts = productsList.length > 0;
+
+                              const productsTotal = productsList.reduce((s, prod) => {
+                                const price = typeof prod.price === 'string'
+                                  ? parseFloat(prod.price.replace(/R\$/g, '').replace(/,/g, '.').trim()) || 0
+                                  : prod.price || 0;
+                                return s + (price * (prod.quantity || 1));
+                              }, 0);
+
+                              const serviceVal = parseFloat(payment.amount || 0);
+                              const totalVal = isSubscriber ? productsTotal : serviceVal + productsTotal;
+                              const planOnly = isSubscriber && !hasProducts;
+
+                              
+                              const isPlanCovered = payment.status === 'plan_covered' || payment.status === 'plancovered' || payment.paymentMethod === 'subscription';
+                              const tipo = isPlanCovered ? 'plano' : (payment.paymentMethod === 'local' || payment.status === 'pendinglocal') ? 'local' : 'avulso';
+
+                              return (
+                                <tr key={payment.id}>
+                                  <td>{payment.appointmentDate?.split('-').reverse().join('/')}</td>
+                                  <td>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      {payment.userName}
+                                      {isSubscriber && (
+                                        <span style={{ background: '#d4af37', color: '#000', padding: '1px 7px', borderRadius: '10px', fontSize: '0.72rem', fontWeight: 'bold' }}>
+                                          ASSINANTE
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td>{payment.barberName}</td>
+                                  <td style={{ whiteSpace: 'pre-line' }}>
+                                    {Array.isArray(payment.serviceName)
+                                      ? payment.serviceName.join('\n')
+                                      : payment.serviceName?.includes(',')
+                                      ? payment.serviceName.split(',').map(s => s.trim()).join('\n')
+                                      : payment.serviceName}
+                                  </td>
+                                  <td>
+                                    {hasProducts ? (
+                                      <div>
+                                        {productsList.map((prod, idx) => (
+                                          <div key={idx} style={{ fontSize: '0.85rem' }}>
+                                            {prod.name} <span style={{ color: '#888' }}>x{prod.quantity || 1}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <span style={{ color: '#555' }}>—</span>
+                                    )}
+                                  </td>
+                                  <td>
+                                    {payment.paidAt
+                                      ? payment.paidAt.slice(0, 10).split('-').reverse().join('/')
+                                      : <span style={{ color: '#666' }}>—</span>}
+                                  </td>
+                                  <td>
+                                    {planOnly ? (
+                                      <span style={{ color: '#d4af37', fontSize: '0.85rem', fontStyle: 'italic' }}>
+                                        Coberto pelo plano
+                                      </span>
+                                    ) : (
+                                      <strong>R$ {totalVal.toFixed(2)}</strong>
+                                    )}
+                                    {isSubscriber && hasProducts && (
+                                      <div style={{ fontSize: '0.78rem', color: '#888', marginTop: '2px' }}>
+                                        serviço coberto · +R$ {productsTotal.toFixed(2)} produtos
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td>
+                                    <PaymentBadge method={payment.paymentMethod} />
+                                  </td>
+                                  <td>
+                                    <span style={{
+                                      padding: '3px 10px',
+                                      borderRadius: '10px',
+                                      fontSize: '0.78rem',
+                                      fontWeight: 600,
+                                      ...(tipo === 'plano'
+                                        ? { background: '#d4af3722', color: '#d4af37', border: '1px solid #d4af3744' }
+                                        : tipo === 'local'
+                                        ? { background: '#3498db22', color: '#3498db', border: '1px solid #3498db44' }
+                                        : { background: '#ff7a1a22', color: '#ff7a1a', border: '1px solid #ff7a1a44' })
+                                    }}>
+                                      {tipo === 'plano' ? '🏅 Plano' : tipo === 'local' ? '🏪 Local' : '💳 Avulso'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+
+     
+              <div className="payments-list" style={{ marginBottom: '2rem' }}>
+                <h3>Vendas de Produtos {productSales.length > 0 && `(${productSales.length})`}</h3>
+                {(() => {
+                  const filtered = (() => {
+                    let base = [...productSales];
+                    const getDate = (s) => String(s.saleDate || s.createdAt || '').slice(0, 10);
+                    if (paymentDateFilter) {
+                      base = base.filter(s => getDate(s) === toDateStr(paymentDateFilter));
+                    } else if (paymentStartDate || paymentEndDate) {
+                      base = base.filter(s => isDateInRange(getDate(s), paymentStartDate, paymentEndDate));
+                    } else if (selectedMonth) {
+                      const [y, m] = selectedMonth.split('-');
+                      base = base.filter(s => {
+                        const [sy, sm] = getDate(s).split('-');
+                        return parseInt(sy) === parseInt(y) && parseInt(sm) === parseInt(m);
+                      });
+                    }
+                    return [...base].sort((a, b) =>
+                      (b.saleDate || b.createdAt || '').localeCompare(a.saleDate || a.createdAt || '')
+                    );
+                  })();
+
+                  if (filtered.length === 0) {
+                    return <p className="calendar-empty" style={{ color: '#888', fontSize: '0.9rem', padding: '1rem 0' }}>Nenhuma venda de produto encontrada para o período selecionado.</p>;
+                  }
+
+                  const grandTotal = filtered
+                    .filter(s => s.status === 'paid')
+                    .reduce((sum, s) => sum + parseFloat(s.productsTotal || 0), 0);
+
+                  return (
+                    <>
+                      <div style={{ marginBottom: '0.75rem', color: '#a8a8a8', fontSize: '0.88rem' }}>
+                        Total pago no período: <strong style={{ color: '#ff7a1a', fontSize: '1rem' }}>R$ {grandTotal.toFixed(2)}</strong>
+                      </div>
+                      <div className="payments-table">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Data</th>
+                              <th>Cliente</th>
+                              <th>Produtos</th>
+                              <th>Total</th>
+                              <th>Método</th>
+                              <th>Status</th>
+                              <th>Ações</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filtered.map((sale) => {
+                              const isPaid = sale.status === 'paid';
+                              const isPendingLocal = sale.status === 'pendinglocal';
+                              const isPendingOnline = sale.status === 'pending_online';
+                              return (
+                                <tr key={sale.id}>
+                                  <td>{String(sale.saleDate || sale.createdAt || '').slice(0,10).split('-').reverse().join('/')}</td>
+                                  <td>{sale.userName}</td>
+                                  <td>
+                                    {(sale.products || []).map((p, i) => (
+                                      <div key={i} style={{ fontSize: '0.85rem' }}>
+                                        {p.name} <span style={{ color: '#888' }}>x{p.quantity || 1}</span>
+                                      </div>
+                                    ))}
+                                  </td>
+                                  <td><strong>R$ {parseFloat(sale.productsTotal || 0).toFixed(2)}</strong></td>
+                                  <td><PaymentBadge method={sale.paymentMethod} /></td>
+                                  <td>
+                                    {isPaid ? (
+                                      <span style={{ color: '#27ae60', fontWeight: 600, fontSize: '0.82rem' }}>✓ Pago</span>
+                                    ) : isPendingLocal ? (
+                                      <span style={{ color: '#f39c12', fontWeight: 600, fontSize: '0.82rem' }}>Pagar no Local</span>
+                                    ) : (
+                                      <span style={{ color: '#3498db', fontWeight: 600, fontSize: '0.82rem' }}>Aguardando Online</span>
+                                    )}
+                                  </td>
+                                  <td>
+                                    {!isPaid && (
+                                      <div className="payment-action-buttons" style={{ flexWrap: 'wrap', gap: '4px' }}>
+                                        <button onClick={async () => { await atualizarVendaProduto(sale.id, { status: 'paid', paymentMethod: 'dinheiro', paidAt: new Date().toISOString() }); await loadData(); }} className="btn-edit btn-payment-small">Dinheiro</button>
+                                        <button onClick={async () => { await atualizarVendaProduto(sale.id, { status: 'paid', paymentMethod: 'pix', paidAt: new Date().toISOString() }); await loadData(); }} className="btn-edit btn-payment-small">PIX</button>
+                                        <button onClick={async () => { await atualizarVendaProduto(sale.id, { status: 'paid', paymentMethod: 'credito', paidAt: new Date().toISOString() }); await loadData(); }} className="btn-edit btn-payment-small">Crédito</button>
+                                        <button onClick={async () => { await atualizarVendaProduto(sale.id, { status: 'paid', paymentMethod: 'debito', paidAt: new Date().toISOString() }); await loadData(); }} className="btn-edit btn-payment-small">Débito</button>
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="payments-list">
@@ -3378,16 +3873,14 @@ const handleHomeInfoChange = (field, value) => {
                         </tr>
                       </thead>
                       <tbody>
-                        {getFilteredSubscriptions().map((sub) => (
+                        {[...getFilteredSubscriptions()].sort((a, b) => (b.createdAt || b.startDate || '').localeCompare(a.createdAt || a.startDate || '')).map((sub) => (
                           <tr key={sub.id}>
                             <td>{new Date(sub.createdAt || sub.startDate).toLocaleDateString('pt-BR')}</td>
                             <td>{sub.userName || 'N/A'}</td>
                             <td>{sub.planName}</td>
                             <td>R$ {parseFloat(sub.amount || sub.planPrice || 0).toFixed(2)}</td>
                             <td>
-                              <span className={`payment-method payment-method--${sub.paymentMethod?.toLowerCase()}`}>
-                                {sub.paymentMethod || 'N/A'}
-                              </span>
+                              <PaymentBadge method={sub.paymentMethod} />
                             </td>
                             <td>
                               <span className={`status-badge status-badge--${sub.status}`}>{sub.status === 'active' ? 'Ativo' : 'Inativo'}</span>
@@ -3675,6 +4168,57 @@ const handleHomeInfoChange = (field, value) => {
                       </p>
                     </div>
                   )}
+                </div>
+              )}
+
+              {!editingBarber?.isUserOnly && barberForm.userRole === 'barber' && (
+                <div style={{ marginTop: '1.5rem' }}>
+                  <label className="form-label" style={{ marginBottom: '0.6rem', display: 'block', fontWeight: 600, color: '#e0e0e0' }}>
+                    SERVIÇOS DE DOMÍNIO DO BARBEIRO
+                  </label>
+                  {services.length === 0 ? (
+                    <p style={{ color: '#666', fontSize: '0.85rem' }}>Nenhum serviço cadastrado ainda.</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.4rem' }}>
+                      {services.map((service) => {
+                        const isSelected = barberForm.serviceIds.includes(service.id);
+                        return (
+                          <button
+                            key={service.id}
+                            type="button"
+                            onClick={() => {
+                              handleBarberFormChange(
+                                'serviceIds',
+                                isSelected
+                                  ? barberForm.serviceIds.filter((id) => id !== service.id)
+                                  : [...barberForm.serviceIds, service.id]
+                              );
+                            }}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.35rem',
+                              padding: '6px 14px',
+                              borderRadius: '999px',
+                              border: isSelected ? '1.5px solid #ff7a1a' : '1.5px solid #444',
+                              background: isSelected ? 'rgba(255,122,26,0.15)' : 'transparent',
+                              color: isSelected ? '#ff7a1a' : '#888',
+                              fontSize: '0.82rem',
+                              fontWeight: isSelected ? 600 : 400,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
+                            {isSelected && <span style={{ fontSize: '0.75rem' }}>✓</span>}
+                            {service.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <p style={{ fontSize: '1rem', color: '#555', marginTop: '0.5rem' }}>
+                    Nenhum selecionado, exibe todos os serviços para este barbeiro.
+                  </p>
                 </div>
               )}
 

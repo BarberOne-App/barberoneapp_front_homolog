@@ -60,6 +60,10 @@ export default function AppointmentsPage() {
   const [existingAppointment, setExistingAppointment] = useState(null);
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [blockedDates, setBlockedDates] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
+  const [bookingForUser, setBookingForUser] = useState(null); // { id, name, photo }
+  const [showUserSelector, setShowUserSelector] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
 
   const hasLoadedOnce = useRef(false);
   const paymentsCache = useRef({});
@@ -75,16 +79,20 @@ export default function AppointmentsPage() {
     paymentsCache.current = {};
   }, []);
 
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.isAdmin === true;
+  const canScheduleForOthers = isAdmin || currentUser?.permissions?.scheduleForOthers === true;
+
+  // The "active" client for this booking session (self or selected user)
+  const activeClient = bookingForUser || currentUser;
+
   const checkExistingAppointmentOnDate = useCallback((date) => {
-    if (!date || !currentUser?.id) return null;
+    if (!date || !activeClient?.id) return null;
     const dateStr = date.toLocaleDateString('en-CA');
     const existingApt = appointments.find(
-      (apt) => apt.clientId === currentUser.id && apt.date === dateStr
+      (apt) => apt.clientId === activeClient.id && apt.date === dateStr
     );
     return existingApt || null;
-  }, [appointments, currentUser?.id]);
-
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.isAdmin === true;
+  }, [appointments, activeClient?.id]);
 
   const hasActiveSubscription = useMemo(() => {
     return userSubscriptions.some(
@@ -209,7 +217,8 @@ export default function AppointmentsPage() {
       const validBarbers = barbersData.filter((barber) => {
         if (!barber.userId) return true;
         const user = allUsers.find((u) => u.id === barber.userId);
-        return user && user.role === 'barber';
+        // Aceita se o user for barber OU se não tiver user vinculado (barber sem conta)
+        return !user || user.role === 'barber';
       });
 
       setBarbers(validBarbers);
@@ -217,6 +226,7 @@ export default function AppointmentsPage() {
       setProducts(productsData);
       setAppointments(appointmentsData);
       setUserSubscriptions(subscriptionsData);
+      setAllUsers(allUsers);
 
       if (!isFetchingPayments.current) {
         isFetchingPayments.current = true;
@@ -376,12 +386,23 @@ export default function AppointmentsPage() {
 const getAvailableTimes = useCallback((barberId, date) => { 
   if (!date) return [];
   const allTimes = generateTimes(30); 
-  const dateStr = date.toLocaleDateString('en-CA');
   const bookedTimes = getBookedSlots(barberId, date); 
-  
-  console.log('DEBUG bookedTimes:', bookedTimes); 
-  
-  return allTimes.filter(time => !bookedTimes.includes(time));
+
+  const today = new Date();
+  const isToday = date.toLocaleDateString('en-CA') === today.toLocaleDateString('en-CA');
+
+  return allTimes.filter(time => {
+    if (bookedTimes.includes(time)) return false;
+
+    if (isToday) {
+      const [hour, minute] = time.split(':').map(Number);
+      const slotMinutes = hour * 60 + minute;
+      const nowMinutes = today.getHours() * 60 + today.getMinutes();
+      if (slotMinutes <= nowMinutes) return false;
+    }
+
+    return true;
+  });
 }, [appointments]);
   const showToast = useCallback((message, type = 'success') => {
     setToast({ show: true, message, type });
@@ -421,7 +442,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
       }
 
       const existingAptOnDate = appointments.find(
-        (apt) => apt.clientId === currentUser.id && apt.date === dateStr
+        (apt) => apt.clientId === activeClient.id && apt.date === dateStr
       );
 
       if (existingAptOnDate && !isRescheduling) {
@@ -469,7 +490,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
     selectedDate,
     isRescheduling,
     appointments,
-    currentUser?.id,
+    activeClient?.id,
     getAvailableTimes,
     showToast,
     loadData,
@@ -563,8 +584,8 @@ const getAvailableTimes = useCallback((barberId, date) => {
         services: pendingBookingData.services,
         date: pendingBookingData.date,
         time: pendingBookingData.time,
-        client: currentUser.name,
-        clientId: currentUser.id,
+        client: activeClient.name,
+        clientId: activeClient.id,
         products: []
       };
 
@@ -574,8 +595,8 @@ const getAvailableTimes = useCallback((barberId, date) => {
 
       const paymentData = {
         appointmentId: createdAppointment.id,
-        userId: currentUser.id,
-        userName: currentUser.name,
+        userId: activeClient.id,
+        userName: activeClient.name,
         amount: 0,
         serviceName: serviceNames,
         barberName: pendingBookingData.barberName,
@@ -623,7 +644,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
     pendingBookingData,
     isRescheduling,
     existingAppointment,
-    currentUser?.id,
+    activeClient?.id,
     loadData,
     showToast,
     activeUserSubscription,
@@ -661,13 +682,13 @@ const getAvailableTimes = useCallback((barberId, date) => {
             services: pendingBookingData.services,
             date: pendingBookingData.date,
             time: pendingBookingData.time,
-            client: currentUser.name,
-            clientId: currentUser.id,
+            client: activeClient.name,
+            clientId: activeClient.id,
             products: purchaseData.products
           },
           paymentData: {
-            userId: currentUser.id,
-            userName: currentUser.name,
+            userId: activeClient.id,
+            userName: activeClient.name,
             amount: purchaseData.finalTotal,
             serviceName: serviceNames,
             barberName: pendingBookingData.barberName,
@@ -690,8 +711,8 @@ const getAvailableTimes = useCallback((barberId, date) => {
           services: pendingBookingData.services,
           date: pendingBookingData.date,
           time: pendingBookingData.time,
-          client: currentUser.name,
-          clientId: currentUser.id,
+          client: activeClient.name,
+          clientId: activeClient.id,
           products: purchaseData.products
         };
 
@@ -701,8 +722,8 @@ const getAvailableTimes = useCallback((barberId, date) => {
 
         const paymentData = {
           appointmentId: createdAppointment.id,
-          userId: currentUser.id,
-          userName: currentUser.name,
+          userId: activeClient.id,
+          userName: activeClient.name,
           amount: purchaseData.finalTotal,
           serviceName: serviceNames,
           barberName: pendingBookingData.barberName,
@@ -757,7 +778,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
     purchaseData,
     isRescheduling,
     existingAppointment,
-    currentUser?.id,
+    activeClient?.id,
     loadData,
     showToast,
     clearPaymentCache
@@ -872,6 +893,163 @@ const getAvailableTimes = useCallback((barberId, date) => {
           {view === 'calendar' && (
             <div className="appointments__booking">
               <h2>Selecione uma data</h2>
+
+       
+              {canScheduleForOthers && (
+                <div style={{
+                  background: '#1a1a1a',
+                  border: '1px solid #2a2a2a',
+                  borderRadius: '12px',
+                  padding: '1rem 1.25rem',
+                  marginBottom: '1.5rem',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: bookingForUser ? '0.75rem' : 0 }}>
+                    <span style={{ color: '#a8a8a8', fontSize: '0.85rem', fontWeight: 600 }}>
+                      📅 Agendar para:
+                    </span>
+                    <button
+                      onClick={() => setShowUserSelector((v) => !v)}
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid rgba(255,122,26,0.5)',
+                        color: '#ff7a1a',
+                        borderRadius: '7px',
+                        padding: '5px 14px',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {showUserSelector ? 'Fechar' : bookingForUser ? 'Alterar' : 'Selecionar cliente'}
+                    </button>
+                  </div>
+
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{
+                      width: 40, height: 40, borderRadius: '50%',
+                      background: '#2a2a2a',
+                      overflow: 'hidden',
+                      border: '2px solid ' + (bookingForUser ? '#ff7a1a' : '#444'),
+                      flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '1.1rem',
+                    }}>
+                      {(bookingForUser?.photo || currentUser?.photo) ? (
+                        <img
+                          src={bookingForUser?.photo || currentUser?.photo}
+                          alt="avatar"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      ) : '👤'}
+                    </div>
+                    <div>
+                      <p style={{ margin: 0, color: '#fff', fontWeight: 600, fontSize: '0.9rem' }}>
+                        {bookingForUser ? bookingForUser.name : currentUser?.name}
+                        {!bookingForUser && <span style={{ color: '#ff7a1a', marginLeft: 6, fontSize: '0.75rem' }}>(você)</span>}
+                      </p>
+                      {bookingForUser && (
+                        <button
+                          onClick={() => { setBookingForUser(null); setShowUserSelector(false); }}
+                          style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', fontSize: '0.75rem', padding: 0, marginTop: 2 }}
+                        >
+                          ✕ Remover seleção
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                
+                  {showUserSelector && (
+                    <div style={{ marginTop: '1rem' }}>
+                      <input
+                        type="text"
+                        placeholder="🔍 Buscar por nome ou telefone..."
+                        value={userSearch}
+                        onChange={(e) => setUserSearch(e.target.value)}
+                        style={{
+                          width: '100%', padding: '8px 12px',
+                          background: '#111', border: '1px solid #333',
+                          borderRadius: 8, color: '#fff', fontSize: '0.85rem',
+                          boxSizing: 'border-box', marginBottom: '0.5rem',
+                          outline: 'none',
+                        }}
+                        autoFocus
+                      />
+                      <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                      
+                        <div
+                          onClick={() => { setBookingForUser(null); setShowUserSelector(false); setUserSearch(''); }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '0.75rem',
+                            padding: '8px 10px', borderRadius: 8,
+                            background: !bookingForUser ? 'rgba(255,122,26,0.12)' : '#111',
+                            border: '1px solid ' + (!bookingForUser ? '#ff7a1a' : '#222'),
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <div style={{
+                            width: 34, height: 34, borderRadius: '50%',
+                            background: '#2a2a2a', overflow: 'hidden', flexShrink: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            {currentUser?.photo
+                              ? <img src={currentUser.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              : '👤'}
+                          </div>
+                          <div>
+                            <p style={{ margin: 0, color: '#fff', fontSize: '0.85rem', fontWeight: 600 }}>{currentUser?.name}</p>
+                            <p style={{ margin: 0, color: '#ff7a1a', fontSize: '0.72rem' }}>Você mesmo</p>
+                          </div>
+                        </div>
+
+                        {allUsers
+                          .filter((u) =>
+                            u.id !== currentUser?.id &&
+                            u.role === 'client' &&
+                            (
+                              !userSearch.trim() ||
+                              u.name?.toLowerCase().includes(userSearch.toLowerCase()) ||
+                              u.phone?.includes(userSearch)
+                            )
+                          )
+                          .map((u) => (
+                            <div
+                              key={u.id}
+                              onClick={() => {
+                                setBookingForUser({ id: u.id, name: u.name, photo: u.photo || '' });
+                                setShowUserSelector(false);
+                                setUserSearch('');
+                              }}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: '0.75rem',
+                                padding: '8px 10px', borderRadius: 8,
+                                background: bookingForUser?.id === u.id ? 'rgba(255,122,26,0.12)' : '#111',
+                                border: '1px solid ' + (bookingForUser?.id === u.id ? '#ff7a1a' : '#222'),
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <div style={{
+                                width: 34, height: 34, borderRadius: '50%',
+                                background: '#2a2a2a', overflow: 'hidden', flexShrink: 0,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              }}>
+                                {u.photo
+                                  ? <img src={u.photo} alt={u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; }} />
+                                  : '👤'}
+                              </div>
+                              <div>
+                                <p style={{ margin: 0, color: '#fff', fontSize: '0.85rem', fontWeight: 600 }}>{u.name}</p>
+                                <p style={{ margin: 0, color: '#666', fontSize: '0.72rem' }}>{u.phone || u.email || u.role}</p>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               <DatePicker
                 onSelectDate={handleSelectDate}
                 selectedDate={selectedDate}
@@ -944,7 +1122,11 @@ const getAvailableTimes = useCallback((barberId, date) => {
                           <BarberCard
                             key={barber.id}
                             barber={barberWithPhoto}
-                            services={services}
+                            services={
+                              barberWithPhoto.serviceIds && barberWithPhoto.serviceIds.length > 0
+                                ? services.filter((s) => barberWithPhoto.serviceIds.includes(s.id))
+                                : services
+                            }
                             selectedDate={selectedDate}
                             barberId={barber.id}
                             getBookedSlots={getBookedSlots}
@@ -1155,7 +1337,6 @@ const getAvailableTimes = useCallback((barberId, date) => {
   isOpen={showProductsModal}
   onClose={() => {
     setShowProductsModal(false);
-    // ← remover o setPendingBookingData(null) daqui
   }}
   products={products}
   onConfirm={handleProductsConfirm}

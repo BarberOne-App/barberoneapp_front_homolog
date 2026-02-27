@@ -8,9 +8,12 @@ import ProductsSection from '../components/ui/ProductsSection.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import { FaWhatsapp } from 'react-icons/fa';
 import { getServices, getGallery } from '../services/homeServices.js';
-import { buscarAssinaturaAtiva } from '../services/paymentService.js';
+import { buscarAssinaturaAtiva, criarVendaProduto } from '../services/paymentService.js';
+import ProductsModal from '../components/ui/ProductsModal.jsx';
+import PaymentChoiceModal from '../components/ui/PaymentChoiceModal.jsx';
 import { getProducts } from '../services/productService.js';
 import { getHomeInfo } from '../services/settingsService.js';
+import { getActiveBarbershop } from '../components/layout/Barbershops.jsx';
 import './Home.css';
 
 export default function Home() {
@@ -23,6 +26,11 @@ export default function Home() {
   const [activeSubscription, setActiveSubscription] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const [activeBarbershop] = useState(getActiveBarbershop);
+  const [showProductBuyModal, setShowProductBuyModal] = useState(false);
+  const [showProductPaymentModal, setShowProductPaymentModal] = useState(false);
+  const [selectedProductForBuy, setSelectedProductForBuy] = useState(null);
+  const [pendingProductSale, setPendingProductSale] = useState(null);
 
   const [siteInfo, setSiteInfo] = useState({
     heroTitle: "",
@@ -107,8 +115,69 @@ export default function Home() {
     }
   }
 
+  const handleUpdateStock = async (productId, quantity) => {
+    try {
+      const response = await fetch(`http://localhost:3000/products/${productId}`);
+      const product = await response.json();
+      const newStock = Math.max(0, product.stock - quantity);
+      await fetch(`http://localhost:3000/products/${productId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stock: newStock }),
+      });
+      setProducts((prev) =>
+        prev.map((p) => (p.id === productId ? { ...p, stock: newStock } : p))
+      );
+    } catch (error) {
+      console.error('Erro ao atualizar estoque:', error);
+    }
+  };
+
   const handleBuyProduct = (product) => {
-    showToast(`Produto ${product.name} disponível na barbearia!`, 'success');
+    if (!currentUser) {
+      showToast('Faça login para comprar produtos', 'danger');
+      navigate('/login');
+      return;
+    }
+    setSelectedProductForBuy(product);
+    setShowProductBuyModal(true);
+  };
+
+  const handleProductModalConfirm = (purchaseData) => {
+    if (!purchaseData.products || purchaseData.products.length === 0) {
+      setShowProductBuyModal(false);
+      return;
+    }
+    setPendingProductSale(purchaseData);
+    setShowProductBuyModal(false);
+    setShowProductPaymentModal(true);
+  };
+
+  const handleProductPaymentChoice = async (payNow) => {
+    if (!pendingProductSale) return;
+    try {
+      const status = payNow ? 'pending_online' : 'pendinglocal';
+      const paymentMethod = payNow ? null : 'local';
+      await criarVendaProduto({
+        userId: currentUser.id,
+        userName: currentUser.name,
+        products: pendingProductSale.products,
+        productsTotal: pendingProductSale.productsTotal,
+        status,
+        paymentMethod,
+      });
+      showToast(
+        payNow
+          ? 'Pedido registrado! Conclua o pagamento online.'
+          : 'Pedido registrado! Pague na barbearia.',
+        'success'
+      );
+    } catch (err) {
+      showToast('Erro ao registrar pedido.', 'danger');
+    } finally {
+      setPendingProductSale(null);
+      setShowProductPaymentModal(false);
+    }
   };
 
   const abrirModalGerenciar = () => {
@@ -340,6 +409,40 @@ export default function Home() {
           onClose={() => setShowManageModal(false)}
           subscription={activeSubscription}
           user={currentUser}
+        />
+      )}
+
+      {showProductBuyModal && (
+        <ProductsModal
+          isOpen={showProductBuyModal}
+          onClose={() => setShowProductBuyModal(false)}
+          products={selectedProductForBuy ? [selectedProductForBuy, ...products.filter(p => p.id !== selectedProductForBuy.id)] : products}
+          onConfirm={handleProductModalConfirm}
+          hasActiveSubscription={!!activeSubscription}
+          servicePrice={0}
+          serviceName=""
+          onUpdateStock={handleUpdateStock}
+        />
+      )}
+
+      {showProductPaymentModal && pendingProductSale && (
+        <PaymentChoiceModal
+          isOpen={showProductPaymentModal}
+          onClose={() => setShowProductPaymentModal(false)}
+          onChoose={handleProductPaymentChoice}
+          appointmentDetails={{
+            barberName: '—',
+            date: new Date().toLocaleDateString('pt-BR'),
+            time: '—',
+            serviceName: 'Compra de Produto',
+          }}
+          purchaseData={{
+            products: pendingProductSale.products,
+            productsTotal: pendingProductSale.productsTotal,
+            servicePrice: 0,
+            finalTotal: pendingProductSale.productsTotal,
+            hasActiveSubscription: !!activeSubscription,
+          }}
         />
       )}
 

@@ -22,7 +22,7 @@ export default function ConfirmModal({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
-        {/* Header com X no topo direito */}
+
         <div className="confirm-modal-header">
           <button className="modal-close" onClick={onClose}>
             <X size={24} />

@@ -4,14 +4,8 @@ import BaseLayout from "../components/layout/BaseLayout.jsx";
 import Button from "../components/ui/Button.jsx";
 import Input from "../components/ui/Input.jsx";
 import { userExists, createUser } from "../services/userServices.js";
+import { BARBERSHOPS } from "../components/layout/Barbershops.jsx";
 import "./AuthPages.css";
-
-const BARBERSHOPS_OPTIONS = [
-  { id: "001", name: "Barbearia Rodrigues" },
-  { id: "002", name: "Barbearia Lucas" },
-  { id: "003", name: "Barbearia Abilton" },
-  { id: "004", name: "Barbearia Rodolpho" },
-];
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -22,13 +16,11 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [barbershop, setBarbershop] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [adminSecret, setAdminSecret] = useState("");
   const [message, setMessage] = useState({ type: "", text: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
-  // const ADMIN_SECRET_CODE = "ADDEV2024";
+
 
   const isValidEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -124,12 +116,6 @@ export default function RegisterPage() {
       return;
     }
 
-    if (isAdmin && adminSecret !== ADMIN_SECRET_CODE) {
-      setMessage({ type: "error", text: "Código secreto de administrador inválido." });
-      setIsSubmitting(false);
-      return;
-    }
-
     try {
       const exists = await userExists(email);
       if (exists) {
@@ -138,7 +124,7 @@ export default function RegisterPage() {
         return;
       }
 
-      const selectedBarbershop = BARBERSHOPS_OPTIONS.find((b) => b.id === barbershop);
+      const selectedBarbershop = BARBERSHOPS.find((b) => b.id === barbershop);
 
       const userData = {
         name,
@@ -148,14 +134,13 @@ export default function RegisterPage() {
         birthDate,
         barbershops: selectedBarbershop ? [selectedBarbershop] : [],
         password,
-        role: isAdmin ? "admin" : "client",
-        isAdmin,
+        role: "client",
       };
 
       await createUser(userData);
       setMessage({
         type: "success",
-        text: `Cadastro ${isAdmin ? "de administrador " : ""}realizado! Redirecionando...`,
+        text: "Cadastro realizado! Redirecionando...",
       });
       setTimeout(() => navigate("/login"), 800);
     } catch (err) {
@@ -226,7 +211,7 @@ export default function RegisterPage() {
                 required
               >
                 <option value="">Selecione uma barbearia</option>
-                {BARBERSHOPS_OPTIONS.map((b) => (
+                {BARBERSHOPS.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
                   </option>
@@ -248,16 +233,6 @@ export default function RegisterPage() {
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Digite a senha novamente"
             />
-
-            {isAdmin && (
-              <Input
-                label="Código Secreto de Admin"
-                type="password"
-                value={adminSecret}
-                onChange={(e) => setAdminSecret(e.target.value)}
-                placeholder="Digite o código secreto"
-              />
-            )}
 
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? "Validando..." : "Cadastrar"}

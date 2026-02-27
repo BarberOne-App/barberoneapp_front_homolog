@@ -374,12 +374,18 @@ export default function PaymentModal({
     }
   };
 
-  const handleResetPayment = () => {
+  const handleResetPayment = async () => {
+    if (brickController) {
+      try {
+        await brickController.unmount();
+      } catch (_) {}
+    }
+    setBrickController(null);
+    setBrickLoaded(false);
+    isRenderingBrick.current = false;
     setPaymentStatus(null);
     setShowErrorToast(false);
     setErrorMessage('');
-    setBrickLoaded(false);
-    setBrickController(null);
   };
 
   const handleMercadoPagoSubmit = async (cardFormData) => {
@@ -601,8 +607,14 @@ export default function PaymentModal({
 
           <div className="payment-modal-header">
             <h2>
-              {isRecurringSubscription
+              {paymentStatus === 'rejected'
+                ? 'Pagamento Recusado'
+                : paymentStatus === 'in_process'
+                ? 'Pagamento em Análise'
+                : isRecurringSubscription
                 ? 'Confirme sua assinatura'
+                : isAppointmentPayment
+                ? 'Finalizar pagamento do agendamento'
                 : 'Complete os dados para finalizar sua compra'}
             </h2>
             {!isAppointmentPayment && (

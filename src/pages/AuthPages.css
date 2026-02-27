@@ -4150,3 +4150,49 @@
   background-color: #1a1a1a;
   color: #fff;
 }
+
+
+.status-overdue {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.status-paid {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.status-pending-local {
+  background: rgba(234, 179, 8, 0.15);
+  color: #eab308;
+  border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+
+.row-overdue td {
+  background: rgba(239, 68, 68, 0.04);
+}
+
+
+.btn-done {
+  background: rgba(34, 197, 94, 0.15) !important;
+  color: #22c55e !important;
+  border: 1px solid rgba(34, 197, 94, 0.3) !important;
+}
+
+.btn-done:hover {
+  background: rgba(34, 197, 94, 0.25) !important;
+}
+
+
+.btn-noshow {
+  background: rgba(249, 115, 22, 0.15) !important;
+  color: #f97316 !important;
+  border: 1px solid rgba(249, 115, 22, 0.3) !important;
+}
+
+.btn-noshow:hover {
+  background: rgba(249, 115, 22, 0.25) !important;
+}

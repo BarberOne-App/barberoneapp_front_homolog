@@ -165,7 +165,7 @@ export default function ProductsSection({ activeSubscription, onBuyProduct }) {
                     onClick={() => onBuyProduct(product)}
                     disabled={isOutOfStock}
                   >
-                    {isOutOfStock ? 'Indisponível' : 'Disponível na Barbearia'}
+                    {isOutOfStock ? 'Indisponível' : 'Comprar'}
                   </button>
                 </div>
               </div>

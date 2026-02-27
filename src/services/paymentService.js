@@ -661,3 +661,51 @@ export const testarNotificacaoWhatsApp = async () => {
     throw error;
   }
 };
+
+
+
+export const criarVendaProduto = async (dados) => {
+  try {
+    const venda = {
+      userId: dados.userId,
+      userName: dados.userName,
+      products: dados.products,
+      productsTotal: dados.productsTotal,
+      status: dados.status || 'pending',
+      paymentMethod: dados.paymentMethod || null,
+      saleDate: new Date().toISOString().split('T')[0],
+      ...(dados.status === 'paid' ? { paidAt: new Date().toISOString() } : {}),
+      type: 'product_sale',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const response = await api.post('/productSales', venda);
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao criar venda de produto:', error);
+    throw new Error('Não foi possível registrar a venda');
+  }
+};
+
+export const buscarTodasVendasProdutos = async () => {
+  try {
+    const response = await api.get('/productSales');
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao buscar vendas de produtos:', error);
+    return [];
+  }
+};
+
+export const atualizarVendaProduto = async (id, dados) => {
+  try {
+    const response = await api.patch(`/productSales/${id}`, {
+      ...dados,
+      updatedAt: new Date().toISOString(),
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao atualizar venda:', error);
+    throw new Error('Não foi possível atualizar a venda');
+  }
+};
