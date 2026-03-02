@@ -51,7 +51,8 @@
       "name": "João",
       "specialty": "Cortes Clássicos",
       "photo": "https://i.pravatar.cc/150?img=12",
-      "commissionPercent": 50,
+      "commissionPercent": "20",
+      "planCommissionPercent": 20,
       "serviceIds": [],
       "userId": "user_joao_123",
       "id": "1"
@@ -4497,7 +4498,7 @@
       "description": "Hidrata e amacia a barba, com fragrância amadeirada",
       "price": "R$ 1.00",
       "subscriberDiscount": 0,
-      "stock": 12,
+      "stock": 11,
       "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
       "id": "3"
     },

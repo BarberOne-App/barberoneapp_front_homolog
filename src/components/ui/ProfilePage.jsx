@@ -1,10 +1,11 @@
-  import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
   import { useNavigate } from 'react-router-dom';
   import { getSession, logout } from '../../services/authService';
   import { buscarAssinaturaAtiva } from '../../services/paymentService';
   import ManageSubscriptionModal from '../ui/ManageSubscriptionModal.jsx';
   import SubscriptionModal from '../ui/SubscriptionModal.jsx';
-  import { FaCalendarAlt, FaShieldAlt, FaCreditCard, FaSignOutAlt, FaCamera, FaUser, FaEnvelope, FaEdit, FaCheck, FaTimes, FaArrowLeft, FaHome } from 'react-icons/fa';
+  import { FaCalendarAlt, FaShieldAlt, FaCreditCard, FaSignOutAlt, FaCamera, FaUser, FaEnvelope, FaEdit, FaCheck, FaTimes, FaArrowLeft, FaHome, FaStore } from 'react-icons/fa';
+  import { BARBERSHOPS, getActiveBarbershop, setActiveBarbershop } from '../layout/Barbershops';
   import './ProfilePage.css';
   import Header from '../layout/Header.jsx';
   import { uploadImagem, criarPreviewLocal } from '../../services/cloudinaryService';
@@ -27,6 +28,7 @@
     const [savingName, setSavingName] = useState(false);
     const [activeTab, setActiveTab] = useState('perfil');
     const [toast, setToast] = useState(null);
+    const [activeBarbershop, setActiveBarbershopState] = useState(getActiveBarbershop);
 
     useEffect(() => {
       const user = getSession();
@@ -140,6 +142,12 @@
     const navigateWithToast = (path, message) => {
       showToast(message);
       setTimeout(() => navigate(path), 1000);
+    };
+
+    const handleSelectBarbershop = (shop) => {
+      setActiveBarbershop(shop);
+      setActiveBarbershopState(shop);
+      showToast(`Barbearia alterada para ${shop.name}`);
     };
 
     const handleLogout = () => {
@@ -331,7 +339,50 @@
                 </div>
               </div>
 
-  
+       
+              {!isAdmin && !isReceptionist && !isBarber && (
+                <div className="profile-card">
+                  <div className="profile-card__label">
+                    <FaStore className="profile-card__icon" />
+                    Barbearia
+                  </div>
+                  <div className="profile-card__value-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.75rem' }}>
+                    <span className="profile-card__value" style={{ color: '#a8a8a8', fontSize: '0.85rem' }}>
+                      Barbearia selecionada: <strong style={{ color: '#fff' }}>{activeBarbershop.name}</strong>
+                    </span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      {BARBERSHOPS.map((shop) => (
+                        <button
+                          key={shop.id}
+                          onClick={() => handleSelectBarbershop(shop)}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '6px',
+                            border: activeBarbershop.id === shop.id
+                              ? '1px solid #ff7a1a'
+                              : '1px solid rgba(255,255,255,0.15)',
+                            background: activeBarbershop.id === shop.id
+                              ? 'rgba(255,122,26,0.15)'
+                              : 'transparent',
+                            color: activeBarbershop.id === shop.id ? '#ff7a1a' : '#a8a8a8',
+                            fontWeight: activeBarbershop.id === shop.id ? 700 : 400,
+                            fontSize: '0.82rem',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.3rem',
+                            transition: 'all 0.2s',
+                          }}
+                        >
+                          {activeBarbershop.id === shop.id && <FaCheck style={{ fontSize: '0.7rem' }} />}
+                          {shop.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="profile-card profile-card--photo">
                 <div className="profile-card__label">
                   <FaCamera className="profile-card__icon" />

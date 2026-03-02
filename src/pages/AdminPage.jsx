@@ -107,6 +107,7 @@ export default function AdminPage() {
     specialty: '',
     photo: '',
     commissionPercent: 50,
+    planCommissionPercent: 30,
     createUser: false,
     userEmail: '',
     userPassword: '',
@@ -384,6 +385,13 @@ const getFilteredPayments = () => {
     });
   }
 
+  if (selectedBarberFilter !== 'all') {
+    const selectedBarber = barbers.find(b => b.id?.toString() === selectedBarberFilter.toString());
+    if (selectedBarber) {
+      filtered = filtered.filter(payment => payment.barberName === selectedBarber.name);
+    }
+  }
+
   return filtered;
 };
 
@@ -576,13 +584,12 @@ const handleHomeInfoChange = (field, value) => {
       }
     }
 
-    // Verificar duplicata: mesmo dia + barbeiro + tipo
+  
     const dateExists = blockedDates.some((blocked) => {
       const sameDate = blocked.date === newBlockedDate.date;
       const sameBarber = blocked.barberId === newBlockedDate.barberId;
       if (!sameDate || !sameBarber) return false;
-      if (!isTimeBlock) return !blocked.startTime; // dia inteiro duplicado
-      // bloqueio de horário: checar sobreposição
+      if (!isTimeBlock) return !blocked.startTime; 
       if (!blocked.startTime) return false;
       return newBlockedDate.startTime < blocked.endTime && newBlockedDate.endTime > blocked.startTime;
     });
@@ -906,6 +913,7 @@ const handleHomeInfoChange = (field, value) => {
         specialty: employee.role === 'admin' ? 'Administrador' : 'Recepcionista',
         photo: employee.photo || '',
         commissionPercent: 50,
+        planCommissionPercent: 30,
         createUser: false,
         userEmail: employee.email || '',
         userPassword: '',
@@ -919,6 +927,7 @@ const handleHomeInfoChange = (field, value) => {
         specialty: barber.specialty,
         photo: barber.photo,
         commissionPercent: barber.commissionPercent || 50,
+        planCommissionPercent: barber.planCommissionPercent || 30,
         createUser: false,
         userEmail: '',
         userPassword: '',
@@ -933,6 +942,7 @@ const handleHomeInfoChange = (field, value) => {
         specialty: '',
         photo: '',
         commissionPercent: 50,
+        planCommissionPercent: 30,
         createUser: false,
         userEmail: '',
         userPassword: '',
@@ -952,6 +962,7 @@ const handleHomeInfoChange = (field, value) => {
       specialty: '',
       photo: '',
       commissionPercent: 50,
+      planCommissionPercent: 30,
       createUser: false,
       userEmail: '',
       userPassword: '',
@@ -1032,6 +1043,7 @@ const handleHomeInfoChange = (field, value) => {
           specialty: barberForm.specialty,
           photo: barberForm.photo,
           commissionPercent: barberForm.commissionPercent,
+          planCommissionPercent: parseFloat(barberForm.planCommissionPercent) || 30,
           serviceIds: barberForm.serviceIds || [],
           
           ...(editingBarber && !editingBarber.isUserOnly
@@ -1544,7 +1556,8 @@ const handleHomeInfoChange = (field, value) => {
       dinheiro: 0,
       cartao: 0,
       total: 0,
-      count: { pix: 0, credito: 0, debito: 0, dinheiro: 0, cartao: 0 },
+      planCovered: 0,
+      count: { pix: 0, credito: 0, debito: 0, dinheiro: 0, cartao: 0, planCovered: 0 },
     };
     const filteredSubscriptions = filterPaymentsByMonth(subscriptions);
     filteredSubscriptions.forEach((sub) => {
@@ -1567,6 +1580,11 @@ const handleHomeInfoChange = (field, value) => {
     const paidAppointmentPayments = paymentsToUse.filter((p) => p.status === 'paid');
     paidAppointmentPayments.forEach((payment) => {
       const amount = parseFloat(payment.amount || 0);
+      const isPlanCovered = payment.status === 'plan_covered' || payment.status === 'plancovered' || payment.paymentMethod === 'subscription';
+      if (isPlanCovered) {
+        stats.count.planCovered++;
+        return;
+      }
       if (amount > 0) {
         stats.total += amount;
         const method = payment.paymentMethod?.toLowerCase();
@@ -2384,18 +2402,6 @@ const handleHomeInfoChange = (field, value) => {
                                 <span className="stat-label">Atendimentos</span>
                                 <span className="stat-value">{stats.appointmentsCount}</span>
                               </div>
-                              <div className="stat-item">
-                                <span className="stat-label">Faturamento Total</span>
-                                <span className="stat-value stat-value-highlight">R$ {stats.totalRevenue.toFixed(2)}</span>
-                              </div>
-                              <div className="stat-item">
-                                <span className="stat-label">Comissão ({stats.commissionPercent}%)</span>
-                                <span className="stat-value stat-value-success">R$ {stats.barberEarnings.toFixed(2)}</span>
-                              </div>
-                              <div className="stat-item">
-                                <span className="stat-label">Barbearia</span>
-                                <span className="stat-value">R$ {stats.shopEarnings.toFixed(2)}</span>
-                              </div>
                             </div>
                           )}
 
@@ -2454,14 +2460,12 @@ const handleHomeInfoChange = (field, value) => {
                                     <th>Horário</th>
                                     <th>Serviços</th>
                                     <th>Total</th>
-                                    <th>Barbeiro ({stats.commissionPercent}%)</th>
                                     <th>Ações</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {barberAppointments.map((apt) => {
                                     const aptTotal = calculateTotal(apt.services);
-                                    const barberEarning = (aptTotal * stats.commissionPercent) / 100;
                                     return (
                                       <tr key={apt.id} className={apt.status === 'confirmed' ? 'row-confirmed' : ''}>
                                         <td>
@@ -2486,7 +2490,6 @@ const handleHomeInfoChange = (field, value) => {
                                           </div>
                                         </td>
                                         <td className="total-price">R$ {aptTotal.toFixed(2)}</td>
-                                        <td className="barber-earning">R$ {barberEarning.toFixed(2)}</td>
                                         <td>
                                           <div className="fluig-actions-buttons">
                                             {apt.status !== 'confirmed' && (
@@ -3482,11 +3485,21 @@ const handleHomeInfoChange = (field, value) => {
                     <p className="stat-count">{paymentStats.count.cartao} transações</p>
                   </div>
                 )}
+                {paymentStats.count.planCovered > 0 && (
+                  <div className="payment-stat-card">
+                    <h3>🏅 Cobertos por Plano</h3>
+                    <p className="stat-value">Grátis</p>
+                    <p className="stat-count">{paymentStats.count.planCovered} agendamentos</p>
+                  </div>
+                )}
                 <div className="payment-stat-card payment-stat-card--total">
                   <h3>Total Geral</h3>
                   <p className="stat-value">R$ {paymentStats.total.toFixed(2)}</p>
-                  <p className="stat-count">{Object.values(paymentStats.count).reduce((a, b) => a + b, 0)} transações</p>
-                  <p style={{ fontSize: '0.85rem', marginTop: '8px', opacity: 0.9 }}>Assinaturas + Agendamentos</p>
+                  <p className="stat-count">
+                    {Object.entries(paymentStats.count).filter(([k]) => k !== 'planCovered').reduce((a, [, v]) => a + v, 0)} transações pagas
+                    {paymentStats.count.planCovered > 0 && ` + ${paymentStats.count.planCovered} por plano`}
+                  </p>
+                  <p style={{ fontSize: '0.85rem', marginTop: '8px', opacity: 0.9 }}>Agendamentos pagos + Assinaturas</p>
                 </div>
               </div>
 
@@ -3614,7 +3627,7 @@ const handleHomeInfoChange = (field, value) => {
 
             
               <div className="payments-list" style={{ marginBottom: '2rem' }}>
-                <h3>
+                <h3 style={{ marginBottom: '1rem' }}>
                   Pagamentos de Agendamentos
                   {' '}
                   {(() => {
@@ -3631,169 +3644,217 @@ const handleHomeInfoChange = (field, value) => {
                     }
                     return base;
                   })();
+
                   if (allPaid.length === 0) {
                     return <p className="calendar-empty" style={{ color: '#888', fontSize: '0.9rem', padding: '1rem 0' }}>Nenhum pagamento de agendamento encontrado para o período selecionado.</p>;
                   }
 
-                  
-                  const grandTotal = allPaid.reduce((sum, p) => {
-                    const isSubscriber = clientSubscriptionStatus[p.userId] || p.status === 'plan_covered' || p.status === 'plancovered' || p.paymentMethod === 'subscription' || false;
-                    const appointment = p.appointmentId
-                      ? appointments.find(apt => apt.id?.toString() === p.appointmentId?.toString())
-                      : appointments.find(apt =>
-                          apt.clientId === p.userId &&
-                          apt.date === p.appointmentDate &&
-                          apt.time === p.appointmentTime
-                        );
-                    const productsList = appointment?.products?.filter(pr => pr && pr.name) || [];
-                    const productsTotal = productsList.reduce((s, prod) => {
-                      const price = typeof prod.price === 'string'
-                        ? parseFloat(prod.price.replace(/R\$/g, '').replace(/,/g, '.').trim()) || 0
-                        : prod.price || 0;
-                      return s + (price * (prod.quantity || 1));
-                    }, 0);
-                    const serviceVal = isSubscriber ? 0 : parseFloat(p.amount || 0);
-                    return sum + serviceVal + productsTotal;
-                  }, 0);
+                
+                  const barberNames = [...new Set(allPaid.map(p => p.barberName || 'Sem barbeiro'))];
 
-                  return (
-                    <>
-                      <div style={{ marginBottom: '0.75rem', color: '#a8a8a8', fontSize: '0.88rem' }}>
-                        Total do período: <strong style={{ color: '#ff7a1a', fontSize: '1rem' }}>R$ {grandTotal.toFixed(2)}</strong>
+                  return barberNames.map(barberName => {
+                    const barberObj = barbers.find(b => b.name === barberName);
+                    const barberPayments = allPaid.filter(p => (p.barberName || 'Sem barbeiro') === barberName);
+                    const isExpanded = expandedBarbers[`pay_${barberName}`];
+
+                   
+                    const commissionPercent = barberObj?.commissionPercent || 50;
+                    const paidOnly = barberPayments.filter(p => {
+                      const isPlanCovered = p.status === 'plan_covered' || p.status === 'plancovered' || p.paymentMethod === 'subscription';
+                      return !isPlanCovered;
+                    });
+                    const totalRevenue = paidOnly.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+                    const barberEarnings = (totalRevenue * commissionPercent) / 100;
+                    const shopEarnings = totalRevenue - barberEarnings;
+                    const planCount = barberPayments.length - paidOnly.length;
+                    const planCommissionPercent = barberObj?.planCommissionPercent || 30;
+                    const barberPlanSubs = subscriptions.filter(s => {
+                      if (!s.monthlyBarberId) return false;
+                      if (s.monthlyBarberId.toString() !== barberObj?.id?.toString()) return false;
+                      const refDate = s.monthlyBarberSetDate || s.createdAt || s.startDate;
+                      if (!refDate) return false;
+                      const d = new Date(refDate);
+                      const [year, month] = selectedMonth.split('-');
+                      return d.getFullYear() === parseInt(year) && (d.getMonth() + 1) === parseInt(month);
+                    });
+                    const planRevenue = barberPlanSubs.reduce((sum, s) => sum + parseFloat(s.amount || s.planPrice || 0), 0);
+                    const planEarnings = (planRevenue * planCommissionPercent) / 100;
+
+                    return (
+                      <div key={barberName} className="fluig-table-parent" style={{ marginBottom: '0.75rem' }}>
+                
+                        <div
+                          className="fluig-row-parent"
+                          onClick={() => setExpandedBarbers(prev => ({ ...prev, [`pay_${barberName}`]: !prev[`pay_${barberName}`] }))}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <div className="fluig-expand-icon">{isExpanded ? '▼' : '▶'}</div>
+
+                          <div className="fluig-barber-info">
+                            {barberObj?.photo && (
+                              <img src={barberObj.photo} alt={barberName} className="fluig-barber-photo" />
+                            )}
+                            <div className="fluig-barber-details">
+                              <h3 className="fluig-barber-name">{barberName}</h3>
+                              <p className="fluig-barber-specialty">{barberObj?.specialty || 'Barbeiro'}</p>
+                            </div>
+                          </div>
+
+                          <div className="fluig-barber-stats">
+                            <div className="stat-item">
+                              <span className="stat-label">Atendimentos</span>
+                              <span className="stat-value">{barberPayments.length}{planCount > 0 && <span style={{ color: '#d4af37', fontSize: '0.75rem', marginLeft: 4 }}>({planCount} plano)</span>}</span>
+                            </div>
+                            <div className="stat-item">
+                              <span className="stat-label">Faturamento</span>
+                              <span className="stat-value stat-value-highlight">R$ {totalRevenue.toFixed(2)}</span>
+                            </div>
+                            <div className="stat-item">
+                              <span className="stat-label">Comissão ({commissionPercent}%)</span>
+                              <span className="stat-value stat-value-success">R$ {barberEarnings.toFixed(2)}</span>
+                            </div>
+                            <div className="stat-item">
+                              <span className="stat-label">Barbearia</span>
+                              <span className="stat-value">R$ {shopEarnings.toFixed(2)}</span>
+                            </div>
+                            {planEarnings > 0 && (
+                              <div className="stat-item">
+                                <span className="stat-label">
+                                  Comissão Planos ({planCommissionPercent}%)
+                                  <span style={{ color: '#d4af37', fontSize: '0.75rem', marginLeft: 4 }}>
+                                    {barberPlanSubs.length} assinante(s)
+                                  </span>
+                                </span>
+                                <span className="stat-value stat-value-success">R$ {planEarnings.toFixed(2)}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                 
+                        {isExpanded && (
+                          <div className="fluig-children-container">
+                            <div className="payments-table">
+                              <table>
+                                <thead>
+                                  <tr>
+                                    <th>Data Agend.</th>
+                                    <th>Cliente</th>
+                                    <th>Serviço</th>
+                                    <th>Produtos</th>
+                                    <th>Data Pag.</th>
+                                    <th>Valor</th>
+                                    <th>Comissão</th>
+                                    <th>Método</th>
+                                    <th>Tipo</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {[...barberPayments]
+                                    .sort((a, b) => (b.appointmentDate || b.paidAt || b.createdAt || '').localeCompare(a.appointmentDate || a.paidAt || a.createdAt || ''))
+                                    .map((payment) => {
+                                      const isSubscriber = clientSubscriptionStatus[payment.userId] || payment.status === 'plan_covered' || payment.status === 'plancovered' || payment.paymentMethod === 'subscription' || false;
+                                      const isPlanCovered = payment.status === 'plan_covered' || payment.status === 'plancovered' || payment.paymentMethod === 'subscription';
+                                      const tipo = isPlanCovered ? 'plano' : (payment.paymentMethod === 'local' || payment.status === 'pendinglocal') ? 'local' : 'avulso';
+
+                                      const appointment = payment.appointmentId
+                                        ? appointments.find(apt => apt.id?.toString() === payment.appointmentId?.toString())
+                                        : appointments.find(apt => apt.clientId === payment.userId && apt.date === payment.appointmentDate && apt.time === payment.appointmentTime);
+                                      const productsList = appointment?.products?.filter(pr => pr && pr.name) || [];
+                                      const hasProducts = productsList.length > 0;
+                                      const productsTotal = productsList.reduce((s, prod) => {
+                                        const price = typeof prod.price === 'string' ? parseFloat(prod.price.replace(/R\$/g, '').replace(/,/g, '.').trim()) || 0 : prod.price || 0;
+                                        return s + (price * (prod.quantity || 1));
+                                      }, 0);
+                                      const serviceVal = parseFloat(payment.amount || 0);
+                                      const totalVal = isSubscriber ? productsTotal : serviceVal + productsTotal;
+                                      const planOnly = isSubscriber && !hasProducts;
+                                      const rowComm = isPlanCovered ? 0 : (serviceVal * commissionPercent) / 100;
+
+                                      return (
+                                        <tr key={payment.id}>
+                                          <td>{payment.appointmentDate?.split('-').reverse().join('/')}</td>
+                                          <td>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                              {payment.userName}
+                                              {isSubscriber && (
+                                                <span style={{ background: '#d4af37', color: '#000', padding: '1px 7px', borderRadius: '10px', fontSize: '0.72rem', fontWeight: 'bold' }}>ASSINANTE</span>
+                                              )}
+                                            </div>
+                                          </td>
+                                          <td style={{ whiteSpace: 'pre-line' }}>
+                                            {Array.isArray(payment.serviceName)
+                                              ? payment.serviceName.join('\n')
+                                              : payment.serviceName?.includes(',')
+                                              ? payment.serviceName.split(',').map(s => s.trim()).join('\n')
+                                              : payment.serviceName}
+                                          </td>
+                                          <td>
+                                            {hasProducts
+                                              ? productsList.map((prod, idx) => (
+                                                  <div key={idx} style={{ fontSize: '0.85rem' }}>{prod.name} <span style={{ color: '#888' }}>x{prod.quantity || 1}</span></div>
+                                                ))
+                                              : <span style={{ color: '#555' }}>—</span>}
+                                          </td>
+                                          <td>{payment.paidAt ? payment.paidAt.slice(0, 10).split('-').reverse().join('/') : <span style={{ color: '#666' }}>—</span>}</td>
+                                          <td>
+                                            {planOnly
+                                              ? <span style={{ color: '#d4af37', fontSize: '0.85rem', fontStyle: 'italic' }}>Coberto pelo plano</span>
+                                              : <strong>R$ {totalVal.toFixed(2)}</strong>}
+                                            {isSubscriber && hasProducts && (
+                                              <div style={{ fontSize: '0.78rem', color: '#888', marginTop: '2px' }}>serviço coberto · +R$ {productsTotal.toFixed(2)} produtos</div>
+                                            )}
+                                          </td>
+                                          <td>
+                                            {isPlanCovered
+                                              ? <span style={{ color: '#555', fontSize: '0.82rem' }}>—</span>
+                                              : <span style={{ color: '#22c55e', fontWeight: 600 }}>R$ {rowComm.toFixed(2)}</span>}
+                                          </td>
+                                          <td><PaymentBadge method={payment.paymentMethod} /></td>
+                                          <td>
+                                            <span style={{
+                                              padding: '3px 10px', borderRadius: '10px', fontSize: '0.78rem', fontWeight: 600,
+                                              ...(tipo === 'plano' ? { background: '#d4af3722', color: '#d4af37', border: '1px solid #d4af3744' }
+                                                : tipo === 'local' ? { background: '#3498db22', color: '#3498db', border: '1px solid #3498db44' }
+                                                : { background: '#ff7a1a22', color: '#ff7a1a', border: '1px solid #ff7a1a44' })
+                                            }}>
+                                              {tipo === 'plano' ? '🏅 Plano' : tipo === 'local' ? '🏪 Local' : '💳 Avulso'}
+                                            </span>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div className="payments-table">
-                        <table>
-                          <thead>
-                            <tr>
-                              <th>Data Agend.</th>
-                              <th>Cliente</th>
-                              <th>Barbeiro</th>
-                              <th>Serviço</th>
-                              <th>Produtos</th>
-                              <th>Data Pag.</th>
-                              <th>Valor Total</th>
-                              <th>Método</th>
-                              <th>Tipo</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {[...allPaid].sort((a, b) => (b.appointmentDate || b.paidAt || b.createdAt || '').localeCompare(a.appointmentDate || a.paidAt || a.createdAt || '')).map((payment) => {
-                              const isSubscriber = clientSubscriptionStatus[payment.userId] || payment.status === 'plan_covered' || payment.status === 'plancovered' || payment.paymentMethod === 'subscription' || false;
-                              
-                              const appointment = (() => {
-                                if (payment.appointmentId) {
-                                  return appointments.find(apt => apt.id?.toString() === payment.appointmentId?.toString());
-                                }
-                                
-                                return appointments.find(apt =>
-                                  apt.clientId === payment.userId &&
-                                  apt.date === payment.appointmentDate &&
-                                  apt.time === payment.appointmentTime
-                                );
-                              })();
-                              const productsList = appointment?.products?.filter(p => p && p.name) || [];
-                              const hasProducts = productsList.length > 0;
-
-                              const productsTotal = productsList.reduce((s, prod) => {
-                                const price = typeof prod.price === 'string'
-                                  ? parseFloat(prod.price.replace(/R\$/g, '').replace(/,/g, '.').trim()) || 0
-                                  : prod.price || 0;
-                                return s + (price * (prod.quantity || 1));
-                              }, 0);
-
-                              const serviceVal = parseFloat(payment.amount || 0);
-                              const totalVal = isSubscriber ? productsTotal : serviceVal + productsTotal;
-                              const planOnly = isSubscriber && !hasProducts;
-
-                              
-                              const isPlanCovered = payment.status === 'plan_covered' || payment.status === 'plancovered' || payment.paymentMethod === 'subscription';
-                              const tipo = isPlanCovered ? 'plano' : (payment.paymentMethod === 'local' || payment.status === 'pendinglocal') ? 'local' : 'avulso';
-
-                              return (
-                                <tr key={payment.id}>
-                                  <td>{payment.appointmentDate?.split('-').reverse().join('/')}</td>
-                                  <td>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                      {payment.userName}
-                                      {isSubscriber && (
-                                        <span style={{ background: '#d4af37', color: '#000', padding: '1px 7px', borderRadius: '10px', fontSize: '0.72rem', fontWeight: 'bold' }}>
-                                          ASSINANTE
-                                        </span>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td>{payment.barberName}</td>
-                                  <td style={{ whiteSpace: 'pre-line' }}>
-                                    {Array.isArray(payment.serviceName)
-                                      ? payment.serviceName.join('\n')
-                                      : payment.serviceName?.includes(',')
-                                      ? payment.serviceName.split(',').map(s => s.trim()).join('\n')
-                                      : payment.serviceName}
-                                  </td>
-                                  <td>
-                                    {hasProducts ? (
-                                      <div>
-                                        {productsList.map((prod, idx) => (
-                                          <div key={idx} style={{ fontSize: '0.85rem' }}>
-                                            {prod.name} <span style={{ color: '#888' }}>x{prod.quantity || 1}</span>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <span style={{ color: '#555' }}>—</span>
-                                    )}
-                                  </td>
-                                  <td>
-                                    {payment.paidAt
-                                      ? payment.paidAt.slice(0, 10).split('-').reverse().join('/')
-                                      : <span style={{ color: '#666' }}>—</span>}
-                                  </td>
-                                  <td>
-                                    {planOnly ? (
-                                      <span style={{ color: '#d4af37', fontSize: '0.85rem', fontStyle: 'italic' }}>
-                                        Coberto pelo plano
-                                      </span>
-                                    ) : (
-                                      <strong>R$ {totalVal.toFixed(2)}</strong>
-                                    )}
-                                    {isSubscriber && hasProducts && (
-                                      <div style={{ fontSize: '0.78rem', color: '#888', marginTop: '2px' }}>
-                                        serviço coberto · +R$ {productsTotal.toFixed(2)} produtos
-                                      </div>
-                                    )}
-                                  </td>
-                                  <td>
-                                    <PaymentBadge method={payment.paymentMethod} />
-                                  </td>
-                                  <td>
-                                    <span style={{
-                                      padding: '3px 10px',
-                                      borderRadius: '10px',
-                                      fontSize: '0.78rem',
-                                      fontWeight: 600,
-                                      ...(tipo === 'plano'
-                                        ? { background: '#d4af3722', color: '#d4af37', border: '1px solid #d4af3744' }
-                                        : tipo === 'local'
-                                        ? { background: '#3498db22', color: '#3498db', border: '1px solid #3498db44' }
-                                        : { background: '#ff7a1a22', color: '#ff7a1a', border: '1px solid #ff7a1a44' })
-                                    }}>
-                                      {tipo === 'plano' ? '🏅 Plano' : tipo === 'local' ? '🏪 Local' : '💳 Avulso'}
-                                    </span>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </>
-                  );
+                    );
+                  });
                 })()}
               </div>
 
      
               <div className="payments-list" style={{ marginBottom: '2rem' }}>
-                <h3>Vendas de Produtos {productSales.length > 0 && `(${productSales.length})`}</h3>
+                <h3>
+                  Vendas de Produtos {(() => {
+                    let base = [...productSales];
+                    const getDate = (s) => String(s.saleDate || s.createdAt || '').slice(0, 10);
+                    if (paymentDateFilter) {
+                      base = base.filter(s => getDate(s) === toDateStr(paymentDateFilter));
+                    } else if (paymentStartDate || paymentEndDate) {
+                      base = base.filter(s => isDateInRange(getDate(s), paymentStartDate, paymentEndDate));
+                    } else if (selectedMonth) {
+                      const [y, m] = selectedMonth.split('-');
+                      base = base.filter(s => {
+                        const [sy, sm] = getDate(s).split('-');
+                        return parseInt(sy) === parseInt(y) && parseInt(sm) === parseInt(m);
+                      });
+                    }
+                    return base.length > 0 ? `(${base.length})` : '';
+                  })()}
+                </h3>
                 {(() => {
                   const filtered = (() => {
                     let base = [...productSales];
@@ -3935,7 +3996,7 @@ const handleHomeInfoChange = (field, value) => {
               <div className="bloqueio-form-card">
                 <h3 className="bloqueio-form-titulo">Bloquear Calendário</h3>
 
-                {/* Toggle tipo de bloqueio */}
+          
                 <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
                   {[{ value: 'day', label: ' Dia inteiro' }, { value: 'time', label: ' Horário específico' }].map(opt => (
                     <button
@@ -4119,15 +4180,26 @@ const handleHomeInfoChange = (field, value) => {
                 disabled={editingBarber?.isUserOnly}
               />
               {!editingBarber?.isUserOnly && barberForm.userRole === 'barber' && (
-                <Input
-                  label="Porcentagem de Comissão (%)"
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={barberForm.commissionPercent}
-                  onChange={(e) => handleBarberFormChange('commissionPercent', e.target.value)}
-                  required
-                />
+                <>
+                  <Input
+                    label="Comissão por Serviços (%)"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={barberForm.commissionPercent}
+                    onChange={(e) => handleBarberFormChange('commissionPercent', e.target.value)}
+                    required
+                  />
+                  <Input
+                    label="Comissão por Plano (%)"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={barberForm.planCommissionPercent}
+                    onChange={(e) => handleBarberFormChange('planCommissionPercent', e.target.value)}
+                    placeholder="Ex: 30"
+                  />
+                </>
               )}
            
               <div style={{ marginBottom: '1rem' }}>
@@ -4307,9 +4379,6 @@ const handleHomeInfoChange = (field, value) => {
                       })}
                     </div>
                   )}
-                  <p style={{ fontSize: '1rem', color: '#555', marginTop: '0.5rem' }}>
-                    Nenhum selecionado, exibe todos os serviços para este barbeiro.
-                  </p>
                 </div>
               )}
 

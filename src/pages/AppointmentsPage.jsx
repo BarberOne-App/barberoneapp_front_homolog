@@ -82,7 +82,7 @@ export default function AppointmentsPage() {
   const isAdmin = currentUser?.role === 'admin' || currentUser?.isAdmin === true;
   const canScheduleForOthers = isAdmin || currentUser?.permissions?.scheduleForOthers === true;
 
-  // The "active" client for this booking session (self or selected user)
+ 
   const activeClient = bookingForUser || currentUser;
 
   const checkExistingAppointmentOnDate = useCallback((date) => {
@@ -226,7 +226,7 @@ export default function AppointmentsPage() {
       const validBarbers = barbersData.filter((barber) => {
         if (!barber.userId) return true;
         const user = allUsers.find((u) => u.id === barber.userId);
-        // Aceita se o user for barber OU se não tiver user vinculado (barber sem conta)
+      
         return !user || user.role === 'barber';
       });
 

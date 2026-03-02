@@ -11,6 +11,7 @@ import { getServices, getGallery } from '../services/homeServices.js';
 import { buscarAssinaturaAtiva, criarVendaProduto } from '../services/paymentService.js';
 import ProductsModal from '../components/ui/ProductsModal.jsx';
 import PaymentChoiceModal from '../components/ui/PaymentChoiceModal.jsx';
+import PaymentModal from '../components/ui/PaymentModal.jsx';
 import { getProducts } from '../services/productService.js';
 import { getHomeInfo } from '../services/settingsService.js';
 import { getActiveBarbershop } from '../components/layout/Barbershops.jsx';
@@ -31,6 +32,7 @@ export default function Home() {
   const [showProductPaymentModal, setShowProductPaymentModal] = useState(false);
   const [selectedProductForBuy, setSelectedProductForBuy] = useState(null);
   const [pendingProductSale, setPendingProductSale] = useState(null);
+  const [showOnlinePaymentModal, setShowOnlinePaymentModal] = useState(false);
 
   const [siteInfo, setSiteInfo] = useState({
     heroTitle: "",
@@ -155,28 +157,49 @@ export default function Home() {
 
   const handleProductPaymentChoice = async (payNow) => {
     if (!pendingProductSale) return;
+
+    if (payNow) {
+     
+      setShowProductPaymentModal(false);
+      setShowOnlinePaymentModal(true);
+      return;
+    }
+
     try {
-      const status = payNow ? 'pending_online' : 'pendinglocal';
-      const paymentMethod = payNow ? null : 'local';
       await criarVendaProduto({
         userId: currentUser.id,
         userName: currentUser.name,
         products: pendingProductSale.products,
         productsTotal: pendingProductSale.productsTotal,
-        status,
-        paymentMethod,
+        status: 'pendinglocal',
+        paymentMethod: 'local',
       });
-      showToast(
-        payNow
-          ? 'Pedido registrado! Conclua o pagamento online.'
-          : 'Pedido registrado! Pague na barbearia.',
-        'success'
-      );
+      showToast('Pedido registrado! Pague na barbearia.', 'success');
     } catch (err) {
       showToast('Erro ao registrar pedido.', 'danger');
     } finally {
       setPendingProductSale(null);
       setShowProductPaymentModal(false);
+    }
+  };
+
+  const handleOnlinePaymentSuccess = async () => {
+    if (!pendingProductSale) return;
+    try {
+      await criarVendaProduto({
+        userId: currentUser.id,
+        userName: currentUser.name,
+        products: pendingProductSale.products,
+        productsTotal: pendingProductSale.productsTotal,
+        status: 'paid',
+        paymentMethod: 'online',
+      });
+      showToast('Pagamento confirmado! Pedido registrado.', 'success');
+    } catch (err) {
+      showToast('Erro ao registrar pedido.', 'danger');
+    } finally {
+      setPendingProductSale(null);
+      setShowOnlinePaymentModal(false);
     }
   };
 
@@ -422,6 +445,7 @@ export default function Home() {
           servicePrice={0}
           serviceName=""
           onUpdateStock={handleUpdateStock}
+          preSelectedProducts={selectedProductForBuy ? [selectedProductForBuy] : []}
         />
       )}
 
@@ -443,6 +467,17 @@ export default function Home() {
             finalTotal: pendingProductSale.productsTotal,
             hasActiveSubscription: !!activeSubscription,
           }}
+        />
+      )}
+
+      {showOnlinePaymentModal && pendingProductSale && (
+        <PaymentModal
+          isOpen={showOnlinePaymentModal}
+          onClose={() => setShowOnlinePaymentModal(false)}
+          selectedPlan={{ price: pendingProductSale.productsTotal, name: 'Compra de Produtos' }}
+          currentUser={currentUser}
+          isAppointmentPayment={true}
+          onSuccess={handleOnlinePaymentSuccess}
         />
       )}
 

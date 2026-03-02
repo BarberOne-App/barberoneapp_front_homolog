@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import './ProductsModal.css';
 
@@ -11,8 +11,16 @@ export default function ProductsModal({
   servicePrice = 0,
   serviceName = '',
   onUpdateStock,
+  preSelectedProducts = [],
 }) {
-  const [selectedProducts, setSelectedProducts] = useState([]);
+  const [selectedProducts, setSelectedProducts] = useState(() =>
+    preSelectedProducts.map(p => ({ ...p, quantity: p.quantity || 1 }))
+  );
+
+  
+  useEffect(() => {
+    setSelectedProducts(preSelectedProducts.map(p => ({ ...p, quantity: p.quantity || 1 })));
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -246,4 +254,5 @@ ProductsModal.propTypes = {
   servicePrice: PropTypes.number,
   serviceName: PropTypes.string,
   onUpdateStock: PropTypes.func,
+  preSelectedProducts: PropTypes.array,
 };
