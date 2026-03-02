@@ -25,6 +25,8 @@ export default function ProductsModal({
   if (!isOpen) return null;
 
   const handleProductToggle = (product) => {
+
+    console.log(product)
     setSelectedProducts(prev => {
       const exists = prev.find(p => p.id === product.id);
       if (exists) {

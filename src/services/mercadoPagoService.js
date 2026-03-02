@@ -38,7 +38,7 @@ export const processMercadoPagoPaymentPix = async (paymentData) => {
         headers: {
           "Content-Type": "application/json",
           "X-Idempotency-Key": makeIdempotencyKey(),
-          // "Authorization": `Bearer ${import.meta.env.VITE_MERCADO_PAGO_ACESS_TOKEN}`,
+          // "Authorization": `Bearer ${import.meta.env.VITE_MERCADO_PAGO_ACCESS_TOKEN}`,
         },
       }
     );
@@ -60,7 +60,7 @@ export const checkPixStatus = async (pixId) => {
       `${import.meta.env.VITE_API_URL}/pixstatus/${pixId}`,
       // {
       //   headers: {
-      //     "Authorization": `Bearer ${import.meta.env.VITE_MERCADO_PAGO_ACESS_TOKEN}`,
+      //     "Authorization": `Bearer ${import.meta.env.VITE_MERCADO_PAGO_ACCESS_TOKEN}`,
       //   },
       // }
     );

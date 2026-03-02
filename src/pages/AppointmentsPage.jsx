@@ -53,6 +53,8 @@ export default function AppointmentsPage() {
   const [appointmentFilter, setAppointmentFilter] = useState('current');
   const [preSelectedService, setPreSelectedService] = useState(null);
   const [bookingInProgress, setBookingInProgress] = useState(false);
+  const [observation, setObservation] = useState('');
+  const [expandedObsId, setExpandedObsId] = useState(null);
   const [isBarberLocked, setIsBarberLocked] = useState(false);
   const [lockedBarberId, setLockedBarberId] = useState(null);
   const [lockedBarberName, setLockedBarberName] = useState(null);
@@ -82,7 +84,7 @@ export default function AppointmentsPage() {
   const isAdmin = currentUser?.role === 'admin' || currentUser?.isAdmin === true;
   const canScheduleForOthers = isAdmin || currentUser?.permissions?.scheduleForOthers === true;
 
- 
+  // The "active" client for this booking session (self or selected user)
   const activeClient = bookingForUser || currentUser;
 
   const checkExistingAppointmentOnDate = useCallback((date) => {
@@ -226,7 +228,7 @@ export default function AppointmentsPage() {
       const validBarbers = barbersData.filter((barber) => {
         if (!barber.userId) return true;
         const user = allUsers.find((u) => u.id === barber.userId);
-      
+        // Aceita se o user for barber OU se não tiver user vinculado (barber sem conta)
         return !user || user.role === 'barber';
       });
 
@@ -504,6 +506,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
         ...bookingData,
         date: dateStr,
         servicePrice,
+        observation,
         dateFormatted: selectedDate.toLocaleDateString('pt-BR')
       });
 
@@ -611,7 +614,8 @@ const getAvailableTimes = useCallback((barberId, date) => {
         time: pendingBookingData.time,
         client: activeClient.name,
         clientId: activeClient.id,
-        products: []
+        products: [],
+        observation: pendingBookingData.observation || '',
       };
 
       const createdAppointment = await createAppointment(newAppointment);
@@ -709,7 +713,8 @@ const getAvailableTimes = useCallback((barberId, date) => {
             time: pendingBookingData.time,
             client: activeClient.name,
             clientId: activeClient.id,
-            products: purchaseData.products
+            products: purchaseData.products,
+            observation: pendingBookingData.observation || '',
           },
           paymentData: {
             userId: activeClient.id,
@@ -738,7 +743,8 @@ const getAvailableTimes = useCallback((barberId, date) => {
           time: pendingBookingData.time,
           client: activeClient.name,
           clientId: activeClient.id,
-          products: purchaseData.products
+          products: purchaseData.products,
+          observation: pendingBookingData.observation || '',
         };
 
         const createdAppointment = await createAppointment(newAppointment);
@@ -1117,6 +1123,30 @@ const getAvailableTimes = useCallback((barberId, date) => {
                 return (
                   <div className="appointments__barbers">
                     <h2>Barbeiros disponíveis em {selectedDate.toLocaleDateString('pt-BR')}</h2>
+                    <div style={{ marginBottom: '1.5rem' }}>
+                      <label style={{ color: '#a8a8a8', fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.5rem' }}>
+                        Observação (opcional)
+                      </label>
+                      <textarea
+                        value={observation}
+                        onChange={(e) => setObservation(e.target.value)}
+                        placeholder="Ex: Quero o cabelo mais curto dos lados, barba degradê..."
+                        rows={3}
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          background: '#1a1a1a',
+                          border: '1px solid #333',
+                          borderRadius: '8px',
+                          color: '#fff',
+                          fontSize: '0.9rem',
+                          fontFamily: 'inherit',
+                          resize: 'vertical',
+                          boxSizing: 'border-box',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
                     {barbers.length === 0 ? (
                       <p>Nenhum barbeiro disponível.</p>
                     ) : (
@@ -1221,6 +1251,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
                       <col />
                       <col />
                       <col />
+                      <col />
                     </colgroup>
                     <thead>
                       <tr>
@@ -1228,6 +1259,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
                         <th>Data</th>
                         <th>Horário</th>
                         <th>Serviços</th>
+                        <th>Obs.</th>
                         <th>Produtos</th>
                         <th>Total</th>
                         <th>Status</th>
@@ -1317,7 +1349,47 @@ const getAvailableTimes = useCallback((barberId, date) => {
                                   <div className="appointment-service-item">-</div>
                                 )}
                               </div>
-                            </td>
+                          </td>
+                          <td>
+                            {apt.observation ? (
+                              <div>
+                                <button
+                                  onClick={() => setExpandedObsId(expandedObsId === apt.id ? null : apt.id)}
+                                  style={{
+                                    background: 'rgba(212,175,55,0.12)',
+                                    border: '1px solid rgba(212,175,55,0.35)',
+                                    color: '#d4af37',
+                                    borderRadius: '20px',
+                                    padding: '3px 12px',
+                                    fontSize: '0.78rem',
+                                    cursor: 'pointer',
+                                    fontWeight: 600,
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  📝 Ver
+                                </button>
+                                {expandedObsId === apt.id && (
+                                  <div style={{
+                                    marginTop: 8,
+                                    background: 'rgba(212,175,55,0.07)',
+                                    border: '1px solid rgba(212,175,55,0.2)',
+                                    borderRadius: '8px',
+                                    padding: '8px 10px',
+                                    fontSize: '0.82rem',
+                                    color: '#d4c48a',
+                                    fontStyle: 'italic',
+                                    maxWidth: '200px',
+                                    lineHeight: '1.5',
+                                  }}>
+                                    {apt.observation}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span style={{ color: '#444', fontSize: '0.8rem' }}>—</span>
+                            )}
+                          </td>
                             <td>
                               <div className="appointment-products">
                                 {apt.products && apt.products.length > 0 ? (

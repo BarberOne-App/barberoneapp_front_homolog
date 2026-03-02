@@ -119,7 +119,16 @@ export default function RegisterPage() {
     try {
       const exists = await userExists(email);
       if (exists) {
-        setMessage({ type: "error", text: "Já existe um usuário com esse e-mail." });
+        setMessage({ type: "error", text: "Já existe um usuário com esse e-mail."});
+        setIsSubmitting(false);
+        return;
+      }
+
+      const usersRes = await fetch('http://localhost:3000/users');
+      const allUsers = await usersRes.json();
+      const cpfExists = allUsers.some(u => u.cpf === cleanCPF);
+      if (cpfExists) {
+        setMessage({ type: "error", text: "Já existe um usuário cadastrado com esse CPF." });
         setIsSubmitting(false);
         return;
       }

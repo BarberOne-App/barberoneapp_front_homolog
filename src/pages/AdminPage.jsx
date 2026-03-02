@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BaseLayout from '../components/layout/BaseLayout';
 import Button from '../components/ui/Button';
@@ -28,6 +28,7 @@ import {
 } from '../services/productService';
 import { getPixKey, savePixKey, getHomeInfo, saveHomeInfo } from '../services/settingsService';
 import './AuthPages.css';
+
 
 import {
   getAllServices,
@@ -107,7 +108,8 @@ export default function AdminPage() {
     specialty: '',
     photo: '',
     commissionPercent: 50,
-    planCommissionPercent: 30,
+    salarioFixo: '',
+    paymentFrequency: 'mensal',
     createUser: false,
     userEmail: '',
     userPassword: '',
@@ -145,6 +147,17 @@ const [homeInfo, setHomeInfo] = useState({
 });
 const [homeInfoLoading, setHomeInfoLoading] = useState(false);
   const [expandedBarbers, setExpandedBarbers] = useState({});
+  const [expandedObsId, setExpandedObsId] = useState(null);
+  const [employeeVales, setEmployeeVales] = useState([]);
+  const [employeePayments, setEmployeePayments] = useState([]);
+  const [payrollPeriodFilter, setPayrollPeriodFilter] = useState('mensal');
+  const [payrollMonthFilter, setPayrollMonthFilter] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [valeForm, setValeForm] = useState({ employeeId: '', valor: '', observacao: '', data: new Date().toISOString().split('T')[0] });
+  const [showValeModal, setShowValeModal] = useState(false);
+  const [payrollExpandedId, setPayrollExpandedId] = useState(null);
   const [showChangeBarberModal, setShowChangeBarberModal] = useState(false);
   const [selectedAppointmentForBarberChange, setSelectedAppointmentForBarberChange] = useState(null);
   const [newBarberId, setNewBarberId] = useState('');
@@ -211,6 +224,7 @@ const [homeInfoLoading, setHomeInfoLoading] = useState(false);
     manageBenefits: { label: 'Gerenciar Benefícios dos Planos', category: 'Configurações', icon: '🎁' },
     manageSettings: { label: 'Alterar Configurações (PIX, Termos)', category: 'Configurações', icon: '⚙️' },
     manageGallery: { label: 'Gerenciar Galeria de Fotos', category: 'Conteúdo', icon: '🖼️' },
+  managePayroll: { label: 'Ver Pagamentos de Funcionários', category: 'Financeiro', icon: '💰' },
   };
 
   const hasPermission = (permission) => {
@@ -584,12 +598,13 @@ const handleHomeInfoChange = (field, value) => {
       }
     }
 
-  
+    // Verificar duplicata: mesmo dia + barbeiro + tipo
     const dateExists = blockedDates.some((blocked) => {
       const sameDate = blocked.date === newBlockedDate.date;
       const sameBarber = blocked.barberId === newBlockedDate.barberId;
       if (!sameDate || !sameBarber) return false;
-      if (!isTimeBlock) return !blocked.startTime; 
+      if (!isTimeBlock) return !blocked.startTime; // dia inteiro duplicado
+      // bloqueio de horário: checar sobreposição
       if (!blocked.startTime) return false;
       return newBlockedDate.startTime < blocked.endTime && newBlockedDate.endTime > blocked.startTime;
     });
@@ -781,6 +796,12 @@ const handleHomeInfoChange = (field, value) => {
       setServices(servicesData);
       setProductSales(productSalesData);
       setClientSubscriptionStatus(subscriptionStatusMap);
+      try {
+        const valesRes = await fetch('http://localhost:3000/employeeVales');
+        const paymentsRes = await fetch('http://localhost:3000/employeePayments');
+        if (valesRes.ok) setEmployeeVales(await valesRes.json());
+        if (paymentsRes.ok) setEmployeePayments(await paymentsRes.json());
+      } catch (e) { console.warn('Payroll não carregado', e); }
     } catch (error) {
       console.error('Erro ao carregar dados', error);
     } finally {
@@ -913,7 +934,6 @@ const handleHomeInfoChange = (field, value) => {
         specialty: employee.role === 'admin' ? 'Administrador' : 'Recepcionista',
         photo: employee.photo || '',
         commissionPercent: 50,
-        planCommissionPercent: 30,
         createUser: false,
         userEmail: employee.email || '',
         userPassword: '',
@@ -927,7 +947,8 @@ const handleHomeInfoChange = (field, value) => {
         specialty: barber.specialty,
         photo: barber.photo,
         commissionPercent: barber.commissionPercent || 50,
-        planCommissionPercent: barber.planCommissionPercent || 30,
+        salarioFixo: barber.salarioFixo || '',
+        paymentFrequency: barber.paymentFrequency || 'mensal',
         createUser: false,
         userEmail: '',
         userPassword: '',
@@ -942,7 +963,6 @@ const handleHomeInfoChange = (field, value) => {
         specialty: '',
         photo: '',
         commissionPercent: 50,
-        planCommissionPercent: 30,
         createUser: false,
         userEmail: '',
         userPassword: '',
@@ -962,7 +982,6 @@ const handleHomeInfoChange = (field, value) => {
       specialty: '',
       photo: '',
       commissionPercent: 50,
-      planCommissionPercent: 30,
       createUser: false,
       userEmail: '',
       userPassword: '',
@@ -1043,7 +1062,8 @@ const handleHomeInfoChange = (field, value) => {
           specialty: barberForm.specialty,
           photo: barberForm.photo,
           commissionPercent: barberForm.commissionPercent,
-          planCommissionPercent: parseFloat(barberForm.planCommissionPercent) || 30,
+          salarioFixo: parseFloat(barberForm.salarioFixo) || 0,
+          paymentFrequency: barberForm.paymentFrequency || 'mensal',
           serviceIds: barberForm.serviceIds || [],
           
           ...(editingBarber && !editingBarber.isUserOnly
@@ -1583,7 +1603,7 @@ const handleHomeInfoChange = (field, value) => {
       const isPlanCovered = payment.status === 'plan_covered' || payment.status === 'plancovered' || payment.paymentMethod === 'subscription';
       if (isPlanCovered) {
         stats.count.planCovered++;
-        return;
+        return; // plan_covered não soma valor monetário
       }
       if (amount > 0) {
         stats.total += amount;
@@ -1897,6 +1917,159 @@ const handleHomeInfoChange = (field, value) => {
     });
   };
 
+  // ============================================================
+  // PAYROLL FUNCTIONS
+  // ============================================================
+
+  // Retorna start/end baseado no período e mês selecionado
+  // Para semanal/quinzenal usa datas reais da semana/quinzena DENTRO do mês selecionado
+  const getPayrollPeriodDates = (period, monthStr) => {
+    const [year, month] = monthStr.split('-').map(Number);
+    const now = new Date();
+    if (period === 'mensal') {
+      const start = `${year}-${String(month).padStart(2,'0')}-01`;
+      const lastDay = new Date(year, month, 0).getDate();
+      const end = `${year}-${String(month).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+      return { start, end };
+    }
+    if (period === 'quinzenal') {
+      // Usa o dia atual para decidir qual quinzena dentro do mês selecionado
+      const day = now.getMonth() + 1 === month && now.getFullYear() === year ? now.getDate() : 15;
+      if (day <= 15) {
+        return { start: `${year}-${String(month).padStart(2,'0')}-01`, end: `${year}-${String(month).padStart(2,'0')}-15` };
+      }
+      const lastDay = new Date(year, month, 0).getDate();
+      return { start: `${year}-${String(month).padStart(2,'0')}-16`, end: `${year}-${String(month).padStart(2,'0')}-${lastDay}` };
+    }
+    if (period === 'semanal') {
+      // Semana atual dentro do mês selecionado
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      return {
+        start: monday.toISOString().split('T')[0],
+        end: sunday.toISOString().split('T')[0],
+      };
+    }
+    return { start: '', end: '' };
+  };
+
+  const getBarberCommissionInPeriod = (barberId, start, end) => {
+    if (!barberId || !start || !end) return 0;
+    const barberData = barbers.find(b => String(b.id) === String(barberId));
+    if (!barberData) return 0;
+    const commissionPercent = Number(barberData.commissionPercent) || 50;
+   const relevantPayments = appointmentPayments.filter(p => {
+      if (String(p.barberId) !== String(barberId) && p.barberName !== barberData.name) return false;
+      if (p.status !== 'paid') return false;
+      if (p.commissionPaid === true) return false; // já repassado
+      const d = p.appointmentDate ? String(p.appointmentDate).slice(0,10) : (p.paidAt ? String(p.paidAt).slice(0,10) : '');
+      return d >= start && d <= end;
+    });
+    const total = relevantPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+    return parseFloat((total * commissionPercent / 100).toFixed(2));
+  };
+
+  const getValesInPeriod = (employeeId, start, end) => {
+    if (!start || !end) return [];
+    return employeeVales.filter(v =>
+      String(v.employeeId) === String(employeeId) && v.data >= start && v.data <= end
+    );
+  };
+
+  const handleSaveVale = async (e) => {
+    e.preventDefault();
+    if (!valeForm.employeeId || !valeForm.valor) {
+      showToast('Funcionário e valor são obrigatórios.', 'danger'); return;
+    }
+    try {
+      const vale = { ...valeForm, valor: parseFloat(valeForm.valor), createdAt: new Date().toISOString(), createdBy: currentUser?.id };
+      await fetch('http://localhost:3000/employeeVales', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(vale) });
+      const res = await fetch('http://localhost:3000/employeeVales');
+      setEmployeeVales(await res.json());
+      setValeForm({ employeeId: '', valor: '', observacao: '', data: new Date().toISOString().split('T')[0] });
+      setShowValeModal(false);
+      showToast('Vale registrado com sucesso!', 'success');
+    } catch { showToast('Erro ao registrar vale.', 'danger'); }
+  };
+
+  const handleDeleteVale = (id) => {
+    showConfirm('Deseja excluir este vale?', async () => {
+      await fetch(`http://localhost:3000/employeeVales/${id}`, { method: 'DELETE' });
+      setEmployeeVales(prev => prev.filter(v => v.id !== id));
+      showToast('Vale excluído.', 'success');
+    });
+  };
+
+  const checkAlreadyPaidInPeriod = (employeeId, period, monthStr) => {
+    const { start, end } = getPayrollPeriodDates(period, monthStr);
+    // Always match exact periodStart + periodEnd — each week/quinzena/month is a unique range
+    return employeePayments.find(p =>
+      String(p.employeeId) === String(employeeId) &&
+      p.period === period &&
+      p.periodStart === start &&
+      p.periodEnd === end
+    ) || null;
+  };
+
+  const handleMarkPayrollPaid = async (employee, barberData, period) => {
+    const { start, end } = getPayrollPeriodDates(period, payrollMonthFilter);
+    const barberId = barberData?.id;
+    const commission = barberId ? getBarberCommissionInPeriod(barberId, start, end) : 0;
+    const vales = getValesInPeriod(employee.id, start, end);
+    const totalVales = vales.reduce((s, v) => s + v.valor, 0);
+    const salarioFixo = parseFloat(barberData?.salarioFixo || 0);
+    const liquido = salarioFixo + commission - totalVales;
+
+    // Check if already paid in this period — warn but allow paying again
+    const existingPayment = checkAlreadyPaidInPeriod(employee.id, period, payrollMonthFilter);
+    const periodLabel = period === 'semanal' ? 'semana' : period === 'quinzenal' ? 'quinzena' : 'mês';
+    const confirmMsg = existingPayment
+      ? `⚠️ ${employee.name} já recebeu R$ ${parseFloat(existingPayment.liquido).toFixed(2)} nessa ${periodLabel} (pago em ${new Date(existingPayment.paidAt).toLocaleDateString('pt-BR')}).\n\nTem certeza que deseja registrar um segundo pagamento de R$ ${liquido.toFixed(2)}?`
+      : `Confirmar pagamento de R$ ${liquido.toFixed(2)} para ${employee.name}?`;
+
+    showConfirm(confirmMsg, async () => {
+  try {
+        const paymentRecord = {
+          employeeId: employee.id, employeeName: employee.name,
+          period, periodStart: start, periodEnd: end,
+          salarioFixo, commission, totalVales, liquido,
+          paidAt: new Date().toISOString(), paidBy: currentUser?.id,
+        };
+        await fetch('http://localhost:3000/employeePayments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(paymentRecord) });
+        for (const v of vales) await fetch(`http://localhost:3000/employeeVales/${v.id}`, { method: 'DELETE' });
+
+        // Marca comissão como repassada nos agendamentos do período
+        if (barberId) {
+          const toMark = appointmentPayments.filter(p => {
+            if (String(p.barberId) !== String(barberId) && p.barberName !== barberData?.name) return false;
+            if (p.status !== 'paid' || p.commissionPaid === true) return false;
+            const d = p.appointmentDate ? String(p.appointmentDate).slice(0,10) : (p.paidAt ? String(p.paidAt).slice(0,10) : '');
+            return d >= start && d <= end;
+          });
+          await Promise.all(toMark.map(p =>
+            fetch(`http://localhost:3000/appointmentPayments/${p.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ commissionPaid: true }),
+            })
+          ));
+        }
+
+        const [valesRes, paymentsRes, aptsRes] = await Promise.all([
+          fetch('http://localhost:3000/employeeVales'),
+          fetch('http://localhost:3000/employeePayments'),
+          fetch('http://localhost:3000/appointmentPayments'),
+        ]);
+        setEmployeeVales(await valesRes.json());
+        setEmployeePayments(await paymentsRes.json());
+        setAppointmentPayments(await aptsRes.json());
+        showToast(`✅ Pagamento de ${employee.name} registrado com sucesso!`, 'success');
+      } catch { showToast('Erro ao registrar pagamento.', 'danger'); }
+    });
+  };
+
   if (loading) {
     return (
       <BaseLayout>
@@ -2012,6 +2185,11 @@ const handleHomeInfoChange = (field, value) => {
             {hasPermission('manageEmployees') && (
               <button onClick={() => setActiveTab('employees')} className={`tab-btn ${activeTab === 'employees' ? 'tab-btn--active' : ''}`}>
                 Gerenciar Funcionários
+              </button>
+            )}
+            {(isAdmin || hasPermission('managePayroll')) && (
+              <button onClick={() => setActiveTab('payroll')} className={`tab-btn ${activeTab === 'payroll' ? 'tab-btn--active' : ''}`}>
+                Pagamentos Funcionários
               </button>
             )}
             <button onClick={() => setActiveTab('agendamentos')} className={`tab-btn ${activeTab === 'agendamentos' ? 'tab-btn--active' : ''}`}>
@@ -2460,6 +2638,7 @@ const handleHomeInfoChange = (field, value) => {
                                     <th>Horário</th>
                                     <th>Serviços</th>
                                     <th>Total</th>
+                                    <th>Obs.</th>
                                     <th>Ações</th>
                                   </tr>
                                 </thead>
@@ -2490,6 +2669,19 @@ const handleHomeInfoChange = (field, value) => {
                                           </div>
                                         </td>
                                         <td className="total-price">R$ {aptTotal.toFixed(2)}</td>
+                                        <td>
+                                          {apt.observation ? (
+                                            <div>
+                                              <button onClick={(e) => { e.stopPropagation(); setExpandedObsId(expandedObsId === apt.id ? null : apt.id); }} className="obs-btn">📝 Ver</button>
+                                              {expandedObsId === apt.id && (
+                                                <div className="obs-card">
+                                                  <div className="obs-card-label">Observação</div>
+                                                  <div className="obs-card-text">{apt.observation}</div>
+                                                </div>
+                                              )}
+                                            </div>
+                                          ) : <span className="obs-empty">—</span>}
+                                        </td>
                                         <td>
                                           <div className="fluig-actions-buttons">
                                             {apt.status !== 'confirmed' && (
@@ -2530,6 +2722,248 @@ const handleHomeInfoChange = (field, value) => {
           )}
 
           
+       {activeTab === 'payroll' && isAdmin && hasPermission('managePayroll') && (
+  <div className="manage-barbers">
+    <div className="manage-barbers-header">
+      <h2>Pagamentos de Funcionários</h2>
+      <div className="payroll-header-controls">
+        <div className="payroll-period-buttons">
+          {['semanal', 'quinzenal', 'mensal'].map(p => (
+            <button
+              key={p}
+              onClick={() => setPayrollPeriodFilter(p)}
+              className={`payroll-period-btn${payrollPeriodFilter === p ? ' payroll-period-btn--active' : ''}`}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+        <input
+          type="month"
+          value={payrollMonthFilter}
+          onChange={e => setPayrollMonthFilter(e.target.value)}
+          className="payroll-month-input"
+        />
+        <button
+          onClick={() => setShowValeModal(true)}
+          className="payroll-vale-btn"
+        >
+          Registrar Vale
+        </button>
+      </div>
+    </div>
+
+    {/* Painel por funcionário */}
+    <div className="payroll-table-wrapper">
+      <table className="payroll-main-table">
+        <thead>
+          <tr className="payroll-thead-row">
+            <th className="payroll-th">Funcionário</th>
+            <th className="payroll-th">Frequência</th>
+            <th className="payroll-th payroll-th--right">Salário Fixo</th>
+            <th className="payroll-th payroll-th--right">Comissão</th>
+            <th className="payroll-th payroll-th--right">Vales</th>
+            <th className="payroll-th payroll-th--right">Líquido</th>
+            <th className="payroll-th payroll-th--center">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {employees
+            .filter(emp => emp.role === 'barber' || emp.role === 'receptionist')
+            .map(emp => {
+              const barberData = barbers.find(b => String(b.userId) === String(emp.id));
+              const { start, end } = getPayrollPeriodDates(payrollPeriodFilter, payrollMonthFilter);
+              const commission = barberData ? getBarberCommissionInPeriod(barberData.id, start, end) : 0;
+              const vales = getValesInPeriod(emp.id, start, end);
+              const totalVales = vales.reduce((s, v) => s + v.valor, 0);
+              const salarioFixo = parseFloat(barberData?.salarioFixo) || 0;
+              const liquido = salarioFixo + commission - totalVales;
+              const isExp = payrollExpandedId === emp.id;
+
+              /* Verifica se já existe pagamento no período atual */
+              const alreadyPaid = !!checkAlreadyPaidInPeriod(emp.id, payrollPeriodFilter, payrollMonthFilter);
+
+              return (
+                <React.Fragment key={emp.id}>
+                  <tr className={`payroll-row${isExp ? ' payroll-row--expanded' : ''}`}>
+                    {/* Funcionário */}
+                    <td className="payroll-td">
+                      <div className="payroll-employee-cell">
+                        <img
+                          src={barberData?.photo || emp.photo || `https://i.pravatar.cc/40?img=${emp.id}`}
+                          alt={emp.name}
+                          className="payroll-employee-photo"
+                        />
+                        <div>
+                          <div className="payroll-employee-name">{emp.name}</div>
+                          <div className="payroll-employee-role">{emp.role}</div>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Frequência */}
+                    <td className="payroll-td">
+                      <span className="payroll-frequency-badge">
+                        {barberData?.paymentFrequency || 'mensal'}
+                      </span>
+                    </td>
+
+                    {/* Salário Fixo */}
+                    <td className="payroll-td payroll-td--right payroll-value--green">
+                      R$ {salarioFixo.toFixed(2)}
+                    </td>
+
+                    {/* Comissão */}
+                    <td className="payroll-td payroll-td--right payroll-value--blue">
+                      R$ {commission.toFixed(2)}
+                    </td>
+
+                    {/* Vales */}
+                    <td className="payroll-td payroll-td--right">
+                      <div className="payroll-vales-cell">
+                        <span className="payroll-value--red">- R$ {totalVales.toFixed(2)}</span>
+                        {vales.length > 0 && (
+                          <button
+                            onClick={() => setPayrollExpandedId(isExp ? null : emp.id)}
+                            className="payroll-vales-toggle"
+                          >
+                            {isExp ? '▲' : `${vales.length}x`}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Líquido */}
+                    <td className="payroll-td payroll-td--right">
+                      <span className={`payroll-liquido${liquido >= 0 ? ' payroll-liquido--positive' : ' payroll-liquido--negative'}`}>
+                        R$ {liquido.toFixed(2)}
+                      </span>
+                    </td>
+
+                    {/* Ações */}
+                    <td className="payroll-td payroll-td--center">
+                      {alreadyPaid ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                          <span className="payroll-paid-badge">✅ Pago</span>
+                          <button
+                            onClick={() => handleMarkPayrollPaid(emp, barberData, payrollPeriodFilter)}
+                            className="payroll-repay-btn"
+                          >
+                            Pagar novamente
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleMarkPayrollPaid(emp, barberData, payrollPeriodFilter)}
+                          className="payroll-pay-btn"
+                        >
+                          Pagar
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+
+                  {/* Linha expandida com vales */}
+                  {isExp && (
+                    <tr className="payroll-row-expanded-detail">
+                      <td colSpan={7} className="payroll-td-vales-detail">
+                        <div className="payroll-vales-header">
+                          Vales do período: {start} → {end}
+                        </div>
+                        {vales.map(v => (
+                          <div key={v.id} className="payroll-vale-item">
+                            <span className="payroll-vale-valor">- R$ {parseFloat(v.valor).toFixed(2)}</span>
+                            <span className="payroll-vale-data">{v.data?.split('-').reverse().join('/')}</span>
+                            <span className="payroll-vale-obs">{v.observacao}</span>
+                            <button
+                              onClick={() => handleDeleteVale(v.id)}
+                              className="payroll-vale-delete"
+                            >
+                              Excluir
+                            </button>
+                          </div>
+                        ))}
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
+        </tbody>
+      </table>
+    </div>
+
+    {/* Tabela Pagamentos Realizados */}
+    <div className="payroll-history-section">
+      <h3 className="payroll-history-title">Pagamentos Realizados</h3>
+      {employeePayments
+        .filter(p => {
+          if (!payrollMonthFilter) return true;
+          const [y, m] = payrollMonthFilter.split('-').map(Number);
+          const d = new Date(p.paidAt);
+          return d.getFullYear() === y && d.getMonth() + 1 === m;
+        }).length === 0 ? (
+        <p className="no-data">Nenhum pagamento registrado neste período.</p>
+      ) : (
+        <div className="payroll-table-wrapper">
+          <table className="payroll-history-table">
+            <thead>
+              <tr className="payroll-thead-row">
+                <th className="payroll-th">Funcionário</th>
+                <th className="payroll-th payroll-th--center">Período</th>
+                <th className="payroll-th payroll-th--center">De → Até</th>
+                <th className="payroll-th payroll-th--right">Salário</th>
+                <th className="payroll-th payroll-th--right">Comissão</th>
+                <th className="payroll-th payroll-th--right">Vales</th>
+                <th className="payroll-th payroll-th--right">Líquido Pago</th>
+                <th className="payroll-th payroll-th--center">Data Pgto.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...employeePayments]
+                .sort((a, b) => new Date(b.paidAt) - new Date(a.paidAt))
+                .filter(p => {
+                  if (!payrollMonthFilter) return true;
+                  const [y, m] = payrollMonthFilter.split('-').map(Number);
+                  const d = new Date(p.paidAt);
+                  return d.getFullYear() === y && d.getMonth() + 1 === m;
+                })
+                .map(p => (
+                  <tr key={p.id} className="payroll-history-row">
+                    <td className="payroll-td payroll-td--name">{p.employeeName}</td>
+                    <td className="payroll-td payroll-td--center">
+                      <span className="payroll-frequency-badge">{p.period}</span>
+                    </td>
+                    <td className="payroll-td payroll-td--center payroll-td--muted">
+                      {p.periodStart?.split('-').reverse().join('/')} → {p.periodEnd?.split('-').reverse().join('/')}
+                    </td>
+                    <td className="payroll-td payroll-td--right payroll-value--green">
+                      R$ {parseFloat(p.salarioFixo || 0).toFixed(2)}
+                    </td>
+                    <td className="payroll-td payroll-td--right payroll-value--blue">
+                      R$ {parseFloat(p.commission || 0).toFixed(2)}
+                    </td>
+                    <td className="payroll-td payroll-td--right payroll-value--red">
+                      - R$ {parseFloat(p.totalVales || 0).toFixed(2)}
+                    </td>
+                    <td className="payroll-td payroll-td--right">
+                      <span className={`payroll-liquido${parseFloat(p.liquido) >= 0 ? ' payroll-liquido--positive' : ' payroll-liquido--negative'}`}>
+                        R$ {parseFloat(p.liquido || 0).toFixed(2)}
+                      </span>
+                    </td>
+                    <td className="payroll-td payroll-td--center payroll-td--muted">
+                      {new Date(p.paidAt).toLocaleDateString('pt-BR')}
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  </div>
+)}
+
           {activeTab === 'agendamentos' && (
             <div className="manage-barbers">
               <div className="manage-barbers-header">
@@ -2659,6 +3093,7 @@ const handleHomeInfoChange = (field, value) => {
                           <th>Cliente</th>
                           <th>Barbeiro</th>
                           <th>Serviço</th>
+                          <th>Observação</th>
                           <th>Produtos</th>
                           <th>Valor</th>
                           <th>Método</th>
@@ -2718,6 +3153,20 @@ const handleHomeInfoChange = (field, value) => {
                                 ? payment.serviceName.split(',').map(s => s.trim()).join('\n')
                                 : payment.serviceName
                               }
+                              
+                            </td>
+                            <td>
+                              {(() => {
+                                const apt = appointments.find(a => a.id?.toString() === payment.appointmentId?.toString());
+                                return apt?.observation ? (
+                                  <div className="obs-card">
+                                    <div className="obs-card-label">Observação</div>
+                                    <div className="obs-card-text">{apt.observation}</div>
+                                  </div>
+                                ) : (
+                                  <span className="obs-empty">—</span>
+                                );
+                              })()}
                             </td>
                             <td>
                               {productsList.length > 0 ? (
@@ -3649,7 +4098,7 @@ const handleHomeInfoChange = (field, value) => {
                     return <p className="calendar-empty" style={{ color: '#888', fontSize: '0.9rem', padding: '1rem 0' }}>Nenhum pagamento de agendamento encontrado para o período selecionado.</p>;
                   }
 
-                
+                  // Group payments by barber
                   const barberNames = [...new Set(allPaid.map(p => p.barberName || 'Sem barbeiro'))];
 
                   return barberNames.map(barberName => {
@@ -3657,7 +4106,7 @@ const handleHomeInfoChange = (field, value) => {
                     const barberPayments = allPaid.filter(p => (p.barberName || 'Sem barbeiro') === barberName);
                     const isExpanded = expandedBarbers[`pay_${barberName}`];
 
-                   
+                    // Commission calc — only paid (non-plan) appointments count for value
                     const commissionPercent = barberObj?.commissionPercent || 50;
                     const paidOnly = barberPayments.filter(p => {
                       const isPlanCovered = p.status === 'plan_covered' || p.status === 'plancovered' || p.paymentMethod === 'subscription';
@@ -3667,22 +4116,10 @@ const handleHomeInfoChange = (field, value) => {
                     const barberEarnings = (totalRevenue * commissionPercent) / 100;
                     const shopEarnings = totalRevenue - barberEarnings;
                     const planCount = barberPayments.length - paidOnly.length;
-                    const planCommissionPercent = barberObj?.planCommissionPercent || 30;
-                    const barberPlanSubs = subscriptions.filter(s => {
-                      if (!s.monthlyBarberId) return false;
-                      if (s.monthlyBarberId.toString() !== barberObj?.id?.toString()) return false;
-                      const refDate = s.monthlyBarberSetDate || s.createdAt || s.startDate;
-                      if (!refDate) return false;
-                      const d = new Date(refDate);
-                      const [year, month] = selectedMonth.split('-');
-                      return d.getFullYear() === parseInt(year) && (d.getMonth() + 1) === parseInt(month);
-                    });
-                    const planRevenue = barberPlanSubs.reduce((sum, s) => sum + parseFloat(s.amount || s.planPrice || 0), 0);
-                    const planEarnings = (planRevenue * planCommissionPercent) / 100;
 
                     return (
                       <div key={barberName} className="fluig-table-parent" style={{ marginBottom: '0.75rem' }}>
-                
+                        {/* Barber header row — clickable to expand */}
                         <div
                           className="fluig-row-parent"
                           onClick={() => setExpandedBarbers(prev => ({ ...prev, [`pay_${barberName}`]: !prev[`pay_${barberName}`] }))}
@@ -3717,21 +4154,10 @@ const handleHomeInfoChange = (field, value) => {
                               <span className="stat-label">Barbearia</span>
                               <span className="stat-value">R$ {shopEarnings.toFixed(2)}</span>
                             </div>
-                            {planEarnings > 0 && (
-                              <div className="stat-item">
-                                <span className="stat-label">
-                                  Comissão Planos ({planCommissionPercent}%)
-                                  <span style={{ color: '#d4af37', fontSize: '0.75rem', marginLeft: 4 }}>
-                                    {barberPlanSubs.length} assinante(s)
-                                  </span>
-                                </span>
-                                <span className="stat-value stat-value-success">R$ {planEarnings.toFixed(2)}</span>
-                              </div>
-                            )}
                           </div>
                         </div>
 
-                 
+                        {/* Expanded payments table */}
                         {isExpanded && (
                           <div className="fluig-children-container">
                             <div className="payments-table">
@@ -3996,7 +4422,7 @@ const handleHomeInfoChange = (field, value) => {
               <div className="bloqueio-form-card">
                 <h3 className="bloqueio-form-titulo">Bloquear Calendário</h3>
 
-          
+                {/* Toggle tipo de bloqueio */}
                 <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
                   {[{ value: 'day', label: ' Dia inteiro' }, { value: 'time', label: ' Horário específico' }].map(opt => (
                     <button
@@ -4180,28 +4606,40 @@ const handleHomeInfoChange = (field, value) => {
                 disabled={editingBarber?.isUserOnly}
               />
               {!editingBarber?.isUserOnly && barberForm.userRole === 'barber' && (
-                <>
-                  <Input
-                    label="Comissão por Serviços (%)"
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={barberForm.commissionPercent}
-                    onChange={(e) => handleBarberFormChange('commissionPercent', e.target.value)}
-                    required
-                  />
-                  <Input
-                    label="Comissão por Plano (%)"
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={barberForm.planCommissionPercent}
-                    onChange={(e) => handleBarberFormChange('planCommissionPercent', e.target.value)}
-                    placeholder="Ex: 30"
-                  />
-                </>
+                <Input
+                  label="Porcentagem de Comissão (%)"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={barberForm.commissionPercent}
+                  onChange={(e) => handleBarberFormChange('commissionPercent', e.target.value)}
+                  required
+                />
               )}
-           
+
+              <Input
+                label="Salário Fixo (R$)"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Ex: 1500.00"
+                value={barberForm.salarioFixo}
+                onChange={(e) => handleBarberFormChange('salarioFixo', e.target.value)}
+              />
+
+              <div style={{ marginBottom: '1rem' }}>
+                <label className="form-label">Frequência de Pagamento</label>
+                <select
+                  value={barberForm.paymentFrequency}
+                  onChange={(e) => handleBarberFormChange('paymentFrequency', e.target.value)}
+                  style={{ width: '100%', padding: '0.75rem', background: '#1a1a1a', border: '1px solid #333', borderRadius: '8px', color: '#fff', fontSize: '0.9rem' }}
+                >
+                  <option value="semanal">Semanal</option>
+                  <option value="quinzenal">Quinzenal</option>
+                  <option value="mensal">Mensal</option>
+                </select>
+              </div>
+
               <div style={{ marginBottom: '1rem' }}>
                 <label className="form-label">Foto do Funcionário</label>
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
@@ -4997,6 +5435,90 @@ const handleHomeInfoChange = (field, value) => {
           </div>
         </div>
       )}
+
+      {showValeModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+          onClick={() => setShowValeModal(false)}
+        >
+          <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '14px', padding: '2rem', maxWidth: '420px', width: '100%', boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ color: '#fff', fontSize: '1.1rem', margin: 0 }}>💸 Registrar Vale</h2>
+              <button onClick={() => setShowValeModal(false)} style={{ background: 'transparent', border: 'none', color: '#666', fontSize: '1.4rem', cursor: 'pointer', lineHeight: 1 }}>×</button>
+            </div>
+
+            <form onSubmit={handleSaveVale} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ color: '#888', fontSize: '0.82rem', display: 'block', marginBottom: '6px' }}>Funcionário *</label>
+                <select
+                  value={valeForm.employeeId}
+                  onChange={e => setValeForm(prev => ({ ...prev, employeeId: e.target.value }))}
+                  required
+                  style={{ width: '100%', background: '#111', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#fff', padding: '10px 12px', fontSize: '0.88rem' }}
+                >
+                  <option value="">Selecione o funcionário</option>
+                  {employees.filter(e => e.role === 'barber' || e.role === 'receptionist').map(e => (
+                    <option key={e.id} value={e.id}>{e.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ color: '#888', fontSize: '0.82rem', display: 'block', marginBottom: '6px' }}>Valor (R$) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={valeForm.valor}
+                  onChange={e => setValeForm(prev => ({ ...prev, valor: e.target.value }))}
+                  required
+                  placeholder="Ex: 50.00"
+                  style={{ width: '100%', background: '#111', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#fff', padding: '10px 12px', fontSize: '0.88rem', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ color: '#888', fontSize: '0.82rem', display: 'block', marginBottom: '6px' }}>Data</label>
+                <input
+                  type="date"
+                  value={valeForm.data}
+                  onChange={e => setValeForm(prev => ({ ...prev, data: e.target.value }))}
+                  style={{ width: '100%', background: '#111', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#fff', padding: '10px 12px', fontSize: '0.88rem', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ color: '#888', fontSize: '0.82rem', display: 'block', marginBottom: '6px' }}>Observação</label>
+                <input
+                  type="text"
+                  value={valeForm.observacao}
+                  onChange={e => setValeForm(prev => ({ ...prev, observacao: e.target.value }))}
+                  placeholder="Ex: Adiantamento, transporte..."
+                  style={{ width: '100%', background: '#111', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#fff', padding: '10px 12px', fontSize: '0.88rem', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowValeModal(false)}
+                  style={{ background: 'transparent', border: '1px solid #333', color: '#a8a8a8', borderRadius: '8px', padding: '9px 20px', cursor: 'pointer', fontSize: '0.88rem' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  style={{ background: 'linear-gradient(135deg, #d4af37, #b8932a)', border: 'none', color: '#000', borderRadius: '8px', padding: '9px 20px', cursor: 'pointer', fontWeight: 700, fontSize: '0.88rem' }}
+                >
+                  Registrar Vale
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </BaseLayout>
   );
 }
