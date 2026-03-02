@@ -220,6 +220,11 @@ export default function PaymentModal({
         description: isAppointmentPayment
           ? `Pagamento - ${selectedPlan.serviceName || selectedPlan.name || 'Serviço'}`
           : `Assinatura - ${selectedPlan.name}`,
+        id: selectedPlan.paymentData.products[0].id,
+        title: selectedPlan.paymentData.products[0].name,
+        quantity: selectedPlan.paymentData.products[0].quantity,
+        category_id: selectedPlan.paymentData.products[0].category,
+        unit_price: selectedPlan.paymentData.products[0].price,
       };
 
       const result = await processMercadoPagoPaymentPix(pixPayload);
