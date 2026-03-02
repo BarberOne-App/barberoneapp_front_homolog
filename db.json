@@ -1021,6 +1021,42 @@
       ],
       "observation": "teste",
       "id": 18
+    },
+    {
+      "barberId": "1",
+      "barberName": "João",
+      "services": [
+        {
+          "name": "DEGRADEZIN",
+          "price": "R$ 0,01",
+          "promotionalPrice": "",
+          "coveredByPlan": true,
+          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
+          "duration": 30,
+          "id": "Dw22hi_"
+        }
+      ],
+      "date": "2026-03-10",
+      "time": "08:30",
+      "client": "LUCAS",
+      "clientId": "ff1a",
+      "products": [
+        {
+          "name": "Óleo para Barba",
+          "category": "Óleos",
+          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
+          "price": "R$ 1.00",
+          "subscriberDiscount": 0,
+          "stock": 8,
+          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
+          "id": "3",
+          "quantity": 1,
+          "calculatedPrice": 1,
+          "totalPrice": 1
+        }
+      ],
+      "observation": "",
+      "id": 19
     }
   ],
   "clientes": [],
@@ -4505,6 +4541,22 @@
       "noShow": true,
       "confirmedAt": "2026-03-02T17:25:18.091Z",
       "paidAt": "2026-03-02T17:25:19.117Z"
+    },
+    {
+      "appointmentId": 19,
+      "userId": "ff1a",
+      "userName": "LUCAS",
+      "amount": 1,
+      "serviceName": "DEGRADEZIN",
+      "barberName": "João",
+      "appointmentDate": "2026-03-10",
+      "appointmentTime": "08:30",
+      "status": "pendinglocal",
+      "paymentMethod": "local",
+      "type": "appointment",
+      "createdAt": "2026-03-02T18:31:33.543Z",
+      "updatedAt": "2026-03-02T18:31:33.543Z",
+      "id": "k_29I_u"
     }
   ],
   "savedCards": [
@@ -4562,7 +4614,7 @@
       "description": "Hidrata e amacia a barba, com fragrância amadeirada",
       "price": "R$ 1.00",
       "subscriberDiscount": 0,
-      "stock": 9,
+      "stock": 6,
       "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
       "id": "3"
     },

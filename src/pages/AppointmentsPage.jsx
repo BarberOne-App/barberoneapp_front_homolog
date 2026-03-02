@@ -724,8 +724,10 @@ const getAvailableTimes = useCallback((barberId, date) => {
             barberName: pendingBookingData.barberName,
             appointmentDate: pendingBookingData.date,
             appointmentTime: pendingBookingData.time,
-            products: purchaseData.products
+            products: purchaseData.products,
+        
           }
+
         });
 
         setShowPaymentChoiceModal(false);

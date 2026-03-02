@@ -60,7 +60,6 @@ export default function PaymentModal({
   // const MERCADO_PAGO_PUBLIC_KEY = 'TEST-e60cf7cf-2a92-4f82-bfec-978eaa9139f8';
   const MERCADO_PAGO_PUBLIC_KEY = 'APP_USR-3c24dcad-27ac-4f14-996c-d0ef917404b0';
   const isRecurringSubscription = !isAppointmentPayment && selectedPlan?.isRecurring;
-
   const getAvailablePaymentMethods = () => {
     if (isAppointmentPayment) return ['pix', 'credit', 'debit'];
     return ['credit'];
@@ -413,11 +412,16 @@ export default function PaymentModal({
             number: cardFormData.payer.identification.number,
           },
         },
+        id: selectedPlan.paymentData.products[0].id,
+        title: selectedPlan.paymentData.products[0].name,
+        quantity: selectedPlan.paymentData.products[0].quantity,
+        category_id: selectedPlan.paymentData.products[0].category,
+        unit_price: selectedPlan.paymentData.products[0].price,
         description: isAppointmentPayment
           ? `Pagamento - ${selectedPlan.serviceName || selectedPlan.name || 'Serviço'}`
           : `Assinatura - ${selectedPlan.name}`,
       };
-
+   
       const paymentResult = await processMercadoPagoPayment(paymentData);
 
       if (paymentResult.status === 'approved' || paymentResult.status === 'authorized') {
@@ -539,7 +543,7 @@ export default function PaymentModal({
       return new Promise((_, reject) => reject(error));
     }
   };
-
+   
   const handleCopyPixKey = () => {
     if (pixQrCode) {
       navigator.clipboard.writeText(pixQrCode);
