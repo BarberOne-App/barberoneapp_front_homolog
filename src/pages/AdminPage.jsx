@@ -3120,7 +3120,7 @@ const handleHomeInfoChange = (field, value) => {
                           }, 0);
                           
                           const serviceTotal = parseFloat(payment.amount || 0);
-                          console.log(payment)
+                        
                           return (
                           <tr key={payment.id}>
                             <td>

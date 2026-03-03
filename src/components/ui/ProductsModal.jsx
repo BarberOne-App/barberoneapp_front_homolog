@@ -17,7 +17,6 @@ export default function ProductsModal({
     preSelectedProducts.map(p => ({ ...p, quantity: p.quantity || 1 }))
   );
 
-  
   useEffect(() => {
     setSelectedProducts(preSelectedProducts.map(p => ({ ...p, quantity: p.quantity || 1 })));
   }, [isOpen]);
@@ -25,39 +24,27 @@ export default function ProductsModal({
   if (!isOpen) return null;
 
   const handleProductToggle = (product) => {
-
-    console.log(product)
     setSelectedProducts(prev => {
       const exists = prev.find(p => p.id === product.id);
-      if (exists) {
-        return prev.filter(p => p.id !== product.id);
-      } else {
-        return [...prev, { ...product, quantity: 1 }];
-      }
+      if (exists) return prev.filter(p => p.id !== product.id);
+      return [...prev, { ...product, quantity: 1 }];
     });
   };
 
   const handleQuantityChange = (productId, change) => {
-    setSelectedProducts(prev => {
-      return prev.map(p => {
-        if (p.id === productId) {
-          const newQuantity = p.quantity + change;
-          if (newQuantity <= 0) {
-            return null;
-          }
-          return { ...p, quantity: newQuantity };
-        }
-        return p;
-      }).filter(p => p !== null);
-    });
+    setSelectedProducts(prev =>
+      prev.map(p => {
+        if (p.id !== productId) return p;
+        const newQuantity = p.quantity + change;
+        return newQuantity <= 0 ? null : { ...p, quantity: newQuantity };
+      }).filter(Boolean)
+    );
   };
 
   const parsePrice = (priceString) => {
     if (typeof priceString === 'number') return priceString;
     let cleanPrice = priceString.toString().replace(/R\$/g, '').trim();
-    if (cleanPrice.includes(',')) {
-      cleanPrice = cleanPrice.replace(/\./g, '').replace(',', '.');
-    }
+    if (cleanPrice.includes(',')) cleanPrice = cleanPrice.replace(/\./g, '').replace(',', '.');
     const price = parseFloat(cleanPrice);
     return isNaN(price) ? 0 : price;
   };
@@ -65,37 +52,28 @@ export default function ProductsModal({
   const calculateProductPrice = (product) => {
     const basePrice = parsePrice(product.price);
     if (hasActiveSubscription && product.subscriberDiscount) {
-      const discount = product.subscriberDiscount / 100;
-      return basePrice * (1 - discount);
+      return basePrice * (1 - product.subscriberDiscount / 100);
     }
     return basePrice;
   };
 
-  const calculateProductsTotal = () => {
-    return selectedProducts.reduce((sum, product) => {
-      const price = calculateProductPrice(product);
-      return sum + (price * product.quantity);
-    }, 0);
-  };
+  const calculateProductsTotal = () =>
+    selectedProducts.reduce((sum, product) =>
+      sum + calculateProductPrice(product) * product.quantity, 0);
 
   const calculateFinalTotal = () => {
     const productsTotal = calculateProductsTotal();
     return hasActiveSubscription ? productsTotal : (servicePrice + productsTotal);
   };
 
-  const handleConfirm = async () => {
+  const handleConfirm = () => {
     const productsTotal = calculateProductsTotal();
     const finalTotal = calculateFinalTotal();
-    const productsWithCalculatedPrice = selectedProducts.map(product => {
-      const calculatedPrice = calculateProductPrice(product);
-      return { ...product, calculatedPrice, totalPrice: calculatedPrice * product.quantity };
-    });
-
-    if (onUpdateStock && selectedProducts.length > 0) {
-      for (const product of selectedProducts) {
-        await onUpdateStock(product.id, product.quantity);
-      }
-    }
+    const productsWithCalculatedPrice = selectedProducts.map(product => ({
+      ...product,
+      calculatedPrice: calculateProductPrice(product),
+      totalPrice: calculateProductPrice(product) * product.quantity,
+    }));
 
     onConfirm({
       products: productsWithCalculatedPrice,
@@ -118,7 +96,6 @@ export default function ProductsModal({
     setSelectedProducts([]);
   };
 
-  const availableProducts = products;
   const productsTotal = calculateProductsTotal();
   const finalTotal = calculateFinalTotal();
 
@@ -136,11 +113,11 @@ export default function ProductsModal({
         </div>
 
         <div className="products-modal-content">
-          {availableProducts.length === 0 ? (
+          {products.length === 0 ? (
             <p className="products-empty-message">Nenhum produto disponível no momento.</p>
           ) : (
             <div className="products-grid">
-              {availableProducts.map(product => {
+              {products.map(product => {
                 const selected = selectedProducts.find(p => p.id === product.id);
                 const price = calculateProductPrice(product);
                 const isOutOfStock = product.stock !== undefined && product.stock <= 0;
@@ -187,10 +164,7 @@ export default function ProductsModal({
                     </div>
 
                     {selected && (
-                      <div
-                        className="quantity-controls"
-                        onClick={e => e.stopPropagation()}
-                      >
+                      <div className="quantity-controls" onClick={e => e.stopPropagation()}>
                         <button onClick={() => handleQuantityChange(product.id, -1)}>−</button>
                         <span>{selected.quantity}</span>
                         <button
@@ -235,10 +209,12 @@ export default function ProductsModal({
         </div>
 
         <div className="products-modal-footer">
-          <button className="btn-secondary" onClick={handleSkip}>
-            Pular
-          </button>
-          <button className="btn-primary" onClick={handleConfirm} disabled={selectedProducts.length === 0}>
+          <button className="btn-secondary" onClick={handleSkip}>Pular</button>
+          <button
+            className="btn-primary"
+            onClick={handleConfirm}
+            disabled={selectedProducts.length === 0}
+          >
             Confirmar
           </button>
         </div>

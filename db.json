@@ -4927,7 +4927,7 @@
       "description": "Hidrata e amacia a barba, com fragrância amadeirada",
       "price": "R$ 1.00",
       "subscriberDiscount": 0,
-      "stock": 3,
+      "stock": 0,
       "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
       "id": "3"
     },
@@ -4937,7 +4937,7 @@
       "description": "Elimina a caspa e fortalece os fios",
       "price": "R$ 0.01",
       "subscriberDiscount": 15,
-      "stock": 3,
+      "stock": 0,
       "image": "https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=400",
       "id": "4"
     },
@@ -4957,7 +4957,7 @@
       "description": "Refrigerante premium para acompanhar seu corte",
       "price": "R$ 0.01",
       "subscriberDiscount": 10,
-      "stock": 15,
+      "stock": 12,
       "image": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400",
       "id": "6"
     },

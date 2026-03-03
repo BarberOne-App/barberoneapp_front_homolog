@@ -21,12 +21,94 @@ const SUBSCRIPTION_LINKS = {
   1: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=6a4820f29af0439eaedd4ffa13a0acbf',
 };
 
+
+function PixQrModal({ pixQrCodeBase64, pixQrCode, pixTimer, pixExpired, pixQrCopied, pixGenerating, onCopy, onClose }) {
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="payment-modal-overlay pix-qr-overlay" onClick={onClose}>
+      <div className="payment-modal-content pix-qr-modal" onClick={(e) => e.stopPropagation()}>
+        <button className="payment-modal-close" onClick={onClose}>×</button>
+
+        <div className="payment-modal-header">
+          <h2>Pagamento via PIX</h2>
+          <p className="payment-modal-subtitle">Escaneie o QR Code ou copie a chave abaixo</p>
+        </div>
+
+        <div className="pix-payment-section">
+          <div className="pix-qrcode-wrapper">
+            {pixGenerating ? (
+              <div className="pix-loading">
+                <div className="pix-spinner" />
+                <p>Gerando QR Code...</p>
+              </div>
+            ) : pixExpired ? (
+          
+              null
+            ) : pixQrCodeBase64 ? (
+              <>
+                <img
+                  className="pix-qrcode-img"
+                  width="220"
+                  src={`data:image/png;base64,${pixQrCodeBase64}`}
+                  alt="QR Code PIX"
+                />
+                <div className="pix-timer">
+                  ⏱ Expira em: <strong>{formatTime(pixTimer)}</strong>
+                </div>
+              </>
+            ) : (
+              <div className="pix-error-state">
+                <p>Não foi possível gerar o QR Code.</p>
+              </div>
+            )}
+          </div>
+
+          {pixQrCode && !pixExpired && (
+            <div className="pix-copy-section">
+              <p className="pix-copy-label">📋 Pix Copia e Cola</p>
+              <div className="pix-copy-box">
+                <span className="pix-copy-value">{pixQrCode}</span>
+                <button
+                  type="button"
+                  className={`pix-copy-btn ${pixQrCopied ? 'copied' : ''}`}
+                  onClick={onCopy}
+                >
+                  {pixQrCopied ? '✓ Copiado!' : 'Copiar'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!pixExpired && (
+            <div className="pix-instructions">
+              <h4>Como pagar:</h4>
+              <ol>
+                <li>Abra o app do seu banco</li>
+                <li>Escaneie o QR Code ou copie a chave Pix acima</li>
+                <li>Confirme o pagamento no banco</li>
+                <li>O modal fechará automaticamente após a confirmação</li>
+              </ol>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 export default function PaymentModal({
   isOpen,
   onClose,
   selectedPlan,
   currentUser,
   onSuccess,
+  onPixExpired,           
   isAppointmentPayment = false,
   paymentId = null,
 }) {
@@ -35,6 +117,8 @@ export default function PaymentModal({
   const [paymentStatus, setPaymentStatus] = useState(null);
   const [showSavedCards, setShowSavedCards] = useState(false);
   const [hasCards, setHasCards] = useState(false);
+
+  const [showPixQrModal, setShowPixQrModal] = useState(false);
   const [pixTimer, setPixTimer] = useState(600);
   const [pixExpired, setPixExpired] = useState(false);
   const [pixQrCodeBase64, setPixQrCodeBase64] = useState('');
@@ -42,6 +126,7 @@ export default function PaymentModal({
   const [pixPaymentId, setPixPaymentId] = useState(null);
   const [pixQrCopied, setPixQrCopied] = useState(false);
   const [pixGenerating, setPixGenerating] = useState(false);
+
   const [showErrorToast, setShowErrorToast] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -50,21 +135,19 @@ export default function PaymentModal({
   const [mercadoPagoInstance, setMercadoPagoInstance] = useState(null);
   const [brickController, setBrickController] = useState(null);
   const [brickLoaded, setBrickLoaded] = useState(false);
-  const [pixApproved, setPixApproved] = useState(false);
 
   const cardPaymentBrickRef = useRef(null);
   const isRenderingBrick = useRef(false);
   const pixPollingRef = useRef(null);
   const pixPaymentIdRef = useRef(null);
 
-  // const MERCADO_PAGO_PUBLIC_KEY = 'TEST-e60cf7cf-2a92-4f82-bfec-978eaa9139f8';
   const MERCADO_PAGO_PUBLIC_KEY = 'APP_USR-3c24dcad-27ac-4f14-996c-d0ef917404b0';
   const isRecurringSubscription = !isAppointmentPayment && selectedPlan?.isRecurring;
+
   const getAvailablePaymentMethods = () => {
     if (isAppointmentPayment) return ['pix', 'credit', 'debit'];
     return ['credit'];
   };
-
   const availableMethods = getAvailablePaymentMethods();
 
   const getFinalPrice = () => {
@@ -72,6 +155,40 @@ export default function PaymentModal({
     if (paymentMethod === 'credit') return selectedPlan.price * 1.05;
     return selectedPlan.price;
   };
+
+  const resetPixState = () => {
+    setShowPixQrModal(false);
+    setPixQrCodeBase64('');
+    setPixQrCode('');
+    setPixPaymentId(null);
+    pixPaymentIdRef.current = null;
+    setPixTimer(600);
+    setPixExpired(false);
+    setPixQrCopied(false);
+    if (pixPollingRef.current) {
+      clearInterval(pixPollingRef.current);
+      pixPollingRef.current = null;
+    }
+  };
+
+  const handleClose = () => {
+    resetPixState();
+    onClose();
+  };
+
+  useEffect(() => {
+    if (pixExpired && showPixQrModal) {
+
+      if (pixPollingRef.current) {
+        clearInterval(pixPollingRef.current);
+        pixPollingRef.current = null;
+      }
+
+      setShowPixQrModal(false);
+     
+      onPixExpired && onPixExpired();
+    }
+  }, [pixExpired]);
 
   useEffect(() => {
     if (
@@ -84,7 +201,7 @@ export default function PaymentModal({
       script.src = 'https://sdk.mercadopago.com/js/v2';
       script.async = true;
       script.onload = () => {
-        const mp = new window.MercadoPago(MERCADO_PAGO_PUBLIC_KEY, { locale: 'pt-BR' }); //to aqui óh lucaasm
+        const mp = new window.MercadoPago(MERCADO_PAGO_PUBLIC_KEY, { locale: 'pt-BR' });
         setMercadoPagoInstance(mp);
       };
       document.body.appendChild(script);
@@ -122,58 +239,36 @@ export default function PaymentModal({
       setBrickController(null);
       setBrickLoaded(false);
     }
-    if (paymentMethod !== 'pix' && pixPollingRef.current) {
-      clearInterval(pixPollingRef.current);
-      pixPollingRef.current = null;
+    if (paymentMethod !== 'pix') {
+      resetPixState();
     }
   }, [paymentMethod]);
-
-  useEffect(() => {
-    if (isOpen && paymentMethod === 'pix') {
-      setPixQrCodeBase64('');
-      setPixQrCode('');
-      setPixPaymentId(null);
-      pixPaymentIdRef.current = null;
-      setPixTimer(600);
-      setPixExpired(false);
-      setPixApproved(false);
-      gerarPixPayment();
-    }
-  }, [isOpen, paymentMethod]);
 
   useEffect(() => {
     if (pixPollingRef.current) {
       clearInterval(pixPollingRef.current);
       pixPollingRef.current = null;
     }
-
-    if (isOpen && paymentMethod === 'pix' && pixQrCodeBase64 && !pixExpired && pixPaymentId) {
+    if (showPixQrModal && pixQrCodeBase64 && !pixExpired && pixPaymentId) {
       pixPollingRef.current = setInterval(() => {
-        if (pixPaymentIdRef.current) {
-          verificarStatusPix(pixPaymentIdRef.current);
-        }
+        if (pixPaymentIdRef.current) verificarStatusPix(pixPaymentIdRef.current);
       }, 10000);
     }
-
     return () => {
       if (pixPollingRef.current) {
         clearInterval(pixPollingRef.current);
         pixPollingRef.current = null;
       }
     };
-  }, [isOpen, paymentMethod, pixQrCodeBase64, pixExpired, pixPaymentId]);
+  }, [showPixQrModal, pixQrCodeBase64, pixExpired, pixPaymentId]);
 
   useEffect(() => {
     let interval;
-    if (isOpen && paymentMethod === 'pix' && pixQrCodeBase64 && !pixExpired) {
+    if (showPixQrModal && pixQrCodeBase64 && !pixExpired) {
       interval = setInterval(() => {
         setPixTimer((prev) => {
           if (prev <= 1) {
             clearInterval(interval);
-            if (pixPollingRef.current) {
-              clearInterval(pixPollingRef.current);
-              pixPollingRef.current = null;
-            }
             setPixExpired(true);
             return 0;
           }
@@ -182,7 +277,7 @@ export default function PaymentModal({
       }, 1000);
     }
     return () => { if (interval) clearInterval(interval); };
-  }, [isOpen, paymentMethod, pixQrCodeBase64, pixExpired]);
+  }, [showPixQrModal, pixQrCodeBase64, pixExpired]);
 
   useEffect(() => {
     setShowErrorToast(false);
@@ -212,6 +307,7 @@ export default function PaymentModal({
   const gerarPixPayment = async () => {
     setPixGenerating(true);
     setShowErrorToast(false);
+    setShowPixQrModal(true); 
     try {
       const pixPayload = {
         transaction_amount: getFinalPrice(),
@@ -237,25 +333,25 @@ export default function PaymentModal({
       console.error('Erro ao gerar PIX:', error);
       setErrorMessage('Erro ao gerar QR Code PIX. Tente novamente.');
       setShowErrorToast(true);
+      setShowPixQrModal(false); 
     } finally {
       setPixGenerating(false);
     }
-  };  
+  };
 
   const verificarStatusPix = async (idPix) => {
     try {
       const result = await checkPixStatus(idPix);
 
       if (isAppointmentPayment && result === 'approved') {
+        clearInterval(pixPollingRef.current);
+        pixPollingRef.current = null;
+
+        const paymentMethodString = 'pix';
+        const finalAmount = getFinalPrice();
+
         if (selectedPlan.needsCreation && selectedPlan.appointmentData && selectedPlan.paymentData) {
-          clearInterval(pixPollingRef.current);
-          pixPollingRef.current = null;
-          setPixApproved(true);
-
-          const paymentMethodString = 'pix';
-          const finalAmount = getFinalPrice();
-
-          const appointmentResponse = await fetch(`http://localhost:3000/appointments`, {
+          const appointmentResponse = await fetch(`${import.meta.env.VITE_API_URL}/appointments`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(selectedPlan.appointmentData),
@@ -271,36 +367,23 @@ export default function PaymentModal({
             paidAt: new Date().toISOString(),
             amount: finalAmount,
             mercadoPagoId: idPix,
-            cardData: {
-              brand: undefined,
-              lastDigits: '****',
-            },
+            cardData: { brand: undefined, lastDigits: '****' },
           });
-
-          onSuccess && onSuccess(paymentMethodString);
-          setProcessing(false);
-          onClose();
-
         } else if (paymentId) {
-          const paymentMethodString = 'pix';
-          const finalAmount = getFinalPrice();
-
           await atualizarPagamentoAgendamento(paymentId, {
             status: 'paid',
             paymentMethod: paymentMethodString,
             paidAt: new Date().toISOString(),
             amount: finalAmount,
             mercadoPagoId: idPix,
-            cardData: {
-              brand: undefined,
-              lastDigits: '****',
-            },
+            cardData: { brand: undefined, lastDigits: '****' },
           });
-
-          onSuccess && onSuccess(paymentMethodString);
-          setProcessing(false);
-          onClose();
         }
+
+        onSuccess && onSuccess(paymentMethodString);
+        setProcessing(false);
+        setShowPixQrModal(false);
+        onClose();
       }
     } catch (error) {
       console.error('Erro ao verificar status PIX:', error);
@@ -308,12 +391,6 @@ export default function PaymentModal({
       setShowErrorToast(true);
       setProcessing(false);
     }
-  };
-
-  const handlePixSubmit = async (e) => {
-    e.preventDefault();
-    if (pixExpired || !pixPaymentId) return;
-    await verificarStatusPix(pixPaymentId);
   };
 
   const renderCardPaymentBrick = async () => {
@@ -368,7 +445,6 @@ export default function PaymentModal({
           },
         },
       });
-
       setBrickController(controller);
     } catch (error) {
       console.error('Erro ao renderizar Card Payment Brick:', error);
@@ -380,9 +456,7 @@ export default function PaymentModal({
 
   const handleResetPayment = async () => {
     if (brickController) {
-      try {
-        await brickController.unmount();
-      } catch (_) {}
+      try { await brickController.unmount(); } catch (_) {}
     }
     setBrickController(null);
     setBrickLoaded(false);
@@ -426,7 +500,7 @@ export default function PaymentModal({
           ? `Pagamento - ${selectedPlan.serviceName || selectedPlan.name || 'Serviço'}`
           : `Assinatura - ${selectedPlan.name}`,
       };
-   
+
       const paymentResult = await processMercadoPagoPayment(paymentData);
 
       if (paymentResult.status === 'approved' || paymentResult.status === 'authorized') {
@@ -529,9 +603,7 @@ export default function PaymentModal({
         setPaymentStatus('rejected');
         setProcessing(false);
         return new Promise((_, reject) => reject(new Error('Payment rejected')));
-
       } else {
-
         setPaymentStatus('pending');
         setErrorMessage(
           `Pagamento em análise (status: ${paymentResult.status}). Você receberá uma confirmação em breve.`
@@ -540,7 +612,6 @@ export default function PaymentModal({
         setProcessing(false);
         return { status: paymentResult.status };
       }
-
     } catch (error) {
       setErrorMessage(error.message || 'Erro ao processar pagamento. Tente novamente.');
       setShowErrorToast(true);
@@ -548,19 +619,13 @@ export default function PaymentModal({
       return new Promise((_, reject) => reject(error));
     }
   };
-   
+
   const handleCopyPixKey = () => {
     if (pixQrCode) {
       navigator.clipboard.writeText(pixQrCode);
       setPixQrCopied(true);
       setTimeout(() => setPixQrCopied(false), 3000);
     }
-  };
-
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   const handleDownloadTerms = async (e) => {
@@ -610,9 +675,10 @@ export default function PaymentModal({
 
   return (
     <>
-      <div className="payment-modal-overlay" onClick={onClose}>
+
+      <div className="payment-modal-overlay" onClick={handleClose}>
         <div className="payment-modal-content" onClick={(e) => e.stopPropagation()}>
-          <button className="payment-modal-close" onClick={onClose}>×</button>
+          <button className="payment-modal-close" onClick={handleClose}>×</button>
 
           <div className="payment-modal-header">
             <h2>
@@ -657,24 +723,20 @@ export default function PaymentModal({
               </div>
               <h2>Pagamento em Análise</h2>
               <p>Seu pagamento está sendo processado pela operadora. Você receberá uma confirmação em breve.</p>
-              <button type="button" className="payment-status-btn" onClick={onClose}>
-                Fechar
-              </button>
+              <button type="button" className="payment-status-btn" onClick={handleClose}>Fechar</button>
             </div>
           )}
 
           {paymentStatus === 'rejected' && (
             <div className="payment-status-screen">
-              <div className="payment-status-icon rejected-icon">
-                <span>✕</span>
-              </div>
+              <div className="payment-status-icon rejected-icon"><span>✕</span></div>
               <h2>Pagamento Recusado</h2>
               <p>Verifique os dados do cartão ou tente outra forma de pagamento.</p>
               <div className="payment-status-actions">
                 <button type="button" className="payment-status-btn retry" onClick={handleResetPayment}>
                   Tentar Novamente
                 </button>
-                <button type="button" className="payment-status-btn cancel" onClick={onClose}>
+                <button type="button" className="payment-status-btn cancel" onClick={handleClose}>
                   Cancelar
                 </button>
               </div>
@@ -702,7 +764,6 @@ export default function PaymentModal({
                       <li>✓ Processamento seguro pelo Mercado Pago</li>
                     </ul>
                   </div>
-
                   <div className="payment-terms-section">
                     <div className="payment-terms-box">
                       <h4>📄 Termos de Contratação</h4>
@@ -722,9 +783,8 @@ export default function PaymentModal({
                       <span>Li e aceito os termos de contratação e autorizo a cobrança recorrente mensal</span>
                     </label>
                   </div>
-
                   <div className="payment-modal-footer">
-                    <button type="button" onClick={onClose}>Cancelar</button>
+                    <button type="button" onClick={handleClose}>Cancelar</button>
                     <button
                       type="button"
                       onClick={handleRecurringSubscription}
@@ -750,101 +810,35 @@ export default function PaymentModal({
                     ))}
                   </div>
 
-              {paymentMethod === 'pix' ? (  
-                    <form onSubmit={handlePixSubmit}>
-                      <div className="pix-payment-section">
-                        <div className="pix-qrcode-wrapper">
-                          {pixGenerating ? (
-                            <div className="pix-loading">
-                              <div className="pix-spinner" />
-                              <p>Gerando QR Code...</p>
-                            </div>
-                          ) : pixQrCodeBase64 ? (
-                            <>
-                              <img
-                                className="pix-qrcode-img"
-                                width="220"
-                                src={`data:image/png;base64,${pixQrCodeBase64}`}
-                                alt="QR Code PIX"
-                              />
-                              {!pixExpired ? (
-                                <div className="pix-timer">
-                                  ⏱ Expira em: <strong>{formatTime(pixTimer)}</strong>
-                                </div>
-                              ) : (
-                                <div className="pix-expired">
-                                  <span>❌ QR Code expirado</span>
-                                  <button
-                                    type="button"
-                                    className="pix-retry-btn"
-                                    onClick={() => {
-                                      setPixExpired(false);
-                                      setPixTimer(600);
-                                      setPixQrCodeBase64('');
-                                      setPixQrCode('');
-                                      setPixPaymentId(null);
-                                      pixPaymentIdRef.current = null;
-                                      setPixApproved(false);
-                                      gerarPixPayment();
-                                    }}
-                                  >
-                                    🔄 Gerar novo QR Code
-                                  </button>
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <div className="pix-error-state">
-                              <p>Não foi possível gerar o QR Code.</p>
-                              <button type="button" className="pix-retry-btn" onClick={gerarPixPayment}>
-                                Tentar novamente
-                              </button>
-                            </div>
-                          )}
-                        </div>
-
-                        {pixQrCode && (
-                          <div className="pix-copy-section">
-                            <p className="pix-copy-label">📋 Pix Copia e Cola</p>
-                            <div className="pix-copy-box">
-                              <span className="pix-copy-value">{pixQrCode}</span>
-                              <button
-                                type="button"
-                                className={`pix-copy-btn ${pixQrCopied ? 'copied' : ''}`}
-                                onClick={handleCopyPixKey}
-                                disabled={pixExpired}
-                              >
-                                {pixQrCopied ? '✓ Copiado!' : 'Copiar'}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="pix-instructions">
-                          <h4>Como pagar:</h4>
-                          <ol>
-                            <li>Abra o app do seu banco</li>
-                            <li>Escaneie o QR Code ou copie a chave Pix acima</li>
-                            <li>Confirme o pagamento no banco</li>
-                            <li>Clique em <strong>"Confirmar Pagamento"</strong> abaixo</li>
-                          </ol>
-                        </div>
+                  {paymentMethod === 'pix' ? (
+                    <div className="pix-payment-section">
+                      <div className="pix-instructions pix-instructions--pre">
+                        <h4>Como funciona:</h4>
+                        <ol>
+                          <li>Clique em <strong>"Gerar QR Code"</strong></li>
+                          <li>Escaneie o código no app do seu banco</li>
+                          <li>O pagamento será confirmado automaticamente</li>
+                        </ol>
                       </div>
+
+                      {showErrorToast && (
+                        <p className="pix-gen-error">Não foi possível gerar o QR Code. Tente novamente.</p>
+                      )}
 
                       <div className="payment-modal-footer">
-                        <button type="button" onClick={onClose}>Cancelar</button>
+                        <button type="button" onClick={handleClose}>Cancelar</button>
                         <button
-                          type="submit"
-                          disabled={processing || pixExpired || pixGenerating || !pixPaymentId}
+                          type="button"
+                          onClick={gerarPixPayment}
+                          disabled={pixGenerating}
                         >
-                          {processing ? 'Verificando...' : 'Confirmar Pagamento'}
+                          {pixGenerating ? 'Gerando...' : 'Gerar QR Code'}
                         </button>
                       </div>
-                    </form>
+                    </div>
                   ) : (
                     <>
                       <div id="cardPaymentBrick_container"></div>
-
                       {!isAppointmentPayment && (
                         <div className="payment-terms-section">
                           <div className="payment-terms-box">
@@ -875,6 +869,21 @@ export default function PaymentModal({
         </div>
       </div>
 
+
+      {showPixQrModal && (
+        <PixQrModal
+          pixQrCodeBase64={pixQrCodeBase64}
+          pixQrCode={pixQrCode}
+          pixTimer={pixTimer}
+          pixExpired={pixExpired}
+          pixQrCopied={pixQrCopied}
+          pixGenerating={pixGenerating}
+          onCopy={handleCopyPixKey}
+          onClose={() => setShowPixQrModal(false)}
+        />
+      )}
+
+   
       {processing && (
         <div className="processing-overlay">
           <div className="processing-content">
@@ -882,9 +891,7 @@ export default function PaymentModal({
             <h2>Processando Pagamento</h2>
             <p>Aguarde enquanto confirmamos sua transação</p>
             <div className="processing-dots">
-              <span></span>
-              <span></span>
-              <span></span>
+              <span></span><span></span><span></span>
             </div>
           </div>
         </div>
