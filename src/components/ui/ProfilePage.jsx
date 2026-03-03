@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
   import { buscarAssinaturaAtiva } from '../../services/paymentService';
   import ManageSubscriptionModal from '../ui/ManageSubscriptionModal.jsx';
   import SubscriptionModal from '../ui/SubscriptionModal.jsx';
-  import { FaCalendarAlt, FaShieldAlt, FaCreditCard, FaSignOutAlt, FaCamera, FaUser, FaEnvelope, FaEdit, FaCheck, FaTimes, FaArrowLeft, FaHome, FaStore } from 'react-icons/fa';
+  import { FaCalendarAlt, FaShieldAlt, FaCreditCard, FaSignOutAlt, FaCamera, FaUser, FaEnvelope, FaEdit, FaCheck, FaTimes, FaArrowLeft, FaHome, FaStore, FaUsers, FaPlus, FaTrash } from 'react-icons/fa';
   import { BARBERSHOPS, getActiveBarbershop, setActiveBarbershop } from '../layout/Barbershops';
   import './ProfilePage.css';
   import Header from '../layout/Header.jsx';
@@ -30,6 +30,15 @@ import { useState, useEffect } from 'react';
     const [toast, setToast] = useState(null);
     const [activeBarbershop, setActiveBarbershopState] = useState(getActiveBarbershop);
 
+
+    const [dependents, setDependents] = useState([]);
+    const [showDependentForm, setShowDependentForm] = useState(false);
+    const [editingDependent, setEditingDependent] = useState(null); // null = novo, objeto = editar
+    const [dependentForm, setDependentForm] = useState({ name: '', age: '', cpf: '' });
+    const [savingDependent, setSavingDependent] = useState(false);
+    const [deletingDependentId, setDeletingDependentId] = useState(null);
+    const MAX_DEPENDENTS = 3;
+
     useEffect(() => {
       const user = getSession();
       if (!user) {
@@ -40,6 +49,7 @@ import { useState, useEffect } from 'react';
       setNewName(user.name || '');
       loadUserPhoto(user.id);
       verificarAssinaturaAtiva(user.id);
+      loadDependents(user.id);
     }, []);
 
     const loadUserPhoto = async (userId) => {
@@ -50,6 +60,142 @@ import { useState, useEffect } from 'react';
           if (userData.photo) setProfilePhoto(userData.photo);
         }
       } catch (e) {}
+    };
+
+    const loadDependents = async (userId) => {
+      try {
+        const res = await fetch(`${API_URL}/dependents?parentId=${userId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setDependents(data);
+        }
+      } catch (e) {}
+    };
+
+    const formatCPF = (value) => {
+      const digits = value.replace(/\D/g, '').slice(0, 11);
+      return digits
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    };
+
+    const handleDependentFormChange = (field, value) => {
+      if (field === 'cpf') value = formatCPF(value);
+      if (field === 'age') value = value.replace(/\D/g, '').slice(0, 3);
+      setDependentForm((prev) => ({ ...prev, [field]: value }));
+    };
+
+    const handleOpenNewDependent = () => {
+      setEditingDependent(null);
+      setDependentForm({ name: '', age: '', cpf: '' });
+      setShowDependentForm(true);
+    };
+
+    const handleOpenEditDependent = (dep) => {
+      setEditingDependent(dep);
+      setDependentForm({ name: dep.name, age: String(dep.age), cpf: dep.cpf });
+      setShowDependentForm(true);
+    };
+
+    const validateCPF = (cpf) => {
+      const digits = cpf.replace(/[^0-9]/g, '');
+      if (digits.length !== 11) return false;
+      if (/^(.)\1{10}$/.test(digits)) return false;
+      let sum = 0;
+      for (let i = 0; i < 9; i++) sum += parseInt(digits[i]) * (10 - i);
+      let remainder = (sum * 10) % 11;
+      if (remainder === 10 || remainder === 11) remainder = 0;
+      if (remainder !== parseInt(digits[9])) return false;
+      sum = 0;
+      for (let i = 0; i < 10; i++) sum += parseInt(digits[i]) * (11 - i);
+      remainder = (sum * 10) % 11;
+      if (remainder === 10 || remainder === 11) remainder = 0;
+      return remainder === parseInt(digits[10]);
+    };
+
+    const handleSaveDependent = async () => {
+      if (!dependentForm.name.trim() || !dependentForm.age || !dependentForm.cpf) {
+        showToast('Preencha nome, idade e CPF.');
+        return;
+      }
+
+      if (!validateCPF(dependentForm.cpf)) {
+        showToast('CPF inválido. Verifique os números digitados.');
+        return;
+      }
+
+      setSavingDependent(true);
+      try {
+        const cpfDigits = dependentForm.cpf.replace(/[^0-9]/g, '');
+
+        const allDepsRes = await fetch(`${API_URL}/dependents`);
+        const allDeps = await allDepsRes.json();
+        const cpfExistsInDependents = allDeps.some((d) => {
+          const isSelf = editingDependent && d.id === editingDependent.id;
+          return !isSelf && d.cpf.replace(/[^0-9]/g, '') === cpfDigits;
+        });
+        if (cpfExistsInDependents) {
+          showToast('Este CPF já está cadastrado como dependente.');
+          return;
+        }
+
+        const allUsersRes = await fetch(`${API_URL}/users`);
+        const allUsersData = await allUsersRes.json();
+        const cpfExistsInUsers = allUsersData.some(
+          (u) => u.cpf && u.cpf.replace(/[^0-9]/g, '') === cpfDigits
+        );
+        if (cpfExistsInUsers) {
+          showToast('Este CPF pertence a um usuário já cadastrado no sistema.');
+          return;
+        }
+
+        if (editingDependent) {
+          const res = await fetch(`${API_URL}/dependents/${editingDependent.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...dependentForm, age: Number(dependentForm.age) }),
+          });
+          if (res.ok) {
+            await loadDependents(currentUser.id);
+            setShowDependentForm(false);
+            showToast('Dependente atualizado!');
+          }
+        } else {
+          const res = await fetch(`${API_URL}/dependents`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...dependentForm,
+              age: Number(dependentForm.age),
+              parentId: currentUser.id,
+              parentName: currentUser.name,
+            }),
+          });
+          if (res.ok) {
+            await loadDependents(currentUser.id);
+            setShowDependentForm(false);
+            showToast('Dependente adicionado!');
+          }
+        }
+      } catch (e) {
+        showToast('Erro ao salvar dependente.');
+      } finally {
+        setSavingDependent(false);
+      }
+    };
+
+        const handleDeleteDependent = async (depId) => {
+      setDeletingDependentId(depId);
+      try {
+        await fetch(`${API_URL}/dependents/${depId}`, { method: 'DELETE' });
+        await loadDependents(currentUser.id);
+        showToast('Dependente removido.');
+      } catch (e) {
+        showToast('Erro ao remover dependente.');
+      } finally {
+        setDeletingDependentId(null);
+      }
     };
 
     const verificarAssinaturaAtiva = async (userId) => {
@@ -383,8 +529,168 @@ import { useState, useEffect } from 'react';
                 </div>
               )}
 
-              <div className="profile-card profile-card--photo">
-                <div className="profile-card__label">
+              {!isAdmin && !isReceptionist && !isBarber && (
+                <div className="profile-card" style={{ gridColumn: '1 / -1' }}>
+                  <div className="profile-card__label" style={{ marginBottom: '1rem' }}>
+                    <FaUsers className="profile-card__icon" />
+                    Dependentes
+                    <span style={{ marginLeft: 'auto', color: '#666', fontSize: '0.75rem', fontWeight: 400 }}>
+                      {dependents.length}/{MAX_DEPENDENTS} cadastrados
+                    </span>
+                  </div>
+
+                  {dependents.length === 0 && !showDependentForm && (
+                    <p style={{ color: '#666', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+                      Nenhum dependente cadastrado ainda.
+                    </p>
+                  )}
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: dependents.length > 0 ? '1rem' : 0 }}>
+                    {dependents.map((dep) => (
+                      <div key={dep.id} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        background: '#111', border: '1px solid #2a2a2a',
+                        borderRadius: 10, padding: '0.7rem 1rem',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <div style={{
+                            width: 38, height: 38, borderRadius: '50%',
+                            background: 'rgba(255,122,26,0.15)', border: '1px solid rgba(255,122,26,0.3)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#ff7a1a', fontWeight: 700, fontSize: '1rem', flexShrink: 0,
+                          }}>
+                            {dep.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p style={{ margin: 0, color: '#fff', fontWeight: 600, fontSize: '0.9rem' }}>{dep.name}</p>
+                            <p style={{ margin: 0, color: '#777', fontSize: '0.76rem', marginTop: 2 }}>
+                              {dep.age} anos · CPF: {dep.cpf}
+                            </p>
+                            <p style={{ margin: 0, color: '#555', fontSize: '0.72rem', marginTop: 1, fontStyle: 'italic' }}>
+                              ⚠️ Não incluso no plano · agendamento individual necessário
+                            </p>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                          <button
+                            onClick={() => handleOpenEditDependent(dep)}
+                            style={{
+                              background: 'transparent', border: '1px solid rgba(255,122,26,0.3)',
+                              color: '#ff7a1a', borderRadius: 7, padding: '5px 10px',
+                              cursor: 'pointer', fontSize: '0.78rem',
+                            }}
+                          >
+                            <FaEdit />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteDependent(dep.id)}
+                            disabled={deletingDependentId === dep.id}
+                            style={{
+                              background: 'transparent', border: '1px solid rgba(231,76,60,0.3)',
+                              color: '#e74c3c', borderRadius: 7, padding: '5px 10px',
+                              cursor: 'pointer', fontSize: '0.78rem',
+                              opacity: deletingDependentId === dep.id ? 0.5 : 1,
+                            }}
+                          >
+                            <FaTrash />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {showDependentForm && (
+                    <div style={{
+                      background: '#111', border: '1px solid #2a2a2a',
+                      borderRadius: 10, padding: '1rem', marginBottom: '0.75rem',
+                    }}>
+                      <p style={{ color: '#a8a8a8', fontSize: '0.82rem', marginBottom: '0.75rem', fontWeight: 600 }}>
+                        {editingDependent ? 'Editar dependente' : 'Novo dependente'}
+                      </p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <input
+                          placeholder="Nome completo *"
+                          value={dependentForm.name}
+                          onChange={(e) => handleDependentFormChange('name', e.target.value)}
+                          style={{
+                            background: '#1a1a1a', border: '1px solid #333', borderRadius: 7,
+                            padding: '8px 12px', color: '#fff', fontSize: '0.85rem', outline: 'none',
+                          }}
+                        />
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <input
+                            placeholder="Idade *"
+                            value={dependentForm.age}
+                            onChange={(e) => handleDependentFormChange('age', e.target.value)}
+                            style={{
+                              background: '#1a1a1a', border: '1px solid #333', borderRadius: 7,
+                              padding: '8px 12px', color: '#fff', fontSize: '0.85rem', outline: 'none',
+                              width: '30%',
+                            }}
+                          />
+                          <input
+                            placeholder="CPF (000.000.000-00) *"
+                            value={dependentForm.cpf}
+                            onChange={(e) => handleDependentFormChange('cpf', e.target.value)}
+                            style={{
+                              background: '#1a1a1a', border: '1px solid #333', borderRadius: 7,
+                              padding: '8px 12px', color: '#fff', fontSize: '0.85rem', outline: 'none',
+                              flex: 1,
+                            }}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+                          <button
+                            onClick={handleSaveDependent}
+                            disabled={savingDependent}
+                            style={{
+                              background: '#22c55e', border: 'none', color: '#fff',
+                              borderRadius: 7, padding: '7px 16px', cursor: 'pointer',
+                              fontWeight: 700, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem',
+                              opacity: savingDependent ? 0.6 : 1,
+                            }}
+                          >
+                            {savingDependent ? <span className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} /> : <FaCheck />}
+                            Salvar
+                          </button>
+                          <button
+                            onClick={() => setShowDependentForm(false)}
+                            style={{
+                              background: 'transparent', border: '1px solid rgba(231,76,60,0.4)',
+                              color: '#e74c3c', borderRadius: 7, padding: '7px 14px',
+                              cursor: 'pointer', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem',
+                            }}
+                          >
+                            <FaTimes /> Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {!showDependentForm && dependents.length < MAX_DEPENDENTS && (
+                    <button
+                      onClick={handleOpenNewDependent}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                        background: 'transparent', border: '1px solid rgba(255,122,26,0.4)',
+                        color: '#ff7a1a', borderRadius: 7, padding: '6px 14px',
+                        cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600,
+                      }}
+                    >
+                      <FaPlus style={{ fontSize: '0.7rem' }} /> Adicionar dependente
+                    </button>
+                  )}
+
+                  {!showDependentForm && dependents.length >= MAX_DEPENDENTS && (
+                    <p style={{ color: '#666', fontSize: '0.78rem', fontStyle: 'italic' }}>
+                      Limite de {MAX_DEPENDENTS} dependentes atingido.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="profile-card profile-card--photo">                <div className="profile-card__label">
                   <FaCamera className="profile-card__icon" />
                   Foto de Perfil
                 </div>

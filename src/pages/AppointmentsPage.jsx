@@ -63,9 +63,14 @@ export default function AppointmentsPage() {
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [blockedDates, setBlockedDates] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
-  const [bookingForUser, setBookingForUser] = useState(null); // { id, name, photo }
+  const [bookingForUser, setBookingForUser] = useState(null); 
   const [showUserSelector, setShowUserSelector] = useState(false);
   const [userSearch, setUserSearch] = useState('');
+
+
+  const [userDependents, setUserDependents] = useState([]);
+  const [bookingForDependent, setBookingForDependent] = useState(null);
+  const [showForWhomSelector, setShowForWhomSelector] = useState(false);
 
   const hasLoadedOnce = useRef(false);
   const paymentsCache = useRef({});
@@ -84,8 +89,10 @@ export default function AppointmentsPage() {
   const isAdmin = currentUser?.role === 'admin' || currentUser?.isAdmin === true;
   const canScheduleForOthers = isAdmin || currentUser?.permissions?.scheduleForOthers === true;
 
-  // The "active" client for this booking session (self or selected user)
-  const activeClient = bookingForUser || currentUser;
+
+  const activeClient = bookingForDependent
+    ? { id: `dep_${bookingForDependent.id}`, name: bookingForDependent.name, isDependent: true, dependentId: bookingForDependent.id }
+    : bookingForUser || currentUser;
 
   const checkExistingAppointmentOnDate = useCallback((date) => {
     if (!date || !activeClient?.id) return null;
@@ -228,7 +235,7 @@ export default function AppointmentsPage() {
       const validBarbers = barbersData.filter((barber) => {
         if (!barber.userId) return true;
         const user = allUsers.find((u) => u.id === barber.userId);
-        // Aceita se o user for barber OU se não tiver user vinculado (barber sem conta)
+     
         return !user || user.role === 'barber';
       });
 
@@ -238,6 +245,14 @@ export default function AppointmentsPage() {
       setAppointments(appointmentsData);
       setUserSubscriptions(subscriptionsData);
       setAllUsers(allUsers);
+
+      try {
+        const depsRes = await fetch(`http://localhost:3000/dependents?parentId=${currentUser?.id}`);
+        if (depsRes.ok) {
+          const deps = await depsRes.json();
+          setUserDependents(deps);
+        }
+      } catch (e) {}
 
       if (!isFetchingPayments.current) {
         isFetchingPayments.current = true;
@@ -540,7 +555,8 @@ const getAvailableTimes = useCallback((barberId, date) => {
     setShowProductsModal(false);
 
     const hasProducts = data.products.length > 0;
-    const hasSubscription = data.hasActiveSubscription;
+  
+    const hasSubscription = data.hasActiveSubscription && !bookingForDependent;
 
     if (!hasProducts && hasSubscription) {
       handleDirectConfirmation();
@@ -548,7 +564,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
     }
 
     setShowPaymentChoiceModal(true);
-  }, [pendingBookingData]);
+  }, [pendingBookingData, bookingForDependent]);
 
   const handleReschedule = useCallback(async () => {
     if (!existingAppointment) return;
@@ -613,7 +629,8 @@ const getAvailableTimes = useCallback((barberId, date) => {
         date: pendingBookingData.date,
         time: pendingBookingData.time,
         client: activeClient.name,
-        clientId: activeClient.id,
+        clientId: currentUser.id,
+        ...(bookingForDependent ? { isDependent: true, dependentName: bookingForDependent.name, dependentId: bookingForDependent.id } : {}),
         products: [],
         observation: pendingBookingData.observation || '',
       };
@@ -624,7 +641,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
 
       const paymentData = {
         appointmentId: createdAppointment.id,
-        userId: activeClient.id,
+        userId: currentUser.id,
         userName: activeClient.name,
         amount: 0,
         serviceName: serviceNames,
@@ -659,6 +676,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
       setExistingAppointment(null);
       setIsRescheduling(false);
       setSelectedDate(null);
+      setBookingForDependent(null);
       setView('myAppointments');
     } catch (error) {
       console.error('Erro:', error);
@@ -712,12 +730,13 @@ const getAvailableTimes = useCallback((barberId, date) => {
             date: pendingBookingData.date,
             time: pendingBookingData.time,
             client: activeClient.name,
-            clientId: activeClient.id,
+            clientId: currentUser.id,
+            ...(bookingForDependent ? { isDependent: true, dependentName: bookingForDependent.name, dependentId: bookingForDependent.id } : {}),
             products: purchaseData.products,
             observation: pendingBookingData.observation || '',
           },
           paymentData: {
-            userId: activeClient.id,
+            userId: currentUser.id,
             userName: activeClient.name,
             amount: purchaseData.finalTotal,
             serviceName: serviceNames,
@@ -725,6 +744,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
             appointmentDate: pendingBookingData.date,
             appointmentTime: pendingBookingData.time,
             products: purchaseData.products,
+
         
           }
 
@@ -744,7 +764,8 @@ const getAvailableTimes = useCallback((barberId, date) => {
           date: pendingBookingData.date,
           time: pendingBookingData.time,
           client: activeClient.name,
-          clientId: activeClient.id,
+          clientId: currentUser.id,
+          ...(bookingForDependent ? { isDependent: true, dependentName: bookingForDependent.name, dependentId: bookingForDependent.id } : {}),
           products: purchaseData.products,
           observation: pendingBookingData.observation || '',
         };
@@ -755,7 +776,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
 
         const paymentData = {
           appointmentId: createdAppointment.id,
-          userId: activeClient.id,
+          userId: currentUser.id,
           userName: activeClient.name,
           amount: purchaseData.finalTotal,
           serviceName: serviceNames,
@@ -926,6 +947,93 @@ const getAvailableTimes = useCallback((barberId, date) => {
           {view === 'calendar' && (
             <div className="appointments__booking">
               <h2>Selecione uma data</h2>
+
+       
+              {!canScheduleForOthers && userDependents.length > 0 && (
+                <div style={{
+                  background: '#1a1a1a',
+                  border: '1px solid #2a2a2a',
+                  borderRadius: '12px',
+                  padding: '1rem 1.25rem',
+                  marginBottom: '1.5rem',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                    <span style={{ color: '#a8a8a8', fontSize: '0.85rem', fontWeight: 600 }}>
+                      👤 Para quem é o agendamento?
+                    </span>
+                    {(bookingForDependent) && (
+                      <button
+                        onClick={() => { setBookingForDependent(null); setShowForWhomSelector(false); }}
+                        style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', fontSize: '0.78rem' }}
+                      >
+                        ✕ Limpar seleção
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                 
+                    <div
+                      onClick={() => { setBookingForDependent(null); setShowForWhomSelector(false); }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '0.75rem',
+                        padding: '10px 12px', borderRadius: 9,
+                        background: !bookingForDependent ? 'rgba(255,122,26,0.10)' : '#111',
+                        border: '1px solid ' + (!bookingForDependent ? '#ff7a1a' : '#222'),
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <div style={{
+                        width: 36, height: 36, borderRadius: '50%', background: '#2a2a2a',
+                        overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {currentUser?.photo
+                          ? <img src={currentUser.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : '👤'}
+                      </div>
+                      <div>
+                        <p style={{ margin: 0, color: '#fff', fontWeight: 600, fontSize: '0.88rem' }}>{currentUser?.name}</p>
+                        <p style={{ margin: 0, fontSize: '0.72rem', color: '#ff7a1a' }}>Você mesmo</p>
+                      </div>
+                      {!bookingForDependent && <span style={{ marginLeft: 'auto', color: '#ff7a1a', fontSize: '0.75rem', fontWeight: 700 }}>✓ Selecionado</span>}
+                    </div>
+
+                  
+                    {userDependents.map((dep) => (
+                      <div
+                        key={dep.id}
+                        onClick={() => setBookingForDependent(dep)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.75rem',
+                          padding: '10px 12px', borderRadius: 9,
+                          background: bookingForDependent?.id === dep.id ? 'rgba(255,122,26,0.10)' : '#111',
+                          border: '1px solid ' + (bookingForDependent?.id === dep.id ? '#ff7a1a' : '#222'),
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <div style={{
+                          width: 36, height: 36, borderRadius: '50%',
+                          background: 'rgba(255,122,26,0.15)', border: '1px solid rgba(255,122,26,0.3)',
+                          flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: '#ff7a1a', fontWeight: 700, fontSize: '1rem',
+                        }}>
+                          {dep.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ margin: 0, color: '#fff', fontWeight: 600, fontSize: '0.88rem' }}>{dep.name}</p>
+                          <p style={{ margin: 0, fontSize: '0.72rem', color: '#777' }}>
+                            {dep.age} anos · CPF: {dep.cpf}
+                          </p>
+                          <p style={{ margin: 0, fontSize: '0.7rem', color: '#e59a00', marginTop: 2 }}>
+                            ⚠️ Pagamento individual necessário — não utiliza seu plano
+                          </p>
+                        </div>
+                        {bookingForDependent?.id === dep.id && <span style={{ color: '#ff7a1a', fontSize: '0.75rem', fontWeight: 700 }}>✓ Selecionado</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
        
               {canScheduleForOthers && (
@@ -1258,6 +1366,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
                     <thead>
                       <tr>
                         <th>Barbeiro</th>
+                        <th>Para</th>
                         <th>Data</th>
                         <th>Horário</th>
                         <th>Serviços</th>
@@ -1332,6 +1441,18 @@ const getAvailableTimes = useCallback((barberId, date) => {
                                 />
                                 <span className="appointment-barber-name">{apt.barberName}</span>
                               </div>
+                            </td>
+                            <td>
+                              {apt.isDependent ? (
+                                <span style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                  background: 'rgba(255,122,26,0.12)', color: '#ff7a1a',
+                                  border: '1px solid rgba(255,122,26,0.35)', borderRadius: '20px',
+                                  padding: '2px 10px', fontSize: '0.78rem', fontWeight: 700
+                                }}>👤 {apt.dependentName}</span>
+                              ) : (
+                                <span style={{ color: '#666', fontSize: '0.82rem' }}>Você</span>
+                              )}
                             </td>
                             <td>
                               <span className="appointment-date">{formattedDate}</span>

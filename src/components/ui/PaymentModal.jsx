@@ -84,7 +84,7 @@ export default function PaymentModal({
       script.src = 'https://sdk.mercadopago.com/js/v2';
       script.async = true;
       script.onload = () => {
-        const mp = new window.MercadoPago(MERCADO_PAGO_PUBLIC_KEY, { locale: 'pt-BR' });
+        const mp = new window.MercadoPago(MERCADO_PAGO_PUBLIC_KEY, { locale: 'pt-BR' }); //to aqui óh lucaasm
         setMercadoPagoInstance(mp);
       };
       document.body.appendChild(script);
@@ -224,7 +224,7 @@ export default function PaymentModal({
         title: selectedPlan.paymentData.products[0].name,
         quantity: selectedPlan.paymentData.products[0].quantity,
         category_id: selectedPlan.paymentData.products[0].category,
-        unit_price: selectedPlan.paymentData.products[0].price,
+        unit_price: Number(selectedPlan.paymentData.products[0].price),
       };
 
       const result = await processMercadoPagoPaymentPix(pixPayload);
@@ -240,7 +240,7 @@ export default function PaymentModal({
     } finally {
       setPixGenerating(false);
     }
-  };
+  };  
 
   const verificarStatusPix = async (idPix) => {
     try {
@@ -421,7 +421,7 @@ export default function PaymentModal({
         title: selectedPlan.paymentData.products[0].name,
         quantity: selectedPlan.paymentData.products[0].quantity,
         category_id: selectedPlan.paymentData.products[0].category,
-        unit_price: selectedPlan.paymentData.products[0].price,
+        unit_price: Number(selectedPlan.paymentData.products[0].price),
         description: isAppointmentPayment
           ? `Pagamento - ${selectedPlan.serviceName || selectedPlan.name || 'Serviço'}`
           : `Assinatura - ${selectedPlan.name}`,
@@ -750,7 +750,7 @@ export default function PaymentModal({
                     ))}
                   </div>
 
-                  {paymentMethod === 'pix' ? (
+              {paymentMethod === 'pix' ? (  
                     <form onSubmit={handlePixSubmit}>
                       <div className="pix-payment-section">
                         <div className="pix-qrcode-wrapper">

@@ -413,7 +413,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="contato">
+        {/* <section className="contato">
           <div className="container">
             <h2 className="contato__title">Pronto para renovar seu visual?</h2>
             <p className="contato__text">
@@ -423,7 +423,7 @@ export default function Home() {
               <Button>Agendar Agora</Button>
             </Link>
           </div>
-        </section>
+        </section> */}
       </div>
 
       {showManageModal && activeSubscription && (

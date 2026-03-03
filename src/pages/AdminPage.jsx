@@ -58,6 +58,7 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('homeInfo');
   const [barbers, setBarbers] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
   const [confirmCancelSub, setConfirmCancelSub] = useState(null); 
@@ -598,13 +599,12 @@ const handleHomeInfoChange = (field, value) => {
       }
     }
 
-    // Verificar duplicata: mesmo dia + barbeiro + tipo
+  
     const dateExists = blockedDates.some((blocked) => {
       const sameDate = blocked.date === newBlockedDate.date;
       const sameBarber = blocked.barberId === newBlockedDate.barberId;
       if (!sameDate || !sameBarber) return false;
-      if (!isTimeBlock) return !blocked.startTime; // dia inteiro duplicado
-      // bloqueio de horário: checar sobreposição
+      if (!isTimeBlock) return !blocked.startTime; 
       if (!blocked.startTime) return false;
       return newBlockedDate.startTime < blocked.endTime && newBlockedDate.endTime > blocked.startTime;
     });
@@ -795,6 +795,7 @@ const handleHomeInfoChange = (field, value) => {
       setProducts(productsData);
       setServices(servicesData);
       setProductSales(productSalesData);
+      setAllUsers(allUsers);
       setClientSubscriptionStatus(subscriptionStatusMap);
       try {
         const valesRes = await fetch('http://localhost:3000/employeeVales');
@@ -1603,7 +1604,7 @@ const handleHomeInfoChange = (field, value) => {
       const isPlanCovered = payment.status === 'plan_covered' || payment.status === 'plancovered' || payment.paymentMethod === 'subscription';
       if (isPlanCovered) {
         stats.count.planCovered++;
-        return; // plan_covered não soma valor monetário
+        return;
       }
       if (amount > 0) {
         stats.total += amount;
@@ -1917,12 +1918,7 @@ const handleHomeInfoChange = (field, value) => {
     });
   };
 
-  // ============================================================
-  // PAYROLL FUNCTIONS
-  // ============================================================
 
-  // Retorna start/end baseado no período e mês selecionado
-  // Para semanal/quinzenal usa datas reais da semana/quinzena DENTRO do mês selecionado
   const getPayrollPeriodDates = (period, monthStr) => {
     const [year, month] = monthStr.split('-').map(Number);
     const now = new Date();
@@ -1933,7 +1929,7 @@ const handleHomeInfoChange = (field, value) => {
       return { start, end };
     }
     if (period === 'quinzenal') {
-      // Usa o dia atual para decidir qual quinzena dentro do mês selecionado
+    
       const day = now.getMonth() + 1 === month && now.getFullYear() === year ? now.getDate() : 15;
       if (day <= 15) {
         return { start: `${year}-${String(month).padStart(2,'0')}-01`, end: `${year}-${String(month).padStart(2,'0')}-15` };
@@ -1942,7 +1938,7 @@ const handleHomeInfoChange = (field, value) => {
       return { start: `${year}-${String(month).padStart(2,'0')}-16`, end: `${year}-${String(month).padStart(2,'0')}-${lastDay}` };
     }
     if (period === 'semanal') {
-      // Semana atual dentro do mês selecionado
+      
       const monday = new Date(now);
       monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
       const sunday = new Date(monday);
@@ -1963,7 +1959,7 @@ const handleHomeInfoChange = (field, value) => {
    const relevantPayments = appointmentPayments.filter(p => {
       if (String(p.barberId) !== String(barberId) && p.barberName !== barberData.name) return false;
       if (p.status !== 'paid') return false;
-      if (p.commissionPaid === true) return false; // já repassado
+      if (p.commissionPaid === true) return false; 
       const d = p.appointmentDate ? String(p.appointmentDate).slice(0,10) : (p.paidAt ? String(p.paidAt).slice(0,10) : '');
       return d >= start && d <= end;
     });
@@ -2004,7 +2000,7 @@ const handleHomeInfoChange = (field, value) => {
 
   const checkAlreadyPaidInPeriod = (employeeId, period, monthStr) => {
     const { start, end } = getPayrollPeriodDates(period, monthStr);
-    // Always match exact periodStart + periodEnd — each week/quinzena/month is a unique range
+ 
     return employeePayments.find(p =>
       String(p.employeeId) === String(employeeId) &&
       p.period === period &&
@@ -2022,7 +2018,7 @@ const handleHomeInfoChange = (field, value) => {
     const salarioFixo = parseFloat(barberData?.salarioFixo || 0);
     const liquido = salarioFixo + commission - totalVales;
 
-    // Check if already paid in this period — warn but allow paying again
+   
     const existingPayment = checkAlreadyPaidInPeriod(employee.id, period, payrollMonthFilter);
     const periodLabel = period === 'semanal' ? 'semana' : period === 'quinzenal' ? 'quinzena' : 'mês';
     const confirmMsg = existingPayment
@@ -2040,7 +2036,7 @@ const handleHomeInfoChange = (field, value) => {
         await fetch('http://localhost:3000/employeePayments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(paymentRecord) });
         for (const v of vales) await fetch(`http://localhost:3000/employeeVales/${v.id}`, { method: 'DELETE' });
 
-        // Marca comissão como repassada nos agendamentos do período
+   
         if (barberId) {
           const toMark = appointmentPayments.filter(p => {
             if (String(p.barberId) !== String(barberId) && p.barberName !== barberData?.name) return false;
@@ -2656,6 +2652,7 @@ const handleHomeInfoChange = (field, value) => {
                                         </td>
                                         <td>
                                           <strong>{apt.client}</strong>
+                                          {apt.isDependent && (<div style={{marginTop:'3px'}}><span style={{display:'inline-flex',alignItems:'center',gap:'4px',background:'rgba(255,122,26,0.12)',color:'#ff7a1a',border:'1px solid rgba(255,122,26,0.35)',borderRadius:'20px',padding:'1px 8px',fontSize:'0.72rem',fontWeight:700}}>👤 {apt.dependentName}</span></div>)}
                                         </td>
                                         <td>{apt.date?.split('-').reverse().join('/')}</td>
                                         <td>{apt.time}</td>
@@ -2753,7 +2750,7 @@ const handleHomeInfoChange = (field, value) => {
       </div>
     </div>
 
-    {/* Painel por funcionário */}
+   
     <div className="payroll-table-wrapper">
       <table className="payroll-main-table">
         <thead>
@@ -2786,7 +2783,7 @@ const handleHomeInfoChange = (field, value) => {
               return (
                 <React.Fragment key={emp.id}>
                   <tr className={`payroll-row${isExp ? ' payroll-row--expanded' : ''}`}>
-                    {/* Funcionário */}
+             
                     <td className="payroll-td">
                       <div className="payroll-employee-cell">
                         <img
@@ -2801,24 +2798,24 @@ const handleHomeInfoChange = (field, value) => {
                       </div>
                     </td>
 
-                    {/* Frequência */}
+                  
                     <td className="payroll-td">
                       <span className="payroll-frequency-badge">
                         {barberData?.paymentFrequency || 'mensal'}
                       </span>
                     </td>
 
-                    {/* Salário Fixo */}
+               
                     <td className="payroll-td payroll-td--right payroll-value--green">
                       R$ {salarioFixo.toFixed(2)}
                     </td>
 
-                    {/* Comissão */}
+               
                     <td className="payroll-td payroll-td--right payroll-value--blue">
                       R$ {commission.toFixed(2)}
                     </td>
 
-                    {/* Vales */}
+          
                     <td className="payroll-td payroll-td--right">
                       <div className="payroll-vales-cell">
                         <span className="payroll-value--red">- R$ {totalVales.toFixed(2)}</span>
@@ -2833,14 +2830,14 @@ const handleHomeInfoChange = (field, value) => {
                       </div>
                     </td>
 
-                    {/* Líquido */}
+                
                     <td className="payroll-td payroll-td--right">
                       <span className={`payroll-liquido${liquido >= 0 ? ' payroll-liquido--positive' : ' payroll-liquido--negative'}`}>
                         R$ {liquido.toFixed(2)}
                       </span>
                     </td>
 
-                    {/* Ações */}
+            
                     <td className="payroll-td payroll-td--center">
                       {alreadyPaid ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
@@ -2863,7 +2860,7 @@ const handleHomeInfoChange = (field, value) => {
                     </td>
                   </tr>
 
-                  {/* Linha expandida com vales */}
+                
                   {isExp && (
                     <tr className="payroll-row-expanded-detail">
                       <td colSpan={7} className="payroll-td-vales-detail">
@@ -2893,7 +2890,7 @@ const handleHomeInfoChange = (field, value) => {
       </table>
     </div>
 
-    {/* Tabela Pagamentos Realizados */}
+  
     <div className="payroll-history-section">
       <h3 className="payroll-history-title">Pagamentos Realizados</h3>
       {employeePayments
@@ -3091,6 +3088,7 @@ const handleHomeInfoChange = (field, value) => {
                         <tr>
                           <th>Data Agend.</th>
                           <th>Cliente</th>
+                          <th>Para</th>
                           <th>Barbeiro</th>
                           <th>Serviço</th>
                           <th>Observação</th>
@@ -3122,29 +3120,36 @@ const handleHomeInfoChange = (field, value) => {
                           }, 0);
                           
                           const serviceTotal = parseFloat(payment.amount || 0);
-                          
+                          console.log(payment)
                           return (
                           <tr key={payment.id}>
                             <td>
+            
                               {payment.appointmentDate?.split('-').reverse().join('/')} {payment.appointmentTime}
                             </td>
                             <td>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                {payment.userName}
-                                {isSubscriber && (
-                                  <span style={{
-                                    background: '#d4af37',
-                                    color: '#000',
-                                    padding: '2px 8px',
-                                    borderRadius: '12px',
-                                    fontSize: '0.75rem',
-                                    fontWeight: 'bold'
-                                  }}>
-                                    ASSINANTE
-                                  </span>
-                                )}
-                              </div>
-                            </td>
+  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+    {allUsers.find(u => u.id === payment.userId)?.name || payment.userName}
+    {isSubscriber && (
+      <span style={{ background: '#d4af37', color: '#000', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+        ASSINANTE
+      </span>
+    )}
+  </div>
+</td>
+
+<td>
+  {appointment?.isDependent ? (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: '4px',
+      background: 'rgba(255,122,26,0.12)', color: '#ff7a1a',
+      border: '1px solid rgba(255,122,26,0.35)', borderRadius: '20px',
+      padding: '2px 10px', fontSize: '0.78rem', fontWeight: 700
+    }}>👤 {appointment.dependentName}</span>
+  ) : (
+    <span style={{ color: '#666', fontSize: '0.82rem' }}>—</span>
+  )}
+</td>
                             <td>{payment.barberName}</td>
                             <td style={{ whiteSpace: 'pre-line' }}>
                               {Array.isArray(payment.serviceName) 
@@ -3991,6 +3996,7 @@ const handleHomeInfoChange = (field, value) => {
                             <td>{payment.appointmentTime}</td>
                             <td>
                               {payment.userName}
+                              {(()=>{const la=appointments.find(a=>a.id?.toString()===payment.appointmentId?.toString());return la?.isDependent?<span style={{display:'inline-flex',alignItems:'center',gap:'4px',background:'rgba(255,122,26,0.12)',color:'#ff7a1a',border:'1px solid rgba(255,122,26,0.35)',borderRadius:'20px',padding:'1px 8px',fontSize:'0.72rem',fontWeight:700,marginLeft:'4px'}}>👤 {la.dependentName}</span>:null;})()}
                               {payment.noShow && (
                                 <span style={{ marginLeft: 6, fontSize: '0.72rem', background: '#555', color: '#fff', borderRadius: 8, padding: '1px 6px' }}>
                                   Não compareceu
@@ -4098,7 +4104,7 @@ const handleHomeInfoChange = (field, value) => {
                     return <p className="calendar-empty" style={{ color: '#888', fontSize: '0.9rem', padding: '1rem 0' }}>Nenhum pagamento de agendamento encontrado para o período selecionado.</p>;
                   }
 
-                  // Group payments by barber
+           
                   const barberNames = [...new Set(allPaid.map(p => p.barberName || 'Sem barbeiro'))];
 
                   return barberNames.map(barberName => {
@@ -4106,7 +4112,7 @@ const handleHomeInfoChange = (field, value) => {
                     const barberPayments = allPaid.filter(p => (p.barberName || 'Sem barbeiro') === barberName);
                     const isExpanded = expandedBarbers[`pay_${barberName}`];
 
-                    // Commission calc — only paid (non-plan) appointments count for value
+                   
                     const commissionPercent = barberObj?.commissionPercent || 50;
                     const paidOnly = barberPayments.filter(p => {
                       const isPlanCovered = p.status === 'plan_covered' || p.status === 'plancovered' || p.paymentMethod === 'subscription';
@@ -4119,7 +4125,7 @@ const handleHomeInfoChange = (field, value) => {
 
                     return (
                       <div key={barberName} className="fluig-table-parent" style={{ marginBottom: '0.75rem' }}>
-                        {/* Barber header row — clickable to expand */}
+                  
                         <div
                           className="fluig-row-parent"
                           onClick={() => setExpandedBarbers(prev => ({ ...prev, [`pay_${barberName}`]: !prev[`pay_${barberName}`] }))}
@@ -4157,7 +4163,7 @@ const handleHomeInfoChange = (field, value) => {
                           </div>
                         </div>
 
-                        {/* Expanded payments table */}
+                    
                         {isExpanded && (
                           <div className="fluig-children-container">
                             <div className="payments-table">
@@ -4422,7 +4428,6 @@ const handleHomeInfoChange = (field, value) => {
               <div className="bloqueio-form-card">
                 <h3 className="bloqueio-form-titulo">Bloquear Calendário</h3>
 
-                {/* Toggle tipo de bloqueio */}
                 <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
                   {[{ value: 'day', label: ' Dia inteiro' }, { value: 'time', label: ' Horário específico' }].map(opt => (
                     <button

@@ -4246,11 +4246,7 @@
   font-size: 0.8rem;
 }
 
-/* ═══════════════════════════════════════════
-   PAYROLL — Pagamentos de Funcionários
-   ═══════════════════════════════════════════ */
 
-/* ── Header controls ── */
 .payroll-header-controls {
   display: flex;
   align-items: center;
@@ -4310,7 +4306,7 @@
 }
 .payroll-vale-btn:hover { background: rgba(212, 175, 55, 0.22); }
 
-/* ── Main table wrapper ── */
+
 .payroll-table-wrapper {
   overflow-x: auto;
   border-radius: 10px;
@@ -4318,7 +4314,7 @@
   margin-bottom: 2rem;
 }
 
-/* ── Main payroll table ── */
+
 .payroll-main-table,
 .payroll-history-table {
   width: 100%;
@@ -4343,7 +4339,7 @@
 .payroll-th--right { text-align: right; }
 .payroll-th--center { text-align: center; }
 
-/* ── Body rows ── */
+
 .payroll-row {
   border-bottom: 1px solid #1a1a1a;
   transition: background 0.12s;
@@ -4361,7 +4357,7 @@
 .payroll-td--muted { color: #666; font-size: 0.82rem; }
 .payroll-td--name { font-weight: 600; color: #fff; }
 
-/* ── Employee cell ── */
+
 .payroll-employee-cell {
   display: flex;
   align-items: center;
@@ -4387,7 +4383,7 @@
   margin-top: 1px;
 }
 
-/* ── Frequency badge ── */
+
 .payroll-frequency-badge {
   background: rgba(255,255,255,0.06);
   border: 1px solid #2a2a2a;
@@ -4399,12 +4395,12 @@
   text-transform: capitalize;
 }
 
-/* ── Value colors ── */
+
 .payroll-value--green { color: #4ade80; font-weight: 600; }
 .payroll-value--blue  { color: #60a5fa; font-weight: 600; }
 .payroll-value--red   { color: #f87171; font-weight: 600; }
 
-/* ── Vales cell ── */
+
 .payroll-vales-cell {
   display: flex;
   align-items: center;
@@ -4423,7 +4419,6 @@
 }
 .payroll-vales-toggle:hover { background: rgba(255,255,255,0.12); color: #fff; }
 
-/* ── Líquido ── */
 .payroll-liquido {
   font-weight: 700;
   font-size: 0.95rem;
@@ -4431,7 +4426,6 @@
 .payroll-liquido--positive { color: #4ade80; }
 .payroll-liquido--negative { color: #f87171; }
 
-/* ── Action buttons ── */
 .payroll-pay-btn {
   background: linear-gradient(135deg, #ff7a1a, #e06010);
   border: none;
@@ -4456,7 +4450,7 @@
   gap: 4px;
 }
 
-/* ── Expanded vales row ── */
+
 .payroll-row-expanded-detail { background: rgba(255,122,26,0.03); }
 
 .payroll-td-vales-detail {
@@ -4498,7 +4492,7 @@
 }
 .payroll-vale-delete:hover { background: rgba(231,76,60,0.25); }
 
-/* ── History section ── */
+
 .payroll-history-section { margin-top: 2rem; }
 
 .payroll-history-title {
@@ -4516,7 +4510,7 @@
 }
 .payroll-history-row:hover { background: rgba(212,175,55,0.03); }
 
-/* ── Empty state ── */
+
 .payroll-empty {
   text-align: center;
   color: #555;
@@ -4524,7 +4518,7 @@
   font-size: 0.88rem;
 }
 
-/* ── Botão "Pagar novamente" (discreto, só aparece quando já pago) ── */
+
 .payroll-repay-btn {
   background: transparent;
   border: 1px solid #333;

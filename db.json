@@ -46,6 +46,32 @@
       "id": "IfAEfgx"
     }
   ],
+  "dependents": [
+    {
+      "name": "Lucas",
+      "age": 5,
+      "cpf": "642.041.320-65",
+      "parentId": "nodm2IU",
+      "parentName": "Lucas S",
+      "id": 2
+    },
+    {
+      "name": "teste",
+      "age": 5,
+      "cpf": "995.947.790-80",
+      "parentId": "nodm2IU",
+      "parentName": "Lucas S",
+      "id": 3
+    },
+    {
+      "name": "teste2",
+      "age": 3,
+      "cpf": "851.983.760-35",
+      "parentId": "nodm2IU",
+      "parentName": "Lucas S",
+      "id": 4
+    }
+  ],
   "barbers": [
     {
       "name": "João",
@@ -1057,6 +1083,201 @@
       ],
       "observation": "",
       "id": 19
+    },
+    {
+      "barberId": "1",
+      "barberName": "João",
+      "services": [
+        {
+          "name": "Corte Clássico",
+          "price": "R$ 0,01",
+          "promotionalPrice": "R$ 23,00",
+          "coveredByPlan": false,
+          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
+          "duration": 30,
+          "id": "1"
+        }
+      ],
+      "date": "2026-03-05",
+      "time": "08:30",
+      "client": "teste",
+      "clientId": "dep_3",
+      "products": [
+        {
+          "name": "Shampoo Anti-Caspa",
+          "category": "Cuidados",
+          "description": "Elimina a caspa e fortalece os fios",
+          "price": "R$ 0.01",
+          "subscriberDiscount": 15,
+          "stock": 5,
+          "image": "https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=400",
+          "id": "4",
+          "quantity": 1,
+          "calculatedPrice": 0.01,
+          "totalPrice": 0.01
+        }
+      ],
+      "observation": "",
+      "id": 20
+    },
+    {
+      "barberId": "1",
+      "barberName": "João",
+      "services": [
+        {
+          "name": "Corte Clássico",
+          "price": "R$ 0,01",
+          "promotionalPrice": "R$ 23,00",
+          "coveredByPlan": false,
+          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
+          "duration": 30,
+          "id": "1"
+        }
+      ],
+      "date": "2026-03-10",
+      "time": "11:00",
+      "client": "Lucas S",
+      "clientId": "nodm2IU",
+      "products": [
+        {
+          "name": "Shampoo Anti-Caspa",
+          "category": "Cuidados",
+          "description": "Elimina a caspa e fortalece os fios",
+          "price": "R$ 0.01",
+          "subscriberDiscount": 15,
+          "stock": 4,
+          "image": "https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=400",
+          "id": "4",
+          "quantity": 1,
+          "calculatedPrice": 0.01,
+          "totalPrice": 0.01
+        }
+      ],
+      "observation": "",
+      "id": 21
+    },
+    {
+      "barberId": "1",
+      "barberName": "João",
+      "services": [
+        {
+          "name": "Corte Clássico",
+          "price": "R$ 0,01",
+          "promotionalPrice": "R$ 23,00",
+          "coveredByPlan": false,
+          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
+          "duration": 30,
+          "id": "1"
+        }
+      ],
+      "date": "2026-03-17",
+      "time": "10:30",
+      "client": "teste",
+      "clientId": "nodm2IU",
+      "isDependent": true,
+      "dependentName": "teste",
+      "dependentId": 3,
+      "products": [
+        {
+          "name": "Óleo para Barba",
+          "category": "Óleos",
+          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
+          "price": "R$ 1.00",
+          "subscriberDiscount": 0,
+          "stock": 6,
+          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
+          "id": "3",
+          "quantity": 1,
+          "calculatedPrice": 1,
+          "totalPrice": 1
+        }
+      ],
+      "observation": "",
+      "id": 22
+    },
+    {
+      "barberId": "1",
+      "barberName": "João",
+      "services": [
+        {
+          "name": "DEGRADEZIN",
+          "price": "R$ 0,01",
+          "promotionalPrice": "",
+          "coveredByPlan": true,
+          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
+          "duration": 30,
+          "id": "Dw22hi_"
+        },
+        {
+          "name": "Barba",
+          "price": "R$ 1,00",
+          "promotionalPrice": "R$ 2,00",
+          "coveredByPlan": false,
+          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
+          "duration": 30,
+          "id": "2"
+        }
+      ],
+      "date": "2026-03-04",
+      "time": "17:30",
+      "client": "teste2",
+      "clientId": "nodm2IU",
+      "isDependent": true,
+      "dependentName": "teste2",
+      "dependentId": 4,
+      "products": [
+        {
+          "name": "Óleo para Barba",
+          "category": "Óleos",
+          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
+          "price": "R$ 1.00",
+          "subscriberDiscount": 0,
+          "stock": 5,
+          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
+          "id": "3",
+          "quantity": 1,
+          "calculatedPrice": 1,
+          "totalPrice": 1
+        }
+      ],
+      "observation": "",
+      "id": 23
+    },
+    {
+      "barberId": "1",
+      "barberName": "João",
+      "services": [
+        {
+          "name": "Barba",
+          "price": "R$ 1,00",
+          "promotionalPrice": "R$ 2,00",
+          "coveredByPlan": false,
+          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
+          "duration": 30,
+          "id": "2"
+        }
+      ],
+      "date": "2026-03-18",
+      "time": "13:00",
+      "client": "Lucas S",
+      "clientId": "nodm2IU",
+      "products": [
+        {
+          "name": "Óleo para Barba",
+          "category": "Óleos",
+          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
+          "price": "R$ 1.00",
+          "subscriberDiscount": 0,
+          "stock": 4,
+          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
+          "id": "3",
+          "quantity": 1,
+          "calculatedPrice": 1,
+          "totalPrice": 1
+        }
+      ],
+      "observation": "",
+      "id": 24
     }
   ],
   "clientes": [],
@@ -4551,12 +4772,104 @@
       "barberName": "João",
       "appointmentDate": "2026-03-10",
       "appointmentTime": "08:30",
-      "status": "pendinglocal",
-      "paymentMethod": "local",
+      "status": "paid",
+      "paymentMethod": "dinheiro",
       "type": "appointment",
       "createdAt": "2026-03-02T18:31:33.543Z",
-      "updatedAt": "2026-03-02T18:31:33.543Z",
-      "id": "k_29I_u"
+      "updatedAt": "2026-03-03T16:41:31.291Z",
+      "id": "k_29I_u",
+      "confirmedAt": "2026-03-03T16:41:31.047Z",
+      "paidAt": "2026-03-03T16:41:31.291Z"
+    },
+    {
+      "appointmentId": 20,
+      "userId": "dep_3",
+      "userName": "teste",
+      "amount": 0.02,
+      "serviceName": "Corte Clássico",
+      "barberName": "João",
+      "appointmentDate": "2026-03-05",
+      "appointmentTime": "08:30",
+      "status": "paid",
+      "paymentMethod": "dinheiro",
+      "type": "appointment",
+      "createdAt": "2026-03-03T14:19:53.059Z",
+      "updatedAt": "2026-03-03T16:41:33.406Z",
+      "id": "W9p7WHR",
+      "confirmedAt": "2026-03-03T16:41:32.318Z",
+      "paidAt": "2026-03-03T16:41:33.406Z"
+    },
+    {
+      "appointmentId": 21,
+      "userId": "nodm2IU",
+      "userName": "Lucas S",
+      "amount": 0.02,
+      "serviceName": "Corte Clássico",
+      "barberName": "João",
+      "appointmentDate": "2026-03-10",
+      "appointmentTime": "11:00",
+      "status": "paid",
+      "paymentMethod": "dinheiro",
+      "type": "appointment",
+      "createdAt": "2026-03-03T14:20:26.831Z",
+      "updatedAt": "2026-03-03T16:41:30.603Z",
+      "id": "khA7d5x",
+      "confirmedAt": "2026-03-03T16:41:30.100Z",
+      "paidAt": "2026-03-03T16:41:30.603Z"
+    },
+    {
+      "appointmentId": 22,
+      "userId": "nodm2IU",
+      "userName": "teste",
+      "amount": 1.01,
+      "serviceName": "Corte Clássico",
+      "barberName": "João",
+      "appointmentDate": "2026-03-17",
+      "appointmentTime": "10:30",
+      "status": "paid",
+      "paymentMethod": "dinheiro",
+      "type": "appointment",
+      "createdAt": "2026-03-03T16:09:33.110Z",
+      "updatedAt": "2026-03-03T16:41:29.331Z",
+      "id": "PkUcLjt",
+      "confirmedAt": "2026-03-03T16:41:16.445Z",
+      "paidAt": "2026-03-03T16:41:29.331Z"
+    },
+    {
+      "appointmentId": 23,
+      "userId": "nodm2IU",
+      "userName": "teste2",
+      "amount": 2.01,
+      "serviceName": "DEGRADEZIN, Barba",
+      "barberName": "João",
+      "appointmentDate": "2026-03-04",
+      "appointmentTime": "17:30",
+      "status": "paid",
+      "paymentMethod": "dinheiro",
+      "type": "appointment",
+      "createdAt": "2026-03-03T16:38:57.038Z",
+      "updatedAt": "2026-03-03T16:41:34.920Z",
+      "id": "Tw-r9ht",
+      "confirmedAt": "2026-03-03T16:41:34.216Z",
+      "paidAt": "2026-03-03T16:41:34.920Z"
+    },
+    {
+      "appointmentId": 24,
+      "userId": "nodm2IU",
+      "userName": "Lucas S",
+      "amount": 2,
+      "serviceName": "Barba",
+      "barberName": "João",
+      "appointmentDate": "2026-03-18",
+      "appointmentTime": "13:00",
+      "status": "paid",
+      "paymentMethod": "dinheiro",
+      "type": "appointment",
+      "createdAt": "2026-03-03T16:40:27.715Z",
+      "updatedAt": "2026-03-03T16:41:28.809Z",
+      "id": "w4W9Fj8",
+      "confirmedAt": "2026-03-03T16:41:19.862Z",
+      "paidAt": "2026-03-03T16:41:28.808Z"
     }
   ],
   "savedCards": [
@@ -4614,7 +4927,7 @@
       "description": "Hidrata e amacia a barba, com fragrância amadeirada",
       "price": "R$ 1.00",
       "subscriberDiscount": 0,
-      "stock": 6,
+      "stock": 3,
       "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
       "id": "3"
     },
@@ -4624,7 +4937,7 @@
       "description": "Elimina a caspa e fortalece os fios",
       "price": "R$ 0.01",
       "subscriberDiscount": 15,
-      "stock": 5,
+      "stock": 3,
       "image": "https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=400",
       "id": "4"
     },
