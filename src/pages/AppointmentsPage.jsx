@@ -73,6 +73,7 @@ export default function AppointmentsPage() {
   const [showForWhomSelector, setShowForWhomSelector] = useState(false);
 
   const hasLoadedOnce = useRef(false);
+  const pendingStockUpdate = useRef([]);
   const paymentsCache = useRef({});
   const isFetchingPayments = useRef(false);
 
@@ -750,6 +751,9 @@ const getAvailableTimes = useCallback((barberId, date) => {
 
         });
 
+      
+        pendingStockUpdate.current = purchaseData.products || [];
+
         setShowPaymentChoiceModal(false);
         setPendingBookingData(null);
         setPurchaseData(null);
@@ -790,6 +794,14 @@ const getAvailableTimes = useCallback((barberId, date) => {
 
         await criarPagamentoAgendamento(paymentData);
         clearPaymentCache(createdAppointment.id);
+
+     
+        if (purchaseData.products && purchaseData.products.length > 0) {
+          await Promise.all(
+            purchaseData.products.map(p => handleUpdateStock(p.id, p.quantity || 1))
+          );
+        }
+
         await loadData();
         await new Promise((resolve) => setTimeout(resolve, 500));
 
@@ -1387,6 +1399,8 @@ const getAvailableTimes = useCallback((barberId, date) => {
 
                         const appointmentDate = new Date(`${apt.date}T00:00:00`);
                         const formattedDate = appointmentDate.toLocaleDateString('pt-BR');
+                        const today = new Date(); today.setHours(0,0,0,0);
+                        const isPast = appointmentDate < today;
 
                         const servicesTotal = Array.isArray(apt.services)
                           ? apt.services.reduce((sum, s) => {
@@ -1429,7 +1443,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
 
                         return (
                           <tr key={apt.id}>
-                            <td>
+                            <td data-label="Barbeiro">
                               <div className="appointment-barber">
                                 <img
                                   src={barberPhoto}
@@ -1442,7 +1456,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
                                 <span className="appointment-barber-name">{apt.barberName}</span>
                               </div>
                             </td>
-                            <td>
+                            <td data-label="Para">
                               {apt.isDependent ? (
                                 <span style={{
                                   display: 'inline-flex', alignItems: 'center', gap: '4px',
@@ -1454,13 +1468,13 @@ const getAvailableTimes = useCallback((barberId, date) => {
                                 <span style={{ color: '#666', fontSize: '0.82rem' }}>Você</span>
                               )}
                             </td>
-                            <td>
+                            <td data-label="Data">
                               <span className="appointment-date">{formattedDate}</span>
                             </td>
-                            <td>
+                            <td data-label="Horário">
                               <span className="appointment-time">{apt.time}</span>
                             </td>
-                            <td>
+                            <td data-label="Serviço">
                               <div className="appointment-services">
                                 {Array.isArray(apt.services) ? (
                                   apt.services.map((service, idx) => (
@@ -1473,7 +1487,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
                                 )}
                               </div>
                           </td>
-                          <td>
+                          <td data-label="Obs.">
                             {apt.observation ? (
                               <div>
                                 <button
@@ -1513,7 +1527,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
                               <span style={{ color: '#444', fontSize: '0.8rem' }}>—</span>
                             )}
                           </td>
-                            <td>
+                            <td data-label="Produtos">
                               <div className="appointment-products">
                                 {apt.products && apt.products.length > 0 ? (
                                   apt.products.map((product, idx) => (
@@ -1526,19 +1540,23 @@ const getAvailableTimes = useCallback((barberId, date) => {
                                 )}
                               </div>
                             </td>
-                            <td>
+                            <td data-label="Total">
                               <span className="appointment-total">
                                 {total > 0 ? `R$ ${total.toFixed(2)}` : 'Grátis'}
                               </span>
                             </td>
-                            <td className="appointment-status-cell">
+                            <td data-label="Status" className="appointment-status-cell">
                               <span className={`appointment-status ${statusClass}`}>{statusText}</span>
                             </td>
                             <td>
                               <div className="appointment-actions">
-                                <button onClick={() => handleDeleteClick(apt.id)} className="btn-action cancel">
-                                  Cancelar
-                                </button>
+                                {isPast ? (
+                                  <span style={{ color: '#555', fontSize: '0.75rem', fontStyle: 'italic' }}>Encerrado</span>
+                                ) : (
+                                  <button onClick={() => handleDeleteClick(apt.id)} className="btn-action cancel">
+                                    Cancelar
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>

@@ -112,7 +112,7 @@ export default function PaymentModal({
   isAppointmentPayment = false,
   paymentId = null,
 }) {
-  const [paymentMethod, setPaymentMethod] = useState(isAppointmentPayment ? 'pix' : 'credit');
+  const [paymentMethod, setPaymentMethod] = useState('credit');
   const [processing, setProcessing] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState(null);
   const [showSavedCards, setShowSavedCards] = useState(false);
@@ -141,11 +141,12 @@ export default function PaymentModal({
   const pixPollingRef = useRef(null);
   const pixPaymentIdRef = useRef(null);
 
-  const MERCADO_PAGO_PUBLIC_KEY = 'APP_USR-3c24dcad-27ac-4f14-996c-d0ef917404b0';
+  // const MERCADO_PAGO_PUBLIC_KEY = 'APP_USR-3c24dcad-27ac-4f14-996c-d0ef917404b0';
+  const MERCADO_PAGO_PUBLIC_KEY = 'APP_USR-dbce4522-de83-4285-a68f-836743a56c64';
   const isRecurringSubscription = !isAppointmentPayment && selectedPlan?.isRecurring;
 
   const getAvailablePaymentMethods = () => {
-    if (isAppointmentPayment) return ['pix', 'credit', 'debit'];
+    if (isAppointmentPayment) return [ 'credit', 'debit','pix'];
     return ['credit'];
   };
   const availableMethods = getAvailablePaymentMethods();
@@ -324,7 +325,7 @@ export default function PaymentModal({
       };
 
       const result = await processMercadoPagoPaymentPix(pixPayload);
-
+  
       setPixQrCodeBase64(result?.qr_code_base64 || '');
       setPixQrCode(result?.qr_code || '');
       setPixPaymentId(result.id);
@@ -477,6 +478,7 @@ export default function PaymentModal({
     setShowErrorToast(false);
     setErrorMessage('');
 
+    console.log(selectedPlan)
     try {
       const paymentData = {
         token: cardFormData.token,
@@ -619,6 +621,147 @@ export default function PaymentModal({
       return new Promise((_, reject) => reject(error));
     }
   };
+
+  const handleMercadoPagoPreferSubmit = async () => {
+
+    setProcessing(true);
+    setShowErrorToast(false);
+    setErrorMessage('');
+
+    try {
+      const paymentData = {
+        transaction_amount: getFinalPrice(),
+        id: selectedPlan.paymentData.products[0].id,
+        title: selectedPlan.paymentData.products[0].name,
+        quantity: selectedPlan.paymentData.products[0].quantity,
+        category_id: selectedPlan.paymentData.products[0].category,
+        unit_price: Number(selectedPlan.paymentData.products[0].price),
+        description: isAppointmentPayment
+          ? `Pagamento - ${selectedPlan.serviceName || selectedPlan.name || 'Serviço'}`
+          : `Assinatura - ${selectedPlan.name}`,
+      };
+
+      const paymentResult = await processMercadoPagoPayment(paymentData);
+      if(paymentResult.init_point) {
+//         window.open('' + paymentResult.init_point);
+            window.location.href = paymentResult.init_point
+      }
+      // if (paymentResult.status === 'approved' || paymentResult.status === 'authorized') {
+      //   const finalAmount = getFinalPrice();
+      //   const paymentMethodString = paymentMethod === 'credit' ? 'credito' : 'debito';
+
+      //   if (isAppointmentPayment) {
+      //     if (selectedPlan.needsCreation && selectedPlan.appointmentData && selectedPlan.paymentData) {
+      //       const appointmentResponse = await fetch(
+      //         `${import.meta.env.VITE_API_URL}/appointments`,
+      //         {
+      //           method: 'POST',
+      //           headers: { 'Content-Type': 'application/json' },
+      //           body: JSON.stringify(selectedPlan.appointmentData),
+      //         }
+      //       );
+      //       if (!appointmentResponse.ok) throw new Error('Erro ao criar agendamento');
+      //       const createdAppointment = await appointmentResponse.json();
+
+      //       await criarPagamentoAgendamento({
+      //         ...selectedPlan.paymentData,
+      //         appointmentId: createdAppointment.id,
+      //         status: 'paid',
+      //         paymentMethod: paymentMethodString,
+      //         paidAt: new Date().toISOString(),
+      //         amount: finalAmount,
+      //         mercadoPagoId: paymentResult.id,
+      //         mercadoPagoStatus: paymentResult.status,
+      //         cardData: {
+      //           brand: paymentResult.payment_method_id,
+      //           lastDigits: paymentResult.card?.last_four_digits || '****',
+      //         },
+      //       });
+      //     } else if (paymentId) {
+      //       await atualizarPagamentoAgendamento(paymentId, {
+      //         status: 'paid',
+      //         paymentMethod: paymentMethodString,
+      //         paidAt: new Date().toISOString(),
+      //         amount: finalAmount,
+      //         mercadoPagoId: paymentResult.id,
+      //         mercadoPagoStatus: paymentResult.status,
+      //         cardData: {
+      //           brand: paymentResult.payment_method_id,
+      //           lastDigits: paymentResult.card?.last_four_digits || '****',
+      //         },
+      //       });
+      //     }
+      //     onSuccess && onSuccess(paymentMethodString);
+      //   } else {
+      //     const transactionId = `TRX-${Date.now()}-${Math.random().toString(36).substr(2, 7).toUpperCase()}`;
+      //     await criarPagamentoAgendamento({
+      //       userId: currentUser.id,
+      //       userName: currentUser.name,
+      //       planId: selectedPlan.id,
+      //       planName: selectedPlan.name,
+      //       amount: finalAmount,
+      //       paymentMethod: paymentMethodString,
+      //       status: 'approved',
+      //       type: 'subscription',
+      //       transactionId,
+      //       mercadoPagoId: paymentResult.id,
+      //       mercadoPagoStatus: paymentResult.status,
+      //       installments: cardFormData.installments || 1,
+      //       installmentAmount: (finalAmount / (cardFormData.installments || 1)).toFixed(2),
+      //       cardData: {
+      //         brand: paymentResult.payment_method_id,
+      //         lastDigits: paymentResult.card?.last_four_digits || '****',
+      //       },
+      //       createdAt: new Date().toISOString(),
+      //       approvedAt: new Date().toISOString(),
+      //     });
+
+      //     const subscription = await criarAssinatura({
+      //       userId: currentUser.id,
+      //       userName: currentUser.name,
+      //       planId: selectedPlan.id,
+      //       planName: selectedPlan.name,
+      //       planPrice: selectedPlan.price,
+      //       amount: finalAmount,
+      //       status: 'active',
+      //       paymentMethod: paymentMethodString,
+      //       isRecurring: selectedPlan.isRecurring ?? true,
+      //       autoRenewal: selectedPlan.autoRenewal ?? true,
+      //     });
+
+      //     try {
+      //       await enviarNotificacaoAssinatura(subscription);
+      //     } catch (error) {
+      //       console.error('Erro ao enviar notificação (não crítico):', error);
+      //     }
+
+      //     onSuccess && onSuccess(subscription);
+      //   }
+
+      //   setProcessing(false);
+      //   onClose();
+      //   return { status: 'success' };
+
+      // } else if (paymentResult.status === 'rejected') {
+      //   setPaymentStatus('rejected');
+      //   setProcessing(false);
+      //   return new Promise((_, reject) => reject(new Error('Payment rejected')));
+      // } else {
+      //   setPaymentStatus('pending');
+      //   setErrorMessage(
+      //     `Pagamento em análise (status: ${paymentResult.status}). Você receberá uma confirmação em breve.`
+      //   );
+      //   setShowErrorToast(true);
+      //   setProcessing(false);
+      //   return { status: paymentResult.status };
+      // }
+    } catch (error) {
+      setErrorMessage(error.message || 'Erro ao processar pagamento. Tente novamente.');
+      setShowErrorToast(true);
+      setProcessing(false);
+      return new Promise((_, reject) => reject(error));
+    }
+  };
 
   const handleCopyPixKey = () => {
     if (pixQrCode) {
@@ -837,8 +980,16 @@ export default function PaymentModal({
                       </div>
                     </div>
                   ) : (
+                    
                     <>
-                      <div id="cardPaymentBrick_container"></div>
+                      {/* <div id="cardPaymentBrick_container"></div> */}  
+
+                       {isAppointmentPayment && (
+      <div className="payment-modal-footer">
+        <button type="button" onClick={handleClose}>Cancelar</button>
+        <button type="button" onClick={handleMercadoPagoPreferSubmit}>Pagar</button>
+      </div>
+    )}                    
                       {!isAppointmentPayment && (
                         <div className="payment-terms-section">
                           <div className="payment-terms-box">

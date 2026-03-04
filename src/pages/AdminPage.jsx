@@ -1712,7 +1712,7 @@ const handleHomeInfoChange = (field, value) => {
     });
   })();
 
-  const paidPayments = filteredAppointmentPaymentsForAgendamentos.filter((p) => p.status === 'paid');
+  const paidPayments = filteredAppointmentPaymentsForAgendamentos.filter((p) => p.status === 'paid' || p.status === 'plan_covered' || p.status === 'plancovered' || p.paymentMethod === 'subscription');
 
   const openBenefitModal = (planId, benefit = null, benefitIndex = null) => {
     setSelectedPlanForBenefit({ planId, benefitIndex });
@@ -2777,7 +2777,7 @@ const handleHomeInfoChange = (field, value) => {
               const liquido = salarioFixo + commission - totalVales;
               const isExp = payrollExpandedId === emp.id;
 
-              /* Verifica se já existe pagamento no período atual */
+             
               const alreadyPaid = !!checkAlreadyPaidInPeriod(emp.id, payrollPeriodFilter, payrollMonthFilter);
 
               return (
@@ -3079,6 +3079,61 @@ const handleHomeInfoChange = (field, value) => {
               </div>
 
               <div className="payments-section">
+
+               
+                {filteredAppointmentPaymentsForAgendamentos.filter(p =>
+                  p.status === 'pendinglocal' || p.status === 'pending' || p.status === 'confirmed_unpaid'
+                ).length > 0 && (
+                  <div className="payments-list" style={{ marginBottom: '2rem' }}>
+                    <h3 style={{ color: '#e67e22' }}>⏳ Pendentes de Pagamento ({filteredAppointmentPaymentsForAgendamentos.filter(p => p.status === 'pendinglocal' || p.status === 'pending' || p.status === 'confirmed_unpaid').length})</h3>
+                    <div className="payments-table">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Data Agend.</th>
+                            <th>Cliente</th>
+                            <th>Barbeiro</th>
+                            <th>Serviço</th>
+                            <th>Valor</th>
+                            <th>Status</th>
+
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredAppointmentPaymentsForAgendamentos
+                            .filter(p => p.status === 'pendinglocal' || p.status === 'pending' || p.status === 'confirmed_unpaid')
+                            .sort((a, b) => (a.appointmentDate || '').localeCompare(b.appointmentDate || ''))
+                            .map(payment => (
+                              <tr key={payment.id}>
+                                <td data-label="Data">{payment.appointmentDate?.split('-').reverse().join('/')} {payment.appointmentTime}</td>
+                                <td data-label="Cliente">{allUsers.find(u => u.id === payment.userId)?.name || payment.userName}</td>
+                                <td data-label="Barbeiro">{payment.barberName}</td>
+                                <td data-label="Serviço" style={{ whiteSpace: 'pre-line' }}>
+                                  {Array.isArray(payment.serviceName)
+                                    ? payment.serviceName.join('\n')
+                                    : payment.serviceName?.includes(',')
+                                    ? payment.serviceName.split(',').map(s => s.trim()).join('\n')
+                                    : payment.serviceName}
+                                </td>
+                                <td data-label="Valor">R$ {parseFloat(payment.amount || 0).toFixed(2)}</td>
+                                <td data-label="Status">
+                                  {payment.status === 'pendinglocal' ? (
+                                    <span style={{ background: '#e67e2222', color: '#e67e22', border: '1px solid #e67e2255', borderRadius: '20px', padding: '3px 10px', fontSize: '0.75rem', fontWeight: 600 }}>Pagar no Local</span>
+                                  ) : payment.status === 'confirmed_unpaid' ? (
+                                    <span style={{ background: '#9b59b622', color: '#9b59b6', border: '1px solid #9b59b655', borderRadius: '20px', padding: '3px 10px', fontSize: '0.75rem', fontWeight: 600 }}>Confirmado s/ Pgto</span>
+                                  ) : (
+                                    <span style={{ background: '#f39c1222', color: '#f39c12', border: '1px solid #f39c1255', borderRadius: '20px', padding: '3px 10px', fontSize: '0.75rem', fontWeight: 600 }}>Pendente</span>
+                                  )}
+                                </td>
+
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
                 {paidPayments.length > 0 && (
                 <div className="payments-list">
                   <h3>Agendamentos realizados</h3>
@@ -3095,11 +3150,12 @@ const handleHomeInfoChange = (field, value) => {
                           <th>Produtos</th>
                           <th>Valor</th>
                           <th>Método</th>
+                          <th>Status Pgto.</th>
                         </tr>
                       </thead>
                       <tbody>
                         {getFilteredAppointmentPayments()
-                          .filter(p => p.status === 'paid')
+                          .filter(p => p.status === 'paid' || p.status === 'plan_covered' || p.status === 'plancovered' || p.paymentMethod === 'subscription')
                           .sort((a, b) => (b.appointmentDate || b.paidAt || '').localeCompare(a.appointmentDate || a.paidAt || ''))
                           .map((payment) => {
                           const isSubscriber = clientSubscriptionStatus[payment.userId] || payment.status === 'plan_covered' || payment.status === 'plancovered' || payment.paymentMethod === 'subscription' || false;
@@ -3123,11 +3179,11 @@ const handleHomeInfoChange = (field, value) => {
                         
                           return (
                           <tr key={payment.id}>
-                            <td>
+                            <td data-label="Data">
             
                               {payment.appointmentDate?.split('-').reverse().join('/')} {payment.appointmentTime}
                             </td>
-                            <td>
+                            <td data-label="Cliente">
   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
     {allUsers.find(u => u.id === payment.userId)?.name || payment.userName}
     {isSubscriber && (
@@ -3138,7 +3194,7 @@ const handleHomeInfoChange = (field, value) => {
   </div>
 </td>
 
-<td>
+<td data-label="Para">
   {appointment?.isDependent ? (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: '4px',
@@ -3150,8 +3206,8 @@ const handleHomeInfoChange = (field, value) => {
     <span style={{ color: '#666', fontSize: '0.82rem' }}>—</span>
   )}
 </td>
-                            <td>{payment.barberName}</td>
-                            <td style={{ whiteSpace: 'pre-line' }}>
+                            <td data-label="Barbeiro">{payment.barberName}</td>
+                            <td data-label="Serviço" style={{ whiteSpace: 'pre-line' }}>
                               {Array.isArray(payment.serviceName) 
                                 ? payment.serviceName.join('\n')
                                 : payment.serviceName?.includes(',')
@@ -3160,7 +3216,7 @@ const handleHomeInfoChange = (field, value) => {
                               }
                               
                             </td>
-                            <td>
+                            <td data-label="Obs.">
                               {(() => {
                                 const apt = appointments.find(a => a.id?.toString() === payment.appointmentId?.toString());
                                 return apt?.observation ? (
@@ -3173,7 +3229,7 @@ const handleHomeInfoChange = (field, value) => {
                                 );
                               })()}
                             </td>
-                            <td>
+                            <td data-label="Produtos">
                               {productsList.length > 0 ? (
                                 <div>
                                   {productsList.map((prod, idx) => (
@@ -3186,7 +3242,7 @@ const handleHomeInfoChange = (field, value) => {
                                 <span style={{ color: '#666' }}>-</span>
                               )}
                             </td>
-                            <td>
+                            <td data-label="Valor">
                               {isSubscriber ? (
                                 <div>
                                   <div style={{ fontSize: '0.85rem', color: '#d4af37' }}>
@@ -3204,8 +3260,55 @@ const handleHomeInfoChange = (field, value) => {
                                 </div>
                               )}
                             </td>
-                            <td>
+                            <td data-label="Método">
                               <PaymentBadge method={payment.paymentMethod} />
+                            </td>
+                            <td data-label="Status">
+                              {(() => {
+                                const s = payment.status;
+                                const method = payment.paymentMethod;
+                                let label = 'Pendente';
+                                let bg = '#f39c1222';
+                                let color = '#f39c12';
+                                let border = '#f39c1255';
+
+                                const m = method?.toLowerCase();
+                                if (s === 'plan_covered' || s === 'plancovered' || m === 'subscription') {
+                                  label = 'Plano Ativo'; bg = '#d4af3722'; color = '#d4af37'; border = '#d4af3755';
+                                } else if (s === 'paid' && m === 'pix') {
+                                  label = 'Pago (PIX)'; bg = '#2ecc7122'; color = '#2ecc71'; border = '#2ecc7155';
+                                } else if (s === 'paid' && (m === 'credito' || m === 'crédito')) {
+                                  label = 'Pago (Crédito)'; bg = '#3498db22'; color = '#3498db'; border = '#3498db55';
+                                } else if (s === 'paid' && (m === 'debito' || m === 'débito')) {
+                                  label = 'Pago (Débito)'; bg = '#3498db22'; color = '#3498db'; border = '#3498db55';
+                                } else if (s === 'paid' && (m === 'cartao' || m === 'cartão')) {
+                                  label = 'Pago (Cartão)'; bg = '#3498db22'; color = '#3498db'; border = '#3498db55';
+                                } else if (s === 'paid' && m === 'dinheiro') {
+                                  label = 'Pago (Dinheiro)'; bg = '#27ae6022'; color = '#27ae60'; border = '#27ae6055';
+                                } else if (s === 'paid' && m === 'local') {
+                                  label = 'Pago no Local'; bg = '#27ae6022'; color = '#27ae60'; border = '#27ae6055';
+                                } else if (s === 'paid') {
+                                  label = 'Pago'; bg = '#27ae6022'; color = '#27ae60'; border = '#27ae6055';
+                                } else if (s === 'pendinglocal') {
+                                  label = 'Pagar no Local'; bg = '#e67e2222'; color = '#e67e22'; border = '#e67e2255';
+                                } else if (s === 'confirmed_unpaid') {
+                                  label = 'Confirmado s/ Pgto'; bg = '#9b59b622'; color = '#9b59b6'; border = '#9b59b655';
+                                } else if (s === 'pending') {
+                                  label = 'Pendente'; bg = '#f39c1222'; color = '#f39c12'; border = '#f39c1255';
+                                } else if (s === 'cancelled' || s === 'canceled') {
+                                  label = 'Cancelado'; bg = '#e74c3c22'; color = '#e74c3c'; border = '#e74c3c55';
+                                }
+
+                                return (
+                                  <span style={{
+                                    background: bg, color, border: `1px solid ${border}`,
+                                    borderRadius: '20px', padding: '3px 10px',
+                                    fontSize: '0.75rem', fontWeight: 600, whiteSpace: 'nowrap'
+                                  }}>
+                                    {label}
+                                  </span>
+                                );
+                              })()}
                             </td>
                           </tr>
                           );
@@ -4340,18 +4443,18 @@ const handleHomeInfoChange = (field, value) => {
                               const isPendingOnline = sale.status === 'pending_online';
                               return (
                                 <tr key={sale.id}>
-                                  <td>{String(sale.saleDate || sale.createdAt || '').slice(0,10).split('-').reverse().join('/')}</td>
-                                  <td>{sale.userName}</td>
-                                  <td>
+                                  <td data-label="Data">{String(sale.saleDate || sale.createdAt || '').slice(0,10).split('-').reverse().join('/')}</td>
+                                  <td data-label="Cliente">{sale.userName}</td>
+                                  <td data-label="Produtos">
                                     {(sale.products || []).map((p, i) => (
                                       <div key={i} style={{ fontSize: '0.85rem' }}>
                                         {p.name} <span style={{ color: '#888' }}>x{p.quantity || 1}</span>
                                       </div>
                                     ))}
                                   </td>
-                                  <td><strong>R$ {parseFloat(sale.productsTotal || 0).toFixed(2)}</strong></td>
-                                  <td><PaymentBadge method={sale.paymentMethod} /></td>
-                                  <td>
+                                  <td data-label="Total"><strong>R$ {parseFloat(sale.productsTotal || 0).toFixed(2)}</strong></td>
+                                  <td data-label="Método"><PaymentBadge method={sale.paymentMethod} /></td>
+                                  <td data-label="Status">
                                     {isPaid ? (
                                       <span style={{ color: '#27ae60', fontWeight: 600, fontSize: '0.82rem' }}>✓ Pago</span>
                                     ) : isPendingLocal ? (
@@ -4401,14 +4504,14 @@ const handleHomeInfoChange = (field, value) => {
                       <tbody>
                         {[...getFilteredSubscriptions()].sort((a, b) => (b.createdAt || b.startDate || '').localeCompare(a.createdAt || a.startDate || '')).map((sub) => (
                           <tr key={sub.id}>
-                            <td>{new Date(sub.createdAt || sub.startDate).toLocaleDateString('pt-BR')}</td>
-                            <td>{sub.userName || 'N/A'}</td>
-                            <td>{sub.planName}</td>
-                            <td>R$ {parseFloat(sub.amount || sub.planPrice || 0).toFixed(2)}</td>
-                            <td>
+                            <td data-label="Data">{new Date(sub.createdAt || sub.startDate).toLocaleDateString('pt-BR')}</td>
+                            <td data-label="Cliente">{sub.userName || 'N/A'}</td>
+                            <td data-label="Plano">{sub.planName}</td>
+                            <td data-label="Valor">R$ {parseFloat(sub.amount || sub.planPrice || 0).toFixed(2)}</td>
+                            <td data-label="Método">
                               <PaymentBadge method={sub.paymentMethod} />
                             </td>
-                            <td>
+                            <td data-label="Status">
                               <span className={`status-badge status-badge--${sub.status}`}>{sub.status === 'active' ? 'Ativo' : 'Inativo'}</span>
                             </td>
                           </tr>

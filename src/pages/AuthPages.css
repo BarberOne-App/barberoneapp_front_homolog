@@ -4534,3 +4534,214 @@
   color: #ff7a1a;
   border-color: #ff7a1a55;
 }
+
+
+
+@media (max-width: 768px) {
+
+
+  .tab-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  .appointments-tabs {
+    gap: 0.25rem;
+    flex-wrap: wrap;
+    overflow-x: visible;
+    padding-bottom: 2px;
+  }
+
+
+  .agendamentos-filter-container {
+    padding: 16px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+  }
+
+  .agendamentos-filter-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .agendamentos-month-select {
+    min-width: 100%;
+    width: 100%;
+  }
+
+
+  .agendamentos-filter-container > div:last-child {
+    flex-direction: column;
+    align-items: flex-start !important;
+    width: 100%;
+  }
+
+  .agendamentos-filter-label {
+    margin-bottom: 6px;
+  }
+
+
+  .section-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px;
+  }
+
+  .month-filter {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    width: 100%;
+    gap: 6px !important;
+  }
+
+  .month-filter select,
+  .form-select {
+    width: 100% !important;
+    min-width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  .filters-container {
+    padding: 1rem;
+    gap: 0.75rem;
+  }
+
+  .filter-group {
+    min-width: 100%;
+  }
+
+  .filter-input,
+  .filter-select {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .payments-table {
+    overflow: hidden;
+  }
+
+  .payments-table table {
+    display: block;
+    width: 100%;
+  }
+
+  .payments-table thead {
+    display: none;
+  }
+
+  .payments-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .payments-table tbody tr {
+    display: flex;
+    flex-direction: column;
+    background: #111;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    gap: 0;
+  }
+
+  .payments-table tbody tr:hover {
+    background: #161616;
+  }
+
+  .payments-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid #1e1e1e;
+    font-size: 0.82rem;
+  }
+
+  .payments-table td:last-child {
+    border-bottom: none;
+    padding-top: 0.6rem;
+    justify-content: center;
+  }
+
+  .payments-table td::before {
+    content: attr(data-label);
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+    width: 90px;
+    min-width: 90px;
+    flex-shrink: 0;
+  }
+
+  .payment-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .payment-stat-card .stat-value {
+    font-size: 1.4rem;
+  }
+
+  .manage-barbers-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .manage-barbers-header button {
+    width: 100%;
+  }
+
+  .payroll-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .payroll-header-controls {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .payroll-period-buttons {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .payroll-period-btn {
+    flex: 1;
+    text-align: center;
+  }
+
+  .payroll-month-input {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .payroll-vale-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .payment-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .payments-table td::before {
+    width: 75px;
+    min-width: 75px;
+  }
+
+  .agendamentos-filter-title {
+    font-size: 1rem;
+  }
+}

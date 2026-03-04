@@ -52,18 +52,23 @@ export default function ProductsModal({
   const calculateProductPrice = (product) => {
     const basePrice = parsePrice(product.price);
     if (hasActiveSubscription && product.subscriberDiscount) {
-      return basePrice * (1 - product.subscriberDiscount / 100);
+      return parseFloat((basePrice * (1 - product.subscriberDiscount / 100)).toFixed(2));
     }
     return basePrice;
   };
 
   const calculateProductsTotal = () =>
-    selectedProducts.reduce((sum, product) =>
-      sum + calculateProductPrice(product) * product.quantity, 0);
+    parseFloat(
+      selectedProducts.reduce((sum, product) =>
+        sum + calculateProductPrice(product) * product.quantity, 0
+      ).toFixed(2)
+    );
 
   const calculateFinalTotal = () => {
     const productsTotal = calculateProductsTotal();
-    return hasActiveSubscription ? productsTotal : (servicePrice + productsTotal);
+    return hasActiveSubscription
+      ? productsTotal
+      : parseFloat((servicePrice + productsTotal).toFixed(2));
   };
 
   const handleConfirm = () => {
@@ -72,7 +77,7 @@ export default function ProductsModal({
     const productsWithCalculatedPrice = selectedProducts.map(product => ({
       ...product,
       calculatedPrice: calculateProductPrice(product),
-      totalPrice: calculateProductPrice(product) * product.quantity,
+      totalPrice: parseFloat((calculateProductPrice(product) * product.quantity).toFixed(2)),
     }));
 
     onConfirm({
@@ -188,12 +193,12 @@ export default function ProductsModal({
                 <span>R$ {parsePrice(servicePrice).toFixed(2)}</span>
               </div>
             )}
-            {selectedProducts.length > 0 && (
-              <div className="summary-row">
-                <span>Produtos</span>
-                <span>R$ {productsTotal.toFixed(2)}</span>
+            {selectedProducts.map(product => (
+              <div className="summary-row" key={product.id}>
+                <span>{product.name} (x{product.quantity})</span>
+                <span>R$ {parseFloat((calculateProductPrice(product) * product.quantity).toFixed(2)).toFixed(2)}</span>
               </div>
-            )}
+            ))}
             <div className="summary-row total">
               <span>Total</span>
               <span>

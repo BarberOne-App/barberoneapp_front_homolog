@@ -174,6 +174,12 @@ export default function Home() {
         status: 'pendinglocal',
         paymentMethod: 'local',
       });
+
+     
+      await Promise.all(
+        pendingProductSale.products.map(p => handleUpdateStock(p.id, p.quantity || 1))
+      );
+
       showToast('Pedido registrado! Pague na barbearia.', 'success');
     } catch (err) {
       showToast('Erro ao registrar pedido.', 'danger');
@@ -194,6 +200,12 @@ export default function Home() {
         status: 'paid',
         paymentMethod: 'online',
       });
+
+  
+      await Promise.all(
+        pendingProductSale.products.map(p => handleUpdateStock(p.id, p.quantity || 1))
+      );
+
       showToast('Pagamento confirmado! Pedido registrado.', 'success');
     } catch (err) {
       showToast('Erro ao registrar pedido.', 'danger');
