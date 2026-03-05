@@ -478,7 +478,7 @@ export default function PaymentModal({
     setShowErrorToast(false);
     setErrorMessage('');
 
-    console.log(selectedPlan)
+   
     try {
       const paymentData = {
         token: cardFormData.token,
@@ -624,144 +624,243 @@ export default function PaymentModal({
 
   const handleMercadoPagoPreferSubmit = async () => {
 
-    setProcessing(true);
-    setShowErrorToast(false);
-    setErrorMessage('');
+    setProcessing(true);
+    setShowErrorToast(false);
+    setErrorMessage('');
 
-    try {
-      const paymentData = {
-        transaction_amount: getFinalPrice(),
-        id: selectedPlan.paymentData.products[0].id,
-        title: selectedPlan.paymentData.products[0].name,
-        quantity: selectedPlan.paymentData.products[0].quantity,
-        category_id: selectedPlan.paymentData.products[0].category,
-        unit_price: Number(selectedPlan.paymentData.products[0].price),
-        description: isAppointmentPayment
-          ? `Pagamento - ${selectedPlan.serviceName || selectedPlan.name || 'Serviço'}`
-          : `Assinatura - ${selectedPlan.name}`,
-      };
+    try {
+      const products = selectedPlan.paymentData?.products || [];
+      const services = selectedPlan.paymentData?.services || [];
+      const hasProducts = products.length > 0;
+      const hasServices = services.length > 0;
+      const serviceName = selectedPlan.paymentData?.serviceName || selectedPlan.serviceName || 'Serviço';
 
-      const paymentResult = await processMercadoPagoPayment(paymentData);
-      if(paymentResult.init_point) {
-//         window.open('' + paymentResult.init_point);
-            window.location.href = paymentResult.init_point
-      }
-      // if (paymentResult.status === 'approved' || paymentResult.status === 'authorized') {
-      //   const finalAmount = getFinalPrice();
-      //   const paymentMethodString = paymentMethod === 'credit' ? 'credito' : 'debito';
+      const parsePrice = (val) => {
+        if (typeof val === 'number') return val;
+        return parseFloat(String(val).replace('R$', '').replace(/\./g, '').replace(',', '.').trim()) || 0;
+      };
 
-      //   if (isAppointmentPayment) {
-      //     if (selectedPlan.needsCreation && selectedPlan.appointmentData && selectedPlan.paymentData) {
-      //       const appointmentResponse = await fetch(
-      //         `${import.meta.env.VITE_API_URL}/appointments`,
-      //         {
-      //           method: 'POST',
-      //           headers: { 'Content-Type': 'application/json' },
-      //           body: JSON.stringify(selectedPlan.appointmentData),
-      //         }
-      //       );
-      //       if (!appointmentResponse.ok) throw new Error('Erro ao criar agendamento');
-      //       const createdAppointment = await appointmentResponse.json();
+  
+      const MP_CATEGORIES = [
+        'art','baby','coupons','donations','computing','cameras','video_games',
+        'tv','electronics','automotive','entertainment','fashion','games',
+        'home','musical_instruments','phones','food','health','services',
+        'learnings','tickets','travels','virtual_goods','others'
+      ];
+      const getMpCategory = (cat) => {
+        if (!cat) return 'others';
+        const lower = cat.toLowerCase();
+        if (MP_CATEGORIES.includes(lower)) return lower;
+        if (lower.includes('servi')) return 'services';
+        if (lower.includes('bebid') || lower.includes('aliment') || lower.includes('comid')) return 'food';
+        if (lower.includes('saude') || lower.includes('saúde')) return 'health';
+        if (lower.includes('moda') || lower.includes('roupa') || lower.includes('acess')) return 'fashion';
+        return 'others';
+      };
 
-      //       await criarPagamentoAgendamento({
-      //         ...selectedPlan.paymentData,
-      //         appointmentId: createdAppointment.id,
-      //         status: 'paid',
-      //         paymentMethod: paymentMethodString,
-      //         paidAt: new Date().toISOString(),
-      //         amount: finalAmount,
-      //         mercadoPagoId: paymentResult.id,
-      //         mercadoPagoStatus: paymentResult.status,
-      //         cardData: {
-      //           brand: paymentResult.payment_method_id,
-      //           lastDigits: paymentResult.card?.last_four_digits || '****',
-      //         },
-      //       });
-      //     } else if (paymentId) {
-      //       await atualizarPagamentoAgendamento(paymentId, {
-      //         status: 'paid',
-      //         paymentMethod: paymentMethodString,
-      //         paidAt: new Date().toISOString(),
-      //         amount: finalAmount,
-      //         mercadoPagoId: paymentResult.id,
-      //         mercadoPagoStatus: paymentResult.status,
-      //         cardData: {
-      //           brand: paymentResult.payment_method_id,
-      //           lastDigits: paymentResult.card?.last_four_digits || '****',
-      //         },
-      //       });
-      //     }
-      //     onSuccess && onSuccess(paymentMethodString);
-      //   } else {
-      //     const transactionId = `TRX-${Date.now()}-${Math.random().toString(36).substr(2, 7).toUpperCase()}`;
-      //     await criarPagamentoAgendamento({
-      //       userId: currentUser.id,
-      //       userName: currentUser.name,
-      //       planId: selectedPlan.id,
-      //       planName: selectedPlan.name,
-      //       amount: finalAmount,
-      //       paymentMethod: paymentMethodString,
-      //       status: 'approved',
-      //       type: 'subscription',
-      //       transactionId,
-      //       mercadoPagoId: paymentResult.id,
-      //       mercadoPagoStatus: paymentResult.status,
-      //       installments: cardFormData.installments || 1,
-      //       installmentAmount: (finalAmount / (cardFormData.installments || 1)).toFixed(2),
-      //       cardData: {
-      //         brand: paymentResult.payment_method_id,
-      //         lastDigits: paymentResult.card?.last_four_digits || '****',
-      //       },
-      //       createdAt: new Date().toISOString(),
-      //       approvedAt: new Date().toISOString(),
-      //     });
+      const items = [];
 
-      //     const subscription = await criarAssinatura({
-      //       userId: currentUser.id,
-      //       userName: currentUser.name,
-      //       planId: selectedPlan.id,
-      //       planName: selectedPlan.name,
-      //       planPrice: selectedPlan.price,
-      //       amount: finalAmount,
-      //       status: 'active',
-      //       paymentMethod: paymentMethodString,
-      //       isRecurring: selectedPlan.isRecurring ?? true,
-      //       autoRenewal: selectedPlan.autoRenewal ?? true,
-      //     });
+    
+      if (hasProducts && !hasServices) {
+        products.forEach((p, i) => {
+          items.push({
+            id: String(p.id || `product-${i}`),
+            title: p.name,
+            quantity: p.quantity || 1,
+            unit_price: Number(p.calculatedPrice || parsePrice(p.price)),
+            category_id: getMpCategory(p.category),
+            picture_url: p.image
+          });
+        });
+      }
 
-      //     try {
-      //       await enviarNotificacaoAssinatura(subscription);
-      //     } catch (error) {
-      //       console.error('Erro ao enviar notificação (não crítico):', error);
-      //     }
+      if (hasServices && !hasProducts) {
+        services.forEach((s) => {
+          const isCovered = s.coveredByPlan && selectedPlan.paymentData?.hasActiveSubscription;
+          if (!isCovered) {
+            items.push({
+              id: String(s.id || `service-${s.name}`),
+              title: s.name,
+              quantity: 1,
+              unit_price: Number(parsePrice(s.price)),
+              category_id: 'services',
+            picture_url: s.image
 
-      //     onSuccess && onSuccess(subscription);
-      //   }
+            });
+          }
+        });
+      }
 
-      //   setProcessing(false);
-      //   onClose();
-      //   return { status: 'success' };
+      if (hasServices && hasProducts) {
+        services.forEach((s) => {
+    
+          const isCovered = s.coveredByPlan && selectedPlan.paymentData?.hasActiveSubscription;
+          if (!isCovered) {
+            items.push({
+              id: String(s.id || `service-${s.name}`),
+              title: s.name,
+              quantity: 1,
+              unit_price: Number(parsePrice(s.price)),
+              category_id: 'services',
+            picture_url: s.image
 
-      // } else if (paymentResult.status === 'rejected') {
-      //   setPaymentStatus('rejected');
-      //   setProcessing(false);
-      //   return new Promise((_, reject) => reject(new Error('Payment rejected')));
-      // } else {
-      //   setPaymentStatus('pending');
-      //   setErrorMessage(
-      //     `Pagamento em análise (status: ${paymentResult.status}). Você receberá uma confirmação em breve.`
-      //   );
-      //   setShowErrorToast(true);
-      //   setProcessing(false);
-      //   return { status: paymentResult.status };
-      // }
-    } catch (error) {
-      setErrorMessage(error.message || 'Erro ao processar pagamento. Tente novamente.');
-      setShowErrorToast(true);
-      setProcessing(false);
-      return new Promise((_, reject) => reject(error));
-    }
-  };
+            });
+          }
+        });
+        products.forEach((p, i) => {
+          items.push({
+            id: String(p.id || `product-${i}`),
+            title: p.name,
+            quantity: p.quantity || 1,
+            unit_price: Number(p.calculatedPrice || parsePrice(p.price)),
+            category_id: getMpCategory(p.category),
+            picture_url: p.image
+
+          });
+        });
+      }
+
+      const itemsDescription = items.map(i => i.title).join(', ');
+
+      const paymentData = {
+        transaction_amount: getFinalPrice(),
+        items,
+        description: isAppointmentPayment
+          ? `Pagamento - ${itemsDescription}`
+          : `Assinatura - ${selectedPlan.name}`,
+      };
+
+    
+      console.log(' paymentData enviado ao MP:', JSON.stringify(paymentData, null, 2));
+      console.log(' selectedPlan.price:', selectedPlan.price);
+      console.log(' getFinalPrice():', getFinalPrice());
+
+      const paymentResult = await processMercadoPagoPayment(paymentData);
+      if (paymentResult.init_point) {
+        
+        sessionStorage.setItem('mp_pending_plan', JSON.stringify({
+          selectedPlan,
+          isAppointmentPayment,
+          finalTotal: getFinalPrice(),
+        }));
+        window.location.href = paymentResult.init_point;
+      }
+      // if (paymentResult.status === 'approved' || paymentResult.status === 'authorized') {
+      //   const finalAmount = getFinalPrice();
+      //   const paymentMethodString = paymentMethod === 'credit' ? 'credito' : 'debito';
+
+      //   if (isAppointmentPayment) {
+      //     if (selectedPlan.needsCreation && selectedPlan.appointmentData && selectedPlan.paymentData) {
+      //       const appointmentResponse = await fetch(
+      //         `${import.meta.env.VITE_API_URL}/appointments`,
+      //         {
+      //           method: 'POST',
+      //           headers: { 'Content-Type': 'application/json' },
+      //           body: JSON.stringify(selectedPlan.appointmentData),
+      //         }
+      //       );
+      //       if (!appointmentResponse.ok) throw new Error('Erro ao criar agendamento');
+      //       const createdAppointment = await appointmentResponse.json();
+
+      //       await criarPagamentoAgendamento({
+      //         ...selectedPlan.paymentData,
+      //         appointmentId: createdAppointment.id,
+      //         status: 'paid',
+      //         paymentMethod: paymentMethodString,
+      //         paidAt: new Date().toISOString(),
+      //         amount: finalAmount,
+      //         mercadoPagoId: paymentResult.id,
+      //         mercadoPagoStatus: paymentResult.status,
+      //         cardData: {
+      //           brand: paymentResult.payment_method_id,
+      //           lastDigits: paymentResult.card?.last_four_digits || '****',
+      //         },
+      //       });
+      //     } else if (paymentId) {
+      //       await atualizarPagamentoAgendamento(paymentId, {
+      //         status: 'paid',
+      //         paymentMethod: paymentMethodString,
+      //         paidAt: new Date().toISOString(),
+      //         amount: finalAmount,
+      //         mercadoPagoId: paymentResult.id,
+      //         mercadoPagoStatus: paymentResult.status,
+      //         cardData: {
+      //           brand: paymentResult.payment_method_id,
+      //           lastDigits: paymentResult.card?.last_four_digits || '****',
+      //         },
+      //       });
+      //     }
+      //     onSuccess && onSuccess(paymentMethodString);
+      //   } else {
+      //     const transactionId = `TRX-${Date.now()}-${Math.random().toString(36).substr(2, 7).toUpperCase()}`;
+      //     await criarPagamentoAgendamento({
+      //       userId: currentUser.id,
+      //       userName: currentUser.name,
+      //       planId: selectedPlan.id,
+      //       planName: selectedPlan.name,
+      //       amount: finalAmount,
+      //       paymentMethod: paymentMethodString,
+      //       status: 'approved',
+      //       type: 'subscription',
+      //       transactionId,
+      //       mercadoPagoId: paymentResult.id,
+      //       mercadoPagoStatus: paymentResult.status,
+      //       installments: cardFormData.installments || 1,
+      //       installmentAmount: (finalAmount / (cardFormData.installments || 1)).toFixed(2),
+      //       cardData: {
+      //         brand: paymentResult.payment_method_id,
+      //         lastDigits: paymentResult.card?.last_four_digits || '****',
+      //       },
+      //       createdAt: new Date().toISOString(),
+      //       approvedAt: new Date().toISOString(),
+      //     });
+
+      //     const subscription = await criarAssinatura({
+      //       userId: currentUser.id,
+      //       userName: currentUser.name,
+      //       planId: selectedPlan.id,
+      //       planName: selectedPlan.name,
+      //       planPrice: selectedPlan.price,
+      //       amount: finalAmount,
+      //       status: 'active',
+      //       paymentMethod: paymentMethodString,
+      //       isRecurring: selectedPlan.isRecurring ?? true,
+      //       autoRenewal: selectedPlan.autoRenewal ?? true,
+      //     });
+
+      //     try {
+      //       await enviarNotificacaoAssinatura(subscription);
+      //     } catch (error) {
+      //       console.error('Erro ao enviar notificação (não crítico):', error);
+      //     }
+
+      //     onSuccess && onSuccess(subscription);
+      //   }
+
+      //   setProcessing(false);
+      //   onClose();
+      //   return { status: 'success' };
+
+      // } else if (paymentResult.status === 'rejected') {
+      //   setPaymentStatus('rejected');
+      //   setProcessing(false);
+      //   return new Promise((_, reject) => reject(new Error('Payment rejected')));
+      // } else {
+      //   setPaymentStatus('pending');
+      //   setErrorMessage(
+      //     `Pagamento em análise (status: ${paymentResult.status}). Você receberá uma confirmação em breve.`
+      //   );
+      //   setShowErrorToast(true);
+      //   setProcessing(false);
+      //   return { status: paymentResult.status };
+      // }
+    } catch (error) {
+      setErrorMessage(error.message || 'Erro ao processar pagamento. Tente novamente.');
+      setShowErrorToast(true);
+      setProcessing(false);
+      return new Promise((_, reject) => reject(error));
+    }
+  };
 
   const handleCopyPixKey = () => {
     if (pixQrCode) {

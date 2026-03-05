@@ -323,7 +323,85 @@ export default function AppointmentsPage() {
     initializedRef.current = true;
     loadData();
     fetchBlockedDates();
- 
+
+
+    const mpPending = sessionStorage.getItem('mp_pending_plan');
+    const urlParams = new URLSearchParams(window.location.search);
+    const mpStatus = urlParams.get('status');
+    const mpPaymentId = urlParams.get('payment_id');
+
+    if (mpPending && mpStatus) {
+      const handleMpReturn = async () => {
+        try {
+          const { selectedPlan, finalTotal } = JSON.parse(mpPending);
+          sessionStorage.removeItem('mp_pending_plan');
+    
+          window.history.replaceState({}, document.title, window.location.pathname);
+
+          if (mpStatus === 'approved') {
+            if (selectedPlan?.needsCreation && selectedPlan?.appointmentData && selectedPlan?.paymentData) {
+              const createdAppointment = await createAppointment(selectedPlan.appointmentData);
+              await criarPagamentoAgendamento({
+                ...selectedPlan.paymentData,
+                appointmentId: createdAppointment.id,
+                status: 'paid',
+                paymentMethod: 'online',
+                paidAt: new Date().toISOString(),
+                amount: finalTotal,
+                mercadoPagoId: mpPaymentId,
+              });
+              await loadData();
+              const serviceNames = selectedPlan.paymentData?.serviceName || '';
+              setSuccessData({
+                title: 'Agendamento Confirmado!',
+                message: 'Pagamento aprovado e agendamento realizado com sucesso!',
+                details: [
+                  { label: 'Barbeiro', value: selectedPlan.appointmentData.barberName },
+                  { label: 'Data', value: new Date(`${selectedPlan.appointmentData.date}T00:00:00`).toLocaleDateString('pt-BR') },
+                  { label: 'Horário', value: selectedPlan.appointmentData.time },
+                  { label: 'Serviços', value: serviceNames },
+                  { label: 'Total', value: `R$ ${Number(finalTotal).toFixed(2)}` },
+                ]
+              });
+              setShowSuccessModal(true);
+              setView('myAppointments');
+            }
+          } else if (mpStatus === 'pending') {
+            if (selectedPlan?.needsCreation && selectedPlan?.appointmentData && selectedPlan?.paymentData) {
+              const createdAppointment = await createAppointment(selectedPlan.appointmentData);
+              await criarPagamentoAgendamento({
+                ...selectedPlan.paymentData,
+                appointmentId: createdAppointment.id,
+                status: 'pending_online',
+                paymentMethod: 'online',
+                amount: finalTotal,
+                mercadoPagoId: mpPaymentId,
+              });
+              await loadData();
+              setSuccessData({
+                title: 'Pagamento em Análise',
+                message: 'Seu agendamento foi criado e o pagamento está sendo processado. Você receberá uma confirmação em breve.',
+                details: [
+                  { label: 'Barbeiro', value: selectedPlan.appointmentData.barberName },
+                  { label: 'Data', value: new Date(`${selectedPlan.appointmentData.date}T00:00:00`).toLocaleDateString('pt-BR') },
+                  { label: 'Horário', value: selectedPlan.appointmentData.time },
+                ]
+              });
+              setShowSuccessModal(true);
+              setView('myAppointments');
+            }
+          } else if (mpStatus === 'failure') {
+            showToast('Pagamento recusado. Tente novamente.', 'danger');
+          }
+        } catch (err) {
+          console.error('Erro ao processar retorno MP:', err);
+          showToast('Erro ao finalizar agendamento. Entre em contato.', 'danger');
+        }
+      };
+
+      handleMpReturn();
+    }
+
   }, []); 
 
   const handleLogout = () => {
@@ -741,12 +819,12 @@ const getAvailableTimes = useCallback((barberId, date) => {
             userName: activeClient.name,
             amount: purchaseData.finalTotal,
             serviceName: serviceNames,
+            services: pendingBookingData.services,
+            servicePrice: purchaseData.servicePrice || 0,
             barberName: pendingBookingData.barberName,
             appointmentDate: pendingBookingData.date,
             appointmentTime: pendingBookingData.time,
             products: purchaseData.products,
-
-        
           }
 
         });
@@ -1399,8 +1477,6 @@ const getAvailableTimes = useCallback((barberId, date) => {
 
                         const appointmentDate = new Date(`${apt.date}T00:00:00`);
                         const formattedDate = appointmentDate.toLocaleDateString('pt-BR');
-                        const today = new Date(); today.setHours(0,0,0,0);
-                        const isPast = appointmentDate < today;
 
                         const servicesTotal = Array.isArray(apt.services)
                           ? apt.services.reduce((sum, s) => {
@@ -1550,13 +1626,9 @@ const getAvailableTimes = useCallback((barberId, date) => {
                             </td>
                             <td>
                               <div className="appointment-actions">
-                                {isPast ? (
-                                  <span style={{ color: '#555', fontSize: '0.75rem', fontStyle: 'italic' }}>Encerrado</span>
-                                ) : (
-                                  <button onClick={() => handleDeleteClick(apt.id)} className="btn-action cancel">
-                                    Cancelar
-                                  </button>
-                                )}
+                                <button onClick={() => handleDeleteClick(apt.id)} className="btn-action cancel">
+                                  Cancelar
+                                </button>
                               </div>
                             </td>
                           </tr>

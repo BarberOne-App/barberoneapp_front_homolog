@@ -69,6 +69,16 @@ export default function Home() {
     }
 
     carregarDados();
+
+  
+    const urlParams = new URLSearchParams(window.location.search);
+    const mpStatus = urlParams.get('status');
+    if (mpStatus === 'failure') {
+      sessionStorage.removeItem('mp_pending_plan');
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setTimeout(() => showToast('Pagamento recusado. Tente novamente.', 'danger'), 500);
+    }
+
   }, []);
 
   useEffect(() => {
@@ -174,12 +184,6 @@ export default function Home() {
         status: 'pendinglocal',
         paymentMethod: 'local',
       });
-
-     
-      await Promise.all(
-        pendingProductSale.products.map(p => handleUpdateStock(p.id, p.quantity || 1))
-      );
-
       showToast('Pedido registrado! Pague na barbearia.', 'success');
     } catch (err) {
       showToast('Erro ao registrar pedido.', 'danger');
@@ -200,12 +204,6 @@ export default function Home() {
         status: 'paid',
         paymentMethod: 'online',
       });
-
-  
-      await Promise.all(
-        pendingProductSale.products.map(p => handleUpdateStock(p.id, p.quantity || 1))
-      );
-
       showToast('Pagamento confirmado! Pedido registrado.', 'success');
     } catch (err) {
       showToast('Erro ao registrar pedido.', 'danger');
