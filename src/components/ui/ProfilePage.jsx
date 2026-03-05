@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react';
   import './ProfilePage.css';
   import Header from '../layout/Header.jsx';
   import { uploadImagem, criarPreviewLocal } from '../../services/cloudinaryService';
-  import ChangePasswordPanel from './ChangePasswordPanel.jsx';
+  import ChangePasswordPanel from './Changepasswordpanel.jsx';
 
   const API_URL = 'http://localhost:3000';
 
