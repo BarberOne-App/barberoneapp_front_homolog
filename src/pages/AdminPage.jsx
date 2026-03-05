@@ -59,6 +59,7 @@ export default function AdminPage() {
   const [barbers, setBarbers] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
+  const [allDependents, setAllDependents] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
   const [confirmCancelSub, setConfirmCancelSub] = useState(null); 
@@ -665,7 +666,14 @@ const handleHomeInfoChange = (field, value) => {
     try {
       const appointment = appointments.find((apt) => apt.id === appointmentId);
       if (!appointment) return;
-      const userData = await getUserById(appointment.clientId);
+      let userData = null;
+      if (appointment.clientId?.toString().startsWith('dep_')) {
+        const depId = appointment.clientId.replace('dep_', '');
+        const dep = allDependents.find(d => d.id?.toString() === depId);
+        if (dep) userData = allUsers.find(u => u.id?.toString() === dep.parentId?.toString()) || null;
+      } else {
+        userData = await getUserById(appointment.clientId);
+      }
       if (!userData || !userData.phone) {
         showToast('Cliente não possui telefone cadastrado.', 'danger');
         return;
@@ -1281,7 +1289,14 @@ const handleHomeInfoChange = (field, value) => {
 
     
       try {
-        const userData = await getUserById(appointment.clientId);
+        let userData = null;
+        if (appointment.clientId?.toString().startsWith('dep_')) {
+          const depId = appointment.clientId.replace('dep_', '');
+          const dep = allDependents.find(d => d.id?.toString() === depId);
+          if (dep) userData = allUsers.find(u => u.id?.toString() === dep.parentId?.toString()) || null;
+        } else {
+          userData = await getUserById(appointment.clientId);
+        }
         if (userData?.phone) {
           const phone = userData.phone.replace(/\D/g, '');
           const message = `Olá ${appointment.client}! Seu agendamento foi confirmado. Obrigado pela preferência e confiança em nosso serviço! 😊✂️`;
@@ -1393,15 +1408,12 @@ const handleHomeInfoChange = (field, value) => {
 
   const handleMarkAsPaid = async (payment, method) => {
     try {
-      const updated = await atualizarPagamentoAgendamento(payment.id, {
+      await atualizarPagamentoAgendamento(payment.id, {
         status: 'paid',
         paymentMethod: method,
         paidAt: new Date().toISOString(),
       });
-      
-      setAppointmentPayments(prev =>
-        prev.map(p => p.id === payment.id ? { ...p, status: 'paid', paymentMethod: method, paidAt: new Date().toISOString() } : p)
-      );
+      await loadData();
       showToast('Pagamento marcado como pago!', 'success');
     } catch (error) {
       console.error('Erro handleMarkAsPaid:', error);
@@ -1419,9 +1431,7 @@ const handleHomeInfoChange = (field, value) => {
         confirmedAt: new Date().toISOString(),
         ...(newStatus === 'paid' ? { paidAt: new Date().toISOString() } : {}),
       });
-      setAppointmentPayments(prev =>
-        prev.map(p => p.id === payment.id ? { ...p, status: newStatus, confirmedAt: new Date().toISOString() } : p)
-      );
+      await loadData();
       showToast(newStatus === 'paid' ? 'Agendamento confirmado e pago!' : 'Corte confirmado! Pagamento ainda pendente.', 'success');
     } catch (error) {
       console.error('Erro handleConfirmCutDone:', error);

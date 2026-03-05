@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react';
   import { buscarAssinaturaAtiva } from '../../services/paymentService';
   import ManageSubscriptionModal from '../ui/ManageSubscriptionModal.jsx';
   import SubscriptionModal from '../ui/SubscriptionModal.jsx';
-  import { FaCalendarAlt, FaShieldAlt, FaCreditCard, FaSignOutAlt, FaCamera, FaUser, FaEnvelope, FaEdit, FaCheck, FaTimes, FaArrowLeft, FaHome, FaStore, FaUsers, FaPlus, FaTrash } from 'react-icons/fa';
+  import { FaCalendarAlt, FaShieldAlt, FaCreditCard, FaSignOutAlt, FaCamera, FaUser, FaEnvelope, FaEdit, FaCheck, FaTimes, FaArrowLeft, FaHome, FaStore, FaUsers, FaPlus, FaTrash, FaLock } from 'react-icons/fa';
   import { BARBERSHOPS, getActiveBarbershop, setActiveBarbershop } from '../layout/Barbershops';
   import './ProfilePage.css';
   import Header from '../layout/Header.jsx';
   import { uploadImagem, criarPreviewLocal } from '../../services/cloudinaryService';
+  import ChangePasswordPanel from './ChangePasswordPanel.jsx';
 
   const API_URL = 'http://localhost:3000';
 
@@ -410,6 +411,12 @@ import { useState, useEffect } from 'react';
                 </button>
               )}
               <button
+                className={`profile-sidebar__nav-item ${activeTab === 'senha' ? 'active' : ''}`}
+                onClick={() => setActiveTab('senha')}
+              >
+                <FaLock /> Mudar Senha
+              </button>
+              <button
                 className="profile-sidebar__nav-item profile-sidebar__nav-item--logout"
                 onClick={handleLogout}
               >
@@ -421,10 +428,20 @@ import { useState, useEffect } from 'react';
     
           <main className="profile-main">
             <div className="profile-main__header">
-              <h1 className="profile-main__title">Meu Perfil</h1>
-              <p className="profile-main__subtitle">Gerencie suas informações pessoais</p>
+              <h1 className="profile-main__title">
+                {activeTab === 'senha' ? 'Mudar Senha' : 'Meu Perfil'}
+              </h1>
+              <p className="profile-main__subtitle">
+                {activeTab === 'senha' ? 'Altere a senha da sua conta' : 'Gerencie suas informações pessoais'}
+              </p>
             </div>
 
+            {activeTab === 'senha' ? (
+              <div className="profile-cards">
+                <ChangePasswordPanel currentUser={currentUser} onToast={showToast} />
+              </div>
+            ) : (
+            <>
         
             <div className="profile-cards">
       
@@ -865,6 +882,8 @@ import { useState, useEffect } from 'react';
                 </button>
               </div>
             </div>
+            </>
+            )}
           </main>
         </div>
 
