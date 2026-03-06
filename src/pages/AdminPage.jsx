@@ -943,6 +943,8 @@ const handleHomeInfoChange = (field, value) => {
         specialty: employee.role === 'admin' ? 'Administrador' : 'Recepcionista',
         photo: employee.photo || '',
         commissionPercent: 50,
+        salarioFixo: employee.salarioFixo || '',
+        paymentFrequency: employee.paymentFrequency || 'mensal',
         createUser: false,
         userEmail: employee.email || '',
         userPassword: '',
@@ -1023,6 +1025,8 @@ const handleHomeInfoChange = (field, value) => {
           phone: barberForm.userPhone,
           role: barberForm.userRole,
           isAdmin: barberForm.userRole === 'admin',
+          salarioFixo: parseFloat(barberForm.salarioFixo) || 0,
+          paymentFrequency: barberForm.paymentFrequency || 'mensal',
         };
         await fetch(`http://localhost:3000/users/${editingBarber.userId}`, {
           method: 'PATCH',
@@ -1647,10 +1651,34 @@ const handleHomeInfoChange = (field, value) => {
         paymentMethod: method,
         paidAt: new Date().toISOString(),
       });
+
+    
+      if (sale.products && sale.products.length > 0) {
+        await Promise.all(
+          sale.products.map(async (item) => {
+            try {
+              const res = await fetch(`http://localhost:3000/products/${item.id}`);
+              const product = await res.json();
+              const newStock = Math.max(0, (product.stock ?? 0) - (item.quantity ?? 1));
+              await fetch(`http://localhost:3000/products/${item.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ stock: newStock }),
+              });
+            } catch (stockError) {
+              console.error(`Erro ao atualizar estoque do produto ${item.id}:`, stockError);
+            }
+          })
+        );
+    
+        const updatedProducts = await getProducts();
+        setProducts(updatedProducts);
+      }
+
       setProductSales(prev =>
         prev.map(s => s.id === sale.id ? { ...s, status: 'paid', paymentMethod: method, paidAt: new Date().toISOString() } : s)
       );
-      showToast('Venda marcada como paga!', 'success');
+      showToast('Venda marcada como paga e estoque atualizado!', 'success');
     } catch (error) {
       showToast('Erro ao atualizar venda.', 'danger');
     }
@@ -2025,7 +2053,7 @@ const handleHomeInfoChange = (field, value) => {
     const commission = barberId ? getBarberCommissionInPeriod(barberId, start, end) : 0;
     const vales = getValesInPeriod(employee.id, start, end);
     const totalVales = vales.reduce((s, v) => s + v.valor, 0);
-    const salarioFixo = parseFloat(barberData?.salarioFixo || 0);
+    const salarioFixo = parseFloat(barberData?.salarioFixo ?? employee.salarioFixo ?? 0) || 0;
     const liquido = salarioFixo + commission - totalVales;
 
    
@@ -2776,14 +2804,15 @@ const handleHomeInfoChange = (field, value) => {
         </thead>
         <tbody>
           {employees
-            .filter(emp => emp.role === 'barber' || emp.role === 'receptionist')
+            .filter(emp => emp.role === 'barber' || emp.role === 'receptionist' || emp.role === 'admin')
             .map(emp => {
               const barberData = barbers.find(b => String(b.userId) === String(emp.id));
               const { start, end } = getPayrollPeriodDates(payrollPeriodFilter, payrollMonthFilter);
               const commission = barberData ? getBarberCommissionInPeriod(barberData.id, start, end) : 0;
               const vales = getValesInPeriod(emp.id, start, end);
               const totalVales = vales.reduce((s, v) => s + v.valor, 0);
-              const salarioFixo = parseFloat(barberData?.salarioFixo) || 0;
+              
+              const salarioFixo = parseFloat(barberData?.salarioFixo ?? emp.salarioFixo ?? 0) || 0;
               const liquido = salarioFixo + commission - totalVales;
               const isExp = payrollExpandedId === emp.id;
 
@@ -4476,10 +4505,10 @@ const handleHomeInfoChange = (field, value) => {
                                   <td>
                                     {!isPaid && (
                                       <div className="payment-action-buttons" style={{ flexWrap: 'wrap', gap: '4px' }}>
-                                        <button onClick={async () => { await atualizarVendaProduto(sale.id, { status: 'paid', paymentMethod: 'dinheiro', paidAt: new Date().toISOString() }); await loadData(); }} className="btn-edit btn-payment-small">Dinheiro</button>
-                                        <button onClick={async () => { await atualizarVendaProduto(sale.id, { status: 'paid', paymentMethod: 'pix', paidAt: new Date().toISOString() }); await loadData(); }} className="btn-edit btn-payment-small">PIX</button>
-                                        <button onClick={async () => { await atualizarVendaProduto(sale.id, { status: 'paid', paymentMethod: 'credito', paidAt: new Date().toISOString() }); await loadData(); }} className="btn-edit btn-payment-small">Crédito</button>
-                                        <button onClick={async () => { await atualizarVendaProduto(sale.id, { status: 'paid', paymentMethod: 'debito', paidAt: new Date().toISOString() }); await loadData(); }} className="btn-edit btn-payment-small">Débito</button>
+                                        <button onClick={() => handleMarkProductSalePaid(sale, 'dinheiro')} className="btn-edit btn-payment-small">Dinheiro</button>
+                                        <button onClick={() => handleMarkProductSalePaid(sale, 'pix')} className="btn-edit btn-payment-small">PIX</button>
+                                        <button onClick={() => handleMarkProductSalePaid(sale, 'credito')} className="btn-edit btn-payment-small">Crédito</button>
+                                        <button onClick={() => handleMarkProductSalePaid(sale, 'debito')} className="btn-edit btn-payment-small">Débito</button>
                                       </div>
                                     )}
                                   </td>

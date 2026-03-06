@@ -86,8 +86,8 @@
       "specialty": "Cortes Clássicos",
       "photo": "https://i.pravatar.cc/150?img=12",
       "commissionPercent": "20",
-      "salarioFixo": 0,
-      "paymentFrequency": "quinzenal",
+      "salarioFixo": 2000,
+      "paymentFrequency": "semanal",
       "serviceIds": [],
       "userId": "user_joao_123",
       "id": "1"
@@ -97,9 +97,11 @@
       "specialty": "Barba e Cabelo",
       "photo": "https://i.pravatar.cc/150?img=13",
       "commissionPercent": 50,
+      "salarioFixo": 2000,
+      "paymentFrequency": "mensal",
+      "serviceIds": [],
       "userId": "user_pedro_124",
-      "id": "2",
-      "serviceIds": []
+      "id": "2"
     },
     {
       "id": "b5a3",
@@ -111,13 +113,15 @@
       "serviceIds": []
     },
     {
-      "id": "b6a4",
       "name": "TESTE",
       "specialty": "Barbeiro",
       "photo": "",
       "commissionPercent": 50,
+      "salarioFixo": 3000,
+      "paymentFrequency": "mensal",
+      "serviceIds": [],
       "userId": "vhrGIzI",
-      "serviceIds": []
+      "id": "b6a4"
     },
     {
       "id": "b7a5",
@@ -179,7 +183,7 @@
       "name": "Pedro Santos",
       "email": "pedro.santos@barbearia.com",
       "password": "senha123",
-      "phone": "(85) 98888-6666",
+      "phone": "",
       "role": "barber",
       "isAdmin": false,
       "createdAt": "2026-02-02T17:24:00.000Z",
@@ -197,7 +201,8 @@
         "manageAgendamentos": true,
         "manageBenefits": true,
         "manageSettings": true
-      }
+      },
+      "photo": "https://i.pravatar.cc/150?img=13"
     },
     {
       "id": "admin-001",
@@ -207,7 +212,10 @@
       "password": "admin123",
       "role": "admin",
       "isAdmin": true,
-      "cpf": "11122233344"
+      "cpf": "11122233344",
+      "photo": "",
+      "salarioFixo": 5000,
+      "paymentFrequency": "mensal"
     },
     {
       "id": "ff1a",
@@ -314,18 +322,22 @@
         "manageAgendamentos": true,
         "manageBenefits": false,
         "manageSettings": false
-      }
+      },
+      "photo": "",
+      "salarioFixo": 2000,
+      "paymentFrequency": "mensal"
     },
     {
       "name": "TESTE",
       "email": "TESTE123@GMAIL.COM",
       "password": "1234",
-      "phone": "85982299499",
+      "phone": "",
       "role": "barber",
       "isAdmin": false,
       "createdAt": "2026-01-29T16:45:51.083Z",
       "id": "vhrGIzI",
-      "cpf": "00000000012"
+      "cpf": "00000000012",
+      "photo": ""
     },
     {
       "name": "TESTEEEE",
@@ -336,7 +348,8 @@
       "isAdmin": false,
       "createdAt": "2026-01-29T16:48:11.636Z",
       "id": "9FoZTHE",
-      "cpf": "00000000013"
+      "cpf": "00000000013",
+      "photo": ""
     },
     {
       "name": "Usuario Teste",
@@ -636,6 +649,87 @@
       ],
       "observation": "",
       "id": 2
+    },
+    {
+      "barberId": "1",
+      "barberName": "João",
+      "services": [
+        {
+          "name": "Corte Clássico",
+          "price": "R$ 0,01",
+          "promotionalPrice": "R$ 23,00",
+          "coveredByPlan": false,
+          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
+          "duration": 30,
+          "id": "1"
+        }
+      ],
+      "date": "2026-03-18",
+      "time": "10:30",
+      "client": "Lucas Souza",
+      "clientId": "98ba",
+      "products": [
+        {
+          "name": "Óleo para Barba",
+          "category": "Óleos",
+          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
+          "price": "R$ 10.00",
+          "subscriberDiscount": 0,
+          "stock": 85,
+          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
+          "id": "3",
+          "quantity": 1,
+          "calculatedPrice": 10,
+          "totalPrice": 10
+        }
+      ],
+      "observation": "",
+      "id": 3
+    },
+    {
+      "barberId": "1",
+      "barberName": "João",
+      "services": [
+        {
+          "name": "Corte Clássico",
+          "price": "R$ 0,01",
+          "promotionalPrice": "R$ 23,00",
+          "coveredByPlan": false,
+          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
+          "duration": 30,
+          "id": "1"
+        },
+        {
+          "name": "Barba",
+          "price": "R$ 1,00",
+          "promotionalPrice": "R$ 2,00",
+          "coveredByPlan": false,
+          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
+          "duration": 30,
+          "id": "2"
+        }
+      ],
+      "date": "2026-03-13",
+      "time": "10:30",
+      "client": "Lucas Souza",
+      "clientId": "98ba",
+      "products": [
+        {
+          "name": "Óleo para Barba",
+          "category": "Óleos",
+          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
+          "price": "R$ 10.00",
+          "subscriberDiscount": 0,
+          "stock": 84,
+          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
+          "id": "3",
+          "quantity": 1,
+          "calculatedPrice": 10,
+          "totalPrice": 10
+        }
+      ],
+      "observation": "",
+      "id": 4
     }
   ],
   "clientes": [],
@@ -917,13 +1011,80 @@
           "totalPrice": 10
         }
       ],
-      "status": "confirmed_unpaid",
-      "paymentMethod": "local",
+      "status": "paid",
+      "paymentMethod": "credito",
       "type": "appointment",
       "createdAt": "2026-03-05T20:04:07.385Z",
-      "updatedAt": "2026-03-05T20:04:23.729Z",
+      "updatedAt": "2026-03-06T13:30:38.067Z",
       "id": 2,
-      "confirmedAt": "2026-03-05T20:04:23.729Z"
+      "confirmedAt": "2026-03-05T20:04:23.729Z",
+      "paidAt": "2026-03-06T13:30:38.067Z"
+    },
+    {
+      "appointmentId": 3,
+      "userId": "98ba",
+      "userName": "Lucas Souza",
+      "amount": 10.01,
+      "serviceName": "Corte Clássico",
+      "barberName": "João",
+      "appointmentDate": "2026-03-18",
+      "appointmentTime": "10:30",
+      "products": [
+        {
+          "name": "Óleo para Barba",
+          "category": "Óleos",
+          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
+          "price": "R$ 10.00",
+          "subscriberDiscount": 0,
+          "stock": 85,
+          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
+          "id": "3",
+          "quantity": 1,
+          "calculatedPrice": 10,
+          "totalPrice": 10
+        }
+      ],
+      "status": "paid",
+      "paymentMethod": "credito",
+      "type": "appointment",
+      "createdAt": "2026-03-06T13:31:12.442Z",
+      "updatedAt": "2026-03-06T13:31:28.261Z",
+      "id": 3,
+      "confirmedAt": "2026-03-06T13:31:27.146Z",
+      "paidAt": "2026-03-06T13:31:28.261Z"
+    },
+    {
+      "appointmentId": 4,
+      "userId": "98ba",
+      "userName": "Lucas Souza",
+      "amount": 11.01,
+      "serviceName": "Corte Clássico, Barba",
+      "barberName": "João",
+      "appointmentDate": "2026-03-13",
+      "appointmentTime": "10:30",
+      "products": [
+        {
+          "name": "Óleo para Barba",
+          "category": "Óleos",
+          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
+          "price": "R$ 10.00",
+          "subscriberDiscount": 0,
+          "stock": 84,
+          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
+          "id": "3",
+          "quantity": 1,
+          "calculatedPrice": 10,
+          "totalPrice": 10
+        }
+      ],
+      "status": "paid",
+      "paymentMethod": "credito",
+      "type": "appointment",
+      "createdAt": "2026-03-06T13:41:03.839Z",
+      "updatedAt": "2026-03-06T13:41:48.382Z",
+      "id": 4,
+      "confirmedAt": "2026-03-06T13:41:36.182Z",
+      "paidAt": "2026-03-06T13:41:48.382Z"
     }
   ],
   "savedCards": [
@@ -981,7 +1142,7 @@
       "description": "Hidrata e amacia a barba, com fragrância amadeirada",
       "price": "R$ 10.00",
       "subscriberDiscount": 0,
-      "stock": 85,
+      "stock": 81,
       "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
       "id": "3"
     },
@@ -991,7 +1152,7 @@
       "description": "Elimina a caspa e fortalece os fios",
       "price": "R$ 0.01",
       "subscriberDiscount": 15,
-      "stock": 0,
+      "stock": 15,
       "image": "https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=400",
       "id": "4"
     },
@@ -1001,7 +1162,7 @@
       "description": "Efeito fosco com fixação duradoura",
       "price": "R$ 0.01",
       "subscriberDiscount": 20,
-      "stock": 0,
+      "stock": 10,
       "image": "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=400",
       "id": "5"
     },
@@ -1011,7 +1172,7 @@
       "description": "Refrigerante premium para acompanhar seu corte",
       "price": "R$ 0.01",
       "subscriberDiscount": 10,
-      "stock": 11,
+      "stock": 10,
       "image": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400",
       "id": "6"
     },
@@ -1021,7 +1182,7 @@
       "description": "Acalma e hidrata a pele após o barbear",
       "price": "R$ 0.01",
       "subscriberDiscount": 15,
-      "stock": 0,
+      "stock": 20,
       "image": "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?w=400",
       "id": "7"
     },
@@ -1125,7 +1286,161 @@
       "heroImage": ""
     }
   ],
-  "productSales": [],
+  "productSales": [
+    {
+      "userId": "98ba",
+      "userName": "Lucas Souza",
+      "products": [
+        {
+          "name": "Óleo para Barba",
+          "category": "Óleos",
+          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
+          "price": "R$ 10.00",
+          "subscriberDiscount": 0,
+          "stock": 85,
+          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
+          "id": "3",
+          "quantity": 1,
+          "calculatedPrice": 10,
+          "totalPrice": 10
+        }
+      ],
+      "productsTotal": 10,
+      "status": "paid",
+      "paymentMethod": "credito",
+      "saleDate": "2026-03-06",
+      "type": "product_sale",
+      "createdAt": "2026-03-06T13:30:20.038Z",
+      "updatedAt": "2026-03-06T13:30:47.186Z",
+      "id": 1,
+      "paidAt": "2026-03-06T13:30:47.186Z"
+    },
+    {
+      "userId": "98ba",
+      "userName": "Lucas Souza",
+      "products": [
+        {
+          "name": "Óleo para Barba",
+          "category": "Óleos",
+          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
+          "price": "R$ 10.00",
+          "subscriberDiscount": 0,
+          "stock": 84,
+          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
+          "id": "3",
+          "quantity": 1,
+          "calculatedPrice": 10,
+          "totalPrice": 10
+        }
+      ],
+      "productsTotal": 10,
+      "status": "paid",
+      "paymentMethod": "dinheiro",
+      "saleDate": "2026-03-06",
+      "type": "product_sale",
+      "createdAt": "2026-03-06T13:35:12.053Z",
+      "updatedAt": "2026-03-06T13:42:10.710Z",
+      "id": 2,
+      "paidAt": "2026-03-06T13:42:10.710Z"
+    },
+    {
+      "userId": "98ba",
+      "userName": "Lucas Souza",
+      "products": [
+        {
+          "name": "Óleo para Barba",
+          "category": "Óleos",
+          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
+          "price": "R$ 10.00",
+          "subscriberDiscount": 0,
+          "stock": 83,
+          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
+          "id": "3",
+          "quantity": 1,
+          "calculatedPrice": 10,
+          "totalPrice": 10
+        }
+      ],
+      "productsTotal": 10,
+      "status": "paid",
+      "paymentMethod": "credito",
+      "saleDate": "2026-03-06",
+      "type": "product_sale",
+      "createdAt": "2026-03-06T13:43:19.019Z",
+      "updatedAt": "2026-03-06T13:43:40.302Z",
+      "id": 3,
+      "paidAt": "2026-03-06T13:43:40.302Z"
+    },
+    {
+      "userId": "98ba",
+      "userName": "Lucas Souza",
+      "products": [
+        {
+          "name": "Óleo para Barba",
+          "category": "Óleos",
+          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
+          "price": "R$ 10.00",
+          "subscriberDiscount": 0,
+          "stock": 83,
+          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
+          "id": "3",
+          "quantity": 1,
+          "calculatedPrice": 10,
+          "totalPrice": 10
+        }
+      ],
+      "productsTotal": 10,
+      "status": "paid",
+      "paymentMethod": "credito",
+      "saleDate": "2026-03-06",
+      "type": "product_sale",
+      "createdAt": "2026-03-06T14:54:35.778Z",
+      "updatedAt": "2026-03-06T14:54:46.491Z",
+      "id": 4,
+      "paidAt": "2026-03-06T14:54:46.491Z"
+    },
+    {
+      "userId": "98ba",
+      "userName": "Lucas Souza",
+      "products": [
+        {
+          "name": "Óleo para Barba",
+          "category": "Óleos",
+          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
+          "price": "R$ 10.00",
+          "subscriberDiscount": 0,
+          "stock": 82,
+          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
+          "id": "3",
+          "quantity": 1,
+          "calculatedPrice": 10,
+          "totalPrice": 10
+        },
+        {
+          "name": "Água Tônica",
+          "category": "Bebidas",
+          "description": "Refrigerante premium para acompanhar seu corte",
+          "price": "R$ 0.01",
+          "subscriberDiscount": 10,
+          "stock": 11,
+          "image": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400",
+          "id": "6",
+          "quantity": 1,
+          "calculatedPrice": 0.01,
+          "totalPrice": 0.01
+        }
+      ],
+      "productsTotal": 10.01,
+      "status": "paid",
+      "paymentMethod": "credito",
+      "saleDate": "2026-03-06",
+      "type": "product_sale",
+      "createdAt": "2026-03-06T14:55:09.707Z",
+      "updatedAt": "2026-03-06T14:55:19.030Z",
+      "id": 5,
+      "paidAt": "2026-03-06T14:55:19.030Z"
+    }
+  ],
   "employeeVales": [],
   "employeePayments": []
 }
