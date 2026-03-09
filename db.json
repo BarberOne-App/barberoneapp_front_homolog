@@ -257,7 +257,25 @@
       "role": "barber",
       "isAdmin": false,
       "createdAt": "2026-01-07T15:38:48.892Z",
-      "cpf": "77788899900"
+      "cpf": "77788899900",
+      "permissions": {
+        "viewAdmin": true,
+        "manageEmployees": false,
+        "manageProducts": false,
+        "addProducts": false,
+        "editProducts": false,
+        "manageServices": true,
+        "addServices": false,
+        "editServices": false,
+        "managePayments": true,
+        "manageAgendamentos": true,
+        "scheduleForOthers": false,
+        "manageBenefits": false,
+        "manageSettings": false,
+        "manageGallery": false,
+        "managePayroll": false,
+        "manageBlockedDates": true
+      }
     },
     {
       "id": "b15c",
@@ -349,7 +367,25 @@
       "createdAt": "2026-01-29T16:48:11.636Z",
       "id": "9FoZTHE",
       "cpf": "00000000013",
-      "photo": ""
+      "photo": "",
+      "permissions": {
+        "viewAdmin": false,
+        "manageEmployees": false,
+        "manageProducts": false,
+        "addProducts": false,
+        "editProducts": false,
+        "manageServices": false,
+        "addServices": false,
+        "editServices": false,
+        "managePayments": true,
+        "manageAgendamentos": true,
+        "scheduleForOthers": false,
+        "manageBenefits": false,
+        "manageSettings": false,
+        "manageGallery": false,
+        "managePayroll": false,
+        "manageBlockedDates": true
+      }
     },
     {
       "name": "Usuario Teste",
@@ -612,11 +648,12 @@
         }
       ],
       "observation": "",
-      "id": 1
+      "id": 1,
+      "status": "confirmed"
     },
     {
-      "barberId": "1",
-      "barberName": "João",
+      "barberId": "2",
+      "barberName": "Pedro Santos",
       "services": [
         {
           "name": "DEGRADEZIN",
@@ -648,7 +685,8 @@
         }
       ],
       "observation": "",
-      "id": 2
+      "id": 2,
+      "status": "confirmed"
     },
     {
       "barberId": "1",
@@ -684,7 +722,8 @@
         }
       ],
       "observation": "",
-      "id": 3
+      "id": 3,
+      "status": "confirmed"
     },
     {
       "barberId": "1",
@@ -729,7 +768,117 @@
         }
       ],
       "observation": "",
-      "id": 4
+      "id": 4,
+      "status": "confirmed"
+    },
+    {
+      "barberId": "2",
+      "barberName": "Pedro Santos",
+      "services": [
+        {
+          "name": "Barba",
+          "price": "R$ 1,00",
+          "promotionalPrice": "R$ 2,00",
+          "coveredByPlan": false,
+          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
+          "duration": 30,
+          "id": "2"
+        }
+      ],
+      "date": "2026-03-10",
+      "time": "09:00",
+      "client": "LUCAS",
+      "clientId": "ff1a",
+      "products": [
+        {
+          "name": "Óleo para Barba",
+          "category": "Óleos",
+          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
+          "price": "R$ 10.00",
+          "subscriberDiscount": 0,
+          "stock": 81,
+          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
+          "id": "3",
+          "quantity": 1,
+          "calculatedPrice": 10,
+          "totalPrice": 10
+        },
+        {
+          "name": "Cera Modeladora Matte",
+          "category": "Pomadas",
+          "description": "Efeito fosco com fixação duradoura",
+          "price": "R$ 0.01",
+          "subscriberDiscount": 20,
+          "stock": 10,
+          "image": "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=400",
+          "id": "5",
+          "quantity": 1,
+          "calculatedPrice": 0.01,
+          "totalPrice": 0.01
+        }
+      ],
+      "observation": "",
+      "id": 5,
+      "status": "confirmed"
+    },
+    {
+      "barberId": "b5a3",
+      "barberName": "LUCAS SOUZA ARAUJO",
+      "services": [
+        {
+          "name": "Barba",
+          "price": "R$ 1,00",
+          "promotionalPrice": "R$ 2,00",
+          "coveredByPlan": false,
+          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
+          "duration": 30,
+          "id": "2"
+        }
+      ],
+      "date": "2026-03-11",
+      "time": "18:30",
+      "client": "LUCAS",
+      "clientId": "ff1a",
+      "products": [],
+      "observation": "",
+      "id": 6,
+      "status": "completed"
+    },
+    {
+      "barberId": "2",
+      "barberName": "Pedro Santos",
+      "services": [
+        {
+          "name": "Luzes",
+          "price": "R$ 0,01",
+          "promotionalPrice": "",
+          "coveredByPlan": false,
+          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
+          "duration": 90,
+          "id": "OH9P0zb"
+        }
+      ],
+      "date": "2026-03-25",
+      "time": "10:30",
+      "client": "LUCAS",
+      "clientId": "ff1a",
+      "products": [
+        {
+          "name": "Óleo para Barba",
+          "category": "Óleos",
+          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
+          "price": "R$ 10.00",
+          "subscriberDiscount": 0,
+          "stock": 80,
+          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
+          "id": "3",
+          "quantity": 1,
+          "calculatedPrice": 10,
+          "totalPrice": 10
+        }
+      ],
+      "observation": "",
+      "id": 7
     }
   ],
   "clientes": [],
@@ -1085,6 +1234,102 @@
       "id": 4,
       "confirmedAt": "2026-03-06T13:41:36.182Z",
       "paidAt": "2026-03-06T13:41:48.382Z"
+    },
+    {
+      "appointmentId": 5,
+      "userId": "ff1a",
+      "userName": "LUCAS",
+      "amount": 10.01,
+      "serviceName": "Barba",
+      "barberName": "Pedro Santos",
+      "appointmentDate": "2026-03-10",
+      "appointmentTime": "09:00",
+      "products": [
+        {
+          "name": "Óleo para Barba",
+          "category": "Óleos",
+          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
+          "price": "R$ 10.00",
+          "subscriberDiscount": 0,
+          "stock": 81,
+          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
+          "id": "3",
+          "quantity": 1,
+          "calculatedPrice": 10,
+          "totalPrice": 10
+        },
+        {
+          "name": "Cera Modeladora Matte",
+          "category": "Pomadas",
+          "description": "Efeito fosco com fixação duradoura",
+          "price": "R$ 0.01",
+          "subscriberDiscount": 20,
+          "stock": 10,
+          "image": "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=400",
+          "id": "5",
+          "quantity": 1,
+          "calculatedPrice": 0.01,
+          "totalPrice": 0.01
+        }
+      ],
+      "status": "paid",
+      "paymentMethod": "credito",
+      "type": "appointment",
+      "createdAt": "2026-03-09T12:23:12.258Z",
+      "updatedAt": "2026-03-09T12:24:00.840Z",
+      "id": 5,
+      "confirmedAt": "2026-03-09T12:23:59.389Z",
+      "paidAt": "2026-03-09T12:24:00.840Z"
+    },
+    {
+      "appointmentId": 6,
+      "userId": "ff1a",
+      "userName": "LUCAS",
+      "amount": 0,
+      "serviceName": "Barba",
+      "barberName": "LUCAS SOUZA ARAUJO",
+      "appointmentDate": "2026-03-11",
+      "appointmentTime": "18:30",
+      "products": [],
+      "status": "plancovered",
+      "paymentMethod": "subscription",
+      "type": "appointment",
+      "createdAt": "2026-03-09T12:23:24.029Z",
+      "updatedAt": "2026-03-09T12:23:24.029Z",
+      "id": 6
+    },
+    {
+      "appointmentId": 7,
+      "userId": "ff1a",
+      "userName": "LUCAS",
+      "amount": 10,
+      "serviceName": "Luzes",
+      "barberName": "Pedro Santos",
+      "appointmentDate": "2026-03-25",
+      "appointmentTime": "10:30",
+      "products": [
+        {
+          "name": "Óleo para Barba",
+          "category": "Óleos",
+          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
+          "price": "R$ 10.00",
+          "subscriberDiscount": 0,
+          "stock": 80,
+          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
+          "id": "3",
+          "quantity": 1,
+          "calculatedPrice": 10,
+          "totalPrice": 10
+        }
+      ],
+      "status": "paid",
+      "paymentMethod": "dinheiro",
+      "type": "appointment",
+      "createdAt": "2026-03-09T12:28:41.371Z",
+      "updatedAt": "2026-03-09T12:29:52.653Z",
+      "id": 7,
+      "confirmedAt": "2026-03-09T12:29:14.929Z",
+      "paidAt": "2026-03-09T12:29:52.653Z"
     }
   ],
   "savedCards": [
@@ -1142,7 +1387,7 @@
       "description": "Hidrata e amacia a barba, com fragrância amadeirada",
       "price": "R$ 10.00",
       "subscriberDiscount": 0,
-      "stock": 81,
+      "stock": 79,
       "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
       "id": "3"
     },
@@ -1162,7 +1407,7 @@
       "description": "Efeito fosco com fixação duradoura",
       "price": "R$ 0.01",
       "subscriberDiscount": 20,
-      "stock": 10,
+      "stock": 9,
       "image": "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=400",
       "id": "5"
     },

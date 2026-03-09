@@ -30,9 +30,9 @@
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  padding: 2rem 1rem;
+  padding: 90px 1rem 2rem;
   width: 100%;
-  margin-top: 200px;
+  box-sizing: border-box;
 }
 
 .auth-card,
@@ -40,39 +40,50 @@
   background: var(--bg-darker);
   border: 1px solid #1f1f1f;
   border-radius: 16px;
-  padding: 32px;
-  max-width: 100%;
-
+  padding: 28px 32px;
+  width: 100%;
+  max-width: 560px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
-  margin: 100px auto;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .auth-card--wide,
 .authcard--wide {
-  max-width: 95%;
-  margin: 10px auto 20px; 
-    padding: 40px;
+  max-width: 100%;
+  width: 100%;
+  margin: 0 auto;
+  padding: 40px;
+  box-sizing: border-box;
+}
+
+
+.auth-card--full {
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 
 .auth-header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
 .auth-title,
 .auth__title {
-  font-size: 28px;
-  margin: 0 0 8px;
+  font-size: 24px;
+  margin: 0 0 4px;
   color: var(--text-white);
   text-align: center;
 }
 
 .auth-subtitle,
 .auth__subtitle {
-  margin: 0 0 24px;
+  margin: 0 0 12px;
   color: var(--text-light);
-  font-size: 14px;
+  font-size: 13px;
   text-align: center;
 }
 
@@ -80,8 +91,24 @@
 .auth__form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+
+.auth-form--register {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.auth-form--register .full-width {
+  grid-column: 1 / -1;
+}
+
+.auth-form--register .full-width > * {
+  width: 100%;
 }
 
 .auth-footer,
@@ -1029,10 +1056,33 @@
 }
 
 @media (max-width: 768px) {
+  .auth {
+    padding: 75px 0.75rem 2rem;
+    align-items: flex-start;
+    min-height: unset;
+  }
+
+  .auth-card,
+  .auth__card {
+    max-width: 100%;
+    padding: 20px 16px;
+    margin: 0 auto;
+    border-radius: 12px;
+  }
+
+  .auth-form--register {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .auth-form--register .full-width {
+    grid-column: 1;
+  }
+
   .auth-card--wide,
   .auth__card--wide {
     padding: 20px;
-    margin: 20px auto;
+    margin: 0 auto;
   }
 
   .appointments-header {
@@ -1130,16 +1180,24 @@
   opacity: 0.3;
 }
 
+.appointments-card {
+  max-width: 1100px !important;
+  width: 100%;
+  padding: 2rem;
+}
+
 .appointments-table-container {
   background: #1a1a1a;
   border-radius: 12px;
   overflow: visible;
   border: 1px solid #333;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .appointments-table {
-
+  width: 100%;
   border-collapse: collapse;
 }
 
@@ -1358,10 +1416,86 @@
 }
 
 @media (max-width: 768px) {
-  .appointments-table thead th,
+
+  .appointments-table-container {
+    overflow: visible;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .appointments-table {
+    display: block;
+    width: 100%;
+  }
+
+  .appointments-table thead {
+    display: none;
+  }
+
+  .appointments-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .appointments-table tbody tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 0.75rem;
+    border-bottom: 1px solid #333 !important;
+  }
+
+  .appointments-table tbody tr:hover {
+    background: #242424;
+  }
+
   .appointments-table tbody td {
-    padding: 0.6rem 0.4rem;
-    font-size: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    padding: 0.45rem 0.5rem;
+    font-size: 0.82rem;
+    border: none;
+    vertical-align: unset;
+  }
+
+  .appointments-table tbody td::before {
+    content: attr(data-label);
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    margin-bottom: 3px;
+  }
+
+  .appointments-table tbody td:first-child {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.6rem;
+    padding-bottom: 0.6rem;
+    margin-bottom: 0.25rem;
+    border-bottom: 1px solid #2a2a2a;
+  }
+
+  .appointments-table tbody td:first-child::before {
+    display: none;
+  }
+
+  .appointments-table tbody td:last-child {
+    grid-column: 1 / -1;
+    padding-top: 0.6rem;
+    margin-top: 0.25rem;
+    border-top: 1px solid #2a2a2a;
+  }
+
+  .appointments-table tbody td.appointment-status-cell {
+    grid-column: 1 / -1;
   }
 
   .appointment-barber-avatar {
@@ -1369,10 +1503,25 @@
     height: 32px;
   }
 
+  .appointment-barber-name {
+    font-size: 0.9rem;
+  }
+
+  .appointment-actions {
+    flex-direction: row;
+    justify-content: flex-start;
+  }
+
   .btn-action {
-    padding: 0.4rem 0.6rem;
-    font-size: 0.65rem;
-    min-width: 60px;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.7rem;
+    min-width: 80px;
+    width: auto;
+  }
+
+  .appointment-status {
+    width: auto;
+    align-self: flex-start;
   }
 }
 

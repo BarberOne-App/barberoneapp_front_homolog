@@ -227,6 +227,7 @@ const [homeInfoLoading, setHomeInfoLoading] = useState(false);
     manageSettings: { label: 'Alterar Configurações (PIX, Termos)', category: 'Configurações', icon: '⚙️' },
     manageGallery: { label: 'Gerenciar Galeria de Fotos', category: 'Conteúdo', icon: '🖼️' },
   managePayroll: { label: 'Ver Pagamentos de Funcionários', category: 'Financeiro', icon: '💰' },
+  manageBlockedDates: { label: 'Bloquear Dias e Horários', category: 'Agendamentos', icon: '🚫' },
   };
 
   const hasPermission = (permission) => {
@@ -582,6 +583,10 @@ const handleHomeInfoChange = (field, value) => {
   };
 
   const handleAddBlockedDate = async () => {
+    if (!isAdmin && !hasPermission('manageBlockedDates')) {
+      showToast('Você não tem permissão para bloquear datas.', 'danger');
+      return;
+    }
     if (!newBlockedDate.date) {
       showToast('Por favor, selecione uma data', 'danger');
       return;
@@ -850,16 +855,44 @@ const handleHomeInfoChange = (field, value) => {
       navigate('/login');
       return;
     }
-    const hasAccess = isAdmin || isReceptionist || currentUser?.permissions?.viewAdmin;
-    if (!hasAccess) {
-      navigate('/appointments');
-      return;
-    }
 
-    adminInitializedRef.current = true;
-    loadData();
-    loadHomeInfo();
-  
+    // Busca permissões frescas do backend antes de checar acesso
+    fetch(`http://localhost:3000/users/${currentUser.id}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(freshUser => {
+        if (freshUser) {
+          // Atualiza sessão local com permissões novas
+          const updatedUser = { ...currentUser, ...freshUser };
+          localStorage.setItem('session', JSON.stringify(updatedUser));
+          currentUserRef.current = updatedUser;
+        }
+        const user = currentUserRef.current;
+        const hasAccess =
+          user.role === 'admin' ||
+          user.isAdmin === true ||
+          user.role === 'receptionist' ||
+          user.permissions?.viewAdmin === true;
+
+        if (!hasAccess) {
+          navigate('/appointments');
+          return;
+        }
+        adminInitializedRef.current = true;
+        loadData();
+        loadHomeInfo();
+      })
+      .catch(() => {
+        // fallback: usa dados da sessão atual
+        const hasAccess = isAdmin || isReceptionist || currentUser?.permissions?.viewAdmin;
+        if (!hasAccess) {
+          navigate('/appointments');
+          return;
+        }
+        adminInitializedRef.current = true;
+        loadData();
+        loadHomeInfo();
+      });
+
   }, []); 
   useEffect(() => {
   if (activeTab === 'calendario') {
@@ -4661,14 +4694,14 @@ const handleHomeInfoChange = (field, value) => {
 
                 <button
                   onClick={handleAddBlockedDate}
-                  disabled={!isAdmin}
+                  disabled={!isAdmin && !hasPermission('manageBlockedDates')}
                   className="bloqueio-btn"
                 >
                   {newBlockedDate.blockType === 'time' ? 'Bloquear Horário' : 'Bloquear Data'}
                 </button>
 
-                {!isAdmin && (
-                  <p className="bloqueio-aviso">Apenas administradores podem bloquear datas</p>
+                {!isAdmin && !hasPermission('manageBlockedDates') && (
+                  <p className="bloqueio-aviso">Você não tem permissão para bloquear datas</p>
                 )}
               </div>
 

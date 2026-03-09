@@ -996,7 +996,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
   return (
     <BaseLayout>
       <section className="auth">
-        <div className="auth-card" style={{ maxWidth: '100%', padding: '2rem' }}>
+        <div className="auth-card auth-card--full" style={{ padding: '2rem' }}>
           <div className="appointments-header">
             <div>
               <h1 className="auth-title">Agendamentos</h1>
