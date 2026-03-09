@@ -2701,6 +2701,7 @@ const handleHomeInfoChange = (field, value) => {
                                   <tr>
                                     <th>Status</th>
                                     <th>Cliente</th>
+                                    <th>Para</th>
                                     <th>Data</th>
                                     <th>Horário</th>
                                     <th>Serviços</th>
@@ -2723,7 +2724,13 @@ const handleHomeInfoChange = (field, value) => {
                                         </td>
                                         <td>
                                           <strong>{apt.client}</strong>
-                                          {apt.isDependent && (<div style={{marginTop:'3px'}}><span style={{display:'inline-flex',alignItems:'center',gap:'4px',background:'rgba(255,122,26,0.12)',color:'#ff7a1a',border:'1px solid rgba(255,122,26,0.35)',borderRadius:'20px',padding:'1px 8px',fontSize:'0.72rem',fontWeight:700}}>👤 {apt.dependentName}</span></div>)}
+                                        </td>
+                                        <td>
+                                          {apt.isDependent ? (
+                                            <span style={{display:'inline-flex',alignItems:'center',gap:'4px',background:'rgba(255,122,26,0.12)',color:'#ff7a1a',border:'1px solid rgba(255,122,26,0.35)',borderRadius:'20px',padding:'2px 9px',fontSize:'0.75rem',fontWeight:700}}>👤 {apt.dependentName}</span>
+                                          ) : (
+                                            <span style={{color:'#555'}}>—</span>
+                                          )}
                                         </td>
                                         <td>{apt.date?.split('-').reverse().join('/')}</td>
                                         <td>{apt.time}</td>
@@ -3164,6 +3171,7 @@ const handleHomeInfoChange = (field, value) => {
                           <tr>
                             <th>Data Agend.</th>
                             <th>Cliente</th>
+                            <th>Para</th>
                             <th>Barbeiro</th>
                             <th>Serviço</th>
                             <th>Valor</th>
@@ -3179,6 +3187,9 @@ const handleHomeInfoChange = (field, value) => {
                               <tr key={payment.id}>
                                 <td data-label="Data">{payment.appointmentDate?.split('-').reverse().join('/')} {payment.appointmentTime}</td>
                                 <td data-label="Cliente">{allUsers.find(u => u.id === payment.userId)?.name || payment.userName}</td>
+                                <td data-label="Para">
+                                  {(()=>{const la=appointments.find(a=>a.id?.toString()===payment.appointmentId?.toString());return la?.isDependent?<span style={{display:'inline-flex',alignItems:'center',gap:'4px',background:'rgba(255,122,26,0.12)',color:'#ff7a1a',border:'1px solid rgba(255,122,26,0.35)',borderRadius:'20px',padding:'2px 9px',fontSize:'0.75rem',fontWeight:700}}>👤 {la.dependentName}</span>:<span style={{color:'#555'}}>—</span>;})()}
+                                </td>
                                 <td data-label="Barbeiro">{payment.barberName}</td>
                                 <td data-label="Serviço" style={{ whiteSpace: 'pre-line' }}>
                                   {Array.isArray(payment.serviceName)
@@ -3328,7 +3339,7 @@ const handleHomeInfoChange = (field, value) => {
                                 </div>
                               ) : (
                                 <div style={{ fontWeight: 'bold' }}>
-                                  R$ {(serviceTotal + productsTotal).toFixed(2)}
+                                  R$ {serviceTotal.toFixed(2)}
                                 </div>
                               )}
                             </td>
@@ -4146,6 +4157,7 @@ const handleHomeInfoChange = (field, value) => {
                           <th>Data Agend.</th>
                           <th>Horário</th>
                           <th>Cliente</th>
+                          <th>Para</th>
                           <th>Barbeiro</th>
                           <th>Serviço</th>
                           <th>Valor</th>
@@ -4171,12 +4183,14 @@ const handleHomeInfoChange = (field, value) => {
                             <td>{payment.appointmentTime}</td>
                             <td>
                               {payment.userName}
-                              {(()=>{const la=appointments.find(a=>a.id?.toString()===payment.appointmentId?.toString());return la?.isDependent?<span style={{display:'inline-flex',alignItems:'center',gap:'4px',background:'rgba(255,122,26,0.12)',color:'#ff7a1a',border:'1px solid rgba(255,122,26,0.35)',borderRadius:'20px',padding:'1px 8px',fontSize:'0.72rem',fontWeight:700,marginLeft:'4px'}}>👤 {la.dependentName}</span>:null;})()}
                               {payment.noShow && (
                                 <span style={{ marginLeft: 6, fontSize: '0.72rem', background: '#555', color: '#fff', borderRadius: 8, padding: '1px 6px' }}>
                                   Não compareceu
                                 </span>
                               )}
+                            </td>
+                            <td>
+                              {(()=>{const la=appointments.find(a=>a.id?.toString()===payment.appointmentId?.toString());return la?.isDependent?<span style={{display:'inline-flex',alignItems:'center',gap:'4px',background:'rgba(255,122,26,0.12)',color:'#ff7a1a',border:'1px solid rgba(255,122,26,0.35)',borderRadius:'20px',padding:'2px 9px',fontSize:'0.75rem',fontWeight:700}}>👤 {la.dependentName}</span>:<span style={{color:'#555'}}>—</span>;})()}
                             </td>
                             <td>{payment.barberName}</td>
                             <td style={{ whiteSpace: 'pre-line' }}>
@@ -4374,7 +4388,7 @@ const handleHomeInfoChange = (field, value) => {
                                         return s + (price * (prod.quantity || 1));
                                       }, 0);
                                       const serviceVal = parseFloat(payment.amount || 0);
-                                      const totalVal = isSubscriber ? productsTotal : serviceVal + productsTotal;
+                                      const totalVal = isSubscriber ? productsTotal : serviceVal;
                                       const planOnly = isSubscriber && !hasProducts;
                                       const rowComm = isPlanCovered ? 0 : (serviceVal * commissionPercent) / 100;
 

@@ -399,7 +399,7 @@ import { useState, useEffect } from 'react';
               >
                 <FaCalendarAlt /> Meus Agendamentos
               </button>
-              {activeSubscription ? (
+              {!isBarber && (activeSubscription ? (
                 <button
                   className={`profile-sidebar__nav-item ${activeTab === 'assinatura' ? 'active' : ''}`}
                   onClick={() => setShowManageModal(true)}
@@ -413,7 +413,7 @@ import { useState, useEffect } from 'react';
                 >
                   <FaCreditCard /> Assinar Plano
                 </button>
-              )}
+              ))}
               {hasAdminAccess && (
                 <button
                   className={`profile-sidebar__nav-item ${activeTab === 'admin' ? 'active' : ''}`}
@@ -817,6 +817,7 @@ import { useState, useEffect } from 'react';
               </div>
 
             
+              {!isBarber && (
               <div className="profile-card profile-card--subscription">
                 <div className="profile-card__label">
                   <FaCreditCard className="profile-card__icon" />
@@ -861,6 +862,7 @@ import { useState, useEffect } from 'react';
                   )}
                 </div>
               </div>
+              )}
             </div>
 
     
@@ -871,7 +873,7 @@ import { useState, useEffect } from 'react';
                   <FaCalendarAlt className="profile-action-card__icon" />
                   <span>Meus Agendamentos</span>
                 </button>
-                {activeSubscription ? (
+                {!isBarber && (activeSubscription ? (
                   <button className="profile-action-card" onClick={() => setShowManageModal(true)}>
                     <FaCreditCard className="profile-action-card__icon" />
                     <span>Gerenciar Plano</span>
@@ -881,7 +883,7 @@ import { useState, useEffect } from 'react';
                     <FaCreditCard className="profile-action-card__icon" />
                     <span>Assinar Plano</span>
                   </button>
-                )}
+                ))}
                 {hasAdminAccess && (
                   <button className="profile-action-card profile-action-card--admin" onClick={() => navigateWithToast('/admin', 'Indo para o Painel Admin...')}>
                     <FaShieldAlt className="profile-action-card__icon" />

@@ -78,6 +78,14 @@
       "parentId": "98ba",
       "parentName": "Lucas Souza",
       "id": 5
+    },
+    {
+      "name": "Hyori",
+      "age": 10,
+      "cpf": "069.381.590-68",
+      "parentId": "3udVYRk",
+      "parentName": "Lucas S",
+      "id": 6
     }
   ],
   "barbers": [
@@ -229,388 +237,21 @@
       "photo": "https://res.cloudinary.com/dx2tvrzdr/image/upload/v1771863859/barbearia_rodrigues/images.jpg"
     },
     {
-      "id": "98ba",
-      "name": "Lucas Souza",
-      "email": "souzalucas@gmail.com",
-      "phone": "85982299499",
-      "password": "1234",
-      "role": "client",
-      "isAdmin": false,
-      "cpf": "99988877766"
-    },
-    {
-      "id": "845e",
-      "name": "LUCAS",
-      "email": "LUCAS123@GMAIL.COM",
-      "phone": "85982299499",
-      "password": "1234",
-      "role": "client",
-      "isAdmin": false,
-      "cpf": "44433322211"
-    },
-    {
-      "id": "8333",
-      "name": "LUCAS SOUZA ARAUJO",
-      "email": "LucasDaMessejana@gmail.com",
-      "password": "123456",
-      "phone": "85982299499",
-      "role": "barber",
-      "isAdmin": false,
-      "createdAt": "2026-01-07T15:38:48.892Z",
-      "cpf": "77788899900",
-      "permissions": {
-        "viewAdmin": true,
-        "manageEmployees": false,
-        "manageProducts": false,
-        "addProducts": false,
-        "editProducts": false,
-        "manageServices": true,
-        "addServices": false,
-        "editServices": false,
-        "managePayments": true,
-        "manageAgendamentos": true,
-        "scheduleForOthers": false,
-        "manageBenefits": false,
-        "manageSettings": false,
-        "manageGallery": false,
-        "managePayroll": false,
-        "manageBlockedDates": true
-      }
-    },
-    {
-      "id": "b15c",
-      "name": "Nay",
-      "email": "Nay123@gmail.com",
-      "phone": "85922994999",
-      "password": "1234",
-      "role": "client",
-      "isAdmin": false,
-      "cpf": "66655544433"
-    },
-    {
-      "id": "887c",
       "name": "Lucas S",
-      "email": "LucaS@gmail.com",
-      "phone": "85982299499",
-      "password": "1234",
-      "role": "client",
-      "isAdmin": false,
-      "cpf": "33344455566"
-    },
-    {
-      "name": "LUCAS SOUZA ARAUJO",
-      "email": "souza123@gmail.com",
-      "phone": "85982299499",
-      "password": "1234",
-      "role": "client",
-      "isAdmin": false,
-      "id": "L2FLU7C",
-      "cpf": "22211100099"
-    },
-    {
-      "name": "Luca",
-      "email": "1234@gmail.com",
-      "phone": "12345555555",
-      "password": "1234",
-      "role": "client",
-      "isAdmin": false,
-      "id": "I_O8wQI",
-      "cpf": "00000000010"
-    },
-    {
-      "name": "LUCAS",
-      "email": "Recep@gmail.com",
-      "password": "1234",
-      "phone": "85982299499",
-      "role": "receptionist",
-      "isAdmin": false,
-      "createdAt": "2026-01-29T16:25:11.477Z",
-      "id": "K_752vS",
-      "cpf": "00000000011",
-      "permissions": {
-        "viewAdmin": true,
-        "manageEmployees": true,
-        "manageProducts": true,
-        "addProducts": true,
-        "editProducts": true,
-        "manageServices": true,
-        "addServices": true,
-        "editServices": true,
-        "managePayments": false,
-        "manageAgendamentos": true,
-        "manageBenefits": false,
-        "manageSettings": false
-      },
-      "photo": "",
-      "salarioFixo": 2000,
-      "paymentFrequency": "mensal"
-    },
-    {
-      "name": "TESTE",
-      "email": "TESTE123@GMAIL.COM",
-      "password": "1234",
-      "phone": "",
-      "role": "barber",
-      "isAdmin": false,
-      "createdAt": "2026-01-29T16:45:51.083Z",
-      "id": "vhrGIzI",
-      "cpf": "00000000012",
-      "photo": ""
-    },
-    {
-      "name": "TESTEEEE",
-      "email": "TES@GMAIL.COM",
-      "password": "1234",
-      "phone": "8599299292929",
-      "role": "receptionist",
-      "isAdmin": false,
-      "createdAt": "2026-01-29T16:48:11.636Z",
-      "id": "9FoZTHE",
-      "cpf": "00000000013",
-      "photo": "",
-      "permissions": {
-        "viewAdmin": false,
-        "manageEmployees": false,
-        "manageProducts": false,
-        "addProducts": false,
-        "editProducts": false,
-        "manageServices": false,
-        "addServices": false,
-        "editServices": false,
-        "managePayments": true,
-        "manageAgendamentos": true,
-        "scheduleForOthers": false,
-        "manageBenefits": false,
-        "manageSettings": false,
-        "manageGallery": false,
-        "managePayroll": false,
-        "manageBlockedDates": true
-      }
-    },
-    {
-      "name": "Usuario Teste",
-      "email": "teste123@gmail.com",
-      "phone": "85982299499",
-      "password": "1234",
-      "role": "client",
-      "isAdmin": false,
-      "id": "5GvVqys",
-      "cpf": "00000000014"
-    },
-    {
-      "name": "LUKINHAS",
-      "email": "Barbeiro@gmail.com",
-      "password": "1234",
-      "phone": "85982299499",
-      "role": "barber",
-      "isAdmin": false,
-      "createdAt": "2026-02-02T16:54:32.095Z",
-      "id": "cL_jB4K",
-      "cpf": "00000000015"
-    },
-    {
-      "name": "teste",
-      "email": "teste12345@gmail.com",
-      "password": "1234",
-      "phone": "111111111111111111111111111111111",
-      "role": "receptionist",
-      "isAdmin": false,
-      "createdAt": "2026-02-02T16:55:12.208Z",
-      "id": "mRqiEta",
-      "cpf": "00000000016"
-    },
-    {
-      "name": "TTTTT",
-      "email": "LUCAS12345@GMAIL.COM",
-      "password": "1234",
-      "phone": "1233333",
-      "role": "receptionist",
-      "isAdmin": false,
-      "createdAt": "2026-02-02T17:13:05.260Z",
-      "id": "sgSjqlP",
-      "cpf": "00000000017"
-    },
-    {
-      "name": "teste123",
-      "email": "test@gmail.com",
-      "phone": "85999999999",
-      "password": "12345",
-      "role": "client",
-      "isAdmin": false,
-      "id": "GMZ-hNB",
-      "cpf": "00000000018"
-    },
-    {
-      "name": "teste22",
-      "email": "teste22@gmail.com",
-      "phone": "85982299499",
-      "password": "12345",
-      "role": "client",
-      "isAdmin": false,
-      "id": "ARsoBOx",
-      "cpf": "00000000019"
-    },
-    {
-      "name": "Lucas",
-      "email": "testezin123@gmail.com",
-      "phone": "85982299499",
-      "password": "1234",
-      "role": "client",
-      "isAdmin": false,
-      "id": "ezP_E0Z",
-      "cpf": "00000000020"
-    },
-    {
-      "name": "123",
-      "email": "123456@gm",
-      "phone": "85982299499",
-      "password": "1234",
-      "role": "client",
-      "isAdmin": false,
-      "id": "3xTe0NM",
-      "cpf": "00000000021"
-    },
-    {
-      "name": "Sem plano",
-      "email": "sem@gmail.com",
-      "phone": "85982299499",
-      "password": "1234",
-      "role": "client",
-      "isAdmin": false,
-      "id": "6f1SvYK",
-      "cpf": "00000000022"
-    },
-    {
-      "name": "RECEPCIONISTA",
-      "email": "Recep123@gmail.com",
-      "password": "123456",
-      "phone": "85982299499",
-      "photo": "",
-      "role": "receptionist",
-      "isAdmin": false,
-      "createdAt": "2026-02-04T16:47:34.073Z",
-      "id": "97gZWNW",
-      "cpf": "00000000023"
-    },
-    {
-      "name": "Lucas",
-      "email": "email@gmail.com",
-      "cpf": "62160113328",
-      "phone": "85982299499",
-      "password": "1234",
-      "role": "client",
-      "isAdmin": false,
-      "id": "KWlh2Lq"
-    },
-    {
-      "name": "Lucas Souza",
-      "email": "123342@gmail.com",
-      "cpf": "62160113328",
-      "phone": "85982299499",
-      "password": "1234",
-      "role": "client",
-      "isAdmin": false,
-      "id": "2h3IoP5"
-    },
-    {
-      "name": "Lucas Souza",
-      "email": "Lucas@gmail.com",
-      "cpf": "62160113328",
-      "phone": "85982299499",
-      "password": "1234",
-      "role": "client",
-      "isAdmin": false,
-      "id": "2_VM9Pq"
-    },
-    {
-      "name": "Lucas S",
-      "email": "Lucas12345@gmail.com",
-      "cpf": "62160113328",
-      "phone": "85982299499",
-      "password": "1234",
-      "role": "client",
-      "isAdmin": false,
-      "id": "nodm2IU"
-    },
-    {
-      "name": "Lucas",
-      "email": "luckas@gmail.com",
-      "cpf": "62160113328",
-      "phone": "85982299499",
-      "password": "1234",
-      "role": "client",
-      "isAdmin": false,
-      "id": "wtLvL7W"
-    },
-    {
-      "name": "lucas s",
-      "email": "lucasS@gmail.com",
-      "cpf": "62160113328",
-      "phone": "85982299499",
-      "password": "1234",
-      "role": "client",
-      "isAdmin": false,
-      "id": "D7VSd8P"
-    },
-    {
-      "name": "LUCAS SOUZA",
-      "email": "lucasadtech123@gmail.com",
-      "picture": "https://lh3.googleusercontent.com/a/ACg8ocK7NwXm7QJBeU387fuEQKjOE9B9P92mU7Wbi11KFXTQHewn2A=s96-c",
-      "googleId": "114815118824433332562",
-      "role": "client",
-      "isAdmin": false,
-      "password": null,
-      "createdAt": "2026-02-23T19:53:13.081Z",
-      "id": "bjrWggJ"
-    },
-    {
-      "name": "LUCAS",
-      "email": "souza1234@gmail.com",
-      "cpf": "62160113328",
+      "email": "lucass@gmail.com",
+      "cpf": "77824325024",
       "phone": "85982299499",
       "birthDate": "2000-06-16",
-      "barbershops": [
-        "barbearia rodrigues"
-      ],
-      "password": "1234",
-      "role": "client",
-      "isAdmin": false,
-      "id": "GWvD0iR"
-    },
-    {
-      "name": "LUCAS",
-      "email": "lucas1234@gmail.com",
-      "cpf": "62160113328",
-      "phone": "85982299499",
-      "birthDate": "2000-06-16",
-      "barbershops": [
-        "Barbearia rodrigues"
-      ],
-      "password": "1234",
-      "role": "client",
-      "isAdmin": false,
-      "id": "CBAkQkQ"
-    },
-    {
-      "name": "Lucas Souza",
-      "email": "froid5070@gmail.com",
-      "picture": "https://lh3.googleusercontent.com/a/ACg8ocKGlJVz21kLsDhuOxff-usYOlG5jK-APT85LuXEoJAfeNLd1Q=s96-c",
-      "googleId": "110845098356001346363",
-      "role": "client",
-      "isAdmin": false,
-      "password": "1234",
-      "createdAt": "2026-02-25T18:39:41.090Z",
-      "id": "fkYQSpq",
-      "cpf": "62160113328",
-      "phone": "85982299499",
-      "birthDate": "2026-02-25",
       "barbershops": [
         {
           "id": "001",
-          "name": "Barbearia Rodrigues"
+          "name": "Barbearia Rodrigues",
+          "slug": "rodrigues"
         }
       ],
-      "profileComplete": true
+      "password": "1234",
+      "role": "client",
+      "id": "3udVYRk"
     }
   ],
   "appointments": [
@@ -628,167 +269,13 @@
           "id": "2"
         }
       ],
-      "date": "2026-03-12",
-      "time": "09:00",
-      "client": "Lucas Souza",
-      "clientId": "98ba",
-      "products": [
-        {
-          "name": "Óleo para Barba",
-          "category": "Óleos",
-          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
-          "price": "R$ 10.00",
-          "subscriberDiscount": 0,
-          "stock": 87,
-          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
-          "id": "3",
-          "quantity": 1,
-          "calculatedPrice": 10,
-          "totalPrice": 10
-        }
-      ],
-      "observation": "",
-      "id": 1,
-      "status": "confirmed"
-    },
-    {
-      "barberId": "2",
-      "barberName": "Pedro Santos",
-      "services": [
-        {
-          "name": "DEGRADEZIN",
-          "price": "R$ 0,01",
-          "promotionalPrice": "",
-          "coveredByPlan": true,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "Dw22hi_"
-        }
-      ],
-      "date": "2026-03-19",
-      "time": "13:00",
-      "client": "Lucas Souza",
-      "clientId": "98ba",
-      "products": [
-        {
-          "name": "Óleo para Barba",
-          "category": "Óleos",
-          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
-          "price": "R$ 10.00",
-          "subscriberDiscount": 0,
-          "stock": 86,
-          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
-          "id": "3",
-          "quantity": 1,
-          "calculatedPrice": 10,
-          "totalPrice": 10
-        }
-      ],
-      "observation": "",
-      "id": 2,
-      "status": "confirmed"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "name": "Corte Clássico",
-          "price": "R$ 0,01",
-          "promotionalPrice": "R$ 23,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "1"
-        }
-      ],
-      "date": "2026-03-18",
-      "time": "10:30",
-      "client": "Lucas Souza",
-      "clientId": "98ba",
-      "products": [
-        {
-          "name": "Óleo para Barba",
-          "category": "Óleos",
-          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
-          "price": "R$ 10.00",
-          "subscriberDiscount": 0,
-          "stock": 85,
-          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
-          "id": "3",
-          "quantity": 1,
-          "calculatedPrice": 10,
-          "totalPrice": 10
-        }
-      ],
-      "observation": "",
-      "id": 3,
-      "status": "confirmed"
-    },
-    {
-      "barberId": "1",
-      "barberName": "João",
-      "services": [
-        {
-          "name": "Corte Clássico",
-          "price": "R$ 0,01",
-          "promotionalPrice": "R$ 23,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "1"
-        },
-        {
-          "name": "Barba",
-          "price": "R$ 1,00",
-          "promotionalPrice": "R$ 2,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "2"
-        }
-      ],
-      "date": "2026-03-13",
-      "time": "10:30",
-      "client": "Lucas Souza",
-      "clientId": "98ba",
-      "products": [
-        {
-          "name": "Óleo para Barba",
-          "category": "Óleos",
-          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
-          "price": "R$ 10.00",
-          "subscriberDiscount": 0,
-          "stock": 84,
-          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
-          "id": "3",
-          "quantity": 1,
-          "calculatedPrice": 10,
-          "totalPrice": 10
-        }
-      ],
-      "observation": "",
-      "id": 4,
-      "status": "confirmed"
-    },
-    {
-      "barberId": "2",
-      "barberName": "Pedro Santos",
-      "services": [
-        {
-          "name": "Barba",
-          "price": "R$ 1,00",
-          "promotionalPrice": "R$ 2,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "2"
-        }
-      ],
       "date": "2026-03-10",
-      "time": "09:00",
-      "client": "LUCAS",
-      "clientId": "ff1a",
+      "time": "14:00",
+      "client": "Hyori",
+      "clientId": "dep_6",
+      "isDependent": true,
+      "dependentName": "Hyori",
+      "dependentId": 6,
       "products": [
         {
           "name": "Óleo para Barba",
@@ -796,80 +283,7 @@
           "description": "Hidrata e amacia a barba, com fragrância amadeirada",
           "price": "R$ 10.00",
           "subscriberDiscount": 0,
-          "stock": 81,
-          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
-          "id": "3",
-          "quantity": 1,
-          "calculatedPrice": 10,
-          "totalPrice": 10
-        },
-        {
-          "name": "Cera Modeladora Matte",
-          "category": "Pomadas",
-          "description": "Efeito fosco com fixação duradoura",
-          "price": "R$ 0.01",
-          "subscriberDiscount": 20,
-          "stock": 10,
-          "image": "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=400",
-          "id": "5",
-          "quantity": 1,
-          "calculatedPrice": 0.01,
-          "totalPrice": 0.01
-        }
-      ],
-      "observation": "",
-      "id": 5,
-      "status": "confirmed"
-    },
-    {
-      "barberId": "b5a3",
-      "barberName": "LUCAS SOUZA ARAUJO",
-      "services": [
-        {
-          "name": "Barba",
-          "price": "R$ 1,00",
-          "promotionalPrice": "R$ 2,00",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 30,
-          "id": "2"
-        }
-      ],
-      "date": "2026-03-11",
-      "time": "18:30",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [],
-      "observation": "",
-      "id": 6,
-      "status": "completed"
-    },
-    {
-      "barberId": "2",
-      "barberName": "Pedro Santos",
-      "services": [
-        {
-          "name": "Luzes",
-          "price": "R$ 0,01",
-          "promotionalPrice": "",
-          "coveredByPlan": false,
-          "image": "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-          "duration": 90,
-          "id": "OH9P0zb"
-        }
-      ],
-      "date": "2026-03-25",
-      "time": "10:30",
-      "client": "LUCAS",
-      "clientId": "ff1a",
-      "products": [
-        {
-          "name": "Óleo para Barba",
-          "category": "Óleos",
-          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
-          "price": "R$ 10.00",
-          "subscriberDiscount": 0,
-          "stock": 80,
+          "stock": 77,
           "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
           "id": "3",
           "quantity": 1,
@@ -878,7 +292,7 @@
         }
       ],
       "observation": "",
-      "id": 7
+      "id": 1
     }
   ],
   "clientes": [],
@@ -1105,145 +519,13 @@
   "appointmentPayments": [
     {
       "appointmentId": 1,
-      "userId": "98ba",
-      "userName": "Lucas Souza",
+      "userId": "3udVYRk",
+      "userName": "Hyori",
       "amount": 11,
       "serviceName": "Barba",
       "barberName": "João",
-      "appointmentDate": "2026-03-12",
-      "appointmentTime": "09:00",
-      "products": [
-        {
-          "name": "Óleo para Barba",
-          "category": "Óleos",
-          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
-          "price": "R$ 10.00",
-          "subscriberDiscount": 0,
-          "stock": 87,
-          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
-          "id": "3",
-          "quantity": 1,
-          "calculatedPrice": 10,
-          "totalPrice": 10
-        }
-      ],
-      "status": "paid",
-      "paymentMethod": "pix",
-      "type": "appointment",
-      "createdAt": "2026-03-05T19:59:05.240Z",
-      "updatedAt": "2026-03-05T19:59:21.925Z",
-      "id": 1,
-      "confirmedAt": "2026-03-05T19:59:19.983Z",
-      "paidAt": "2026-03-05T19:59:21.925Z"
-    },
-    {
-      "appointmentId": 2,
-      "userId": "98ba",
-      "userName": "Lucas Souza",
-      "amount": 10.01,
-      "serviceName": "DEGRADEZIN",
-      "barberName": "João",
-      "appointmentDate": "2026-03-19",
-      "appointmentTime": "13:00",
-      "products": [
-        {
-          "name": "Óleo para Barba",
-          "category": "Óleos",
-          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
-          "price": "R$ 10.00",
-          "subscriberDiscount": 0,
-          "stock": 86,
-          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
-          "id": "3",
-          "quantity": 1,
-          "calculatedPrice": 10,
-          "totalPrice": 10
-        }
-      ],
-      "status": "paid",
-      "paymentMethod": "credito",
-      "type": "appointment",
-      "createdAt": "2026-03-05T20:04:07.385Z",
-      "updatedAt": "2026-03-06T13:30:38.067Z",
-      "id": 2,
-      "confirmedAt": "2026-03-05T20:04:23.729Z",
-      "paidAt": "2026-03-06T13:30:38.067Z"
-    },
-    {
-      "appointmentId": 3,
-      "userId": "98ba",
-      "userName": "Lucas Souza",
-      "amount": 10.01,
-      "serviceName": "Corte Clássico",
-      "barberName": "João",
-      "appointmentDate": "2026-03-18",
-      "appointmentTime": "10:30",
-      "products": [
-        {
-          "name": "Óleo para Barba",
-          "category": "Óleos",
-          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
-          "price": "R$ 10.00",
-          "subscriberDiscount": 0,
-          "stock": 85,
-          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
-          "id": "3",
-          "quantity": 1,
-          "calculatedPrice": 10,
-          "totalPrice": 10
-        }
-      ],
-      "status": "paid",
-      "paymentMethod": "credito",
-      "type": "appointment",
-      "createdAt": "2026-03-06T13:31:12.442Z",
-      "updatedAt": "2026-03-06T13:31:28.261Z",
-      "id": 3,
-      "confirmedAt": "2026-03-06T13:31:27.146Z",
-      "paidAt": "2026-03-06T13:31:28.261Z"
-    },
-    {
-      "appointmentId": 4,
-      "userId": "98ba",
-      "userName": "Lucas Souza",
-      "amount": 11.01,
-      "serviceName": "Corte Clássico, Barba",
-      "barberName": "João",
-      "appointmentDate": "2026-03-13",
-      "appointmentTime": "10:30",
-      "products": [
-        {
-          "name": "Óleo para Barba",
-          "category": "Óleos",
-          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
-          "price": "R$ 10.00",
-          "subscriberDiscount": 0,
-          "stock": 84,
-          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
-          "id": "3",
-          "quantity": 1,
-          "calculatedPrice": 10,
-          "totalPrice": 10
-        }
-      ],
-      "status": "paid",
-      "paymentMethod": "credito",
-      "type": "appointment",
-      "createdAt": "2026-03-06T13:41:03.839Z",
-      "updatedAt": "2026-03-06T13:41:48.382Z",
-      "id": 4,
-      "confirmedAt": "2026-03-06T13:41:36.182Z",
-      "paidAt": "2026-03-06T13:41:48.382Z"
-    },
-    {
-      "appointmentId": 5,
-      "userId": "ff1a",
-      "userName": "LUCAS",
-      "amount": 10.01,
-      "serviceName": "Barba",
-      "barberName": "Pedro Santos",
       "appointmentDate": "2026-03-10",
-      "appointmentTime": "09:00",
+      "appointmentTime": "14:00",
       "products": [
         {
           "name": "Óleo para Barba",
@@ -1251,70 +533,7 @@
           "description": "Hidrata e amacia a barba, com fragrância amadeirada",
           "price": "R$ 10.00",
           "subscriberDiscount": 0,
-          "stock": 81,
-          "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
-          "id": "3",
-          "quantity": 1,
-          "calculatedPrice": 10,
-          "totalPrice": 10
-        },
-        {
-          "name": "Cera Modeladora Matte",
-          "category": "Pomadas",
-          "description": "Efeito fosco com fixação duradoura",
-          "price": "R$ 0.01",
-          "subscriberDiscount": 20,
-          "stock": 10,
-          "image": "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=400",
-          "id": "5",
-          "quantity": 1,
-          "calculatedPrice": 0.01,
-          "totalPrice": 0.01
-        }
-      ],
-      "status": "paid",
-      "paymentMethod": "credito",
-      "type": "appointment",
-      "createdAt": "2026-03-09T12:23:12.258Z",
-      "updatedAt": "2026-03-09T12:24:00.840Z",
-      "id": 5,
-      "confirmedAt": "2026-03-09T12:23:59.389Z",
-      "paidAt": "2026-03-09T12:24:00.840Z"
-    },
-    {
-      "appointmentId": 6,
-      "userId": "ff1a",
-      "userName": "LUCAS",
-      "amount": 0,
-      "serviceName": "Barba",
-      "barberName": "LUCAS SOUZA ARAUJO",
-      "appointmentDate": "2026-03-11",
-      "appointmentTime": "18:30",
-      "products": [],
-      "status": "plancovered",
-      "paymentMethod": "subscription",
-      "type": "appointment",
-      "createdAt": "2026-03-09T12:23:24.029Z",
-      "updatedAt": "2026-03-09T12:23:24.029Z",
-      "id": 6
-    },
-    {
-      "appointmentId": 7,
-      "userId": "ff1a",
-      "userName": "LUCAS",
-      "amount": 10,
-      "serviceName": "Luzes",
-      "barberName": "Pedro Santos",
-      "appointmentDate": "2026-03-25",
-      "appointmentTime": "10:30",
-      "products": [
-        {
-          "name": "Óleo para Barba",
-          "category": "Óleos",
-          "description": "Hidrata e amacia a barba, com fragrância amadeirada",
-          "price": "R$ 10.00",
-          "subscriberDiscount": 0,
-          "stock": 80,
+          "stock": 77,
           "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
           "id": "3",
           "quantity": 1,
@@ -1325,11 +544,11 @@
       "status": "paid",
       "paymentMethod": "dinheiro",
       "type": "appointment",
-      "createdAt": "2026-03-09T12:28:41.371Z",
-      "updatedAt": "2026-03-09T12:29:52.653Z",
-      "id": 7,
-      "confirmedAt": "2026-03-09T12:29:14.929Z",
-      "paidAt": "2026-03-09T12:29:52.653Z"
+      "createdAt": "2026-03-09T17:48:32.693Z",
+      "updatedAt": "2026-03-09T17:50:08.764Z",
+      "id": 1,
+      "confirmedAt": "2026-03-09T17:50:07.658Z",
+      "paidAt": "2026-03-09T17:50:08.764Z"
     }
   ],
   "savedCards": [
@@ -1387,7 +606,7 @@
       "description": "Hidrata e amacia a barba, com fragrância amadeirada",
       "price": "R$ 10.00",
       "subscriberDiscount": 0,
-      "stock": 79,
+      "stock": 76,
       "image": "https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=400",
       "id": "3"
     },
