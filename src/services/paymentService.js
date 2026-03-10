@@ -386,6 +386,7 @@ export const criarPagamentoAgendamento = async (dadosPagamento) => {
       barberName: dadosPagamento.barberName,
       appointmentDate: dadosPagamento.appointmentDate,
       appointmentTime: dadosPagamento.appointmentTime,
+      products: dadosPagamento.products || [],
       status: dadosPagamento.status || 'pending',
       paymentMethod: dadosPagamento.paymentMethod || null,
       ...(dadosPagamento.status === 'paid' && {

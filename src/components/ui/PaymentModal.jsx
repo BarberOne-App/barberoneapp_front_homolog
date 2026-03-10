@@ -1081,7 +1081,7 @@ export default function PaymentModal({
                   ) : (
 
                     <>
-                      {/* <div id="cardPaymentBrick_container"></div> */}
+                      {/* <div id="cardPaymentBrick_container"></div>   */}
 
                       {isAppointmentPayment && (
                         <div className="payment-modal-footer">

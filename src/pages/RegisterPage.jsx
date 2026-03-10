@@ -151,20 +151,24 @@ export default function RegisterPage() {
             </p>
           )}
 
-          <form className="auth-form" onSubmit={handleSubmit}>
-            <Input
-              label="Nome Completo"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Digite seu nome completo"
-            />
-            <Input
-              label="E-mail"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="seuemail@exemplo.com"
-            />
+          <form className="auth-form auth-form--register" onSubmit={handleSubmit}>
+            <div className="full-width">
+              <Input
+                label="Nome Completo"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Digite seu nome completo"
+              />
+            </div>
+            <div className="full-width">
+              <Input
+                label="E-mail"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="seuemail@exemplo.com"
+              />
+            </div>
             <Input
               label="CPF"
               type="text"
@@ -189,7 +193,6 @@ export default function RegisterPage() {
               max={new Date().toISOString().split("T")[0]}
             />
 
-      
             <div className="input-wrapper">
               <label className="input-label">Barbearia</label>
               <select
@@ -222,13 +225,16 @@ export default function RegisterPage() {
               placeholder="Digite a senha novamente"
             />
 
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Validando..." : "Cadastrar"}
-            </Button>
+            <div className="full-width">
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Validando..." : "Cadastrar"}
+              </Button>
+            </div>
           </form>
 
-          <p className="auth-switch">
-            Já tem conta? <Link to="/login">Entrar</Link>
+          <p className="auth-footer">
+            Já tem conta?{' '}
+            <Link to="/login" className="auth-link">Entrar</Link>
           </p>
         </div>
       </section>

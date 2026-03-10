@@ -4,11 +4,12 @@ import { getSession, logout } from '../../services/authService';
 import { buscarAssinaturaAtiva } from '../../services/paymentService';
 import ManageSubscriptionModal from '../ui/ManageSubscriptionModal.jsx';
 import SubscriptionModal from '../ui/SubscriptionModal.jsx';
-import { FaCalendarAlt, FaShieldAlt, FaCreditCard, FaSignOutAlt, FaCamera, FaUser, FaEnvelope, FaEdit, FaCheck, FaTimes, FaArrowLeft, FaHome, FaStore, FaUsers, FaPlus, FaTrash } from 'react-icons/fa';
+import { FaCalendarAlt, FaShieldAlt, FaCreditCard, FaSignOutAlt, FaCamera, FaUser, FaEnvelope, FaEdit, FaCheck, FaTimes, FaArrowLeft, FaHome, FaStore, FaUsers, FaPlus, FaTrash, FaLock } from 'react-icons/fa';
 import { BARBERSHOPS, getActiveBarbershop, setActiveBarbershop } from '../layout/Barbershops';
 import './ProfilePage.css';
 import Header from '../layout/Header.jsx';
 import { uploadImagem, criarPreviewLocal } from '../../services/cloudinaryService';
+  import ChangePasswordPanel from './Changepasswordpanel.jsx';
 import { getToken } from '../../services/authService';
 
 export default function ProfilePage() {
@@ -45,11 +46,23 @@ export default function ProfilePage() {
       navigate('/login');
       return;
     }
+      // Renderiza imediatamente com dados da sessao local
     setCurrentUser(user);
     setNewName(user.name || '');
     loadUserPhoto(user.id);
     verificarAssinaturaAtiva(user.id);
     loadDependents(user.id);
+
+      // Busca permissoes atualizadas no backend e sincroniza sessao
+      fetch(`http://localhost:3000/users/${user.id}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(freshUser => {
+          if (!freshUser) return;
+          const updatedUser = { ...user, permissions: freshUser.permissions ?? user.permissions };
+          setCurrentUser(updatedUser);
+          localStorage.setItem('session', JSON.stringify(updatedUser));
+        })
+        .catch(() => {});
   }, []);
 
   const loadUserPhoto = async (userId) => {
@@ -405,59 +418,75 @@ export default function ProfilePage() {
             </div>
           </div>
 
-
-          <nav className="profile-sidebar__nav">
-            <button
-              className={`profile-sidebar__nav-item ${activeTab === 'perfil' ? 'active' : ''}`}
-              onClick={() => setActiveTab('perfil')}
-            >
-              <FaUser /> Meu Perfil
-            </button>
-            <button
-              className={`profile-sidebar__nav-item ${activeTab === 'agendamentos' ? 'active' : ''}`}
-              onClick={() => navigateWithToast('/appointments', 'Indo para Meus Agendamentos...')}
-            >
-              <FaCalendarAlt /> Meus Agendamentos
-            </button>
-            {activeSubscription ? (
+            
+            <nav className="profile-sidebar__nav">
               <button
-                className={`profile-sidebar__nav-item ${activeTab === 'assinatura' ? 'active' : ''}`}
-                onClick={() => setShowManageModal(true)}
+                className={`profile-sidebar__nav-item ${activeTab === 'perfil' ? 'active' : ''}`}
+                onClick={() => setActiveTab('perfil')}
               >
-                <FaCreditCard /> Gerenciar Plano
+                <FaUser /> Meu Perfil
               </button>
-            ) : (
               <button
-                className="profile-sidebar__nav-item"
-                onClick={() => setShowSubscriptionModal(true)}
+                className={`profile-sidebar__nav-item ${activeTab === 'agendamentos' ? 'active' : ''}`}
+                onClick={() => navigateWithToast('/appointments', 'Indo para Meus Agendamentos...')}
               >
-                <FaCreditCard /> Assinar Plano
+                <FaCalendarAlt /> Meus Agendamentos
               </button>
-            )}
-            {hasAdminAccess && (
+              {!isBarber && (activeSubscription ? (
+                <button
+                  className={`profile-sidebar__nav-item ${activeTab === 'assinatura' ? 'active' : ''}`}
+                  onClick={() => setShowManageModal(true)}
+                >
+                  <FaCreditCard /> Gerenciar Plano
+                </button>
+              ) : (
+                <button
+                  className="profile-sidebar__nav-item"
+                  onClick={() => setShowSubscriptionModal(true)}
+                >
+                  <FaCreditCard /> Assinar Plano
+                </button>
+              ))}
+              {hasAdminAccess && (
+                <button
+                  className={`profile-sidebar__nav-item ${activeTab === 'admin' ? 'active' : ''}`}
+                  onClick={() => navigateWithToast('/admin', 'Indo para o Painel Admin...')}
+                >
+                  <FaShieldAlt /> Painel Admin
+                </button>
+              )}
               <button
-                className={`profile-sidebar__nav-item ${activeTab === 'admin' ? 'active' : ''}`}
-                onClick={() => navigateWithToast('/admin', 'Indo para o Painel Admin...')}
+                className={`profile-sidebar__nav-item ${activeTab === 'senha' ? 'active' : ''}`}
+                onClick={() => setActiveTab('senha')}
               >
-                <FaShieldAlt /> Painel Admin
+                <FaLock /> Mudar Senha
               </button>
-            )}
-            <button
-              className="profile-sidebar__nav-item profile-sidebar__nav-item--logout"
-              onClick={handleLogout}
-            >
-              <FaSignOutAlt /> Sair
-            </button>
-          </nav>
-        </aside>
+              <button
+                className="profile-sidebar__nav-item profile-sidebar__nav-item--logout"
+                onClick={handleLogout}
+              >
+                <FaSignOutAlt /> Sair
+              </button>
+            </nav>
+          </aside>
 
 
         <main className="profile-main">
           <div className="profile-main__header">
-            <h1 className="profile-main__title">Meu Perfil</h1>
-            <p className="profile-main__subtitle">Gerencie suas informações pessoais</p>
+            <h1 className="profile-main__title">
+                {activeTab === 'senha' ? 'Mudar Senha' : 'Meu Perfil'}
+              </h1>
+            <p className="profile-main__subtitle">
+                {activeTab === 'senha' ? 'Altere a senha da sua conta' : 'Gerencie suas informações pessoais'}
+              </p>
           </div>
 
+            {activeTab === 'senha' ? (
+              <div className="profile-cards">
+                <ChangePasswordPanel currentUser={currentUser} onToast={showToast} />
+              </div>
+            ) : (
+            <>
 
           <div className="profile-cards">
 
@@ -821,6 +850,7 @@ export default function ProfilePage() {
             </div>
 
 
+              {!isBarber && (
             <div className="profile-card profile-card--subscription">
               <div className="profile-card__label">
                 <FaCreditCard className="profile-card__icon" />
@@ -865,6 +895,7 @@ export default function ProfilePage() {
                 )}
               </div>
             </div>
+              )}
           </div>
 
 
@@ -875,7 +906,7 @@ export default function ProfilePage() {
                 <FaCalendarAlt className="profile-action-card__icon" />
                 <span>Meus Agendamentos</span>
               </button>
-              {activeSubscription ? (
+              {!isBarber && (activeSubscription ? (
                 <button className="profile-action-card" onClick={() => setShowManageModal(true)}>
                   <FaCreditCard className="profile-action-card__icon" />
                   <span>Gerenciar Plano</span>
@@ -885,7 +916,7 @@ export default function ProfilePage() {
                   <FaCreditCard className="profile-action-card__icon" />
                   <span>Assinar Plano</span>
                 </button>
-              )}
+              ))}
               {hasAdminAccess && (
                 <button className="profile-action-card profile-action-card--admin" onClick={() => navigateWithToast('/admin', 'Indo para o Painel Admin...')}>
                   <FaShieldAlt className="profile-action-card__icon" />
@@ -898,6 +929,8 @@ export default function ProfilePage() {
               </button>
             </div>
           </div>
+            </>
+            )}
         </main>
       </div>
 

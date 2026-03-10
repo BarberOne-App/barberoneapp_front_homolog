@@ -107,10 +107,11 @@ export default function AppointmentsPage() {
   }, [appointments, activeClient?.id]);
 
   const hasActiveSubscription = useMemo(() => {
+    if (bookingForDependent || bookingForUser) return false;
     return userSubscriptions.some(
       (sub) => sub.userId === currentUser?.id && sub.status === 'active'
     );
-  }, [userSubscriptions, currentUser?.id]);
+  }, [userSubscriptions, currentUser?.id, bookingForDependent, bookingForUser]);
 
   const fetchBlockedDates = useCallback(async () => {
     try {
@@ -253,36 +254,29 @@ export default function AppointmentsPage() {
       setUserSubscriptions(subscriptionsData);
       setAllUsers(allUsers);
 
+      let deps = [];
       try {
         const depsRes = await fetch(`https://barbearia-addev-backend.onrender.com/dependents?parentId=${currentUser?.id}`);
         if (depsRes.ok) {
-          const deps = await depsRes.json();
+          deps = await depsRes.json();
           setUserDependents(deps);
         }
-      } catch (e) { }
+      } catch (e) {}
 
-      if (!isFetchingPayments.current) {
-        isFetchingPayments.current = true;
-        const userAppointments = appointmentsData.filter((apt) => apt.clientId === currentUser?.id);
-        const paymentsMap = { ...paymentsCache.current };
-
-        for (const apt of userAppointments) {
-          if (!paymentsMap[apt.id]) {
-            try {
-              const payment = await buscarPagamentoAgendamento(apt.id);
-              if (payment) {
-                paymentsMap[apt.id] = payment;
-                paymentsCache.current[apt.id] = payment;
-              }
-            } catch (error) {
-              console.error(`Erro ao buscar pagamento do agendamento ${apt.id}`, error);
-            }
-          }
+      const depIds = deps.map(d => `dep_${d.id}`);
+      const userAppointments = appointmentsData.filter((apt) =>
+        apt.clientId === currentUser?.id || depIds.includes(apt.clientId)
+      );
+      const paymentsMap = {};
+      for (const apt of userAppointments) {
+        try {
+          const payment = await buscarPagamentoAgendamento(apt.id);
+          if (payment) paymentsMap[apt.id] = payment;
+        } catch (error) {
+          console.error(`Erro ao buscar pagamento ${apt.id}`, error);
         }
-
-        setAppointmentPayments(paymentsMap);
-        isFetchingPayments.current = false;
       }
+      setAppointmentPayments(paymentsMap);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       isFetchingPayments.current = false;
@@ -640,8 +634,8 @@ export default function AppointmentsPage() {
     setShowProductsModal(false);
 
     const hasProducts = data.products.length > 0;
-
-    const hasSubscription = data.hasActiveSubscription && !bookingForDependent;
+  
+    const hasSubscription = data.hasActiveSubscription && !bookingForDependent && !bookingForUser;
 
     if (!hasProducts && hasSubscription) {
       handleDirectConfirmation();
@@ -714,7 +708,7 @@ export default function AppointmentsPage() {
         date: pendingBookingData.date,
         time: pendingBookingData.time,
         client: activeClient.name,
-        clientId: currentUser.id,
+        clientId: activeClient.id,
         ...(bookingForDependent ? { isDependent: true, dependentName: bookingForDependent.name, dependentId: bookingForDependent.id } : {}),
         products: [],
         observation: pendingBookingData.observation || '',
@@ -815,7 +809,7 @@ export default function AppointmentsPage() {
             date: pendingBookingData.date,
             time: pendingBookingData.time,
             client: activeClient.name,
-            clientId: currentUser.id,
+            clientId: activeClient.id,
             ...(bookingForDependent ? { isDependent: true, dependentName: bookingForDependent.name, dependentId: bookingForDependent.id } : {}),
             products: purchaseData.products,
             observation: pendingBookingData.observation || '',
@@ -852,7 +846,7 @@ export default function AppointmentsPage() {
           date: pendingBookingData.date,
           time: pendingBookingData.time,
           client: activeClient.name,
-          clientId: currentUser.id,
+          clientId: activeClient.id,
           ...(bookingForDependent ? { isDependent: true, dependentName: bookingForDependent.name, dependentId: bookingForDependent.id } : {}),
           products: purchaseData.products,
           observation: pendingBookingData.observation || '',
@@ -964,8 +958,11 @@ export default function AppointmentsPage() {
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
 
+    const depClientIds = userDependents.map(d => `dep_${d.id}`);
     return appointments.filter((apt) => {
-      if (apt.clientId !== currentUser?.id) return false;
+      const isOwn = apt.clientId === currentUser?.id;
+      const isDep = depClientIds.includes(apt.clientId);
+      if (!isOwn && !isDep) return false;
 
       const aptDate = new Date(`${apt.date}T00:00:00`);
       const aptMonth = aptDate.getMonth();
@@ -981,7 +978,7 @@ export default function AppointmentsPage() {
         return true;
       }
     });
-  }, [appointments, currentUser?.id, appointmentFilter]);
+  }, [appointments, currentUser?.id, appointmentFilter, userDependents]);
 
   const sortedMyAppointments = useMemo(() => {
     return [...myAppointments].sort((a, b) => {
@@ -1005,7 +1002,7 @@ export default function AppointmentsPage() {
   return (
     <BaseLayout>
       <section className="auth">
-        <div className="auth-card" style={{ maxWidth: '100%', padding: '2rem' }}>
+        <div className="auth-card auth-card--full" style={{ padding: '2rem' }}>
           <div className="appointments-header">
             <div>
               <h1 className="auth-title">Agendamentos</h1>
@@ -1419,7 +1416,7 @@ export default function AppointmentsPage() {
                   Este Mês ({appointments.filter(apt => {
                     const aptDate = new Date(`${apt.date}T00:00:00`);
                     const today = new Date();
-                    return apt.clientId === currentUser?.id && aptDate.getMonth() === today.getMonth() && aptDate.getFullYear() === today.getFullYear();
+                    const dIds1 = userDependents.map(d => `dep_${d.id}`); return (apt.clientId === currentUser?.id || dIds1.includes(apt.clientId)) && aptDate.getMonth() === today.getMonth() && aptDate.getFullYear() === today.getFullYear();
                   }).length})
                 </button>
                 <button
@@ -1429,14 +1426,14 @@ export default function AppointmentsPage() {
                   Próximos ({appointments.filter(apt => {
                     const aptDate = new Date(`${apt.date}T00:00:00`);
                     const today = new Date();
-                    return apt.clientId === currentUser?.id && (aptDate.getFullYear() > today.getFullYear() || (aptDate.getFullYear() === today.getFullYear() && aptDate.getMonth() >= today.getMonth()));
+                    const dIds2 = userDependents.map(d => `dep_${d.id}`); return (apt.clientId === currentUser?.id || dIds2.includes(apt.clientId)) && (aptDate.getFullYear() > today.getFullYear() || (aptDate.getFullYear() === today.getFullYear() && aptDate.getMonth() >= today.getMonth()));
                   }).length})
                 </button>
                 <button
                   onClick={() => setAppointmentFilter('all')}
                   className={`tab-btn ${appointmentFilter === 'all' ? 'tab-btn--active' : ''}`}
                 >
-                  Todos ({appointments.filter(apt => apt.clientId === currentUser?.id).length})
+                  Todos ({appointments.filter(apt => { const dIds3 = userDependents.map(d => `dep_${d.id}`); return apt.clientId === currentUser?.id || dIds3.includes(apt.clientId); }).length})
                 </button>
               </div>
 
@@ -1476,7 +1473,7 @@ export default function AppointmentsPage() {
                     <tbody>
                       {sortedMyAppointments.map((apt) => {
                         const payment = appointmentPayments[apt.id];
-                        const isPending = payment && payment.status === 'pending';
+                        const isPending = payment && (payment.status === 'pending' || payment.status === 'confirmed_unpaid');
                         const isPendingLocal = payment && payment.status === 'pendinglocal';
                         const isPaid = payment && payment.status === 'paid';
                         const isPlanCovered = payment && payment.status === 'plancovered';

@@ -91,9 +91,10 @@ export default function BarberPage() {
       if (!appointment) return;
 
       const userData = await getUserById(appointment.clientId);
-      if (!userData?.phone) return showToast('Cliente não possui telefone cadastrado.', 'danger');
+      const rawPhone = userData?.phone || appointment.clientPhone;
+      if (!rawPhone) return showToast('Cliente não possui telefone cadastrado.', 'danger');
 
-      const phone = userData.phone.replace(/\D/g, '');
+      const phone = rawPhone.replace(/\D/g, '');
       const date = new Date(appointment.date + 'T00:00:00').toLocaleDateString('pt-BR');
       const serviceName = Array.isArray(appointment.services) 
         ? appointment.services.map(s => s.name).join(', ') 
@@ -372,7 +373,7 @@ export default function BarberPage() {
                                         </button>
                                       )}
                                       <button onClick={() => sendWhatsAppToClient(apt.id, 'confirm')} className="action-btn-table btn-whatsapp-table">
-                                        💬 Confirmar
+                                        💬 Enviar Mensagem
                                       </button>
                                       <button onClick={() => sendWhatsAppToClient(apt.id, 'reminder')} className="action-btn-table btn-reminder-table">
                                         🔔 Lembrete
