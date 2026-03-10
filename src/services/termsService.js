@@ -1,7 +1,5 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:3000';
-
 export const uploadTermsDocument = async (file) => {
   return new Promise((resolve, reject) => {
     if (file.type !== 'application/pdf') {
@@ -30,7 +28,7 @@ export const uploadTermsDocument = async (file) => {
         }));
         
         
-        await axios.patch(`${API_URL}/settings/1`, {
+        await axios.patch(`${import.meta.env.VITE_API_URL}/settings/1`, {
           termsDocumentUrl: base64,
           termsDocumentName: file.name
         });
@@ -64,7 +62,7 @@ export const getTermsDocument = async () => {
     }
     
     
-    const response = await axios.get(`${API_URL}/settings/1`);
+    const response = await axios.get(`${import.meta.env.VITE_API_URL}/settings/1`);
     if (response.data.termsDocumentUrl) {
       return {
         documentUrl: response.data.termsDocumentUrl,
@@ -83,7 +81,7 @@ export const deleteTermsDocument = async () => {
   try {
     localStorage.removeItem('termsDocument');
     
-    await axios.patch(`${API_URL}/settings/1`, {
+    await axios.patch(`${import.meta.env.VITE_API_URL}/settings/1`, {
       termsDocumentUrl: '',
       termsDocumentName: ''
     });

@@ -23,6 +23,7 @@ import {
   buscarPagamentoAgendamento
 } from '../services/paymentService.js';
 import './AuthPages.css';
+import { getToken } from "../services/authService.js";
 
 export default function AppointmentsPage() {
   const navigate = useNavigate();
@@ -63,10 +64,11 @@ export default function AppointmentsPage() {
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [blockedDates, setBlockedDates] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
-  const [bookingForUser, setBookingForUser] = useState(null); 
+  const [bookingForUser, setBookingForUser] = useState(null);
   const [showUserSelector, setShowUserSelector] = useState(false);
   const [userSearch, setUserSearch] = useState('');
 
+  const token = getToken();
 
   const [userDependents, setUserDependents] = useState([]);
   const [bookingForDependent, setBookingForDependent] = useState(null);
@@ -112,7 +114,11 @@ export default function AppointmentsPage() {
 
   const fetchBlockedDates = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:3000/blockedDates');
+      const response = await fetch('https://barbearia-addev-backend.onrender.com/blocked-dates', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const data = await response.json();
       setBlockedDates(data);
     } catch (error) {
@@ -225,18 +231,18 @@ export default function AppointmentsPage() {
       const [barbersData, servicesData, productsData, appointmentsData, subscriptionsData] = await Promise.all([
         getBarbers(),
         getAllServices(),
-        fetch('http://localhost:3000/products').then((res) => res.json()),
+        fetch('https://barbearia-addev-backend.onrender.com/products').then((res) => res.json()),
         getAppointments(),
-        fetch('http://localhost:3000/subscriptions').then((res) => res.json())
+        fetch('https://barbearia-addev-backend.onrender.com/subscriptions').then((res) => res.json())
       ]);
 
-      const usersResponse = await fetch('http://localhost:3000/users');
+      const usersResponse = await fetch('https://barbearia-addev-backend.onrender.com/users');
       const allUsers = await usersResponse.json();
 
       const validBarbers = barbersData.filter((barber) => {
         if (!barber.userId) return true;
         const user = allUsers.find((u) => u.id === barber.userId);
-     
+
         return !user || user.role === 'barber';
       });
 
@@ -248,12 +254,12 @@ export default function AppointmentsPage() {
       setAllUsers(allUsers);
 
       try {
-        const depsRes = await fetch(`http://localhost:3000/dependents?parentId=${currentUser?.id}`);
+        const depsRes = await fetch(`https://barbearia-addev-backend.onrender.com/dependents?parentId=${currentUser?.id}`);
         if (depsRes.ok) {
           const deps = await depsRes.json();
           setUserDependents(deps);
         }
-      } catch (e) {}
+      } catch (e) { }
 
       if (!isFetchingPayments.current) {
         isFetchingPayments.current = true;
@@ -287,11 +293,11 @@ export default function AppointmentsPage() {
 
   const handleUpdateStock = useCallback(async (productId, quantity) => {
     try {
-      const response = await fetch(`http://localhost:3000/products/${productId}`);
+      const response = await fetch(`https://barbearia-addev-backend.onrender.com/products/${productId}`);
       const product = await response.json();
       const newStock = Math.max(0, product.stock - quantity);
 
-      await fetch(`http://localhost:3000/products/${productId}`, {
+      await fetch(`https://barbearia-addev-backend.onrender.com/products/${productId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stock: newStock })
@@ -335,7 +341,7 @@ export default function AppointmentsPage() {
         try {
           const { selectedPlan, finalTotal } = JSON.parse(mpPending);
           sessionStorage.removeItem('mp_pending_plan');
-    
+
           window.history.replaceState({}, document.title, window.location.pathname);
 
           if (mpStatus === 'approved') {
@@ -402,7 +408,7 @@ export default function AppointmentsPage() {
       handleMpReturn();
     }
 
-  }, []); 
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -488,43 +494,43 @@ export default function AppointmentsPage() {
       });
   }, [appointments]);
 
-const getAvailableTimes = useCallback((barberId, date) => {
-  if (!date) return [];
-  const allTimes = generateTimes(30);
-  const dateStr = date.toLocaleDateString('en-CA');
-  const bookedTimes = getBookedSlots(barberId, date);
-  const blockedSlots = getBlockedTimeSlots(dateStr, barberId);
+  const getAvailableTimes = useCallback((barberId, date) => {
+    if (!date) return [];
+    const allTimes = generateTimes(30);
+    const dateStr = date.toLocaleDateString('en-CA');
+    const bookedTimes = getBookedSlots(barberId, date);
+    const blockedSlots = getBlockedTimeSlots(dateStr, barberId);
 
-  const today = new Date();
-  const isToday = dateStr === today.toLocaleDateString('en-CA');
+    const today = new Date();
+    const isToday = dateStr === today.toLocaleDateString('en-CA');
 
-  const timeToMinutes = (t) => {
-    const [h, m] = t.split(':').map(Number);
-    return h * 60 + m;
-  };
+    const timeToMinutes = (t) => {
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    };
 
-  return allTimes.filter(time => {
-    if (bookedTimes.includes(time)) return false;
+    return allTimes.filter(time => {
+      if (bookedTimes.includes(time)) return false;
 
-    if (isToday) {
-      const slotMinutes = timeToMinutes(time);
-      const nowMinutes = today.getHours() * 60 + today.getMinutes();
-      if (slotMinutes <= nowMinutes) return false;
-    }
+      if (isToday) {
+        const slotMinutes = timeToMinutes(time);
+        const nowMinutes = today.getHours() * 60 + today.getMinutes();
+        if (slotMinutes <= nowMinutes) return false;
+      }
 
-    if (blockedSlots.length > 0) {
-      const slotMinutes = timeToMinutes(time);
-      const isBlocked = blockedSlots.some(blocked => {
-        const start = timeToMinutes(blocked.startTime);
-        const end = timeToMinutes(blocked.endTime);
-        return slotMinutes >= start && slotMinutes <= end;
-      });
-      if (isBlocked) return false;
-    }
+      if (blockedSlots.length > 0) {
+        const slotMinutes = timeToMinutes(time);
+        const isBlocked = blockedSlots.some(blocked => {
+          const start = timeToMinutes(blocked.startTime);
+          const end = timeToMinutes(blocked.endTime);
+          return slotMinutes >= start && slotMinutes <= end;
+        });
+        if (isBlocked) return false;
+      }
 
-    return true;
-  });
-}, [appointments, blockedDates]);
+      return true;
+    });
+  }, [appointments, blockedDates]);
   const showToast = useCallback((message, type = 'success') => {
     setToast({ show: true, message, type });
   }, []);
@@ -535,7 +541,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
 
   const calculateTotal = useCallback((services) => {
     const total = services.reduce((sum, s) => {
-      const priceStr = s.price || 0;
+      const priceStr = s.basePrice || 0;
       const cleanPrice = priceStr.toString().replace(/R\$/g, '');
       const normalized = cleanPrice.replace(/,/g, '.');
       const numeric = parseFloat(normalized);
@@ -634,7 +640,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
     setShowProductsModal(false);
 
     const hasProducts = data.products.length > 0;
-  
+
     const hasSubscription = data.hasActiveSubscription && !bookingForDependent;
 
     if (!hasProducts && hasSubscription) {
@@ -829,7 +835,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
 
         });
 
-      
+
         pendingStockUpdate.current = purchaseData.products || [];
 
         setShowPaymentChoiceModal(false);
@@ -873,7 +879,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
         await criarPagamentoAgendamento(paymentData);
         clearPaymentCache(createdAppointment.id);
 
-     
+
         if (purchaseData.products && purchaseData.products.length > 0) {
           await Promise.all(
             purchaseData.products.map(p => handleUpdateStock(p.id, p.quantity || 1))
@@ -1038,7 +1044,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
             <div className="appointments__booking">
               <h2>Selecione uma data</h2>
 
-       
+
               {!canScheduleForOthers && userDependents.length > 0 && (
                 <div style={{
                   background: '#1a1a1a',
@@ -1062,7 +1068,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                 
+
                     <div
                       onClick={() => { setBookingForDependent(null); setShowForWhomSelector(false); }}
                       style={{
@@ -1088,7 +1094,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
                       {!bookingForDependent && <span style={{ marginLeft: 'auto', color: '#ff7a1a', fontSize: '0.75rem', fontWeight: 700 }}>✓ Selecionado</span>}
                     </div>
 
-                  
+
                     {userDependents.map((dep) => (
                       <div
                         key={dep.id}
@@ -1125,7 +1131,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
                 </div>
               )}
 
-       
+
               {canScheduleForOthers && (
                 <div style={{
                   background: '#1a1a1a',
@@ -1191,7 +1197,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
                     </div>
                   </div>
 
-                
+
                   {showUserSelector && (
                     <div style={{ marginTop: '1rem' }}>
                       <input
@@ -1209,7 +1215,7 @@ const getAvailableTimes = useCallback((barberId, date) => {
                         autoFocus
                       />
                       <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                      
+
                         <div
                           onClick={() => { setBookingForUser(null); setShowUserSelector(false); setUserSearch(''); }}
                           style={{
@@ -1480,20 +1486,20 @@ const getAvailableTimes = useCallback((barberId, date) => {
 
                         const servicesTotal = Array.isArray(apt.services)
                           ? apt.services.reduce((sum, s) => {
-                              const price = typeof s.price === 'string' 
-                                ? parseFloat(s.price.replace(/R\$/g, '').replace(/,/g, '.').trim()) || 0
-                                : s.price || 0;
-                              return sum + price;
-                            }, 0)
+                            const price = typeof s.price === 'string'
+                              ? parseFloat(s.price.replace(/R\$/g, '').replace(/,/g, '.').trim()) || 0
+                              : s.price || 0;
+                            return sum + price;
+                          }, 0)
                           : 0;
 
                         const productsTotal = apt.products && apt.products.length > 0
                           ? apt.products.reduce((sum, p) => {
-                              const price = typeof p.price === 'string'
-                                ? parseFloat(p.price.replace(/R\$/g, '').replace(/,/g, '.').trim()) || 0
-                                : p.price || 0;
-                              return sum + (price * (p.quantity || 1));
-                            }, 0)
+                            const price = typeof p.price === 'string'
+                              ? parseFloat(p.price.replace(/R\$/g, '').replace(/,/g, '.').trim()) || 0
+                              : p.price || 0;
+                            return sum + (price * (p.quantity || 1));
+                          }, 0)
                           : 0;
 
                         const total = servicesTotal + productsTotal;
@@ -1562,47 +1568,47 @@ const getAvailableTimes = useCallback((barberId, date) => {
                                   <div className="appointment-service-item">-</div>
                                 )}
                               </div>
-                          </td>
-                          <td data-label="Obs.">
-                            {apt.observation ? (
-                              <div>
-                                <button
-                                  onClick={() => setExpandedObsId(expandedObsId === apt.id ? null : apt.id)}
-                                  style={{
-                                    background: 'rgba(212,175,55,0.12)',
-                                    border: '1px solid rgba(212,175,55,0.35)',
-                                    color: '#d4af37',
-                                    borderRadius: '20px',
-                                    padding: '3px 12px',
-                                    fontSize: '0.78rem',
-                                    cursor: 'pointer',
-                                    fontWeight: 600,
-                                    whiteSpace: 'nowrap',
-                                  }}
-                                >
-                                  📝 Ver
-                                </button>
-                                {expandedObsId === apt.id && (
-                                  <div style={{
-                                    marginTop: 8,
-                                    background: 'rgba(212,175,55,0.07)',
-                                    border: '1px solid rgba(212,175,55,0.2)',
-                                    borderRadius: '8px',
-                                    padding: '8px 10px',
-                                    fontSize: '0.82rem',
-                                    color: '#d4c48a',
-                                    fontStyle: 'italic',
-                                    maxWidth: '200px',
-                                    lineHeight: '1.5',
-                                  }}>
-                                    {apt.observation}
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <span style={{ color: '#444', fontSize: '0.8rem' }}>—</span>
-                            )}
-                          </td>
+                            </td>
+                            <td data-label="Obs.">
+                              {apt.observation ? (
+                                <div>
+                                  <button
+                                    onClick={() => setExpandedObsId(expandedObsId === apt.id ? null : apt.id)}
+                                    style={{
+                                      background: 'rgba(212,175,55,0.12)',
+                                      border: '1px solid rgba(212,175,55,0.35)',
+                                      color: '#d4af37',
+                                      borderRadius: '20px',
+                                      padding: '3px 12px',
+                                      fontSize: '0.78rem',
+                                      cursor: 'pointer',
+                                      fontWeight: 600,
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    📝 Ver
+                                  </button>
+                                  {expandedObsId === apt.id && (
+                                    <div style={{
+                                      marginTop: 8,
+                                      background: 'rgba(212,175,55,0.07)',
+                                      border: '1px solid rgba(212,175,55,0.2)',
+                                      borderRadius: '8px',
+                                      padding: '8px 10px',
+                                      fontSize: '0.82rem',
+                                      color: '#d4c48a',
+                                      fontStyle: 'italic',
+                                      maxWidth: '200px',
+                                      lineHeight: '1.5',
+                                    }}>
+                                      {apt.observation}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span style={{ color: '#444', fontSize: '0.8rem' }}>—</span>
+                              )}
+                            </td>
                             <td data-label="Produtos">
                               <div className="appointment-products">
                                 {apt.products && apt.products.length > 0 ? (
@@ -1643,18 +1649,18 @@ const getAvailableTimes = useCallback((barberId, date) => {
         </div>
       </section>
 
-     <ProductsModal
-  isOpen={showProductsModal}
-  onClose={() => {
-    setShowProductsModal(false);
-  }}
-  products={products}
-  onConfirm={handleProductsConfirm}
-  hasActiveSubscription={hasActiveSubscription}
-  servicePrice={pendingBookingData?.servicePrice || 0}
-  serviceName={pendingBookingData?.services?.map(s => s.name).join(', ') || ''}  
-  onUpdateStock={handleUpdateStock}
-/>
+      <ProductsModal
+        isOpen={showProductsModal}
+        onClose={() => {
+          setShowProductsModal(false);
+        }}
+        products={products}
+        onConfirm={handleProductsConfirm}
+        hasActiveSubscription={hasActiveSubscription}
+        servicePrice={pendingBookingData?.servicePrice || 0}
+        serviceName={pendingBookingData?.services?.map(s => s.name).join(', ') || ''}
+        onUpdateStock={handleUpdateStock}
+      />
 
       <PaymentChoiceModal
         isOpen={showPaymentChoiceModal}
@@ -1667,11 +1673,11 @@ const getAvailableTimes = useCallback((barberId, date) => {
         appointmentDetails={
           pendingBookingData
             ? {
-                barberName: pendingBookingData.barberName,
-                date: pendingBookingData.dateFormatted,
-                time: pendingBookingData.time,
-                serviceName: pendingBookingData.services.map((s) => s.name).join(', ')
-              }
+              barberName: pendingBookingData.barberName,
+              date: pendingBookingData.dateFormatted,
+              time: pendingBookingData.time,
+              serviceName: pendingBookingData.services.map((s) => s.name).join(', ')
+            }
             : null
         }
         purchaseData={purchaseData}

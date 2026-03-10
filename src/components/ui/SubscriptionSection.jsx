@@ -4,6 +4,7 @@ import Button from './Button.jsx';
 import PaymentModal from './PaymentModal.jsx';
 import Toast from './Toast.jsx';
 import './SubscriptionSection.css';
+import { getToken } from '../../services/authService.js';
 
 export default function SubscriptionSection({ activeSubscription, onSubscribe }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -11,6 +12,8 @@ export default function SubscriptionSection({ activeSubscription, onSubscribe })
   const [currentUser, setCurrentUser] = useState(null);
   const [plans, setPlans] = useState([]);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  const token = getToken();
 
   useEffect(() => {
     const user = localStorage.getItem('currentUser');
@@ -26,7 +29,11 @@ export default function SubscriptionSection({ activeSubscription, onSubscribe })
   useEffect(() => {
     const loadPlans = async () => {
       try {
-        const response = await fetch('http://localhost:3000/subscriptionPlans');
+        const response = await fetch('https://barbearia-addev-backend.onrender.com/subscription-plans', {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
         const data = await response.json();
         setPlans(data);
       } catch (error) {

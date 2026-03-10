@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import BaseLayout from "../components/layout/BaseLayout.jsx";
 import Button from "../components/ui/Button.jsx";
 import Input from "../components/ui/Input.jsx";
-import { userExists, createUser } from "../services/userServices.js";
+import { register } from "../services/authService.js";
 import { BARBERSHOPS } from "../components/layout/Barbershops.jsx";
 import "./AuthPages.css";
 
@@ -73,87 +73,66 @@ export default function RegisterPage() {
     setPhone(formatted);
   };
 
+  const showError = (text) => {
+    setMessage({ type: "error", text });
+    setIsSubmitting(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     setMessage({ type: "", text: "" });
 
     if (!name || !email || !cpf || !phone || !birthDate || !barbershop || !password || !confirmPassword) {
-      setMessage({ type: "error", text: "Preencha todos os campos." });
-      setIsSubmitting(false);
-      return;
+      return showError("Preencha todos os campos.");
     }
 
     if (!isValidEmail(email)) {
-      setMessage({ type: "error", text: "Digite um e-mail válido. exemplo@dominio.com" });
-      setIsSubmitting(false);
-      return;
+      return showError("Digite um e-mail válido. exemplo@dominio.com");
     }
 
     const cleanCPF = cpf.replace(/\D/g, "");
     if (!isValidCPF(cleanCPF)) {
-      setMessage({ type: "error", text: "CPF inválido. Verifique os dígitos digitados." });
-      setIsSubmitting(false);
-      return;
+      return showError("CPF inválido. Verifique os dígitos digitados.");
     }
 
     const phoneNumbers = phone.replace(/\D/g, "");
     if (phoneNumbers.length < 10 || phoneNumbers.length > 11) {
-      setMessage({ type: "error", text: "Telefone inválido. Use o formato (85) 99999-9999" });
-      setIsSubmitting(false);
-      return;
+      return showError("Telefone inválido. Use o formato (85) 99999-9999");
     }
 
     if (password !== confirmPassword) {
-      setMessage({ type: "error", text: "As senhas precisam ser iguais." });
-      setIsSubmitting(false);
-      return;
+      return showError("As senhas precisam ser iguais.");
     }
 
     if (password.length < 4) {
-      setMessage({ type: "error", text: "A senha deve ter no mínimo 4 caracteres." });
-      setIsSubmitting(false);
-      return;
+      return showError("A senha deve ter no mínimo 4 caracteres.");
     }
 
     try {
-      const exists = await userExists(email);
-      if (exists) {
-        setMessage({ type: "error", text: "Já existe um usuário com esse e-mail."});
-        setIsSubmitting(false);
-        return;
-      }
-
-      const usersRes = await fetch('http://localhost:3000/users');
-      const allUsers = await usersRes.json();
-      const cpfExists = allUsers.some(u => u.cpf === cleanCPF);
-      if (cpfExists) {
-        setMessage({ type: "error", text: "Já existe um usuário cadastrado com esse CPF." });
-        setIsSubmitting(false);
-        return;
-      }
-
       const selectedBarbershop = BARBERSHOPS.find((b) => b.id === barbershop);
 
       const userData = {
+        slug: selectedBarbershop?.slug || "",
         name,
         email,
-        cpf: cleanCPF,
         phone: phoneNumbers,
-        birthDate,
-        barbershops: selectedBarbershop ? [selectedBarbershop] : [],
         password,
-        role: "client",
       };
 
-      await createUser(userData);
+      await register(userData);
       setMessage({
         type: "success",
         text: "Cadastro realizado! Redirecionando...",
       });
       setTimeout(() => navigate("/login"), 800);
     } catch (err) {
-      setMessage({ type: "error", text: "Erro ao cadastrar." });
+      const msg =
+        err.response?.data?.message ||
+        (Array.isArray(err.response?.data) ? err.response.data.join(", ") : null) ||
+        "Erro ao cadastrar.";
+      showError(msg);
     } finally {
       setIsSubmitting(false);
     }

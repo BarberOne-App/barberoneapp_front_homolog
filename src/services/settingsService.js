@@ -1,8 +1,15 @@
-const API_URL = 'http://localhost:3000';
+import { getToken } from "./authService";
+
+const API_URL = 'https://barbearia-addev-backend.onrender.com';
+const token = getToken();
 
 export async function getPixKey() {
   try {
-    const response = await fetch(`${API_URL}/settings`);
+    const response = await fetch(`${API_URL}/settings`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     const settings = await response.json();
     return settings.length > 0 ? settings[0].pixKey : '';
   } catch (error) {
@@ -14,14 +21,19 @@ export async function getPixKey() {
 
 export async function savePixKey(pixKey) {
   try {
-    const response = await fetch(`${API_URL}/settings`);
+    const response = await fetch(`${API_URL}/settings`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     const settings = await response.json();
-    
+
     if (settings.length > 0) {
 
       await fetch(`${API_URL}/settings/${settings[0].id}`, {
         method: 'PATCH',
         headers: {
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ pixKey }),
@@ -31,6 +43,7 @@ export async function savePixKey(pixKey) {
       await fetch(`${API_URL}/settings`, {
         method: 'POST',
         headers: {
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ id: 1, pixKey }),
@@ -45,12 +58,19 @@ export async function savePixKey(pixKey) {
 
 export async function getHomeInfo() {
   try {
-    const response = await fetch(`${API_URL}/homeInfo`);
-    
+    const response = await fetch(`${API_URL}/home-info`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     const homeInfoArray = await response.json();
 
     if (homeInfoArray && homeInfoArray.length > 0) {
@@ -75,7 +95,7 @@ export async function getHomeInfo() {
     };
   } catch (error) {
     console.error('Erro ao buscar informações da home:', error);
-    
+
     return {
       heroTitle: "",
       heroSubtitle: "",
@@ -98,18 +118,23 @@ export async function getHomeInfo() {
 
 export async function saveHomeInfo(homeInfo) {
   try {
-    const response = await fetch(`${API_URL}/homeInfo`);
-    
+    const response = await fetch(`${API_URL}/home-info`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     const homeInfoArray = await response.json();
-    
+
     if (homeInfoArray && homeInfoArray.length > 0) {
-      const updateResponse = await fetch(`${API_URL}/homeInfo/${homeInfoArray[0].id}`, {
+      const updateResponse = await fetch(`${API_URL}/home-info/${homeInfoArray[0].id}`, {
         method: 'PUT',
         headers: {
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -117,29 +142,30 @@ export async function saveHomeInfo(homeInfo) {
           id: homeInfoArray[0].id
         }),
       });
-      
+
       if (!updateResponse.ok) {
         throw new Error(`Erro ao atualizar: ${updateResponse.status}`);
       }
-      
+
       return await updateResponse.json();
     } else {
 
-      const createResponse = await fetch(`${API_URL}/homeInfo`, {
+      const createResponse = await fetch(`${API_URL}/home-info`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           ...homeInfo,
           id: 1
         }),
       });
-      
+
       if (!createResponse.ok) {
         throw new Error(`Erro ao criar: ${createResponse.status}`);
       }
-      
+
       return await createResponse.json();
     }
   } catch (error) {

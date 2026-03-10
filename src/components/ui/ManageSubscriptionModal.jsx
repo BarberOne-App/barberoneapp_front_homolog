@@ -92,7 +92,7 @@ export default function ManageSubscriptionModal({ isOpen, onClose, subscription,
       setLoading(true);
       try {
         const { data } = await axios.get(
-          `http://localhost:3000/subscriptionPlans/${subscription.planId}`,
+          `https://barbearia-addev-backend.onrender.com/subscription-plans/${subscription.planId}`,
         );
         setPlanDetails(data);
         console.log('✅ Plano carregado:', data);

@@ -47,7 +47,7 @@ function PixQrModal({ pixQrCodeBase64, pixQrCode, pixTimer, pixExpired, pixQrCop
                 <p>Gerando QR Code...</p>
               </div>
             ) : pixExpired ? (
-          
+
               null
             ) : pixQrCodeBase64 ? (
               <>
@@ -108,7 +108,7 @@ export default function PaymentModal({
   selectedPlan,
   currentUser,
   onSuccess,
-  onPixExpired,           
+  onPixExpired,
   isAppointmentPayment = false,
   paymentId = null,
 }) {
@@ -146,7 +146,7 @@ export default function PaymentModal({
   const isRecurringSubscription = !isAppointmentPayment && selectedPlan?.isRecurring;
 
   const getAvailablePaymentMethods = () => {
-    if (isAppointmentPayment) return [ 'credit', 'debit','pix'];
+    if (isAppointmentPayment) return ['credit', 'debit', 'pix'];
     return ['credit'];
   };
   const availableMethods = getAvailablePaymentMethods();
@@ -186,7 +186,7 @@ export default function PaymentModal({
       }
 
       setShowPixQrModal(false);
-     
+
       onPixExpired && onPixExpired();
     }
   }, [pixExpired]);
@@ -308,7 +308,7 @@ export default function PaymentModal({
   const gerarPixPayment = async () => {
     setPixGenerating(true);
     setShowErrorToast(false);
-    setShowPixQrModal(true); 
+    setShowPixQrModal(true);
     try {
       const pixPayload = {
         transaction_amount: getFinalPrice(),
@@ -325,7 +325,7 @@ export default function PaymentModal({
       };
 
       const result = await processMercadoPagoPaymentPix(pixPayload);
-  
+
       setPixQrCodeBase64(result?.qr_code_base64 || '');
       setPixQrCode(result?.qr_code || '');
       setPixPaymentId(result.id);
@@ -334,7 +334,7 @@ export default function PaymentModal({
       console.error('Erro ao gerar PIX:', error);
       setErrorMessage('Erro ao gerar QR Code PIX. Tente novamente.');
       setShowErrorToast(true);
-      setShowPixQrModal(false); 
+      setShowPixQrModal(false);
     } finally {
       setPixGenerating(false);
     }
@@ -457,7 +457,7 @@ export default function PaymentModal({
 
   const handleResetPayment = async () => {
     if (brickController) {
-      try { await brickController.unmount(); } catch (_) {}
+      try { await brickController.unmount(); } catch (_) { }
     }
     setBrickController(null);
     setBrickLoaded(false);
@@ -478,7 +478,7 @@ export default function PaymentModal({
     setShowErrorToast(false);
     setErrorMessage('');
 
-   
+
     try {
       const paymentData = {
         token: cardFormData.token,
@@ -640,12 +640,12 @@ export default function PaymentModal({
         return parseFloat(String(val).replace('R$', '').replace(/\./g, '').replace(',', '.').trim()) || 0;
       };
 
-  
+
       const MP_CATEGORIES = [
-        'art','baby','coupons','donations','computing','cameras','video_games',
-        'tv','electronics','automotive','entertainment','fashion','games',
-        'home','musical_instruments','phones','food','health','services',
-        'learnings','tickets','travels','virtual_goods','others'
+        'art', 'baby', 'coupons', 'donations', 'computing', 'cameras', 'video_games',
+        'tv', 'electronics', 'automotive', 'entertainment', 'fashion', 'games',
+        'home', 'musical_instruments', 'phones', 'food', 'health', 'services',
+        'learnings', 'tickets', 'travels', 'virtual_goods', 'others'
       ];
       const getMpCategory = (cat) => {
         if (!cat) return 'others';
@@ -660,7 +660,7 @@ export default function PaymentModal({
 
       const items = [];
 
-    
+
       if (hasProducts && !hasServices) {
         products.forEach((p, i) => {
           items.push({
@@ -684,7 +684,7 @@ export default function PaymentModal({
               quantity: 1,
               unit_price: Number(parsePrice(s.price)),
               category_id: 'services',
-            picture_url: s.image
+              picture_url: s.image
 
             });
           }
@@ -693,7 +693,7 @@ export default function PaymentModal({
 
       if (hasServices && hasProducts) {
         services.forEach((s) => {
-    
+
           const isCovered = s.coveredByPlan && selectedPlan.paymentData?.hasActiveSubscription;
           if (!isCovered) {
             items.push({
@@ -702,7 +702,7 @@ export default function PaymentModal({
               quantity: 1,
               unit_price: Number(parsePrice(s.price)),
               category_id: 'services',
-            picture_url: s.image
+              picture_url: s.image
 
             });
           }
@@ -730,14 +730,14 @@ export default function PaymentModal({
           : `Assinatura - ${selectedPlan.name}`,
       };
 
-    
+
       console.log(' paymentData enviado ao MP:', JSON.stringify(paymentData, null, 2));
       console.log(' selectedPlan.price:', selectedPlan.price);
       console.log(' getFinalPrice():', getFinalPrice());
 
       const paymentResult = await processMercadoPagoPayment(paymentData);
       if (paymentResult.init_point) {
-        
+
         sessionStorage.setItem('mp_pending_plan', JSON.stringify({
           selectedPlan,
           isAppointmentPayment,
@@ -927,12 +927,12 @@ export default function PaymentModal({
               {paymentStatus === 'rejected'
                 ? 'Pagamento Recusado'
                 : paymentStatus === 'in_process'
-                ? 'Pagamento em Análise'
-                : isRecurringSubscription
-                ? 'Confirme sua assinatura'
-                : isAppointmentPayment
-                ? 'Finalizar pagamento do agendamento'
-                : 'Complete os dados para finalizar sua compra'}
+                  ? 'Pagamento em Análise'
+                  : isRecurringSubscription
+                    ? 'Confirme sua assinatura'
+                    : isAppointmentPayment
+                      ? 'Finalizar pagamento do agendamento'
+                      : 'Complete os dados para finalizar sua compra'}
             </h2>
             {!isAppointmentPayment && (
               <p className="payment-modal-subtitle">Assinatura do plano {selectedPlan.name}</p>
@@ -1079,16 +1079,16 @@ export default function PaymentModal({
                       </div>
                     </div>
                   ) : (
-                    
-                    <>
-                      {/* <div id="cardPaymentBrick_container"></div> */}  
 
-                       {isAppointmentPayment && (
-      <div className="payment-modal-footer">
-        <button type="button" onClick={handleClose}>Cancelar</button>
-        <button type="button" onClick={handleMercadoPagoPreferSubmit}>Pagar</button>
-      </div>
-    )}                    
+                    <>
+                      {/* <div id="cardPaymentBrick_container"></div> */}
+
+                      {isAppointmentPayment && (
+                        <div className="payment-modal-footer">
+                          <button type="button" onClick={handleClose}>Cancelar</button>
+                          <button type="button" onClick={handleMercadoPagoPreferSubmit}>Pagar</button>
+                        </div>
+                      )}
                       {!isAppointmentPayment && (
                         <div className="payment-terms-section">
                           <div className="payment-terms-box">
@@ -1133,7 +1133,7 @@ export default function PaymentModal({
         />
       )}
 
-   
+
       {processing && (
         <div className="processing-overlay">
           <div className="processing-content">

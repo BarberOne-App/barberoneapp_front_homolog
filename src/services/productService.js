@@ -1,11 +1,17 @@
 import axios from 'axios';
+import { getToken } from './authService';
 
-const API_URL = 'http://localhost:3000';
-
+const API_URL = 'https://barbearia-addev-backend.onrender.com';
+const token = getToken();
 
 export const getProducts = async () => {
   try {
-    const response = await axios.get(`${API_URL}/products`);
+    const response = await axios.get(`${API_URL}/products`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    console.log("RETORNO PRODUTOS", response.data);
     return response.data;
   } catch (error) {
     throw error;
@@ -15,7 +21,11 @@ export const getProducts = async () => {
 
 export const getProductById = async (id) => {
   try {
-    const response = await axios.get(`${API_URL}/products/${id}`);
+    const response = await axios.get(`${API_URL}/products/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response.data;
   } catch (error) {
     throw error;
@@ -24,8 +34,13 @@ export const getProductById = async (id) => {
 
 
 export const createProduct = async (productData) => {
+  console.log('Creating product with data:', productData);
   try {
-    const response = await axios.post(`${API_URL}/products`, productData);
+    const response = await axios.post(`${API_URL}/products`, productData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response.data;
   } catch (error) {
     throw error;
@@ -35,7 +50,11 @@ export const createProduct = async (productData) => {
 
 export const updateProduct = async (id, productData) => {
   try {
-    const response = await axios.put(`${API_URL}/products/${id}`, productData);
+    const response = await axios.put(`${API_URL}/products/${id}`, productData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response.data;
   } catch (error) {
     throw error;
@@ -45,7 +64,11 @@ export const updateProduct = async (id, productData) => {
 
 export const deleteProduct = async (id) => {
   try {
-    const response = await axios.delete(`${API_URL}/products/${id}`);
+    const response = await axios.delete(`${API_URL}/products/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response.data;
   } catch (error) {
     throw error;
@@ -57,6 +80,10 @@ export const updateProductStock = async (id, newStock) => {
   try {
     const response = await axios.patch(`${API_URL}/products/${id}`, {
       stock: newStock
+    }, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     });
     return response.data;
   } catch (error) {

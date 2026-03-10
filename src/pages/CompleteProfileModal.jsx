@@ -6,10 +6,10 @@ import { saveSession } from '../services/authService';
 import './CompleteProfileModal.css';
 
 const BARBERSHOPS_OPTIONS = [
-  { id: '001', name: 'Barbearia Rodrigues' },
-  { id: '002', name: 'Barbearia Lucas' },
-  { id: '003', name: 'Barbearia Abilton' },
-  { id: '004', name: 'Barbearia Rodolpho' },
+  { id: '001', name: 'Barbearia Rodrigues' }
+  // { id: '002', name: 'Barbearia Lucas' },
+  // { id: '003', name: 'Barbearia Abilton' },
+  // { id: '004', name: 'barberone' },
 ];
 
 export default function CompleteProfileModal({ user, onComplete }) {

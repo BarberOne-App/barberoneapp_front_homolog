@@ -2,22 +2,24 @@ import { useState, useEffect, useRef } from 'react';
 import Button from './Button.jsx';
 import './BarberCard.css';
 
-export default function BarberCard({ 
-  barber, 
-  services, 
+export default function BarberCard({
+  barber,
+  services,
   selectedDate,
   barberId,
   getBookedSlots,
   generateTimes,
   getAvailableTimes,
   calculateTotalDuration,
-  onBook, 
+  onBook,
   showToast,
   preSelectedService,
 }) {
   const [selectedServices, setSelectedServices] = useState([]);
   const [selectedTime, setSelectedTime] = useState('');
   const hasPreSelected = useRef(false);
+
+  console.log("SERVIÇOS DO BARBEIRO:", services);
 
   useEffect(() => {
     if (preSelectedService && !hasPreSelected.current) {
@@ -37,7 +39,7 @@ export default function BarberCard({
       }
       return [...prev, service];
     });
-  
+
     setSelectedTime('');
   };
 
@@ -49,9 +51,9 @@ export default function BarberCard({
   const totalDuration = getTotalDuration();
   const slotsNeeded = Math.ceil(totalDuration / 30);
 
-const bookedSlots = getBookedSlots(barberId, selectedDate) || [];
-const availableTimes = getAvailableTimes(barberId, selectedDate) || [];  
-const allTimes = generateTimes(30);  
+  const bookedSlots = getBookedSlots(barberId, selectedDate) || [];
+  const availableTimes = getAvailableTimes(barberId, selectedDate) || [];
+  const allTimes = generateTimes(30);
 
   const isTimeAvailableForSelection = (time) => {
     if (!slotsNeeded) return false;
@@ -59,7 +61,7 @@ const allTimes = generateTimes(30);
     const indexInAll = allTimes.indexOf(time);
     if (indexInAll === -1) return false;
 
-  
+
     const slots = [];
     for (let i = 0; i < slotsNeeded; i++) {
       const t = allTimes[indexInAll + i];
@@ -101,10 +103,10 @@ const allTimes = generateTimes(30);
 
   const parsePrice = (price) => {
     if (!price) return 0;
-    return Number(price.replace(/R\$/g, '').replace(/\./g, '').replace(/,/g, '.').trim());
+    return Number(price);
   };
 
-  const totalPrice = selectedServices.reduce((sum, s) => sum + parsePrice(s.price), 0);
+  const totalPrice = selectedServices.reduce((sum, s) => sum + parsePrice(s.basePrice), 0);
 
   return (
     <div className="barber-card">
@@ -129,7 +131,9 @@ const allTimes = generateTimes(30);
                 style={{ cursor: 'pointer' }}
               >
                 <div className="service-box__name">{service.name}</div>
-                <div className="service-box__price">{service.price}</div>
+                <div className="service-box__price">
+                  {Number(service.basePrice).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </div>
                 {isSelected && <div className="service-box__check">✓</div>}
               </div>
             );

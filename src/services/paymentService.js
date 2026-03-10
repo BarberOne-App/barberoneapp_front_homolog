@@ -1,6 +1,7 @@
 import api from './api';
+import { getToken } from './authService';
 
-
+const token = getToken();
 
 function obterProximaDataCobranca() {
   const hoje = new Date();
@@ -42,29 +43,33 @@ function detectarBandeiraCartao(numeroCartao) {
   return 'unknown';
 }
 
-
-
 export const buscarPlanosAssinatura = async () => {
   try {
-    const response = await api.get('/subscriptionPlans');
+    const response = await api.get('/subscription-plans', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response.data;
   } catch (error) {
-  
+
     throw new Error('Não foi possível carregar os planos de assinatura');
   }
 };
 
 export const buscarPlanoAssinatura = async (planId) => {
   try {
-    const response = await api.get(`/subscriptionPlans/${planId}`);
+    const response = await api.get(`/subscription-plans/${planId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response.data;
   } catch (error) {
-   
+
     throw new Error('Plano não encontrado');
   }
 };
-
-
 
 export const criarAssinatura = async (dadosAssinatura) => {
   try {
@@ -80,12 +85,12 @@ export const criarAssinatura = async (dadosAssinatura) => {
       nextBillingDate: obterProximaDataCobranca(),
       lastBillingDate: new Date().toISOString(),
       paymentMethod: dadosAssinatura.paymentMethod,
-    
+
       isRecurring: dadosAssinatura.isRecurring ?? true,
       autoRenewal: dadosAssinatura.autoRenewal ?? true,
       daysOverdue: 0,
 
-        monthlyBarberId: null,
+      monthlyBarberId: null,
       monthlyBarberName: null,
       monthlyBarberSetDate: null,
       overdueNotificationSent: false,
@@ -93,8 +98,12 @@ export const criarAssinatura = async (dadosAssinatura) => {
       updatedAt: new Date().toISOString()
     };
 
- 
-    const response = await api.post('/subscriptions', assinatura);
+
+    const response = await api.post('/subscriptions', assinatura, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response.data;
   } catch (error) {
     console.error('Erro ao criar assinatura:', error);
@@ -102,11 +111,13 @@ export const criarAssinatura = async (dadosAssinatura) => {
   }
 };
 
-
-
 export const verificarAssinaturasVencidas = async () => {
   try {
-    const response = await api.get('/subscriptions?status=active');
+    const response = await api.get('/subscriptions?status=active', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     const assinaturasAtivas = response.data;
     const hoje = new Date();
 
@@ -115,24 +126,26 @@ export const verificarAssinaturasVencidas = async () => {
       return hoje > nextBilling;
     });
 
-    
+
     return assinaturasVencidas;
   } catch (error) {
-   
+
     return [];
   }
 };
 
-
-
 export const marcarAssinaturaComoAtrasada = async (subscriptionId) => {
   try {
-    const subscription = await api.get(`/subscriptions/${subscriptionId}`);
+    const subscription = await api.get(`/subscriptions/${subscriptionId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     const sub = subscription.data;
-    
+
     const diasAtraso = calcularDiasAtraso(sub.nextBillingDate);
 
-  
+
 
     const response = await api.patch(`/subscriptions/${subscriptionId}`, {
       status: 'overdue',
@@ -142,27 +155,29 @@ export const marcarAssinaturaComoAtrasada = async (subscriptionId) => {
 
     return response.data;
   } catch (error) {
- 
+
     throw error;
   }
 };
 
-
-
 export const enviarNotificacaoAtraso = async (subscription) => {
   try {
     const dataVencimento = new Date(subscription.nextBillingDate).toLocaleDateString('pt-BR');
-    
+
     const mensagem = `🚨 *Pagamento Atrasado* 🚨\n\nOlá *${subscription.userName}*!\n\nSua assinatura do plano *${subscription.planName}* está com o pagamento atrasado.\n\n💰 *Valor:* R$ ${subscription.amount.toFixed(2).replace('.', ',')}\n📅 *Vencimento:* ${dataVencimento}\n⏰ *Dias de atraso:* ${subscription.daysOverdue}\n\nPor favor, realize o pagamento para continuar aproveitando os benefícios do seu plano.\n\n👉 Acesse o sistema para pagar: https://seusite.com/pagamentos\n\n_Mensagem automática - Barbearia AdDev_`;
 
-    
+
     let telefone = '5585999999999';
-    
+
     try {
-      const userResponse = await api.get(`/users/${subscription.userId}`);
+      const userResponse = await api.get(`/users/${subscription.userId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const user = userResponse.data;
       if (user.phone) {
-       
+
         telefone = user.phone.replace(/\D/g, '');
         if (!telefone.startsWith('55')) {
           telefone = '55' + telefone;
@@ -174,22 +189,24 @@ export const enviarNotificacaoAtraso = async (subscription) => {
 
     const urlWhatsApp = `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
 
-  
+
     await api.patch(`/subscriptions/${subscription.id}`, {
       overdueNotificationSent: true,
       lastNotificationDate: new Date().toISOString(),
       updatedAt: new Date().toISOString()
-    });
+    },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
- 
-    
-  
     if (typeof window !== 'undefined') {
       window.open(urlWhatsApp, '_blank');
     }
 
-    return { 
-      success: true, 
+    return {
+      success: true,
       url: urlWhatsApp,
       telefone: telefone,
       mensagem: mensagem
@@ -199,92 +216,116 @@ export const enviarNotificacaoAtraso = async (subscription) => {
   }
 };
 
-
-
 export const renovarAssinatura = async (subscriptionId, paymentData) => {
   try {
     const hoje = new Date();
     const proximaCobranca = obterProximaDataCobranca();
 
-    
 
-    const response = await api.patch(`/subscriptions/${subscriptionId}`, {
-      status: 'active',
-      lastBillingDate: hoje.toISOString(),
-      nextBillingDate: proximaCobranca,
-      daysOverdue: 0,
-      overdueNotificationSent: false,
-      paymentMethod: paymentData.paymentMethod,
-      updatedAt: hoje.toISOString()
-    });
 
-  
-    await api.post('/payments', {
-      userId: response.data.userId,
-      userName: response.data.userName,
-      subscriptionId: subscriptionId,
-      planId: response.data.planId,
-      planName: response.data.planName,
-      amount: response.data.amount,
-      paymentMethod: paymentData.paymentMethod,
-      status: 'approved',
-      type: 'subscription_renewal',
-      transactionId: gerarIdTransacao(),
-      createdAt: hoje.toISOString(),
-      approvedAt: hoje.toISOString()
-    });
+    const response = await api.patch(`/subscriptions/${subscriptionId}`,
+      {
+        status: 'active',
+        lastBillingDate: hoje.toISOString(),
+        nextBillingDate: proximaCobranca,
+        daysOverdue: 0,
+        overdueNotificationSent: false,
+        paymentMethod: paymentData.paymentMethod,
+        updatedAt: hoje.toISOString()
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    
+
+    await api.post(
+      '/payments',
+      {
+        userId: response.data.userId,
+        userName: response.data.userName,
+        subscriptionId: subscriptionId,
+        planId: response.data.planId,
+        planName: response.data.planName,
+        amount: response.data.amount,
+        paymentMethod: paymentData.paymentMethod,
+        status: 'approved',
+        type: 'subscription_renewal',
+        transactionId: gerarIdTransacao(),
+        createdAt: hoje.toISOString(),
+        approvedAt: hoje.toISOString()
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+
     return response.data;
   } catch (error) {
-   
+
     throw error;
   }
 };
 
-
-
 export const alternarModoCobranca = async (subscriptionId, isRecurring) => {
   try {
-   
-    
     const response = await api.patch(`/subscriptions/${subscriptionId}`, {
       isRecurring: isRecurring,
       autoRenewal: isRecurring,
       updatedAt: new Date().toISOString()
-    });
+    },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
     return response.data;
   } catch (error) {
-   
+
     throw error;
   }
 };
 
-
-
 export const buscarAssinaturasUsuario = async (userId) => {
   try {
-    const response = await api.get(`/subscriptions?userId=${userId}`);
+    const response = await api.get(`/subscriptions?userId=${userId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response.data;
   } catch (error) {
- 
+
     throw new Error('Não foi possível carregar suas assinaturas');
   }
 };
 
 export const buscarAssinaturaAtiva = async (userId) => {
   try {
-    
+
     const [resActive, resPending] = await Promise.all([
-      api.get(`/subscriptions?userId=${userId}&status=active`),
-      api.get(`/subscriptions?userId=${userId}&status=cancel_pending`),
+      api.get(`/subscriptions?userId=${userId}&status=active`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }),
+      api.get(`/subscriptions?userId=${userId}&status=cancel_pending`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }),
     ]);
 
     const todas = [...resActive.data, ...resPending.data];
     const hoje = new Date();
 
-    
+
     const valida = todas.find(s => {
       if (!s.nextBillingDate) return false;
       return new Date(s.nextBillingDate) > hoje;
@@ -299,7 +340,11 @@ export const buscarAssinaturaAtiva = async (userId) => {
 
 export const buscarTodasAssinaturas = async () => {
   try {
-    const response = await api.get('/subscriptions?_sort=createdAt&_order=desc');
+    const response = await api.get('/subscriptions?_sort=createdAt&_order=desc', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response.data;
   } catch (error) {
 
@@ -307,14 +352,16 @@ export const buscarTodasAssinaturas = async () => {
   }
 };
 
-
-
 export const atualizarStatusAssinatura = async (subscriptionId, status) => {
   try {
     const response = await api.patch(`/subscriptions/${subscriptionId}`, {
       status,
       updatedAt: new Date().toISOString(),
       ...(status === 'cancelled' && { cancelledAt: new Date().toISOString() })
+    }, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     });
     return response.data;
   } catch (error) {
@@ -327,12 +374,9 @@ export const cancelarAssinatura = async (subscriptionId) => {
   return atualizarStatusAssinatura(subscriptionId, 'cancelled');
 };
 
-
-
 export const criarPagamentoAgendamento = async (dadosPagamento) => {
+
   try {
-
-
     const pagamento = {
       appointmentId: dadosPagamento.appointmentId,
       userId: dadosPagamento.userId,
@@ -353,7 +397,11 @@ export const criarPagamentoAgendamento = async (dadosPagamento) => {
     };
 
 
-    const response = await api.post('/appointmentPayments', pagamento);
+    const response = await api.post('/appointmentPayments', pagamento, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response.data;
   } catch (error) {
     console.error('Erro ao criar pagamento:', error);
@@ -363,7 +411,11 @@ export const criarPagamentoAgendamento = async (dadosPagamento) => {
 
 export const buscarPagamentoAgendamento = async (appointmentId) => {
   try {
-    const response = await api.get(`/appointmentPayments?appointmentId=${appointmentId}`);
+    const response = await api.get(`/appointmentPayments?appointmentId=${appointmentId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response.data.length > 0 ? response.data[0] : null;
   } catch (error) {
     console.error('Erro ao buscar pagamento:', error);
@@ -373,8 +425,13 @@ export const buscarPagamentoAgendamento = async (appointmentId) => {
 
 export const buscarTodosPagamentosAgendamentos = async () => {
   try {
-    const response = await api.get('/appointmentPayments?_sort=createdAt&_order=desc');
-    return response.data;
+    const response = await api.get('/appointmentPayments?_sort=createdAt&_order=desc', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    console.log("RETORNO DE PAGAMENTOS DE AGENDAMENTOS", response.data);
+    return response.data.items;
   } catch (error) {
 
     return [];
@@ -387,6 +444,10 @@ export const atualizarPagamentoAgendamento = async (paymentId, dados) => {
       ...dados,
       updatedAt: new Date().toISOString(),
       ...(dados.status === 'paid' && !dados.paidAt && { paidAt: new Date().toISOString() })
+    }, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     });
     return response.data;
   } catch (error) {
@@ -394,7 +455,6 @@ export const atualizarPagamentoAgendamento = async (paymentId, dados) => {
     throw new Error('Não foi possível atualizar o pagamento');
   }
 };
-
 
 export const processarPagamento = async (dadosPagamento) => {
   try {
@@ -440,7 +500,11 @@ export const processarPagamento = async (dadosPagamento) => {
       pagamento.pixExpiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
     }
 
-    const response = await api.post('/payments', pagamento);
+    const response = await api.post('/payments', pagamento, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response.data;
   } catch (error) {
     console.error('Erro ao processar pagamento:', error);
@@ -448,10 +512,13 @@ export const processarPagamento = async (dadosPagamento) => {
   }
 };
 
-
 export const buscarHistoricoPagamentos = async (userId) => {
   try {
-    const response = await api.get(`/payments?userId=${userId}&_sort=createdAt&_order=desc`);
+    const response = await api.get(`/payments?userId=${userId}&_sort=createdAt&_order=desc`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response.data;
   } catch (error) {
     console.error('Erro ao buscar histórico:', error);
@@ -461,15 +528,17 @@ export const buscarHistoricoPagamentos = async (userId) => {
 
 export const buscarPagamento = async (paymentId) => {
   try {
-    const response = await api.get(`/payments/${paymentId}`);
+    const response = await api.get(`/payments/${paymentId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response.data;
   } catch (error) {
     console.error('Erro ao buscar pagamento:', error);
     throw new Error('Pagamento não encontrado');
   }
 };
-
-
 
 export const salvarMetodoPagamento = async (dadosMetodo) => {
   try {
@@ -485,7 +554,11 @@ export const salvarMetodoPagamento = async (dadosMetodo) => {
       createdAt: new Date().toISOString()
     };
 
-    const response = await api.post('/paymentMethods', metodoPagamento);
+    const response = await api.post('/payment-methods', metodoPagamento, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response.data;
   } catch (error) {
     console.error('Erro ao salvar método:', error);
@@ -495,7 +568,11 @@ export const salvarMetodoPagamento = async (dadosMetodo) => {
 
 export const buscarMetodosPagamento = async (userId) => {
   try {
-    const response = await api.get(`/paymentMethods?userId=${userId}`);
+    const response = await api.get(`/payment-methods?userId=${userId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response.data;
   } catch (error) {
     console.error('Erro ao buscar métodos:', error);
@@ -505,7 +582,11 @@ export const buscarMetodosPagamento = async (userId) => {
 
 export const deletarMetodoPagamento = async (methodId) => {
   try {
-    await api.delete(`/paymentMethods/${methodId}`);
+    await api.delete(`/payment-methods/${methodId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return true;
   } catch (error) {
     console.error('Erro ao deletar método:', error);
@@ -518,19 +599,25 @@ export const definirMetodoPadrao = async (userId, methodId) => {
     const metodos = await buscarMetodosPagamento(userId);
     await Promise.all(
       metodos.map(metodo =>
-        api.patch(`/paymentMethods/${metodo.id}`, { isDefault: false })
+        api.patch(`/payment-methods/${metodo.id}`, { isDefault: false }, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
       )
     );
 
-    const response = await api.patch(`/paymentMethods/${methodId}`, { isDefault: true });
+    const response = await api.patch(`/payment-methods/${methodId}`, { isDefault: true }, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response.data;
   } catch (error) {
-  
+
     throw new Error('Não foi possível definir método padrão');
   }
 };
-
-
 
 function validarDadosCartao(dadosCartao) {
   if (!dadosCartao || !dadosCartao.number || !dadosCartao.holderName || !dadosCartao.expiryDate || !dadosCartao.cvv) {
@@ -570,8 +657,6 @@ function gerarQrCodePix() {
   return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 }
 
-
-
 export function calcularEconomia(precoPlano, cortesPorMes) {
   const precoCorteRegular = 40;
   const custoMensal = precoCorteRegular * cortesPorMes;
@@ -595,14 +680,15 @@ export function formatarMoeda(valor) {
 export function formatarData(stringData) {
   return new Intl.DateTimeFormat('pt-BR').format(new Date(stringData));
 }
+
 export const enviarNotificacaoAssinatura = async (subscription) => {
   try {
     const dataVencimento = new Date(subscription.nextBillingDate).toLocaleDateString('pt-BR');
-    
+
     const mensagem = ` *Assinatura Ativada com Sucesso!* \n\nOlá *${subscription.userName}*!\n\nSua assinatura do plano *${subscription.planName}* foi ativada com sucesso!\n\n *Status:* Ativo\n *Valor:* R$ ${subscription.amount.toFixed(2).replace('.', ',')}\n *Próxima cobrança:* ${dataVencimento}\n *Forma de pagamento:* ${subscription.paymentMethod.toUpperCase()}\n${subscription.isRecurring ? ' *Renovação automática:* ' + (subscription.autoRenewal ? 'Ativada' : 'Desativada') : ''}\n\nObrigado por escolher nossos serviços!\n\n_Mensagem automática - Barbearia AdDev_`;
 
     let telefone = '5585982299499';
-    
+
     try {
       const userResponse = await api.get(`/users/${subscription.userId}`);
       const user = userResponse.data;
@@ -611,29 +697,29 @@ export const enviarNotificacaoAssinatura = async (subscription) => {
         if (!userPhone.startsWith('55')) {
           userPhone = '55' + userPhone;
         }
-      
+
         telefone = userPhone;
       }
     } catch (error) {
-     
+
     }
 
     const urlWhatsApp = `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
 
-  
-    
+
+
     if (typeof window !== 'undefined') {
       window.open(urlWhatsApp, '_blank');
     }
 
-    return { 
-      success: true, 
+    return {
+      success: true,
       url: urlWhatsApp,
       telefone: telefone,
       mensagem: mensagem
     };
   } catch (error) {
-   
+
     throw error;
   }
 };
@@ -653,16 +739,14 @@ export const testarNotificacaoWhatsApp = async () => {
   };
 
   try {
-   
+
     const result = await enviarNotificacaoAssinatura(subscriptionTeste);
-   
+
     return result;
   } catch (error) {
     throw error;
   }
 };
-
-
 
 export const criarVendaProduto = async (dados) => {
   try {
@@ -689,7 +773,11 @@ export const criarVendaProduto = async (dados) => {
 
 export const buscarTodasVendasProdutos = async () => {
   try {
-    const response = await api.get('/productSales');
+    const response = await api.get('/productSales', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },);
     return response.data;
   } catch (error) {
     console.error('Erro ao buscar vendas de produtos:', error);
@@ -702,6 +790,10 @@ export const atualizarVendaProduto = async (id, dados) => {
     const response = await api.patch(`/productSales/${id}`, {
       ...dados,
       updatedAt: new Date().toISOString(),
+    }, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     });
     return response.data;
   } catch (error) {

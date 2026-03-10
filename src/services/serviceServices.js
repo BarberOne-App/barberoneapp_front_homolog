@@ -1,33 +1,58 @@
 import api from "./api.js";
+import { getToken } from "./authService.js";
 
-const BASE = "/services";
-
+const BASE = "https://barbearia-addev-backend.onrender.com/services";
+const token = getToken();
 
 export async function getAllServices() {
-  const res = await api.get(BASE);
-  return res.data;
+  const res = await api.get(BASE, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    params: {
+      includeInactive: true,
+    },
+  });
+  console.log('getAllServices response:', res.data.items);
+  return res.data.items;
 }
 
 
 export async function getServiceById(id) {
-  const res = await api.get(`${BASE}/${id}`);
+  const res = await api.get(`${BASE}/${id}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
   return res.data;
 }
 
 
 export async function createService(serviceData) {
-  const res = await api.post(BASE, serviceData);
+  const res = await api.post(BASE, serviceData, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
   return res.data;
 }
 
 
 export async function updateService(id, serviceData) {
-  const res = await api.put(`${BASE}/${id}`, serviceData);
+  const res = await api.patch(`${BASE}/${id}`, serviceData, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
   return res.data;
 }
 
 
 export async function deleteService(id) {
-  const res = await api.delete(`${BASE}/${id}`);
+  const res = await api.delete(`${BASE}/${id}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
   return res.data;
 }

@@ -70,7 +70,7 @@ export default function Home() {
 
     carregarDados();
 
-  
+
     const urlParams = new URLSearchParams(window.location.search);
     const mpStatus = urlParams.get('status');
     if (mpStatus === 'failure') {
@@ -129,10 +129,10 @@ export default function Home() {
 
   const handleUpdateStock = async (productId, quantity) => {
     try {
-      const response = await fetch(`http://localhost:3000/products/${productId}`);
+      const response = await fetch(`https://barbearia-addev-backend.onrender.com/products/${productId}`);
       const product = await response.json();
       const newStock = Math.max(0, product.stock - quantity);
-      await fetch(`http://localhost:3000/products/${productId}`, {
+      await fetch(`https://barbearia-addev-backend.onrender.com/products/${productId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stock: newStock }),
@@ -169,7 +169,7 @@ export default function Home() {
     if (!pendingProductSale) return;
 
     if (payNow) {
-     
+
       setShowProductPaymentModal(false);
       setShowOnlinePaymentModal(true);
       return;
@@ -279,69 +279,68 @@ export default function Home() {
               Oferecemos uma variedade de serviços para você ficar impecável
             </p>
 
-          <div className="services__grid">
-  {services.map((service) => (
-    <div
-      key={service.id}
-      className="service-card"
-      onClick={() => handleServiceClick(service)}
-      style={{ cursor: 'pointer', transition: 'transform 0.2s' }}
-      onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-5px)')}
-      onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
-    >
-      <div className="service-card__image">
-        <img src={service.image} alt={service.name} />
-      </div>
-      <h3 className="service-card__name">{service.name}</h3>
-      <p
-        className={`service-card__price ${
-          activeSubscription && service.coveredByPlan
-            ? 'service-card__price--covered'
-            : ''
-        }`}
-      >
-        
-        {activeSubscription && service.coveredByPlan ? (
-          'Coberto pela assinatura'
-        ) : activeSubscription && 
-          service.promotionalPrice &&
-          service.promotionalPrice.trim() !== '' &&
-          service.promotionalPrice !== 'R$ 0,00' ? (
-          <span
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              alignItems: 'center',
-            }}
-          >
-            <span
-              style={{
-                textDecoration: 'line-through',
-                opacity: 0.6,
-                fontSize: '0.85em',
-                color: '#999',
-              }}
-            >
-              {service.price}
-            </span>
-            <span
-              style={{
-                color: '#22c55e',
-                fontWeight: 'bold',
-                fontSize: '1.1em',
-              }}
-            >
-              {service.promotionalPrice}
-            </span>
-          </span>
-        ) : (
-          service.price
-        )}
-      </p>
-    </div>
-  ))}
-</div>
+            <div className="services__grid">
+              {services.items.map((service) => (
+                <div
+                  key={service.id}
+                  className="service-card"
+                  onClick={() => handleServiceClick(service)}
+                  style={{ cursor: 'pointer', transition: 'transform 0.2s' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-5px)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+                >
+                  <div className="service-card__image">
+                    <img src={service.image} alt={service.name} />
+                  </div>
+                  <h3 className="service-card__name">{service.name}</h3>
+                  <p
+                    className={`service-card__price ${activeSubscription && service.coveredByPlan
+                        ? 'service-card__price--covered'
+                        : ''
+                      }`}
+                  >
+
+                    {activeSubscription && service.coveredByPlan ? (
+                      'Coberto pela assinatura'
+                    ) : activeSubscription &&
+                      service.promotionalPrice &&
+                      service.promotionalPrice.trim() !== '' &&
+                      service.promotionalPrice !== 'R$ 0,00' ? (
+                      <span
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '4px',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <span
+                          style={{
+                            textDecoration: 'line-through',
+                            opacity: 0.6,
+                            fontSize: '0.85em',
+                            color: '#999',
+                          }}
+                        >
+                          {service.price}
+                        </span>
+                        <span
+                          style={{
+                            color: '#22c55e',
+                            fontWeight: 'bold',
+                            fontSize: '1.1em',
+                          }}
+                        >
+                          {service.promotionalPrice}
+                        </span>
+                      </span>
+                    ) : (
+                      service.price
+                    )}
+                  </p>
+                </div>
+              ))}
+            </div>
 
             {!activeSubscription && (
               <div className="services__subscription-cta">

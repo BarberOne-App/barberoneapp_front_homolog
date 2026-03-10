@@ -1,9 +1,10 @@
 import api from "./api.js";
 
-const BASE = "/users";
+const BASE = "https://barbearia-addev-backend.onrender.com/users";
 
 export async function getUsers() {
   const res = await api.get(BASE);
+  console.log('getUsers response:', res);
   return res.data;
 }
 
@@ -12,14 +13,13 @@ export async function createUser(data) {
   return res.data;
 }
 
-export async function authUser(email, password) {
-  const res = await api.get(`${BASE}?email=${email}&password=${password}`);
-  return res.data.length > 0 ? res.data[0] : null;
-}
-
 export async function userExists(email) {
-  const res = await api.get(`${BASE}?email=${email}`);
-  return res.data.length > 0;
+  try {
+    const res = await api.get(`${BASE}/check-email/${encodeURIComponent(email)}`);
+    return res.data?.exists ?? false;
+  } catch {
+    return false;
+  }
 }
 
 export async function updateUser(userId, data) {

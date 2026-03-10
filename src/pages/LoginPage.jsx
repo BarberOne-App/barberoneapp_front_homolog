@@ -31,15 +31,14 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const user = await login(email, password);
-      if (!user) {
-        setToast({ show: true, message: 'Email ou senha inválidos.', type: 'danger' });
-        setLoading(false);
-        return;
-      }
       navigateByRole(user);
     } catch (error) {
-      console.error('Erro ao fazer login:', error);
-      setToast({ show: true, message: 'Erro ao tentar fazer login. Tente novamente.', type: 'danger' });
+      const msg =
+        error.response?.data?.message ||
+        (Array.isArray(error.response?.data) ? error.response.data.join(', ') : null) ||
+        'Email ou senha inválidos.';
+      setToast({ show: true, message: msg, type: 'danger' });
+    } finally {
       setLoading(false);
     }
   };
