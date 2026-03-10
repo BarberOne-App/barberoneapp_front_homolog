@@ -9,7 +9,7 @@ import { BARBERSHOPS, getActiveBarbershop, setActiveBarbershop } from '../layout
 import './ProfilePage.css';
 import Header from '../layout/Header.jsx';
 import { uploadImagem, criarPreviewLocal } from '../../services/cloudinaryService';
-  import ChangePasswordPanel from './Changepasswordpanel.jsx';
+import ChangePasswordPanel from './Changepasswordpanel.jsx';
 import { getToken } from '../../services/authService';
 
 export default function ProfilePage() {
@@ -46,23 +46,25 @@ export default function ProfilePage() {
       navigate('/login');
       return;
     }
-      // Renderiza imediatamente com dados da sessao local
+    // Renderiza imediatamente com dados da sessao local
     setCurrentUser(user);
     setNewName(user.name || '');
     loadUserPhoto(user.id);
     verificarAssinaturaAtiva(user.id);
     loadDependents(user.id);
 
-      // Busca permissoes atualizadas no backend e sincroniza sessao
-      fetch(`http://localhost:3000/users/${user.id}`)
-        .then(res => res.ok ? res.json() : null)
-        .then(freshUser => {
-          if (!freshUser) return;
-          const updatedUser = { ...user, permissions: freshUser.permissions ?? user.permissions };
-          setCurrentUser(updatedUser);
-          localStorage.setItem('session', JSON.stringify(updatedUser));
-        })
-        .catch(() => {});
+    // Busca permissoes atualizadas no backend e sincroniza sessao
+    fetch(`${import.meta.env.VITE_API_URL}/users/${user.id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(freshUser => {
+        if (!freshUser) return;
+        const updatedUser = { ...user, permissions: freshUser.permissions ?? user.permissions };
+        setCurrentUser(updatedUser);
+        localStorage.setItem('session', JSON.stringify(updatedUser));
+      })
+      .catch(() => { });
   }, []);
 
   const loadUserPhoto = async (userId) => {
@@ -272,7 +274,7 @@ export default function ProfilePage() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-           Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ photo: secure_url }),
       });
@@ -418,519 +420,519 @@ export default function ProfilePage() {
             </div>
           </div>
 
-            
-            <nav className="profile-sidebar__nav">
+
+          <nav className="profile-sidebar__nav">
+            <button
+              className={`profile-sidebar__nav-item ${activeTab === 'perfil' ? 'active' : ''}`}
+              onClick={() => setActiveTab('perfil')}
+            >
+              <FaUser /> Meu Perfil
+            </button>
+            <button
+              className={`profile-sidebar__nav-item ${activeTab === 'agendamentos' ? 'active' : ''}`}
+              onClick={() => navigateWithToast('/appointments', 'Indo para Meus Agendamentos...')}
+            >
+              <FaCalendarAlt /> Meus Agendamentos
+            </button>
+            {!isBarber && (activeSubscription ? (
               <button
-                className={`profile-sidebar__nav-item ${activeTab === 'perfil' ? 'active' : ''}`}
-                onClick={() => setActiveTab('perfil')}
+                className={`profile-sidebar__nav-item ${activeTab === 'assinatura' ? 'active' : ''}`}
+                onClick={() => setShowManageModal(true)}
               >
-                <FaUser /> Meu Perfil
+                <FaCreditCard /> Gerenciar Plano
               </button>
+            ) : (
               <button
-                className={`profile-sidebar__nav-item ${activeTab === 'agendamentos' ? 'active' : ''}`}
-                onClick={() => navigateWithToast('/appointments', 'Indo para Meus Agendamentos...')}
+                className="profile-sidebar__nav-item"
+                onClick={() => setShowSubscriptionModal(true)}
               >
-                <FaCalendarAlt /> Meus Agendamentos
+                <FaCreditCard /> Assinar Plano
               </button>
-              {!isBarber && (activeSubscription ? (
-                <button
-                  className={`profile-sidebar__nav-item ${activeTab === 'assinatura' ? 'active' : ''}`}
-                  onClick={() => setShowManageModal(true)}
-                >
-                  <FaCreditCard /> Gerenciar Plano
-                </button>
-              ) : (
-                <button
-                  className="profile-sidebar__nav-item"
-                  onClick={() => setShowSubscriptionModal(true)}
-                >
-                  <FaCreditCard /> Assinar Plano
-                </button>
-              ))}
-              {hasAdminAccess && (
-                <button
-                  className={`profile-sidebar__nav-item ${activeTab === 'admin' ? 'active' : ''}`}
-                  onClick={() => navigateWithToast('/admin', 'Indo para o Painel Admin...')}
-                >
-                  <FaShieldAlt /> Painel Admin
-                </button>
-              )}
+            ))}
+            {hasAdminAccess && (
               <button
-                className={`profile-sidebar__nav-item ${activeTab === 'senha' ? 'active' : ''}`}
-                onClick={() => setActiveTab('senha')}
+                className={`profile-sidebar__nav-item ${activeTab === 'admin' ? 'active' : ''}`}
+                onClick={() => navigateWithToast('/admin', 'Indo para o Painel Admin...')}
               >
-                <FaLock /> Mudar Senha
+                <FaShieldAlt /> Painel Admin
               </button>
-              <button
-                className="profile-sidebar__nav-item profile-sidebar__nav-item--logout"
-                onClick={handleLogout}
-              >
-                <FaSignOutAlt /> Sair
-              </button>
-            </nav>
-          </aside>
+            )}
+            <button
+              className={`profile-sidebar__nav-item ${activeTab === 'senha' ? 'active' : ''}`}
+              onClick={() => setActiveTab('senha')}
+            >
+              <FaLock /> Mudar Senha
+            </button>
+            <button
+              className="profile-sidebar__nav-item profile-sidebar__nav-item--logout"
+              onClick={handleLogout}
+            >
+              <FaSignOutAlt /> Sair
+            </button>
+          </nav>
+        </aside>
 
 
         <main className="profile-main">
           <div className="profile-main__header">
             <h1 className="profile-main__title">
-                {activeTab === 'senha' ? 'Mudar Senha' : 'Meu Perfil'}
-              </h1>
+              {activeTab === 'senha' ? 'Mudar Senha' : 'Meu Perfil'}
+            </h1>
             <p className="profile-main__subtitle">
-                {activeTab === 'senha' ? 'Altere a senha da sua conta' : 'Gerencie suas informações pessoais'}
-              </p>
+              {activeTab === 'senha' ? 'Altere a senha da sua conta' : 'Gerencie suas informações pessoais'}
+            </p>
           </div>
 
-            {activeTab === 'senha' ? (
-              <div className="profile-cards">
-                <ChangePasswordPanel currentUser={currentUser} onToast={showToast} />
-              </div>
-            ) : (
+          {activeTab === 'senha' ? (
+            <div className="profile-cards">
+              <ChangePasswordPanel currentUser={currentUser} onToast={showToast} />
+            </div>
+          ) : (
             <>
 
-          <div className="profile-cards">
+              <div className="profile-cards">
 
-            <div className="profile-card">
-              <div className="profile-card__label">
-                <FaUser className="profile-card__icon" />
-                Nome
-              </div>
-              {editingName ? (
-                <div className="profile-card__edit-row">
-                  <input
-                    className="profile-card__input"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
-                    autoFocus
-                  />
-                  <div className="profile-card__edit-actions">
-                    <button className="btn btn--confirm btn--sm" onClick={handleSaveName} disabled={savingName}>
-                      {savingName ? <span className="spinner" /> : <FaCheck />}
-                    </button>
-                    <button className="btn btn--cancel btn--sm" onClick={() => { setEditingName(false); setNewName(currentUser?.name || ''); }}>
-                      <FaTimes />
-                    </button>
+                <div className="profile-card">
+                  <div className="profile-card__label">
+                    <FaUser className="profile-card__icon" />
+                    Nome
+                  </div>
+                  {editingName ? (
+                    <div className="profile-card__edit-row">
+                      <input
+                        className="profile-card__input"
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
+                        autoFocus
+                      />
+                      <div className="profile-card__edit-actions">
+                        <button className="btn btn--confirm btn--sm" onClick={handleSaveName} disabled={savingName}>
+                          {savingName ? <span className="spinner" /> : <FaCheck />}
+                        </button>
+                        <button className="btn btn--cancel btn--sm" onClick={() => { setEditingName(false); setNewName(currentUser?.name || ''); }}>
+                          <FaTimes />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="profile-card__value-row">
+                      <span className="profile-card__value">{currentUser?.name}</span>
+                      <button className="profile-card__edit-btn" onClick={() => setEditingName(true)}>
+                        <FaEdit /> Editar
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+
+                <div className="profile-card">
+                  <div className="profile-card__label">
+                    <FaEnvelope className="profile-card__icon" />
+                    E-mail
+                  </div>
+                  <div className="profile-card__value-row">
+                    <span className="profile-card__value">{currentUser?.email}</span>
                   </div>
                 </div>
-              ) : (
-                <div className="profile-card__value-row">
-                  <span className="profile-card__value">{currentUser?.name}</span>
-                  <button className="profile-card__edit-btn" onClick={() => setEditingName(true)}>
-                    <FaEdit /> Editar
-                  </button>
+
+
+                <div className="profile-card">
+                  <div className="profile-card__label">
+                    <FaShieldAlt className="profile-card__icon" />
+                    Tipo de Conta
+                  </div>
+                  <div className="profile-card__value-row">
+                    <span className={`profile-sidebar__badge ${roleBadge.className}`} style={{ fontSize: '0.9rem' }}>
+                      {roleBadge.label}
+                    </span>
+                  </div>
                 </div>
-              )}
-            </div>
 
 
-            <div className="profile-card">
-              <div className="profile-card__label">
-                <FaEnvelope className="profile-card__icon" />
-                E-mail
-              </div>
-              <div className="profile-card__value-row">
-                <span className="profile-card__value">{currentUser?.email}</span>
-              </div>
-            </div>
+                {!isAdmin && !isReceptionist && !isBarber && (
+                  <div className="profile-card">
+                    <div className="profile-card__label">
+                      <FaStore className="profile-card__icon" />
+                      Barbearia
+                    </div>
+                    <div className="profile-card__value-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.75rem' }}>
+                      <span className="profile-card__value" style={{ color: '#a8a8a8', fontSize: '0.85rem' }}>
+                        Barbearia selecionada: <strong style={{ color: '#fff' }}>{activeBarbershop.name}</strong>
+                      </span>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        {BARBERSHOPS.map((shop) => (
+                          <button
+                            key={shop.id}
+                            onClick={() => handleSelectBarbershop(shop)}
+                            style={{
+                              padding: '6px 14px',
+                              borderRadius: '6px',
+                              border: activeBarbershop.id === shop.id
+                                ? '1px solid #ff7a1a'
+                                : '1px solid rgba(255,255,255,0.15)',
+                              background: activeBarbershop.id === shop.id
+                                ? 'rgba(255,122,26,0.15)'
+                                : 'transparent',
+                              color: activeBarbershop.id === shop.id ? '#ff7a1a' : '#a8a8a8',
+                              fontWeight: activeBarbershop.id === shop.id ? 700 : 400,
+                              fontSize: '0.82rem',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.3rem',
+                              transition: 'all 0.2s',
+                            }}
+                          >
+                            {activeBarbershop.id === shop.id && <FaCheck style={{ fontSize: '0.7rem' }} />}
+                            {shop.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
+                {!isAdmin && !isReceptionist && !isBarber && (
+                  <div className="profile-card" style={{ gridColumn: '1 / -1' }}>
+                    <div className="profile-card__label" style={{ marginBottom: '1rem' }}>
+                      <FaUsers className="profile-card__icon" />
+                      Dependentes
+                      <span style={{ marginLeft: 'auto', color: '#666', fontSize: '0.75rem', fontWeight: 400 }}>
+                        {dependents.length}/{MAX_DEPENDENTS} cadastrados
+                      </span>
+                    </div>
 
-            <div className="profile-card">
-              <div className="profile-card__label">
-                <FaShieldAlt className="profile-card__icon" />
-                Tipo de Conta
-              </div>
-              <div className="profile-card__value-row">
-                <span className={`profile-sidebar__badge ${roleBadge.className}`} style={{ fontSize: '0.9rem' }}>
-                  {roleBadge.label}
-                </span>
-              </div>
-            </div>
+                    {dependents.length === 0 && !showDependentForm && (
+                      <p style={{ color: '#666', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+                        Nenhum dependente cadastrado ainda.
+                      </p>
+                    )}
 
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: dependents.length > 0 ? '1rem' : 0 }}>
+                      {dependents.map((dep) => (
+                        <div key={dep.id} style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          background: '#111', border: '1px solid #2a2a2a',
+                          borderRadius: 10, padding: '0.7rem 1rem',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <div style={{
+                              width: 38, height: 38, borderRadius: '50%',
+                              background: 'rgba(255,122,26,0.15)', border: '1px solid rgba(255,122,26,0.3)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              color: '#ff7a1a', fontWeight: 700, fontSize: '1rem', flexShrink: 0,
+                            }}>
+                              {dep.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p style={{ margin: 0, color: '#fff', fontWeight: 600, fontSize: '0.9rem' }}>{dep.name}</p>
+                              <p style={{ margin: 0, color: '#777', fontSize: '0.76rem', marginTop: 2 }}>
+                                {dep.age} anos · CPF: {dep.cpf}
+                              </p>
+                              <p style={{ margin: 0, color: '#555', fontSize: '0.72rem', marginTop: 1, fontStyle: 'italic' }}>
+                                ⚠️ Não incluso no plano · agendamento individual necessário
+                              </p>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.4rem' }}>
+                            <button
+                              onClick={() => handleOpenEditDependent(dep)}
+                              style={{
+                                background: 'transparent', border: '1px solid rgba(255,122,26,0.3)',
+                                color: '#ff7a1a', borderRadius: 7, padding: '5px 10px',
+                                cursor: 'pointer', fontSize: '0.78rem',
+                              }}
+                            >
+                              <FaEdit />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteDependent(dep.id)}
+                              disabled={deletingDependentId === dep.id}
+                              style={{
+                                background: 'transparent', border: '1px solid rgba(231,76,60,0.3)',
+                                color: '#e74c3c', borderRadius: 7, padding: '5px 10px',
+                                cursor: 'pointer', fontSize: '0.78rem',
+                                opacity: deletingDependentId === dep.id ? 0.5 : 1,
+                              }}
+                            >
+                              <FaTrash />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
 
-            {!isAdmin && !isReceptionist && !isBarber && (
-              <div className="profile-card">
-                <div className="profile-card__label">
-                  <FaStore className="profile-card__icon" />
-                  Barbearia
-                </div>
-                <div className="profile-card__value-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.75rem' }}>
-                  <span className="profile-card__value" style={{ color: '#a8a8a8', fontSize: '0.85rem' }}>
-                    Barbearia selecionada: <strong style={{ color: '#fff' }}>{activeBarbershop.name}</strong>
-                  </span>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                    {BARBERSHOPS.map((shop) => (
+                    {showDependentForm && (
+                      <div style={{
+                        background: '#111', border: '1px solid #2a2a2a',
+                        borderRadius: 10, padding: '1rem', marginBottom: '0.75rem',
+                      }}>
+                        <p style={{ color: '#a8a8a8', fontSize: '0.82rem', marginBottom: '0.75rem', fontWeight: 600 }}>
+                          {editingDependent ? 'Editar dependente' : 'Novo dependente'}
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          <input
+                            placeholder="Nome completo *"
+                            value={dependentForm.name}
+                            onChange={(e) => handleDependentFormChange('name', e.target.value)}
+                            style={{
+                              background: '#1a1a1a', border: '1px solid #333', borderRadius: 7,
+                              padding: '8px 12px', color: '#fff', fontSize: '0.85rem', outline: 'none',
+                            }}
+                          />
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <input
+                              placeholder="Idade *"
+                              value={dependentForm.age}
+                              onChange={(e) => handleDependentFormChange('age', e.target.value)}
+                              style={{
+                                background: '#1a1a1a', border: '1px solid #333', borderRadius: 7,
+                                padding: '8px 12px', color: '#fff', fontSize: '0.85rem', outline: 'none',
+                                width: '30%',
+                              }}
+                            />
+                            <input
+                              placeholder="CPF (000.000.000-00) *"
+                              value={dependentForm.cpf}
+                              onChange={(e) => handleDependentFormChange('cpf', e.target.value)}
+                              style={{
+                                background: '#1a1a1a', border: '1px solid #333', borderRadius: 7,
+                                padding: '8px 12px', color: '#fff', fontSize: '0.85rem', outline: 'none',
+                                flex: 1,
+                              }}
+                            />
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+                            <button
+                              onClick={handleSaveDependent}
+                              disabled={savingDependent}
+                              style={{
+                                background: '#22c55e', border: 'none', color: '#fff',
+                                borderRadius: 7, padding: '7px 16px', cursor: 'pointer',
+                                fontWeight: 700, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem',
+                                opacity: savingDependent ? 0.6 : 1,
+                              }}
+                            >
+                              {savingDependent ? <span className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} /> : <FaCheck />}
+                              Salvar
+                            </button>
+                            <button
+                              onClick={() => setShowDependentForm(false)}
+                              style={{
+                                background: 'transparent', border: '1px solid rgba(231,76,60,0.4)',
+                                color: '#e74c3c', borderRadius: 7, padding: '7px 14px',
+                                cursor: 'pointer', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem',
+                              }}
+                            >
+                              <FaTimes /> Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {!showDependentForm && dependents.length < MAX_DEPENDENTS && (
                       <button
-                        key={shop.id}
-                        onClick={() => handleSelectBarbershop(shop)}
+                        onClick={handleOpenNewDependent}
                         style={{
-                          padding: '6px 14px',
-                          borderRadius: '6px',
-                          border: activeBarbershop.id === shop.id
-                            ? '1px solid #ff7a1a'
-                            : '1px solid rgba(255,255,255,0.15)',
-                          background: activeBarbershop.id === shop.id
-                            ? 'rgba(255,122,26,0.15)'
-                            : 'transparent',
-                          color: activeBarbershop.id === shop.id ? '#ff7a1a' : '#a8a8a8',
-                          fontWeight: activeBarbershop.id === shop.id ? 700 : 400,
-                          fontSize: '0.82rem',
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.3rem',
-                          transition: 'all 0.2s',
+                          display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                          background: 'transparent', border: '1px solid rgba(255,122,26,0.4)',
+                          color: '#ff7a1a', borderRadius: 7, padding: '6px 14px',
+                          cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600,
                         }}
                       >
-                        {activeBarbershop.id === shop.id && <FaCheck style={{ fontSize: '0.7rem' }} />}
-                        {shop.name}
+                        <FaPlus style={{ fontSize: '0.7rem' }} /> Adicionar dependente
                       </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+                    )}
 
-            {!isAdmin && !isReceptionist && !isBarber && (
-              <div className="profile-card" style={{ gridColumn: '1 / -1' }}>
-                <div className="profile-card__label" style={{ marginBottom: '1rem' }}>
-                  <FaUsers className="profile-card__icon" />
-                  Dependentes
-                  <span style={{ marginLeft: 'auto', color: '#666', fontSize: '0.75rem', fontWeight: 400 }}>
-                    {dependents.length}/{MAX_DEPENDENTS} cadastrados
-                  </span>
-                </div>
-
-                {dependents.length === 0 && !showDependentForm && (
-                  <p style={{ color: '#666', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
-                    Nenhum dependente cadastrado ainda.
-                  </p>
-                )}
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: dependents.length > 0 ? '1rem' : 0 }}>
-                  {dependents.map((dep) => (
-                    <div key={dep.id} style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      background: '#111', border: '1px solid #2a2a2a',
-                      borderRadius: 10, padding: '0.7rem 1rem',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <div style={{
-                          width: 38, height: 38, borderRadius: '50%',
-                          background: 'rgba(255,122,26,0.15)', border: '1px solid rgba(255,122,26,0.3)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: '#ff7a1a', fontWeight: 700, fontSize: '1rem', flexShrink: 0,
-                        }}>
-                          {dep.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p style={{ margin: 0, color: '#fff', fontWeight: 600, fontSize: '0.9rem' }}>{dep.name}</p>
-                          <p style={{ margin: 0, color: '#777', fontSize: '0.76rem', marginTop: 2 }}>
-                            {dep.age} anos · CPF: {dep.cpf}
-                          </p>
-                          <p style={{ margin: 0, color: '#555', fontSize: '0.72rem', marginTop: 1, fontStyle: 'italic' }}>
-                            ⚠️ Não incluso no plano · agendamento individual necessário
-                          </p>
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', gap: '0.4rem' }}>
-                        <button
-                          onClick={() => handleOpenEditDependent(dep)}
-                          style={{
-                            background: 'transparent', border: '1px solid rgba(255,122,26,0.3)',
-                            color: '#ff7a1a', borderRadius: 7, padding: '5px 10px',
-                            cursor: 'pointer', fontSize: '0.78rem',
-                          }}
-                        >
-                          <FaEdit />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteDependent(dep.id)}
-                          disabled={deletingDependentId === dep.id}
-                          style={{
-                            background: 'transparent', border: '1px solid rgba(231,76,60,0.3)',
-                            color: '#e74c3c', borderRadius: 7, padding: '5px 10px',
-                            cursor: 'pointer', fontSize: '0.78rem',
-                            opacity: deletingDependentId === dep.id ? 0.5 : 1,
-                          }}
-                        >
-                          <FaTrash />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {showDependentForm && (
-                  <div style={{
-                    background: '#111', border: '1px solid #2a2a2a',
-                    borderRadius: 10, padding: '1rem', marginBottom: '0.75rem',
-                  }}>
-                    <p style={{ color: '#a8a8a8', fontSize: '0.82rem', marginBottom: '0.75rem', fontWeight: 600 }}>
-                      {editingDependent ? 'Editar dependente' : 'Novo dependente'}
-                    </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      <input
-                        placeholder="Nome completo *"
-                        value={dependentForm.name}
-                        onChange={(e) => handleDependentFormChange('name', e.target.value)}
-                        style={{
-                          background: '#1a1a1a', border: '1px solid #333', borderRadius: 7,
-                          padding: '8px 12px', color: '#fff', fontSize: '0.85rem', outline: 'none',
-                        }}
-                      />
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <input
-                          placeholder="Idade *"
-                          value={dependentForm.age}
-                          onChange={(e) => handleDependentFormChange('age', e.target.value)}
-                          style={{
-                            background: '#1a1a1a', border: '1px solid #333', borderRadius: 7,
-                            padding: '8px 12px', color: '#fff', fontSize: '0.85rem', outline: 'none',
-                            width: '30%',
-                          }}
-                        />
-                        <input
-                          placeholder="CPF (000.000.000-00) *"
-                          value={dependentForm.cpf}
-                          onChange={(e) => handleDependentFormChange('cpf', e.target.value)}
-                          style={{
-                            background: '#1a1a1a', border: '1px solid #333', borderRadius: 7,
-                            padding: '8px 12px', color: '#fff', fontSize: '0.85rem', outline: 'none',
-                            flex: 1,
-                          }}
-                        />
-                      </div>
-                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
-                        <button
-                          onClick={handleSaveDependent}
-                          disabled={savingDependent}
-                          style={{
-                            background: '#22c55e', border: 'none', color: '#fff',
-                            borderRadius: 7, padding: '7px 16px', cursor: 'pointer',
-                            fontWeight: 700, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem',
-                            opacity: savingDependent ? 0.6 : 1,
-                          }}
-                        >
-                          {savingDependent ? <span className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} /> : <FaCheck />}
-                          Salvar
-                        </button>
-                        <button
-                          onClick={() => setShowDependentForm(false)}
-                          style={{
-                            background: 'transparent', border: '1px solid rgba(231,76,60,0.4)',
-                            color: '#e74c3c', borderRadius: 7, padding: '7px 14px',
-                            cursor: 'pointer', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem',
-                          }}
-                        >
-                          <FaTimes /> Cancelar
-                        </button>
-                      </div>
-                    </div>
+                    {!showDependentForm && dependents.length >= MAX_DEPENDENTS && (
+                      <p style={{ color: '#666', fontSize: '0.78rem', fontStyle: 'italic' }}>
+                        Limite de {MAX_DEPENDENTS} dependentes atingido.
+                      </p>
+                    )}
                   </div>
                 )}
 
-                {!showDependentForm && dependents.length < MAX_DEPENDENTS && (
-                  <button
-                    onClick={handleOpenNewDependent}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-                      background: 'transparent', border: '1px solid rgba(255,122,26,0.4)',
-                      color: '#ff7a1a', borderRadius: 7, padding: '6px 14px',
-                      cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600,
-                    }}
-                  >
-                    <FaPlus style={{ fontSize: '0.7rem' }} /> Adicionar dependente
-                  </button>
-                )}
-
-                {!showDependentForm && dependents.length >= MAX_DEPENDENTS && (
-                  <p style={{ color: '#666', fontSize: '0.78rem', fontStyle: 'italic' }}>
-                    Limite de {MAX_DEPENDENTS} dependentes atingido.
-                  </p>
-                )}
-              </div>
-            )}
-
-            <div className="profile-card profile-card--photo">                <div className="profile-card__label">
-              <FaCamera className="profile-card__icon" />
-              Foto de Perfil
-            </div>
-              <div className="profile-card__photo-content">
-                <div className="profile-card__current-photo">
-                  {displayPhoto ? (
-                    <img
-                      src={displayPhoto}
-                      alt="Foto atual"
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                  ) : (
-                    <div className="profile-card__no-photo">{initials}</div>
-                  )}
+                <div className="profile-card profile-card--photo">                <div className="profile-card__label">
+                  <FaCamera className="profile-card__icon" />
+                  Foto de Perfil
                 </div>
-                <div className="profile-card__photo-info" style={{ flex: 1 }}>
-                  {photoPreview ? (
-
-                    <>
-                      <p style={{ color: '#f59e0b', fontSize: '0.85rem', marginBottom: '0.75rem', fontWeight: 600 }}>
-                        Gostou da foto?
-                      </p>
-                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                        <button
-                          onClick={handleConfirmUpload}
-                          disabled={uploadingPhoto}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-                            background: '#22c55e', border: 'none', color: '#fff',
-                            borderRadius: '6px', padding: '6px 14px',
-                            cursor: uploadingPhoto ? 'not-allowed' : 'pointer',
-                            fontWeight: 700, fontSize: '0.82rem',
-                            opacity: uploadingPhoto ? 0.6 : 1,
-                          }}
-                        >
-                          {uploadingPhoto
-                            ? <><span className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} /> Enviando</>
-                            : <><FaCheck /> Salvar</>
-                          }
-                        </button>
-                        <button
-                          onClick={handleCancelPreview}
-                          disabled={uploadingPhoto}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-                            background: 'transparent', border: '1px solid rgba(231,76,60,0.4)',
-                            color: '#e74c3c', borderRadius: '6px', padding: '6px 14px',
-                            cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem',
-                          }}
-                        >
-                          <FaTimes /> Cancelar
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-
-                    <>
-                      <p style={{ color: '#a8a8a8', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
-                        {profilePhoto ? 'Foto de perfil definida' : 'Nenhuma foto definida ainda'}
-                      </p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                        <label
-                          htmlFor="photo-upload-card"
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-                            background: 'transparent', border: '1px solid rgba(255,122,26,0.4)',
-                            color: '#ff7a1a', borderRadius: '6px', padding: '5px 12px',
-                            cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600,
-                          }}
-                        >
-                          <FaCamera style={{ fontSize: '0.7rem' }} />
-                          {profilePhoto ? 'Alterar' : 'Enviar foto'}
-                        </label>
-                        {photoSuccess && (
-                          <span style={{ color: '#22c55e', fontSize: '0.78rem' }}>
-                            <FaCheck /> Atualizada!
-                          </span>
-                        )}
-                      </div>
-                      <p style={{ color: '#555', fontSize: '0.72rem', marginTop: '0.4rem' }}>
-                        JPG, PNG, GIF, WebP • Máx. 5MB
-                      </p>
-                    </>
-                  )}
-                  <input
-                    id="photo-upload-card"
-                    type="file"
-                    accept="image/jpeg,image/png,image/gif,image/webp"
-                    style={{ display: 'none' }}
-                    onChange={handleFileSelect}
-                    disabled={uploadingPhoto}
-                  />
-                </div>
-              </div>
-            </div>
-
-
-              {!isBarber && (
-            <div className="profile-card profile-card--subscription">
-              <div className="profile-card__label">
-                <FaCreditCard className="profile-card__icon" />
-                {activeSubscription ? 'Plano Ativo' : 'Assinatura'}
-              </div>
-              <div className="profile-card__value-row">
-                {activeSubscription ? (
-                  <>
-                    <div>
-                      <span className="profile-sidebar__plan-badge" style={{ fontSize: '0.95rem' }}>
-                        ✦ {activeSubscription.planName}
-                      </span>
-                      {activeSubscription.status && (
-                        <p style={{ color: activeSubscription.status === 'cancel_pending' ? '#f59e0b' : '#22c55e', fontSize: '0.85rem', marginTop: '0.4rem' }}>
-                          {activeSubscription.status === 'cancel_pending'
-                            ? `Ativo até ${new Date(activeSubscription.nextBillingDate).toLocaleDateString('pt-BR')} — não será renovado`
-                            : 'Ativo'}
-                        </p>
+                  <div className="profile-card__photo-content">
+                    <div className="profile-card__current-photo">
+                      {displayPhoto ? (
+                        <img
+                          src={displayPhoto}
+                          alt="Foto atual"
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <div className="profile-card__no-photo">{initials}</div>
                       )}
                     </div>
-                    <button
-                      className="btn btn--primary"
-                      onClick={() => setShowManageModal(true)}
-                      style={{ width: 'fit-content' }}
-                    >
-                      Gerenciar
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <span className="profile-card__value" style={{ color: '#a8a8a8' }}>
-                      Você não possui nenhum plano ativo
-                    </span>
-                    <button
-                      className="btn btn--primary"
-                      onClick={() => setShowSubscriptionModal(true)}
-                      style={{ width: 'fit-content' }}
-                    >
-                      Assinar Plano
-                    </button>
-                  </>
+                    <div className="profile-card__photo-info" style={{ flex: 1 }}>
+                      {photoPreview ? (
+
+                        <>
+                          <p style={{ color: '#f59e0b', fontSize: '0.85rem', marginBottom: '0.75rem', fontWeight: 600 }}>
+                            Gostou da foto?
+                          </p>
+                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                            <button
+                              onClick={handleConfirmUpload}
+                              disabled={uploadingPhoto}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                                background: '#22c55e', border: 'none', color: '#fff',
+                                borderRadius: '6px', padding: '6px 14px',
+                                cursor: uploadingPhoto ? 'not-allowed' : 'pointer',
+                                fontWeight: 700, fontSize: '0.82rem',
+                                opacity: uploadingPhoto ? 0.6 : 1,
+                              }}
+                            >
+                              {uploadingPhoto
+                                ? <><span className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} /> Enviando</>
+                                : <><FaCheck /> Salvar</>
+                              }
+                            </button>
+                            <button
+                              onClick={handleCancelPreview}
+                              disabled={uploadingPhoto}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                                background: 'transparent', border: '1px solid rgba(231,76,60,0.4)',
+                                color: '#e74c3c', borderRadius: '6px', padding: '6px 14px',
+                                cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem',
+                              }}
+                            >
+                              <FaTimes /> Cancelar
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+
+                        <>
+                          <p style={{ color: '#a8a8a8', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+                            {profilePhoto ? 'Foto de perfil definida' : 'Nenhuma foto definida ainda'}
+                          </p>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                            <label
+                              htmlFor="photo-upload-card"
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                                background: 'transparent', border: '1px solid rgba(255,122,26,0.4)',
+                                color: '#ff7a1a', borderRadius: '6px', padding: '5px 12px',
+                                cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600,
+                              }}
+                            >
+                              <FaCamera style={{ fontSize: '0.7rem' }} />
+                              {profilePhoto ? 'Alterar' : 'Enviar foto'}
+                            </label>
+                            {photoSuccess && (
+                              <span style={{ color: '#22c55e', fontSize: '0.78rem' }}>
+                                <FaCheck /> Atualizada!
+                              </span>
+                            )}
+                          </div>
+                          <p style={{ color: '#555', fontSize: '0.72rem', marginTop: '0.4rem' }}>
+                            JPG, PNG, GIF, WebP • Máx. 5MB
+                          </p>
+                        </>
+                      )}
+                      <input
+                        id="photo-upload-card"
+                        type="file"
+                        accept="image/jpeg,image/png,image/gif,image/webp"
+                        style={{ display: 'none' }}
+                        onChange={handleFileSelect}
+                        disabled={uploadingPhoto}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+
+                {!isBarber && (
+                  <div className="profile-card profile-card--subscription">
+                    <div className="profile-card__label">
+                      <FaCreditCard className="profile-card__icon" />
+                      {activeSubscription ? 'Plano Ativo' : 'Assinatura'}
+                    </div>
+                    <div className="profile-card__value-row">
+                      {activeSubscription ? (
+                        <>
+                          <div>
+                            <span className="profile-sidebar__plan-badge" style={{ fontSize: '0.95rem' }}>
+                              ✦ {activeSubscription.planName}
+                            </span>
+                            {activeSubscription.status && (
+                              <p style={{ color: activeSubscription.status === 'cancel_pending' ? '#f59e0b' : '#22c55e', fontSize: '0.85rem', marginTop: '0.4rem' }}>
+                                {activeSubscription.status === 'cancel_pending'
+                                  ? `Ativo até ${new Date(activeSubscription.nextBillingDate).toLocaleDateString('pt-BR')} — não será renovado`
+                                  : 'Ativo'}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            className="btn btn--primary"
+                            onClick={() => setShowManageModal(true)}
+                            style={{ width: 'fit-content' }}
+                          >
+                            Gerenciar
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="profile-card__value" style={{ color: '#a8a8a8' }}>
+                            Você não possui nenhum plano ativo
+                          </span>
+                          <button
+                            className="btn btn--primary"
+                            onClick={() => setShowSubscriptionModal(true)}
+                            style={{ width: 'fit-content' }}
+                          >
+                            Assinar Plano
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
-            </div>
-              )}
-          </div>
 
 
-          <div className="profile-quick-actions">
-            <h3 className="profile-quick-actions__title">Ações Rápidas</h3>
-            <div className="profile-quick-actions__grid">
-              <button className="profile-action-card" onClick={() => navigateWithToast('/appointments', 'Indo para Meus Agendamentos...')}>
-                <FaCalendarAlt className="profile-action-card__icon" />
-                <span>Meus Agendamentos</span>
-              </button>
-              {!isBarber && (activeSubscription ? (
-                <button className="profile-action-card" onClick={() => setShowManageModal(true)}>
-                  <FaCreditCard className="profile-action-card__icon" />
-                  <span>Gerenciar Plano</span>
-                </button>
-              ) : (
-                <button className="profile-action-card" onClick={() => setShowSubscriptionModal(true)}>
-                  <FaCreditCard className="profile-action-card__icon" />
-                  <span>Assinar Plano</span>
-                </button>
-              ))}
-              {hasAdminAccess && (
-                <button className="profile-action-card profile-action-card--admin" onClick={() => navigateWithToast('/admin', 'Indo para o Painel Admin...')}>
-                  <FaShieldAlt className="profile-action-card__icon" />
-                  <span>Painel Admin</span>
-                </button>
-              )}
-              <button className="profile-action-card profile-action-card--logout" onClick={handleLogout}>
-                <FaSignOutAlt className="profile-action-card__icon" />
-                <span>Sair da Conta</span>
-              </button>
-            </div>
-          </div>
+              <div className="profile-quick-actions">
+                <h3 className="profile-quick-actions__title">Ações Rápidas</h3>
+                <div className="profile-quick-actions__grid">
+                  <button className="profile-action-card" onClick={() => navigateWithToast('/appointments', 'Indo para Meus Agendamentos...')}>
+                    <FaCalendarAlt className="profile-action-card__icon" />
+                    <span>Meus Agendamentos</span>
+                  </button>
+                  {!isBarber && (activeSubscription ? (
+                    <button className="profile-action-card" onClick={() => setShowManageModal(true)}>
+                      <FaCreditCard className="profile-action-card__icon" />
+                      <span>Gerenciar Plano</span>
+                    </button>
+                  ) : (
+                    <button className="profile-action-card" onClick={() => setShowSubscriptionModal(true)}>
+                      <FaCreditCard className="profile-action-card__icon" />
+                      <span>Assinar Plano</span>
+                    </button>
+                  ))}
+                  {hasAdminAccess && (
+                    <button className="profile-action-card profile-action-card--admin" onClick={() => navigateWithToast('/admin', 'Indo para o Painel Admin...')}>
+                      <FaShieldAlt className="profile-action-card__icon" />
+                      <span>Painel Admin</span>
+                    </button>
+                  )}
+                  <button className="profile-action-card profile-action-card--logout" onClick={handleLogout}>
+                    <FaSignOutAlt className="profile-action-card__icon" />
+                    <span>Sair da Conta</span>
+                  </button>
+                </div>
+              </div>
             </>
-            )}
+          )}
         </main>
       </div>
 

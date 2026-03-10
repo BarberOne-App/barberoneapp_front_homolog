@@ -2,8 +2,6 @@ import { useState } from 'react';
 import { FaLock, FaEye, FaEyeSlash, FaCheck, FaTimes } from 'react-icons/fa';
 import './ChangePasswordPanel.css';
 
-const API_URL = 'http://localhost:3000';
-
 export default function ChangePasswordPanel({ currentUser, onToast }) {
   const [senhaAtual, setSenhaAtual]         = useState('');
   const [novaSenha, setNovaSenha]           = useState('');
@@ -37,7 +35,7 @@ export default function ChangePasswordPanel({ currentUser, onToast }) {
 
     setSalvando(true);
     try {
-      const res = await fetch(`${API_URL}/users/${currentUser.id}`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/users/${currentUser.id}`);
       if (!res.ok) throw new Error('Erro ao buscar usuário.');
       const userData = await res.json();
 
@@ -46,7 +44,7 @@ export default function ChangePasswordPanel({ currentUser, onToast }) {
         return;
       }
 
-      const patchRes = await fetch(`${API_URL}/users/${currentUser.id}`, {
+      const patchRes = await fetch(`${import.meta.env.VITE_API_URL}/users/${currentUser.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: novaSenha }),

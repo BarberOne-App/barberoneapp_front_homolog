@@ -198,7 +198,6 @@ export default function AdminPage() {
 
   const token = getToken();
 
-
   const isAdmin = useMemo(() => currentUser?.role === 'admin' || currentUser?.isAdmin === true, [currentUser?.role, currentUser?.isAdmin]);
   const isReceptionist = useMemo(() => currentUser?.role === 'receptionist', [currentUser?.role]);
   const hasAdminVisibility = useMemo(() => isAdmin || isReceptionist || (currentUser?.permissions?.viewAdmin), [isAdmin, isReceptionist, currentUser?.permissions?.viewAdmin]);
@@ -229,7 +228,7 @@ export default function AdminPage() {
     manageSettings: { label: 'Alterar Configurações (PIX, Termos)', category: 'Configurações', icon: '⚙️' },
     manageGallery: { label: 'Gerenciar Galeria de Fotos', category: 'Conteúdo', icon: '🖼️' },
     managePayroll: { label: 'Ver Pagamentos de Funcionários', category: 'Financeiro', icon: '💰' },
-  manageBlockedDates: { label: 'Bloquear Dias e Horários', category: 'Agendamentos', icon: '🚫' },
+    manageBlockedDates: { label: 'Bloquear Dias e Horários', category: 'Agendamentos', icon: '🚫' },
   };
 
   const hasPermission = (permission) => {
@@ -758,7 +757,6 @@ export default function AdminPage() {
   };
 
   const loadData = useCallback(async () => {
-    console.log("ENTREI NO LOADATA")
     try {
       const [barbersData, appointmentsData, subscriptionsData, paymentsData, productsData, servicesData, productSalesData] = await Promise.all([
         getBarbers(),
@@ -777,7 +775,6 @@ export default function AdminPage() {
       // });
 
       const usersResponse = await getUsers();
-      console.log("RETORNO DE USERS", usersResponse);
       const allUsers = usersResponse.items;
       const allEmployees = allUsers.filter(
         (user) => user.role === 'barber' || user.role === 'receptionist' || user.role === 'admin'
@@ -881,7 +878,11 @@ export default function AdminPage() {
     }
 
     // Busca permissões frescas do backend antes de checar acesso
-    fetch(`http://localhost:3000/users/${currentUser.id}`)
+    fetch(`${import.meta.env.VITE_API_URL}/users/${currentUser.id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
       .then(res => res.ok ? res.json() : null)
       .then(freshUser => {
         if (freshUser) {
@@ -917,7 +918,7 @@ export default function AdminPage() {
         loadHomeInfo();
       });
 
-  }, []); 
+  }, []);
   useEffect(() => {
     if (activeTab === 'calendario') {
       fetchBlockedDates();
@@ -1107,7 +1108,6 @@ export default function AdminPage() {
         // });
 
         const checkEmailResponse = await getUsers();
-        console.log(checkEmailResponse);
         const allUsers = checkEmailResponse.items;
         const emailExists = allUsers.some((u) => u.email === barberForm.userEmail);
         if (emailExists) {
@@ -1740,17 +1740,25 @@ export default function AdminPage() {
         paidAt: new Date().toISOString(),
       });
 
-    
+
       if (sale.products && sale.products.length > 0) {
         await Promise.all(
           sale.products.map(async (item) => {
             try {
-              const res = await fetch(`http://localhost:3000/products/${item.id}`);
+              const res = await fetch(`${import.meta.env.VITE_API_URL}/products/${item.id}`, {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                },
+              });
               const product = await res.json();
               const newStock = Math.max(0, (product.stock ?? 0) - (item.quantity ?? 1));
-              await fetch(`http://localhost:3000/products/${item.id}`, {
+              await fetch(`${import.meta.env.VITE_API_URL}/products/${item.id}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({ stock: newStock }),
               });
             } catch (stockError) {
@@ -1758,7 +1766,7 @@ export default function AdminPage() {
             }
           })
         );
-    
+
         const updatedProducts = await getProducts();
         setProducts(updatedProducts);
       }
@@ -1954,7 +1962,7 @@ export default function AdminPage() {
         name: service.name,
         price: priceValue,
         promotionalPrice: service.promotionalPrice || 0,
-        coveredByPlan: service.covered_by_plan  || false,
+        coveredByPlan: service.covered_by_plan || false,
         image: service.image || '',
         duration: service.durationMinutes || 30,
       });
@@ -2797,9 +2805,9 @@ export default function AdminPage() {
                                         </td>
                                         <td>
                                           {apt.isDependent ? (
-                                            <span style={{display:'inline-flex',alignItems:'center',gap:'4px',background:'rgba(255,122,26,0.12)',color:'#ff7a1a',border:'1px solid rgba(255,122,26,0.35)',borderRadius:'20px',padding:'2px 9px',fontSize:'0.75rem',fontWeight:700}}>👤 {apt.dependentName}</span>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(255,122,26,0.12)', color: '#ff7a1a', border: '1px solid rgba(255,122,26,0.35)', borderRadius: '20px', padding: '2px 9px', fontSize: '0.75rem', fontWeight: 700 }}>👤 {apt.dependentName}</span>
                                           ) : (
-                                            <span style={{color:'#555'}}>—</span>
+                                            <span style={{ color: '#555' }}>—</span>
                                           )}
                                         </td>
                                         <td>{apt.date?.split('-').reverse().join('/')}</td>
@@ -2898,33 +2906,33 @@ export default function AdminPage() {
                 </div>
               </div>
 
-   
-    <div className="payroll-table-wrapper">
-      <table className="payroll-main-table">
-        <thead>
-          <tr className="payroll-thead-row">
-            <th className="payroll-th">Funcionário</th>
-            <th className="payroll-th">Frequência</th>
-            <th className="payroll-th payroll-th--right">Salário Fixo</th>
-            <th className="payroll-th payroll-th--right">Comissão</th>
-            <th className="payroll-th payroll-th--right">Vales</th>
-            <th className="payroll-th payroll-th--right">Líquido</th>
-            <th className="payroll-th payroll-th--center">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {employees
-            .filter(emp => emp.role === 'barber' || emp.role === 'receptionist' || emp.role === 'admin')
-            .map(emp => {
-              const barberData = barbers.find(b => String(b.userId) === String(emp.id));
-              const { start, end } = getPayrollPeriodDates(payrollPeriodFilter, payrollMonthFilter);
-              const commission = barberData ? getBarberCommissionInPeriod(barberData.id, start, end) : 0;
-              const vales = getValesInPeriod(emp.id, start, end);
-              const totalVales = vales.reduce((s, v) => s + v.valor, 0);
-              
-              const salarioFixo = parseFloat(barberData?.salarioFixo ?? emp.salarioFixo ?? 0) || 0;
-              const liquido = salarioFixo + commission - totalVales;
-              const isExp = payrollExpandedId === emp.id;
+
+              <div className="payroll-table-wrapper">
+                <table className="payroll-main-table">
+                  <thead>
+                    <tr className="payroll-thead-row">
+                      <th className="payroll-th">Funcionário</th>
+                      <th className="payroll-th">Frequência</th>
+                      <th className="payroll-th payroll-th--right">Salário Fixo</th>
+                      <th className="payroll-th payroll-th--right">Comissão</th>
+                      <th className="payroll-th payroll-th--right">Vales</th>
+                      <th className="payroll-th payroll-th--right">Líquido</th>
+                      <th className="payroll-th payroll-th--center">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {employees
+                      .filter(emp => emp.role === 'barber' || emp.role === 'receptionist' || emp.role === 'admin')
+                      .map(emp => {
+                        const barberData = barbers.find(b => String(b.userId) === String(emp.id));
+                        const { start, end } = getPayrollPeriodDates(payrollPeriodFilter, payrollMonthFilter);
+                        const commission = barberData ? getBarberCommissionInPeriod(barberData.id, start, end) : 0;
+                        const vales = getValesInPeriod(emp.id, start, end);
+                        const totalVales = vales.reduce((s, v) => s + v.valor, 0);
+
+                        const salarioFixo = parseFloat(barberData?.salarioFixo ?? emp.salarioFixo ?? 0) || 0;
+                        const liquido = salarioFixo + commission - totalVales;
+                        const isExp = payrollExpandedId === emp.id;
 
 
                         const alreadyPaid = !!checkAlreadyPaidInPeriod(emp.id, payrollPeriodFilter, payrollMonthFilter);
@@ -3233,51 +3241,51 @@ export default function AdminPage() {
                 {filteredAppointmentPaymentsForAgendamentos.filter(p =>
                   p.status === 'pendinglocal' || p.status === 'pending' || p.status === 'confirmed_unpaid'
                 ).length > 0 && (
-                  <div className="payments-list" style={{ marginBottom: '2rem' }}>
-                    <h3 style={{ color: '#e67e22' }}>⏳ Pendentes de Pagamento ({filteredAppointmentPaymentsForAgendamentos.filter(p => p.status === 'pendinglocal' || p.status === 'pending' || p.status === 'confirmed_unpaid').length})</h3>
-                    <div className="payments-table">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>Data Agend.</th>
-                            <th>Cliente</th>
-                            <th>Para</th>
-                            <th>Barbeiro</th>
-                            <th>Serviço</th>
-                            <th>Valor</th>
-                            <th>Status</th>
+                    <div className="payments-list" style={{ marginBottom: '2rem' }}>
+                      <h3 style={{ color: '#e67e22' }}>⏳ Pendentes de Pagamento ({filteredAppointmentPaymentsForAgendamentos.filter(p => p.status === 'pendinglocal' || p.status === 'pending' || p.status === 'confirmed_unpaid').length})</h3>
+                      <div className="payments-table">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Data Agend.</th>
+                              <th>Cliente</th>
+                              <th>Para</th>
+                              <th>Barbeiro</th>
+                              <th>Serviço</th>
+                              <th>Valor</th>
+                              <th>Status</th>
 
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredAppointmentPaymentsForAgendamentos
-                            .filter(p => p.status === 'pendinglocal' || p.status === 'pending' || p.status === 'confirmed_unpaid')
-                            .sort((a, b) => (a.appointmentDate || '').localeCompare(b.appointmentDate || ''))
-                            .map(payment => (
-                              <tr key={payment.id}>
-                                <td data-label="Data">{payment.appointmentDate?.split('-').reverse().join('/')} {payment.appointmentTime}</td>
-                                <td data-label="Cliente">{allUsers.find(u => u.id === payment.userId)?.name || payment.userName}</td>
-                                <td data-label="Para">
-                                  {(()=>{const la=appointments.find(a=>a.id?.toString()===payment.appointmentId?.toString());return la?.isDependent?<span style={{display:'inline-flex',alignItems:'center',gap:'4px',background:'rgba(255,122,26,0.12)',color:'#ff7a1a',border:'1px solid rgba(255,122,26,0.35)',borderRadius:'20px',padding:'2px 9px',fontSize:'0.75rem',fontWeight:700}}>👤 {la.dependentName}</span>:<span style={{color:'#555'}}>—</span>;})()}
-                                </td>
-                                <td data-label="Barbeiro">{payment.barberName}</td>
-                                <td data-label="Serviço" style={{ whiteSpace: 'pre-line' }}>
-                                  {Array.isArray(payment.serviceName)
-                                    ? payment.serviceName.join('\n')
-                                    : payment.serviceName?.includes(',')
-                                    ? payment.serviceName.split(',').map(s => s.trim()).join('\n')
-                                    : payment.serviceName}
-                                </td>
-                                <td data-label="Valor">R$ {parseFloat(payment.amount || 0).toFixed(2)}</td>
-                                <td data-label="Status">
-                                  {payment.status === 'pendinglocal' ? (
-                                    <span style={{ background: '#e67e2222', color: '#e67e22', border: '1px solid #e67e2255', borderRadius: '20px', padding: '3px 10px', fontSize: '0.75rem', fontWeight: 600 }}>Pagar no Local</span>
-                                  ) : payment.status === 'confirmed_unpaid' ? (
-                                    <span style={{ background: '#9b59b622', color: '#9b59b6', border: '1px solid #9b59b655', borderRadius: '20px', padding: '3px 10px', fontSize: '0.75rem', fontWeight: 600 }}>Confirmado s/ Pgto</span>
-                                  ) : (
-                                    <span style={{ background: '#f39c1222', color: '#f39c12', border: '1px solid #f39c1255', borderRadius: '20px', padding: '3px 10px', fontSize: '0.75rem', fontWeight: 600 }}>Pendente</span>
-                                  )}
-                                </td>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredAppointmentPaymentsForAgendamentos
+                              .filter(p => p.status === 'pendinglocal' || p.status === 'pending' || p.status === 'confirmed_unpaid')
+                              .sort((a, b) => (a.appointmentDate || '').localeCompare(b.appointmentDate || ''))
+                              .map(payment => (
+                                <tr key={payment.id}>
+                                  <td data-label="Data">{payment.appointmentDate?.split('-').reverse().join('/')} {payment.appointmentTime}</td>
+                                  <td data-label="Cliente">{allUsers.find(u => u.id === payment.userId)?.name || payment.userName}</td>
+                                  <td data-label="Para">
+                                    {(() => { const la = appointments.find(a => a.id?.toString() === payment.appointmentId?.toString()); return la?.isDependent ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(255,122,26,0.12)', color: '#ff7a1a', border: '1px solid rgba(255,122,26,0.35)', borderRadius: '20px', padding: '2px 9px', fontSize: '0.75rem', fontWeight: 700 }}>👤 {la.dependentName}</span> : <span style={{ color: '#555' }}>—</span>; })()}
+                                  </td>
+                                  <td data-label="Barbeiro">{payment.barberName}</td>
+                                  <td data-label="Serviço" style={{ whiteSpace: 'pre-line' }}>
+                                    {Array.isArray(payment.serviceName)
+                                      ? payment.serviceName.join('\n')
+                                      : payment.serviceName?.includes(',')
+                                        ? payment.serviceName.split(',').map(s => s.trim()).join('\n')
+                                        : payment.serviceName}
+                                  </td>
+                                  <td data-label="Valor">R$ {parseFloat(payment.amount || 0).toFixed(2)}</td>
+                                  <td data-label="Status">
+                                    {payment.status === 'pendinglocal' ? (
+                                      <span style={{ background: '#e67e2222', color: '#e67e22', border: '1px solid #e67e2255', borderRadius: '20px', padding: '3px 10px', fontSize: '0.75rem', fontWeight: 600 }}>Pagar no Local</span>
+                                    ) : payment.status === 'confirmed_unpaid' ? (
+                                      <span style={{ background: '#9b59b622', color: '#9b59b6', border: '1px solid #9b59b655', borderRadius: '20px', padding: '3px 10px', fontSize: '0.75rem', fontWeight: 600 }}>Confirmado s/ Pgto</span>
+                                    ) : (
+                                      <span style={{ background: '#f39c1222', color: '#f39c12', border: '1px solid #f39c1255', borderRadius: '20px', padding: '3px 10px', fontSize: '0.75rem', fontWeight: 600 }}>Pendente</span>
+                                    )}
+                                  </td>
 
                                 </tr>
                               ))}
@@ -3347,83 +3355,83 @@ export default function AdminPage() {
                                     </div>
                                   </td>
 
-<td data-label="Para">
-  {appointment?.isDependent ? (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: '4px',
-      background: 'rgba(255,122,26,0.12)', color: '#ff7a1a',
-      border: '1px solid rgba(255,122,26,0.35)', borderRadius: '20px',
-      padding: '2px 10px', fontSize: '0.78rem', fontWeight: 700
-    }}>👤 {appointment.dependentName}</span>
-  ) : (
-    <span style={{ color: '#666', fontSize: '0.82rem' }}>—</span>
-  )}
-</td>
-                            <td data-label="Barbeiro">{payment.barberName}</td>
-                            <td data-label="Serviço" style={{ whiteSpace: 'pre-line' }}>
-                              {Array.isArray(payment.serviceName) 
-                                ? payment.serviceName.join('\n')
-                                : payment.serviceName?.includes(',')
-                                ? payment.serviceName.split(',').map(s => s.trim()).join('\n')
-                                : payment.serviceName
-                              }
-                              
-                            </td>
-                            <td data-label="Obs.">
-                              {(() => {
-                                const apt = appointments.find(a => a.id?.toString() === payment.appointmentId?.toString());
-                                return apt?.observation ? (
-                                  <div className="obs-card">
-                                    <div className="obs-card-label">Observação</div>
-                                    <div className="obs-card-text">{apt.observation}</div>
-                                  </div>
-                                ) : (
-                                  <span className="obs-empty">—</span>
-                                );
-                              })()}
-                            </td>
-                            <td data-label="Produtos">
-                              {productsList.length > 0 ? (
-                                <div>
-                                  {productsList.map((prod, idx) => (
-                                    <div key={idx} style={{ marginBottom: '4px' }}>
-                                      {prod.name} x{prod.quantity || 1}
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <span style={{ color: '#666' }}>-</span>
-                              )}
-                            </td>
-                            <td data-label="Valor">
-                              {isSubscriber ? (
-                                <div>
-                                  <div style={{ fontSize: '0.85rem', color: '#d4af37' }}>
-                                    Serviço coberto pelo plano
-                                  </div>
-                                  {productsTotal > 0 && (
-                                    <div style={{ fontWeight: 'bold', marginTop: '4px' }}>
-                                      + R$ {productsTotal.toFixed(2)}
-                                    </div>
-                                  )}
-                                </div>
-                              ) : (
-                                <div style={{ fontWeight: 'bold' }}>
-                                  R$ {serviceTotal.toFixed(2)}
-                                </div>
-                              )}
-                            </td>
-                            <td data-label="Método">
-                              <PaymentBadge method={payment.paymentMethod} />
-                            </td>
-                            <td data-label="Status">
-                              {(() => {
-                                const s = payment.status;
-                                const method = payment.paymentMethod;
-                                let label = 'Pendente';
-                                let bg = '#f39c1222';
-                                let color = '#f39c12';
-                                let border = '#f39c1255';
+                                  <td data-label="Para">
+                                    {appointment?.isDependent ? (
+                                      <span style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                        background: 'rgba(255,122,26,0.12)', color: '#ff7a1a',
+                                        border: '1px solid rgba(255,122,26,0.35)', borderRadius: '20px',
+                                        padding: '2px 10px', fontSize: '0.78rem', fontWeight: 700
+                                      }}>👤 {appointment.dependentName}</span>
+                                    ) : (
+                                      <span style={{ color: '#666', fontSize: '0.82rem' }}>—</span>
+                                    )}
+                                  </td>
+                                  <td data-label="Barbeiro">{payment.barberName}</td>
+                                  <td data-label="Serviço" style={{ whiteSpace: 'pre-line' }}>
+                                    {Array.isArray(payment.serviceName)
+                                      ? payment.serviceName.join('\n')
+                                      : payment.serviceName?.includes(',')
+                                        ? payment.serviceName.split(',').map(s => s.trim()).join('\n')
+                                        : payment.serviceName
+                                    }
+
+                                  </td>
+                                  <td data-label="Obs.">
+                                    {(() => {
+                                      const apt = appointments.find(a => a.id?.toString() === payment.appointmentId?.toString());
+                                      return apt?.observation ? (
+                                        <div className="obs-card">
+                                          <div className="obs-card-label">Observação</div>
+                                          <div className="obs-card-text">{apt.observation}</div>
+                                        </div>
+                                      ) : (
+                                        <span className="obs-empty">—</span>
+                                      );
+                                    })()}
+                                  </td>
+                                  <td data-label="Produtos">
+                                    {productsList.length > 0 ? (
+                                      <div>
+                                        {productsList.map((prod, idx) => (
+                                          <div key={idx} style={{ marginBottom: '4px' }}>
+                                            {prod.name} x{prod.quantity || 1}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <span style={{ color: '#666' }}>-</span>
+                                    )}
+                                  </td>
+                                  <td data-label="Valor">
+                                    {isSubscriber ? (
+                                      <div>
+                                        <div style={{ fontSize: '0.85rem', color: '#d4af37' }}>
+                                          Serviço coberto pelo plano
+                                        </div>
+                                        {productsTotal > 0 && (
+                                          <div style={{ fontWeight: 'bold', marginTop: '4px' }}>
+                                            + R$ {productsTotal.toFixed(2)}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <div style={{ fontWeight: 'bold' }}>
+                                        R$ {serviceTotal.toFixed(2)}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td data-label="Método">
+                                    <PaymentBadge method={payment.paymentMethod} />
+                                  </td>
+                                  <td data-label="Status">
+                                    {(() => {
+                                      const s = payment.status;
+                                      const method = payment.paymentMethod;
+                                      let label = 'Pendente';
+                                      let bg = '#f39c1222';
+                                      let color = '#f39c12';
+                                      let border = '#f39c1255';
 
                                       const m = method?.toLowerCase();
                                       if (s === 'plan_covered' || s === 'plancovered' || m === 'subscription') {
@@ -4260,7 +4268,7 @@ export default function AdminPage() {
                               )}
                             </td>
                             <td>
-                              {(()=>{const la=appointments.find(a=>a.id?.toString()===payment.appointmentId?.toString());return la?.isDependent?<span style={{display:'inline-flex',alignItems:'center',gap:'4px',background:'rgba(255,122,26,0.12)',color:'#ff7a1a',border:'1px solid rgba(255,122,26,0.35)',borderRadius:'20px',padding:'2px 9px',fontSize:'0.75rem',fontWeight:700}}>👤 {la.dependentName}</span>:<span style={{color:'#555'}}>—</span>;})()}
+                              {(() => { const la = appointments.find(a => a.id?.toString() === payment.appointmentId?.toString()); return la?.isDependent ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(255,122,26,0.12)', color: '#ff7a1a', border: '1px solid rgba(255,122,26,0.35)', borderRadius: '20px', padding: '2px 9px', fontSize: '0.75rem', fontWeight: 700 }}>👤 {la.dependentName}</span> : <span style={{ color: '#555' }}>—</span>; })()}
                             </td>
                             <td>{payment.barberName}</td>
                             <td style={{ whiteSpace: 'pre-line' }}>

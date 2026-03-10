@@ -12,7 +12,6 @@ export const getAppointments = async () => {
         Authorization: `Bearer ${token}`,
       },
     });
-    console.log("RETORNO DE AGENDAMENTOS", response.data);
     return response.data.items;
   } catch (error) {
     console.error('Erro ao buscar agendamentos:', error);
@@ -23,7 +22,6 @@ export const getAppointments = async () => {
 
 export const createAppointment = async (appointmentData) => {
   const token = getToken();
-  console.log("TOKEN AQUI", token);
   try {
     const response = await axios.post(`${API_URL}/appointments`, appointmentData, {
       headers: {

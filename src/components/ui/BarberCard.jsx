@@ -19,8 +19,6 @@ export default function BarberCard({
   const [selectedTime, setSelectedTime] = useState('');
   const hasPreSelected = useRef(false);
 
-  console.log("SERVIÇOS DO BARBEIRO:", services);
-
   useEffect(() => {
     if (preSelectedService && !hasPreSelected.current) {
       const serviceExists = services.find((s) => s.id === preSelectedService.id);

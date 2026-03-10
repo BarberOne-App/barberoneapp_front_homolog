@@ -11,7 +11,6 @@ export const getProducts = async () => {
         Authorization: `Bearer ${token}`,
       },
     });
-    console.log("RETORNO PRODUTOS", response.data);
     return response.data;
   } catch (error) {
     throw error;
@@ -34,7 +33,6 @@ export const getProductById = async (id) => {
 
 
 export const createProduct = async (productData) => {
-  console.log('Creating product with data:', productData);
   try {
     const response = await axios.post(`${API_URL}/products`, productData, {
       headers: {

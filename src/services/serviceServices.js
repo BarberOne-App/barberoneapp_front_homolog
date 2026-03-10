@@ -13,7 +13,6 @@ export async function getAllServices() {
       includeInactive: true,
     },
   });
-  console.log('getAllServices response:', res.data.items);
   return res.data.items;
 }
 

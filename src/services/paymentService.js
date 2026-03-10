@@ -315,14 +315,14 @@ export const buscarAssinaturaAtiva = async (userId) => {
           Authorization: `Bearer ${token}`,
         },
       }),
-      api.get(`/subscriptions?userId=${userId}&status=cancel_pending`, {
+      api.get(`/subscriptions?userId=${userId}&status=cancelled`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       }),
     ]);
 
-    const todas = [...resActive.data, ...resPending.data];
+    const todas = [...resActive.data.items, ...resPending.data.items];
     const hoje = new Date();
 
 
@@ -388,7 +388,7 @@ export const criarPagamentoAgendamento = async (dadosPagamento) => {
       appointmentTime: dadosPagamento.appointmentTime,
       products: dadosPagamento.products || [],
       status: dadosPagamento.status || 'pending',
-      paymentMethod: dadosPagamento.paymentMethod || null,
+      method: dadosPagamento.method,
       ...(dadosPagamento.status === 'paid' && {
         paidAt: dadosPagamento.paidAt || new Date().toISOString()
       }),
@@ -417,7 +417,7 @@ export const buscarPagamentoAgendamento = async (appointmentId) => {
         Authorization: `Bearer ${token}`,
       },
     });
-    return response.data.length > 0 ? response.data[0] : null;
+    return response.data.items;
   } catch (error) {
     console.error('Erro ao buscar pagamento:', error);
     return null;
@@ -431,7 +431,6 @@ export const buscarTodosPagamentosAgendamentos = async () => {
         Authorization: `Bearer ${token}`,
       },
     });
-    console.log("RETORNO DE PAGAMENTOS DE AGENDAMENTOS", response.data);
     return response.data.items;
   } catch (error) {
 

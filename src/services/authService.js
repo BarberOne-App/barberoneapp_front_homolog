@@ -1,7 +1,5 @@
 import api from "./api";
 
-const DEFAULT_SLUG = import.meta.env.VITE_BARBERSHOP_SLUG || "";
-
 /**
  * Login via backend real — POST /auth/login
  * O backend exige { slug, email, password } e retorna { token, barbershop, user }
@@ -21,14 +19,14 @@ export async function login(email, password) {
  * Usa a rota de registro de cliente do backend real.
  * Se o usuário já existir, tenta login normal (precisará da senha — fluxo limitado sem suporte OAuth no backend).
  */
-export async function loginWithGoogle(googleUser, slug) {
+export async function loginWithGoogle(name, email, slug) {
   // Tenta registrar como novo cliente (sem senha — fluxo parcial)
   // TODO: implementar rota OAuth no backend para suporte completo ao Google
   try {
-    const { data } = await api.post("/auth/register/client", {
-      slug: slug || DEFAULT_SLUG,
-      name: googleUser.name,
-      email: googleUser.email,
+    const { data } = await api.post("/auth/register/client-google", {
+      slug: slug,
+      name: name,
+      email: email,
       password: crypto.randomUUID().slice(0, 12), // senha temporária
       phone: null,
     });
@@ -49,7 +47,7 @@ export async function loginWithGoogle(googleUser, slug) {
  */
 export async function register(userData) {
   const { data } = await api.post("/auth/register/client", {
-    slug: userData.slug || DEFAULT_SLUG,
+    slug: userData.slug,
     name: userData.name,
     email: userData.email,
     phone: userData.phone || null,

@@ -5,7 +5,6 @@ const token = getToken();
 
 export async function getBarbers() {
   const { data } = await api.get("/barbers");
-  console.log('Barbers data:', data);
   return data.items;
 }
 

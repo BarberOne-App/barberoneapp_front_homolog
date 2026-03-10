@@ -50,17 +50,19 @@ export default function LoginPage() {
         const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
           headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
         });
+
         const googleUser = await res.json();
 
-        const user = await loginWithGoogle(googleUser);
+        const user = googleUser.email;
+        // const user = await loginWithGoogle(googleUser);
 
-        const profileComplete =
-          user.profileComplete || (user.cpf && user.phone && user.birthDate && user.barbershops?.length);
+        const profileComplete = "";
+          // googleUser.name || (user.cpf && user.phone && user.birthDate && user.barbershops?.length);
 
         if (!profileComplete) {
-          setPendingUser(user);
+          setPendingUser({ name: googleUser.name, email: googleUser.email, picture: googleUser.picture });
         } else {
-          navigateByRole(user);
+          // navigateByRole(user);
         }
       } catch (error) {
         console.error('Erro no login com Google:', error);
@@ -78,7 +80,7 @@ export default function LoginPage() {
   
   const handleProfileComplete = (updatedUser) => {
     setPendingUser(null);
-    navigateByRole(updatedUser);
+    // navigateByRole(updatedUser);
   };
 
   const navigateByRole = (user) => {
@@ -159,7 +161,10 @@ export default function LoginPage() {
     
       {pendingUser && (
         <CompleteProfileModal
-          user={pendingUser}
+          // user={pendingUser}
+          name={pendingUser.name}
+          email={pendingUser.email}
+          picture={pendingUser.picture}
           onComplete={handleProfileComplete}
         />
       )}

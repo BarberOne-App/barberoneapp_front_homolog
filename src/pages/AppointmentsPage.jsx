@@ -229,15 +229,38 @@ export default function AppointmentsPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [barbersData, servicesData, productsData, appointmentsData, subscriptionsData] = await Promise.all([
+      const [barbersData, servicesData, productsData, appointmentsData] = await Promise.all([
         getBarbers(),
         getAllServices(),
-        fetch('https://barbearia-addev-backend.onrender.com/products').then((res) => res.json()),
+        fetch('https://barbearia-addev-backend.onrender.com/products', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          }
+        }).then((res) => res.json()),
         getAppointments(),
-        fetch('https://barbearia-addev-backend.onrender.com/subscriptions').then((res) => res.json())
+        // fetch('https://barbearia-addev-backend.onrender.com/subscriptions', {
+        //   headers: {
+        //     Authorization: `Bearer ${token}`,
+        //   }
+        // }).then((res) => res.json())
+
       ]);
 
-      const usersResponse = await fetch('https://barbearia-addev-backend.onrender.com/users');
+      const res = await fetch('https://barbearia-addev-backend.onrender.com/subscriptions', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
+      });
+
+      const subscription = await res.json();
+      console.log(subscription);
+
+
+      const usersResponse = await fetch('https://barbearia-addev-backend.onrender.com/users', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
+      });
       const allUsers = await usersResponse.json();
 
       const validBarbers = barbersData.filter((barber) => {
@@ -251,22 +274,25 @@ export default function AppointmentsPage() {
       setServices(servicesData);
       setProducts(productsData);
       setAppointments(appointmentsData);
-      setUserSubscriptions(subscriptionsData);
+      setUserSubscriptions(subscription.items);
       setAllUsers(allUsers);
 
       let deps = [];
-      try {
-        const depsRes = await fetch(`https://barbearia-addev-backend.onrender.com/dependents?parentId=${currentUser?.id}`);
-        if (depsRes.ok) {
-          deps = await depsRes.json();
-          setUserDependents(deps);
-        }
-      } catch (e) {}
+      // try {
+      //   const depsRes = await fetch(`https://barbearia-addev-backend.onrender.com/dependents?parentId=${currentUser?.id}`);
+      //   if (depsRes.ok) {
+      //     deps = await depsRes.json();
+      //     setUserDependents(deps);
+      //   }
+      // } catch (e) {}
 
-      const depIds = deps.map(d => `dep_${d.id}`);
+      // const depIds = deps.map(d => `dep_${d.id}`);
+
       const userAppointments = appointmentsData.filter((apt) =>
-        apt.clientId === currentUser?.id || depIds.includes(apt.clientId)
+        apt.clientId === currentUser?.id
+        // || depIds.includes(apt.clientId)
       );
+
       const paymentsMap = {};
       for (const apt of userAppointments) {
         try {
@@ -276,6 +302,7 @@ export default function AppointmentsPage() {
           console.error(`Erro ao buscar pagamento ${apt.id}`, error);
         }
       }
+      console.log("PAGAMENTOS AQUI: ", paymentsMap)
       setAppointmentPayments(paymentsMap);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -287,13 +314,20 @@ export default function AppointmentsPage() {
 
   const handleUpdateStock = useCallback(async (productId, quantity) => {
     try {
-      const response = await fetch(`https://barbearia-addev-backend.onrender.com/products/${productId}`);
+      const response = await fetch(`https://barbearia-addev-backend.onrender.com/products/${productId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
+      });
       const product = await response.json();
       const newStock = Math.max(0, product.stock - quantity);
 
       await fetch(`https://barbearia-addev-backend.onrender.com/products/${productId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ stock: newStock })
       });
 
@@ -634,7 +668,7 @@ export default function AppointmentsPage() {
     setShowProductsModal(false);
 
     const hasProducts = data.products.length > 0;
-  
+
     const hasSubscription = data.hasActiveSubscription && !bookingForDependent && !bookingForUser;
 
     if (!hasProducts && hasSubscription) {
@@ -866,8 +900,8 @@ export default function AppointmentsPage() {
           appointmentDate: pendingBookingData.date,
           appointmentTime: pendingBookingData.time,
           products: purchaseData.products,
-          status: 'pendinglocal',
-          paymentMethod: 'local'
+          status: 'pending',
+          method: 'local'
         };
 
         await criarPagamentoAgendamento(paymentData);
@@ -959,12 +993,13 @@ export default function AppointmentsPage() {
     const currentYear = today.getFullYear();
 
     const depClientIds = userDependents.map(d => `dep_${d.id}`);
+    console.log('MEUS APONTAMENTOS', appointments)
     return appointments.filter((apt) => {
       const isOwn = apt.clientId === currentUser?.id;
       const isDep = depClientIds.includes(apt.clientId);
       if (!isOwn && !isDep) return false;
 
-      const aptDate = new Date(`${apt.date}T00:00:00`);
+      const aptDate = new Date(apt.endAt);
       const aptMonth = aptDate.getMonth();
       const aptYear = aptDate.getFullYear();
 
@@ -980,8 +1015,11 @@ export default function AppointmentsPage() {
     });
   }, [appointments, currentUser?.id, appointmentFilter, userDependents]);
 
+  console.log("APONTAMENTOS", myAppointments);
+
   const sortedMyAppointments = useMemo(() => {
     return [...myAppointments].sort((a, b) => {
+      console.log(a.date);
       const dateA = new Date(`${a.date}T${a.time}`);
       const dateB = new Date(`${b.date}T${b.time}`);
       return dateB - dateA;
@@ -1414,7 +1452,7 @@ export default function AppointmentsPage() {
                   className={`tab-btn ${appointmentFilter === 'current' ? 'tab-btn--active' : ''}`}
                 >
                   Este Mês ({appointments.filter(apt => {
-                    const aptDate = new Date(`${apt.date}T00:00:00`);
+                    const aptDate = new Date(apt.endAt);
                     const today = new Date();
                     const dIds1 = userDependents.map(d => `dep_${d.id}`); return (apt.clientId === currentUser?.id || dIds1.includes(apt.clientId)) && aptDate.getMonth() === today.getMonth() && aptDate.getFullYear() === today.getFullYear();
                   }).length})
@@ -1424,7 +1462,7 @@ export default function AppointmentsPage() {
                   className={`tab-btn ${appointmentFilter === 'upcoming' ? 'tab-btn--active' : ''}`}
                 >
                   Próximos ({appointments.filter(apt => {
-                    const aptDate = new Date(`${apt.date}T00:00:00`);
+                    const aptDate = new Date(apt.endAt);
                     const today = new Date();
                     const dIds2 = userDependents.map(d => `dep_${d.id}`); return (apt.clientId === currentUser?.id || dIds2.includes(apt.clientId)) && (aptDate.getFullYear() > today.getFullYear() || (aptDate.getFullYear() === today.getFullYear() && aptDate.getMonth() >= today.getMonth()));
                   }).length})
@@ -1474,18 +1512,20 @@ export default function AppointmentsPage() {
                       {sortedMyAppointments.map((apt) => {
                         const payment = appointmentPayments[apt.id];
                         const isPending = payment && (payment.status === 'pending' || payment.status === 'confirmed_unpaid');
-                        const isPendingLocal = payment && payment.status === 'pendinglocal';
+                        const isPendingLocal = payment[0].status === 'pending' && payment[0].method === 'local';
                         const isPaid = payment && payment.status === 'paid';
                         const isPlanCovered = payment && payment.status === 'plancovered';
 
-                        const appointmentDate = new Date(`${apt.date}T00:00:00`);
+                        const appointmentDate = new Date(apt.endAt);
                         const formattedDate = appointmentDate.toLocaleDateString('pt-BR');
+
+                        const time = `${String(appointmentDate.getHours()).padStart(2, '0')}:${String(appointmentDate.getMinutes()).padStart(2, '0')}`;
 
                         const servicesTotal = Array.isArray(apt.services)
                           ? apt.services.reduce((sum, s) => {
-                            const price = typeof s.price === 'string'
-                              ? parseFloat(s.price.replace(/R\$/g, '').replace(/,/g, '.').trim()) || 0
-                              : s.price || 0;
+                            const price = typeof s.unitPrice === 'string'
+                              ? parseFloat(s.unitPrice.replace(/R\$/g, '').replace(/,/g, '.').trim()) || 0
+                              : s.unitPrice || 0;
                             return sum + price;
                           }, 0)
                           : 0;
@@ -1516,9 +1556,10 @@ export default function AppointmentsPage() {
                         }
 
                         const barber = barbers.find((b) => b.id === apt.barberId);
-                        const barberPhoto = barber
-                          ? barber.photo || barber.avatar || `https://i.pravatar.cc/150?img=${barber.id}`
-                          : `https://i.pravatar.cc/150?img=${apt.barberId}`;
+                        const barberPhoto = "";
+                        // = barber
+                        //   ? barber.photo || barber.avatar || `https://i.pravatar.cc/150?img=${barber.id}`
+                        //   : `https://i.pravatar.cc/150?img=${apt.barberId}`;
 
                         return (
                           <tr key={apt.id}>
@@ -1526,13 +1567,13 @@ export default function AppointmentsPage() {
                               <div className="appointment-barber">
                                 <img
                                   src={barberPhoto}
-                                  alt={apt.barberName}
+                                  alt={apt.barber.displayName}
                                   className="appointment-barber-avatar"
-                                  onError={(e) => {
-                                    e.target.src = `https://i.pravatar.cc/150?img=${apt.barberId}`;
-                                  }}
+                                // onError={(e) => {
+                                //   e.target.src = `https://i.pravatar.cc/150?img=${apt.barberId}`;
+                                // }}
                                 />
-                                <span className="appointment-barber-name">{apt.barberName}</span>
+                                <span className="appointment-barber-name">{apt.barber.displayName}</span>
                               </div>
                             </td>
                             <td data-label="Para">
@@ -1551,14 +1592,14 @@ export default function AppointmentsPage() {
                               <span className="appointment-date">{formattedDate}</span>
                             </td>
                             <td data-label="Horário">
-                              <span className="appointment-time">{apt.time}</span>
+                              <span className="appointment-time">{time}</span>
                             </td>
                             <td data-label="Serviço">
                               <div className="appointment-services">
                                 {Array.isArray(apt.services) ? (
                                   apt.services.map((service, idx) => (
                                     <div key={idx} className="appointment-service-item">
-                                      {service.name}
+                                      {service.serviceName}
                                     </div>
                                   ))
                                 ) : (
