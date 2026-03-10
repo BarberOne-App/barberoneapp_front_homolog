@@ -434,6 +434,25 @@ export default function Home() {
             </Link>
           </div>
         </section> */}
+
+        <footer className="home__footer">
+          <div className="container">
+            <div className="home__footer-content">
+             <div className="home__footer-logo" onClick={() => { navigate('/'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} style={{ cursor: 'pointer' }}>
+  <h3>BARBER<span>ONE</span></h3>
+  <p>Gestão completa, corte perfeito.</p>
+</div>
+              <div className="home__footer-links">
+                <a href="https://www.barberoneapp.com" target="_blank" rel="noopener noreferrer">
+                  www.barberoneapp.com
+                </a>
+              </div>
+            </div>
+            <div className="home__footer-copyright">
+              © 2026 AD Tech Solution Ltda. Todos os direitos reservados.
+            </div>
+          </div>
+        </footer>
       </div>
 
       {showManageModal && activeSubscription && (

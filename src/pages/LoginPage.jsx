@@ -84,11 +84,11 @@ export default function LoginPage() {
 
   const navigateByRole = (user) => {
     if (user.role === 'admin' || user.isAdmin === true) {
-      navigate('/');
+      navigate('/home');
     } else if (user.role === 'barber') {
-      navigate('/');
+      navigate('/home');
     } else {
-      navigate('/');
+      navigate('/home');
     }
   };
 

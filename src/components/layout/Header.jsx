@@ -25,26 +25,26 @@ export default function Header() {
   const handleLogoClick = (e) => {
     e.preventDefault();
     setMenuOpen(false);
-    window.location.href = '/';
+    navigate('/home');
   };
 
   const handleNavClick = (e, href) => {
     e.preventDefault();
     setMenuOpen(false);
     if (href.startsWith('#')) {
-      const isHomePage = window.location.pathname === '/';
+      const isHomePage = window.location.pathname === '/home';
       if (isHomePage) {
         const element = document.querySelector(href);
         if (element) element.scrollIntoView({ behavior: 'smooth' });
       } else {
-        navigate('/');
+        navigate('/home');
         setTimeout(() => {
           const element = document.querySelector(href);
           if (element) element.scrollIntoView({ behavior: 'smooth' });
         }, 100);
       }
     } else {
-      window.location.href = '/' + href;
+      navigate('/' + href);
     }
   };
 
