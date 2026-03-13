@@ -46,14 +46,13 @@ import { useState, useEffect } from 'react';
         navigate('/login');
         return;
       }
-      // Renderiza imediatamente com dados da sessao local
+    
       setCurrentUser(user);
       setNewName(user.name || '');
       loadUserPhoto(user.id);
       verificarAssinaturaAtiva(user.id);
       loadDependents(user.id);
 
-      // Busca permissoes atualizadas no backend e sincroniza sessao
       fetch(`http://localhost:3000/users/${user.id}`)
         .then(res => res.ok ? res.json() : null)
         .then(freshUser => {

@@ -195,6 +195,13 @@ const [homeInfoLoading, setHomeInfoLoading] = useState(false);
   const [productImageUploading, setProductImageUploading] = useState(false);
   const [heroImageUploading, setHeroImageUploading] = useState(false);
   const [galleryImageUploading, setGalleryImageUploading] = useState(false);
+
+ 
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
+  const [resetPasswordUser, setResetPasswordUser] = useState(null);
+  const [resetPasswordForm, setResetPasswordForm] = useState({ newPassword: '', confirmPassword: '' });
+  const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
   
 
   const isAdmin = useMemo(() => currentUser?.role === 'admin' || currentUser?.isAdmin === true, [currentUser?.role, currentUser?.isAdmin]);
@@ -856,12 +863,12 @@ const handleHomeInfoChange = (field, value) => {
       return;
     }
 
-    // Busca permissões frescas do backend antes de checar acesso
+  
     fetch(`http://localhost:3000/users/${currentUser.id}`)
       .then(res => res.ok ? res.json() : null)
       .then(freshUser => {
         if (freshUser) {
-          // Atualiza sessão local com permissões novas
+        
           const updatedUser = { ...currentUser, ...freshUser };
           localStorage.setItem('session', JSON.stringify(updatedUser));
           currentUserRef.current = updatedUser;
@@ -882,7 +889,7 @@ const handleHomeInfoChange = (field, value) => {
         loadHomeInfo();
       })
       .catch(() => {
-        // fallback: usa dados da sessão atual
+     
         const hasAccess = isAdmin || isReceptionist || currentUser?.permissions?.viewAdmin;
         if (!hasAccess) {
           navigate('/appointments');
@@ -947,6 +954,44 @@ const handleHomeInfoChange = (field, value) => {
       ...prev,
       [permissionKey]: !prev[permissionKey]
     }));
+  };
+
+  const openResetPasswordModal = (user) => {
+    setResetPasswordUser(user);
+    setResetPasswordForm({ newPassword: '', confirmPassword: '' });
+    setShowResetPasswordModal(true);
+  };
+
+  const closeResetPasswordModal = () => {
+    setShowResetPasswordModal(false);
+    setResetPasswordUser(null);
+    setResetPasswordForm({ newPassword: '', confirmPassword: '' });
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    if (!resetPasswordForm.newPassword || resetPasswordForm.newPassword.length < 6) {
+      showToast('A senha deve ter pelo menos 6 caracteres.', 'danger');
+      return;
+    }
+    if (resetPasswordForm.newPassword !== resetPasswordForm.confirmPassword) {
+      showToast('As senhas não coincidem.', 'danger');
+      return;
+    }
+    setResetPasswordLoading(true);
+    try {
+      await fetch(`http://localhost:3000/users/${resetPasswordUser.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: resetPasswordForm.newPassword })
+      });
+      showToast(`Senha de ${resetPasswordUser.name} redefinida com sucesso!`, 'success');
+      closeResetPasswordModal();
+    } catch (error) {
+      showToast('Erro ao redefinir senha.', 'danger');
+    } finally {
+      setResetPasswordLoading(false);
+    }
   };
 
   const handleSavePermissions = async () => {
@@ -2289,6 +2334,14 @@ const handleHomeInfoChange = (field, value) => {
                 className={`tab-btn ${activeTab === 'cancelPlanos' ? 'tab-btn--active' : ''}`}
               >
                 Cancelamento de Planos
+              </button>
+            )}
+            {isAdmin && (
+              <button
+                onClick={() => setActiveTab('usuarios')}
+                className={`tab-btn ${activeTab === 'usuarios' ? 'tab-btn--active' : ''}`}
+              >
+                 Usuários
               </button>
             )}
           </div>
@@ -4610,6 +4663,92 @@ const handleHomeInfoChange = (field, value) => {
             </div>
           )}
 
+          {activeTab === 'usuarios' && isAdmin && (
+            <div style={{ padding: '1.5rem 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                  <h2 style={{ color: '#fff', fontSize: '1.2rem', margin: 0 }}>👤 Gerenciamento de Usuários</h2>
+                  <p style={{ color: '#888', fontSize: '0.82rem', margin: '4px 0 0' }}>Redefina senhas de clientes em caso de esquecimento.</p>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Buscar por nome ou e-mail..."
+                  value={userSearch}
+                  onChange={e => setUserSearch(e.target.value)}
+                  style={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#fff', padding: '9px 14px', fontSize: '0.85rem', minWidth: '240px', outline: 'none' }}
+                />
+              </div>
+
+              <div style={{ overflowX: 'auto' }} className="usuarios-table">
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #2a2a2a' }}>
+                      {['Nome', 'E-mail', 'Função', 'Ações'].map(h => (
+                        <th key={h} style={{ color: '#888', fontWeight: 600, padding: '10px 12px', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allUsers
+                      .filter(u => {
+                        if (!userSearch.trim()) return true;
+                        const q = userSearch.toLowerCase();
+                        return (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
+                      })
+                      .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                      .map(user => (
+                        <tr key={user.id} style={{ borderBottom: '1px solid #1e1e1e', transition: 'background 0.15s' }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#161616'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <td data-label="Nome" style={{ padding: '12px 12px', color: '#fff' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              {user.picture
+                                ? <img src={user.picture} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />
+                                : <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ff7a1a', fontWeight: 700, fontSize: '0.85rem' }}>{(user.name || '?')[0].toUpperCase()}</div>
+                              }
+                              <span>{user.name || '—'}</span>
+                            </div>
+                          </td>
+                          <td data-label="E-mail" style={{ padding: '12px 12px', color: '#a8a8a8' }}>{user.email || '—'}</td>
+                          <td data-label="Função" style={{ padding: '12px 12px' }}>
+                            <span style={{
+                              background: user.role === 'admin' || user.isAdmin ? 'rgba(255,122,26,0.15)' : user.role === 'barber' ? 'rgba(100,200,100,0.12)' : 'rgba(100,150,255,0.12)',
+                              color: user.role === 'admin' || user.isAdmin ? '#ff7a1a' : user.role === 'barber' ? '#6dc96d' : '#7aadff',
+                              borderRadius: '6px', padding: '3px 10px', fontSize: '0.78rem', fontWeight: 600
+                            }}>
+                              {user.role === 'admin' || user.isAdmin ? 'Admin' : user.role === 'barber' ? 'Barbeiro' : user.role === 'receptionist' ? 'Recepcionista' : 'Cliente'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px 12px' }}>
+                            <button
+                              onClick={() => openResetPasswordModal(user)}
+                              style={{ background: 'rgba(255,122,26,0.12)', border: '1px solid rgba(255,122,26,0.3)', color: '#ff7a1a', borderRadius: '7px', padding: '6px 14px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, transition: 'all 0.15s' }}
+                              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,122,26,0.22)'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,122,26,0.12)'; }}
+                            >
+                               Redefinir Senha
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    }
+                    {allUsers.filter(u => {
+                      if (!userSearch.trim()) return true;
+                      const q = userSearch.toLowerCase();
+                      return (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
+                    }).length === 0 && (
+                      <tr>
+                        <td colSpan={4} style={{ padding: '2rem', textAlign: 'center', color: '#555' }}>Nenhum usuário encontrado.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <p style={{ color: '#444', fontSize: '0.78rem', marginTop: '1rem' }}>Total: {allUsers.length} usuários cadastrados</p>
+            </div>
+          )}
+
           {activeTab === 'calendario' && (
             <div className="calendario-container">
               <h2 className="calendario-titulo">Gerenciar Calendário</h2>
@@ -5571,6 +5710,80 @@ const handleHomeInfoChange = (field, value) => {
               <div className="modal-actions">
                 <Button type="button" onClick={closeGalleryModal} className="btn-cancel">Cancelar</Button>
                 <Button type="submit">{editingGalleryImage ? 'Atualizar' : 'Adicionar'}</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showResetPasswordModal && resetPasswordUser && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+          onClick={closeResetPasswordModal}
+        >
+          <div
+            style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '14px', padding: '2rem', maxWidth: '420px', width: '100%', boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <div>
+                <h2 style={{ color: '#fff', fontSize: '1.05rem', margin: 0 }}>🔑 Redefinir Senha</h2>
+                <p style={{ color: '#888', fontSize: '0.8rem', margin: '4px 0 0' }}>
+                  Usuário: <strong style={{ color: '#ff7a1a' }}>{resetPasswordUser.name}</strong>
+                </p>
+              </div>
+              <button onClick={closeResetPasswordModal} style={{ background: 'transparent', border: 'none', color: '#666', fontSize: '1.4rem', cursor: 'pointer', lineHeight: 1 }}>×</button>
+            </div>
+
+            <form onSubmit={handleResetPassword} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ color: '#888', fontSize: '0.82rem', display: 'block', marginBottom: '6px' }}>Nova senha *</label>
+                <input
+                  type="password"
+                  value={resetPasswordForm.newPassword}
+                  onChange={e => setResetPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                  placeholder="Mínimo 6 caracteres"
+                  required
+                  autoFocus
+                  style={{ width: '100%', background: '#111', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#fff', padding: '10px 12px', fontSize: '0.88rem', boxSizing: 'border-box', outline: 'none' }}
+                />
+              </div>
+              <div>
+                <label style={{ color: '#888', fontSize: '0.82rem', display: 'block', marginBottom: '6px' }}>Confirmar nova senha *</label>
+                <input
+                  type="password"
+                  value={resetPasswordForm.confirmPassword}
+                  onChange={e => setResetPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                  placeholder="Repita a senha"
+                  required
+                  style={{ width: '100%', background: '#111', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#fff', padding: '10px 12px', fontSize: '0.88rem', boxSizing: 'border-box', outline: 'none' }}
+                />
+                {resetPasswordForm.confirmPassword && resetPasswordForm.newPassword !== resetPasswordForm.confirmPassword && (
+                  <span style={{ color: '#e74c3c', fontSize: '0.78rem', marginTop: '4px', display: 'block' }}>As senhas não coincidem.</span>
+                )}
+              </div>
+
+              <div style={{ background: 'rgba(255,122,26,0.07)', border: '1px solid rgba(255,122,26,0.2)', borderRadius: '8px', padding: '10px 14px', marginTop: '0.25rem' }}>
+                <p style={{ color: '#ff7a1a', fontSize: '0.78rem', margin: 0 }}>
+                  ⚠️ Após redefinir, informe a nova senha ao usuário para que ele possa acessar o sistema.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={closeResetPasswordModal}
+                  style={{ background: 'transparent', border: '1px solid #333', color: '#a8a8a8', borderRadius: '8px', padding: '9px 20px', cursor: 'pointer', fontSize: '0.88rem' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={resetPasswordLoading}
+                  style={{ background: 'linear-gradient(135deg, #ff7a1a, #e06010)', border: 'none', color: '#fff', borderRadius: '8px', padding: '9px 20px', cursor: resetPasswordLoading ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '0.88rem', opacity: resetPasswordLoading ? 0.7 : 1 }}
+                >
+                  {resetPasswordLoading ? 'Salvando...' : 'Redefinir Senha'}
+                </button>
               </div>
             </form>
           </div>

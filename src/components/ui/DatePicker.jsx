@@ -1,7 +1,7 @@
 import { useState } from "react";
 import "./DatePicker.css";
 
-export default function DatePicker({ onSelectDate, selectedDate }) {
+export default function DatePicker({ onSelectDate, selectedDate, maxDate }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const getDaysInMonth = (date) => {
@@ -23,6 +23,14 @@ export default function DatePicker({ onSelectDate, selectedDate }) {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1));
   };
 
+  const isAfterMaxDate = (day) => {
+    if (!maxDate) return false;
+    const checkDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    return checkDate > maxDate;
+  };
+
+  const isNextMonthBlocked = () => false;
+
   const handleDayClick = (day) => {
     const selectedDateObj = new Date(
       currentMonth.getFullYear(),
@@ -30,7 +38,7 @@ export default function DatePicker({ onSelectDate, selectedDate }) {
       day
     );
     
-    if (isPastDate(day)) {
+    if (isPastDate(day) || isAfterMaxDate(day)) {
       return;
     }
     
@@ -85,7 +93,7 @@ export default function DatePicker({ onSelectDate, selectedDate }) {
         <h3 className="date-picker__title">
           {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
         </h3>
-        <button onClick={handleNextMonth} className="date-picker__nav">
+        <button onClick={handleNextMonth} className="date-picker__nav" disabled={isNextMonthBlocked()}>
           →
         </button>
       </div>
@@ -108,17 +116,19 @@ export default function DatePicker({ onSelectDate, selectedDate }) {
         {Array.from({ length: daysInMonth }).map((_, i) => {
           const day = i + 1;
           const isPast = isPastDate(day);
+          const isBeyondMax = isAfterMaxDate(day);
+          const isDisabled = isPast || isBeyondMax;
           const selected = isSelected(day);
           
           return (
             <button
               key={day}
               onClick={() => handleDayClick(day)}
-              disabled={isPast}
+              disabled={isDisabled}
               className={`date-picker__day ${
                 isToday(day) ? "date-picker__day--today" : ""
               } ${selected ? "date-picker__day--selected" : ""} ${
-                isPast ? "date-picker__day--disabled" : ""
+                isDisabled ? "date-picker__day--disabled" : ""
               }`}
             >
               {day}
