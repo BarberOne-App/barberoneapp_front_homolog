@@ -15,11 +15,7 @@ import {
   checkPixStatus,
 } from '../../services/mercadoPagoService';
 import './PaymentModal.css';
-
-const SUBSCRIPTION_LINKS = {
-  150: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=248f6838b5a0470c96b23a4edd1905d8',
-  1: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=6a4820f29af0439eaedd4ffa13a0acbf',
-};
+import { getToken } from '../../services/authService';
 
 
 function PixQrModal({ pixQrCodeBase64, pixQrCode, pixTimer, pixExpired, pixQrCopied, pixGenerating, onCopy, onClose }) {
@@ -101,7 +97,6 @@ function PixQrModal({ pixQrCodeBase64, pixQrCode, pixTimer, pixExpired, pixQrCop
   );
 }
 
-
 export default function PaymentModal({
   isOpen,
   onClose,
@@ -134,6 +129,7 @@ export default function PaymentModal({
   const [termsDocUrl, setTermsDocUrl] = useState('');
   const [mercadoPagoInstance, setMercadoPagoInstance] = useState(null);
   const [brickController, setBrickController] = useState(null);
+  const [subscriptionLinks, setSubscriptionLinks] = useState([]);
   const [brickLoaded, setBrickLoaded] = useState(false);
 
   const cardPaymentBrickRef = useRef(null);
@@ -144,6 +140,43 @@ export default function PaymentModal({
   // const MERCADO_PAGO_PUBLIC_KEY = 'APP_USR-3c24dcad-27ac-4f14-996c-d0ef917404b0';
   const MERCADO_PAGO_PUBLIC_KEY = 'APP_USR-dbce4522-de83-4285-a68f-836743a56c64';
   const isRecurringSubscription = !isAppointmentPayment && selectedPlan?.isRecurring;
+
+  const token = getToken();
+  // const SUBSCRIPTION_LINKS = {
+  //   150: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=248f6838b5a0470c96b23a4edd1905d8',
+  //   1: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=6a4820f29af0439eaedd4ffa13a0acbf',
+  // };
+
+  useEffect(() => {
+    const loadSubscriptionLinks = async () => {
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/subscription-plans`,
+          {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Erro ao buscar planos: ${response.status}`);
+        }
+
+        const data = await response.json();
+        setSubscriptionLinks(data);
+      } catch (error) {
+        console.error('Erro ao buscar subscription-plans:', error);
+        setSubscriptionLinks([]);
+      }
+    };
+
+    if (isOpen && token) {
+      loadSubscriptionLinks();
+    }
+  }, [isOpen, token]);
 
   const getAvailablePaymentMethods = () => {
     if (isAppointmentPayment) return ['credit', 'debit', 'pix'];
@@ -889,18 +922,40 @@ export default function PaymentModal({
     }
   };
 
+  // const handleRecurringSubscription = () => {
+  //   if (!acceptedTerms) {
+  //     setValidationToast({ show: true, message: 'Você precisa aceitar os termos de contratação' });
+  //     setTimeout(() => setValidationToast({ show: false, message: '' }), 4000);
+  //     return;
+  //   }
+  //   const subscriptionLink = subscriptionLinks[selectedPlan.price];
+  //   if (!subscriptionLink) {
+  //     setErrorMessage('Plano de assinatura não encontrado. Entre em contato com o suporte.');
+  //     setShowErrorToast(true);
+  //     return;
+  //   }
+  //   window.open(subscriptionLink, '_blank');
+  // };
+
   const handleRecurringSubscription = () => {
     if (!acceptedTerms) {
       setValidationToast({ show: true, message: 'Você precisa aceitar os termos de contratação' });
       setTimeout(() => setValidationToast({ show: false, message: '' }), 4000);
       return;
     }
-    const subscriptionLink = SUBSCRIPTION_LINKS[selectedPlan.price];
+
+    const planFound = subscriptionLinks.find(
+      (plan) => Number(plan.price) === Number(selectedPlan.price)
+    );
+
+    const subscriptionLink = planFound?.mpSubscriptionUrl;
+
     if (!subscriptionLink) {
       setErrorMessage('Plano de assinatura não encontrado. Entre em contato com o suporte.');
       setShowErrorToast(true);
       return;
     }
+
     window.open(subscriptionLink, '_blank');
   };
 

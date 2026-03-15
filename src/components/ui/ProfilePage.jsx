@@ -196,6 +196,82 @@ export default function ProfilePage() {
           showToast('Dependente atualizado!');
         }
       } else {
+
+        // const cpfDigitado = normalizeCpf(dependentForm.cpf);
+
+        // if (cpfDigitado.length !== 11) {
+        //   showToast('CPF inválido.', 'warning');
+        //   return;
+        // }
+
+        // const [usersRes, dependentsRes] = await Promise.all([
+        //   fetch(`${import.meta.env.VITE_API_URL}/users`, {
+        //     headers: {
+        //       Authorization: `Bearer ${token}`,
+        //     },
+        //   }),
+        //   fetch(`${import.meta.env.VITE_API_URL}/dependents`, {
+        //     headers: {
+        //       Authorization: `Bearer ${token}`,
+        //     },
+        //   }),
+        // ]);
+
+        // if (!usersRes.ok) {
+        //   throw new Error('Erro ao buscar usuários.');
+        // }
+
+        // if (!dependentsRes.ok) {
+        //   throw new Error('Erro ao buscar dependentes.');
+        // }
+
+        // const usersData = await usersRes.json();
+        // const dependentsData = await dependentsRes.json();
+
+        // const users = Array.isArray(usersData)
+        //   ? usersData
+        //   : usersData?.data || usersData?.users || [];
+
+        // const dependents = Array.isArray(dependentsData)
+        //   ? dependentsData
+        //   : dependentsData?.data || dependentsData?.dependents || [];
+
+        // const cpfJaExisteEmUsuario = users.some(
+        //   (user) => normalizeCpf(user.cpf) === cpfDigitado
+        // );
+
+        // const cpfJaExisteEmDependente = dependents.some(
+        //   (dependent) => normalizeCpf(dependent.cpf) === cpfDigitado
+        // );
+
+        // if (cpfJaExisteEmUsuario || cpfJaExisteEmDependente) {
+        //   showToast('Já existe um usuário ou dependente com esse CPF.', 'warning');
+        //   return;
+        // }
+
+        // const res = await fetch(`${import.meta.env.VITE_API_URL}/dependents`, {
+        //   method: 'POST',
+        //   headers: {
+        //     'Content-Type': 'application/json',
+        //     Authorization: `Bearer ${token}`,
+        //   },
+        //   body:e JSON.stringify({
+        //     ...dependentForm,
+        //     cpf: cpfDigitado,
+        //     age: Number(dependentForm.age),
+        //     parentId: currentUser.id,
+        //     parentName: currentUser.name,
+        //   }),
+        // });
+
+        // const data = await res.json();
+
+        // if (!res.ok) {
+        //   throw new Error(data?.message || 'Erro ao cadastrar dependente.');
+        // }
+
+        // showToast('Dependente cadastrado com sucesso!', 'success');
+
         const res = await fetch(`${import.meta.env.VITE_API_URL}/dependents`, {
           method: 'POST',
           headers: {
@@ -216,6 +292,7 @@ export default function ProfilePage() {
         }
       }
     } catch (e) {
+      console.log(e);
       showToast('Erro ao salvar dependente.');
     } finally {
       setSavingDependent(false);

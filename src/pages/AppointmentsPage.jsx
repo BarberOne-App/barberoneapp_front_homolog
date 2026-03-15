@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api.js';
 import BaseLayout from '../components/layout/BaseLayout.jsx';
 import DatePicker from '../components/ui/DatePicker.jsx';
+import axios, { all } from 'axios';
 import BarberCard from '../components/ui/BarberCard.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import PaymentModal from '../components/ui/PaymentModal.jsx';
@@ -100,8 +101,13 @@ export default function AppointmentsPage() {
   const checkExistingAppointmentOnDate = useCallback((date) => {
     if (!date || !activeClient?.id) return null;
     const dateStr = date.toLocaleDateString('en-CA');
+    // const existingApt = appointments.find(
+    //   (apt) => apt.clientId === activeClient.id && apt.endAt === dateStr
+    // );
     const existingApt = appointments.find(
-      (apt) => apt.clientId === activeClient.id && apt.date === dateStr
+      (apt) =>
+        apt.clientId === activeClient.id &&
+        apt.endAt?.split('T')[0] === dateStr
     );
     return existingApt || null;
   }, [appointments, activeClient?.id]);
@@ -238,12 +244,6 @@ export default function AppointmentsPage() {
           }
         }).then((res) => res.json()),
         getAppointments(),
-        // fetch('https://barbearia-addev-backend.onrender.com/subscriptions', {
-        //   headers: {
-        //     Authorization: `Bearer ${token}`,
-        //   }
-        // }).then((res) => res.json())
-
       ]);
 
       const res = await fetch('https://barbearia-addev-backend.onrender.com/subscriptions', {
@@ -253,19 +253,42 @@ export default function AppointmentsPage() {
       });
 
       const subscription = await res.json();
-      console.log(subscription);
 
+      let allUsersArray = [];
 
-      const usersResponse = await fetch('https://barbearia-addev-backend.onrender.com/users', {
-        headers: {
-          Authorization: `Bearer ${token}`,
+      // Só tenta listar usuários se puder agendar para terceiros
+      if (canScheduleForOthers) {
+        try {
+          const usersResponse = await fetch('https://barbearia-addev-backend.onrender.com/users', {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            }
+          });
+
+          const usersJson = await usersResponse.json();
+
+          if (usersResponse.ok) {
+            allUsersArray = Array.isArray(usersJson?.items)
+              ? usersJson.items
+              : Array.isArray(usersJson)
+                ? usersJson
+                : [];
+          } else {
+            console.warn('Sem permissão para listar usuários:', usersJson);
+            allUsersArray = [];
+          }
+        } catch (err) {
+          console.warn('Erro ao buscar usuários:', err);
+          allUsersArray = [];
         }
-      });
-      const allUsers = await usersResponse.json();
+      }
+
+      console.log('allUsersArray:', allUsersArray);
 
       const validBarbers = barbersData.filter((barber) => {
         if (!barber.userId) return true;
-        const user = allUsers.find((u) => u.id === barber.userId);
+
+        const user = allUsersArray.find((u) => u.id === barber.userId);
 
         return !user || user.role === 'barber';
       });
@@ -274,23 +297,28 @@ export default function AppointmentsPage() {
       setServices(servicesData);
       setProducts(productsData);
       setAppointments(appointmentsData);
-      setUserSubscriptions(subscription.items);
-      setAllUsers(allUsers);
+      setUserSubscriptions(Array.isArray(subscription?.items) ? subscription.items : []);
+      setAllUsers(allUsersArray);
 
       let deps = [];
-      // try {
-      //   const depsRes = await fetch(`https://barbearia-addev-backend.onrender.com/dependents?parentId=${currentUser?.id}`);
-      //   if (depsRes.ok) {
-      //     deps = await depsRes.json();
-      //     setUserDependents(deps);
-      //   }
-      // } catch (e) {}
+      try {
+        const depsRes = await fetch(`https://barbearia-addev-backend.onrender.com/dependents?parentId=${currentUser?.id}`, {
+          headers: { authorization: `Bearer ${token}` },
+        });
 
-      // const depIds = deps.map(d => `dep_${d.id}`);
+        if (depsRes.ok) {
+          const depsJson = await depsRes.json();
+          deps = Array.isArray(depsJson) ? depsJson : depsJson?.items || [];
+          setUserDependents(deps);
+        }
+      } catch (e) {
+        console.warn('Erro ao buscar dependentes:', e);
+      }
+
+      const depIds = deps.map((d) => `dep_${d.id}`);
 
       const userAppointments = appointmentsData.filter((apt) =>
-        apt.clientId === currentUser?.id
-        // || depIds.includes(apt.clientId)
+        apt.clientId === currentUser?.id || depIds.includes(apt.clientId)
       );
 
       const paymentsMap = {};
@@ -302,7 +330,7 @@ export default function AppointmentsPage() {
           console.error(`Erro ao buscar pagamento ${apt.id}`, error);
         }
       }
-      console.log("PAGAMENTOS AQUI: ", paymentsMap)
+
       setAppointmentPayments(paymentsMap);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -310,7 +338,88 @@ export default function AppointmentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentUser?.id]);
+  }, [token, currentUser?.id, canScheduleForOthers]);
+
+  // const loadData = useCallback(async () => {
+  //   try {
+  //     const [barbersData, servicesData, productsData, appointmentsData] = await Promise.all([
+  //       getBarbers(),
+  //       getAllServices(),
+  //       fetch('https://barbearia-addev-backend.onrender.com/products', {
+  //         headers: {
+  //           Authorization: `Bearer ${token}`,
+  //         }
+  //       }).then((res) => res.json()),
+  //       getAppointments(),
+  //     ]);
+
+  //     const res = await fetch('https://barbearia-addev-backend.onrender.com/subscriptions', {
+  //       headers: {
+  //         Authorization: `Bearer ${token}`,
+  //       }
+  //     });
+
+  //     const subscription = await res.json();
+  //     const usersResponse = await fetch('https://barbearia-addev-backend.onrender.com/users', {
+  //       headers: {
+  //         Authorization: `Bearer ${token}`,
+  //       }
+  //     });
+
+  //     const allUsers2 = await usersResponse.json();
+  //     const allUsersArray = allUsers2.items || [];
+  //     console.log(allUsersArray);
+
+  //     const validBarbers = barbersData.filter((barber) => {
+  //       if (!barber.userId) return true;
+  //       const user = allUsers2.items.find((u) => u.id === barber.userId);
+
+  //       return !user || user.role === 'barber';
+  //     });
+
+  //     setBarbers(validBarbers);
+  //     setServices(servicesData);
+  //     setProducts(productsData);
+  //     setAppointments(appointmentsData);
+  //     setUserSubscriptions(subscription.items);
+  //     setAllUsers(allUsersArray);
+  //     console.log(allUsers);
+
+  //     let deps = [];
+  //     try {
+  //       const depsRes = await fetch(`https://barbearia-addev-backend.onrender.com/dependents?parentId=${currentUser?.id}`, {
+  //         headers: { authorization: `Bearer ${token}` },
+  //       });
+  //       if (depsRes.ok) {
+  //         deps = await depsRes.json();
+  //         setUserDependents(deps);
+  //       }
+  //     } catch (e) { }
+
+  //     const depIds = deps.map(d => `dep_${d.id}`);
+
+  //     const userAppointments = appointmentsData.filter((apt) =>
+  //       apt.clientId === currentUser?.id
+  //       || depIds.includes(apt.clientId)
+  //     );
+
+  //     const paymentsMap = {};
+  //     for (const apt of userAppointments) {
+  //       try {
+  //         const payment = await buscarPagamentoAgendamento(apt.id);
+  //         if (payment) paymentsMap[apt.id] = payment;
+  //       } catch (error) {
+  //         console.error(`Erro ao buscar pagamento ${apt.id}`, error);
+  //       }
+  //     }
+  //     setAppointmentPayments(paymentsMap);
+  //   } catch (error) {
+  //     console.error('Erro ao carregar dados:', error);
+  //     isFetchingPayments.current = false;
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // }, [currentUser?.id]);
 
   const handleUpdateStock = useCallback(async (productId, quantity) => {
     try {
@@ -490,21 +599,26 @@ export default function AppointmentsPage() {
 
   const getBookedSlots = useCallback((barberId, date) => {
     if (!date) return [];
-    const dateStr = date.toLocaleDateString('en-CA');
+    const dateStr = date.toLocaleDateString('pt-BR');
 
     return appointments
-      .filter((apt) => apt.barberId === barberId && apt.date === dateStr)
+      .filter((apt) => apt.barberId === barberId && new Date(apt.startAt).toLocaleDateString("pt-BR") === dateStr)
       .flatMap((apt) => {
         let totalDuration = 30;
         if (Array.isArray(apt.services) && apt.services.length > 0) {
           totalDuration = apt.services.reduce((sum, s) => {
-            return sum + (s.duration || 30);
+            return sum + (s.durationMinutes || 30);
           }, 0);
         }
 
         const slots = Math.ceil(totalDuration / 30);
         const result = [];
-        let [h, m] = apt.time.split(':').map(Number);
+        const time = new Date(apt.startAt).toLocaleTimeString('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'UTC',
+        });
+        let [h, m] = time.split(':').map(Number);
 
         for (let i = 0; i < slots; i++) {
           const hh = String(h).padStart(2, '0');
@@ -735,6 +849,28 @@ export default function AppointmentsPage() {
         }
       }
 
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/dependents`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const dependentsList = Array.isArray(response.data)
+        ? response.data
+        : response.data?.dependents || response.data?.data || [];
+
+      const selectedDependent = bookingForDependent
+        ? dependentsList.find((dep) => dep.id === bookingForDependent.id)
+        : null;
+
+      const responsibleId = bookingForDependent
+        ? (selectedDependent?.parent_id || selectedDependent?.parentId || null)
+        : activeClient.id;
+
+      if (bookingForDependent && !responsibleId) {
+        throw new Error('Não foi possível localizar o responsável do dependente.');
+      }
+
       const newAppointment = {
         barberId: pendingBookingData.barberId,
         barberName: pendingBookingData.barberName,
@@ -742,10 +878,10 @@ export default function AppointmentsPage() {
         date: pendingBookingData.date,
         time: pendingBookingData.time,
         client: activeClient.name,
-        clientId: activeClient.id,
+        clientId: responsibleId,
         ...(bookingForDependent ? { isDependent: true, dependentName: bookingForDependent.name, dependentId: bookingForDependent.id } : {}),
         products: [],
-        observation: pendingBookingData.observation || '',
+        notes: pendingBookingData.observation || '',
       };
 
       const createdAppointment = await createAppointment(newAppointment);
@@ -846,7 +982,7 @@ export default function AppointmentsPage() {
             clientId: activeClient.id,
             ...(bookingForDependent ? { isDependent: true, dependentName: bookingForDependent.name, dependentId: bookingForDependent.id } : {}),
             products: purchaseData.products,
-            observation: pendingBookingData.observation || '',
+            notes: pendingBookingData.observation || '',
           },
           paymentData: {
             userId: currentUser.id,
@@ -873,6 +1009,28 @@ export default function AppointmentsPage() {
       } else {
         setBookingInProgress(true);
 
+        const response = await axios.get(`${import.meta.env.VITE_API_URL}/dependents`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const dependentsList = Array.isArray(response.data)
+          ? response.data
+          : response.data?.dependents || response.data?.data || [];
+
+        const selectedDependent = bookingForDependent
+          ? dependentsList.find((dep) => dep.id === bookingForDependent.id)
+          : null;
+
+        const responsibleId = bookingForDependent
+          ? (selectedDependent?.parent_id || selectedDependent?.parentId || null)
+          : activeClient.id;
+
+        if (bookingForDependent && !responsibleId) {
+          throw new Error('Não foi possível localizar o responsável do dependente.');
+        }
+
         const newAppointment = {
           barberId: pendingBookingData.barberId,
           barberName: pendingBookingData.barberName,
@@ -880,10 +1038,10 @@ export default function AppointmentsPage() {
           date: pendingBookingData.date,
           time: pendingBookingData.time,
           client: activeClient.name,
-          clientId: activeClient.id,
+          clientId: responsibleId,
           ...(bookingForDependent ? { isDependent: true, dependentName: bookingForDependent.name, dependentId: bookingForDependent.id } : {}),
           products: purchaseData.products,
-          observation: pendingBookingData.observation || '',
+          notes: pendingBookingData.observation || '',
         };
 
         const createdAppointment = await createAppointment(newAppointment);
@@ -992,8 +1150,7 @@ export default function AppointmentsPage() {
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
 
-    const depClientIds = userDependents.map(d => `dep_${d.id}`);
-    console.log('MEUS APONTAMENTOS', appointments)
+    const depClientIds = userDependents.map(d => d.id);
     return appointments.filter((apt) => {
       const isOwn = apt.clientId === currentUser?.id;
       const isDep = depClientIds.includes(apt.clientId);
@@ -1015,11 +1172,8 @@ export default function AppointmentsPage() {
     });
   }, [appointments, currentUser?.id, appointmentFilter, userDependents]);
 
-  console.log("APONTAMENTOS", myAppointments);
-
   const sortedMyAppointments = useMemo(() => {
     return [...myAppointments].sort((a, b) => {
-      console.log(a.date);
       const dateA = new Date(`${a.date}T${a.time}`);
       const dateB = new Date(`${b.date}T${b.time}`);
       return dateB - dateA;
@@ -1519,7 +1673,11 @@ export default function AppointmentsPage() {
                         const appointmentDate = new Date(apt.endAt);
                         const formattedDate = appointmentDate.toLocaleDateString('pt-BR');
 
-                        const time = `${String(appointmentDate.getHours()).padStart(2, '0')}:${String(appointmentDate.getMinutes()).padStart(2, '0')}`;
+                        const time = new Date(apt.startAt).toLocaleTimeString('pt-BR', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          timeZone: 'UTC',
+                        });
 
                         const servicesTotal = Array.isArray(apt.services)
                           ? apt.services.reduce((sum, s) => {
@@ -1532,9 +1690,9 @@ export default function AppointmentsPage() {
 
                         const productsTotal = apt.products && apt.products.length > 0
                           ? apt.products.reduce((sum, p) => {
-                            const price = typeof p.price === 'string'
-                              ? parseFloat(p.price.replace(/R\$/g, '').replace(/,/g, '.').trim()) || 0
-                              : p.price || 0;
+                            const price = typeof p.unitPrice === 'string'
+                              ? parseFloat(p.unitPrice.replace(/R\$/g, '').replace(/,/g, '.').trim()) || 0
+                              : p.unitPrice || 0;
                             return sum + (price * (p.quantity || 1));
                           }, 0)
                           : 0;
@@ -1577,13 +1735,13 @@ export default function AppointmentsPage() {
                               </div>
                             </td>
                             <td data-label="Para">
-                              {apt.isDependent ? (
+                              {apt.dependent ? (
                                 <span style={{
                                   display: 'inline-flex', alignItems: 'center', gap: '4px',
                                   background: 'rgba(255,122,26,0.12)', color: '#ff7a1a',
                                   border: '1px solid rgba(255,122,26,0.35)', borderRadius: '20px',
                                   padding: '2px 10px', fontSize: '0.78rem', fontWeight: 700
-                                }}>👤 {apt.dependentName}</span>
+                                }}>👤 {apt.dependent.name}</span>
                               ) : (
                                 <span style={{ color: '#666', fontSize: '0.82rem' }}>Você</span>
                               )}
@@ -1608,7 +1766,7 @@ export default function AppointmentsPage() {
                               </div>
                             </td>
                             <td data-label="Obs.">
-                              {apt.observation ? (
+                              {apt.notes ? (
                                 <div>
                                   <button
                                     onClick={() => setExpandedObsId(expandedObsId === apt.id ? null : apt.id)}
@@ -1639,7 +1797,7 @@ export default function AppointmentsPage() {
                                       maxWidth: '200px',
                                       lineHeight: '1.5',
                                     }}>
-                                      {apt.observation}
+                                      {apt.notes}
                                     </div>
                                   )}
                                 </div>
@@ -1652,7 +1810,7 @@ export default function AppointmentsPage() {
                                 {apt.products && apt.products.length > 0 ? (
                                   apt.products.map((product, idx) => (
                                     <div key={idx} className="appointment-product-item">
-                                      {product.name} x{product.quantity}
+                                      {product.productName} x{product.quantity}
                                     </div>
                                   ))
                                 ) : (
@@ -1770,11 +1928,11 @@ export default function AppointmentsPage() {
               </p>
               <div style={{ background: '#1a1a1a', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <div><strong>Barbeiro:</strong> {existingAppointment.barberName}</div>
-                  <div><strong>Data:</strong> {new Date(`${existingAppointment.date}T00:00:00`).toLocaleDateString('pt-BR')}</div>
+                  <div><strong>Barbeiro:</strong> {existingAppointment.barber.displayName}</div>
+                  <div><strong>Data:</strong> {new Date(existingAppointment.endAt).toLocaleDateString('pt-BR')}</div>
                   <div><strong>Horário:</strong> {existingAppointment.time}</div>
                   <div>
-                    <strong>Serviços:</strong> {Array.isArray(existingAppointment.services) ? existingAppointment.services.map((s) => s.name).join(', ') : '-'}
+                    <strong>Serviços:</strong> {Array.isArray(existingAppointment.services) ? existingAppointment.services.map((s) => s.serviceName).join(', ') : '-'}
                   </div>
                 </div>
               </div>

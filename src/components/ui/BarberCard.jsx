@@ -109,9 +109,9 @@ export default function BarberCard({
   return (
     <div className="barber-card">
       <div className="barber-card__header">
-        <img src={barber.photo} alt={barber.name} className="barber-card__avatar" />
+        <img src={barber.photo} alt={barber.displayName} className="barber-card__avatar" />
         <div className="barber-card__info">
-          <h3 className="barber-card__name">{barber.name}</h3>
+          <h3 className="barber-card__name">{barber.displayName}</h3>
           <p className="barber-card__specialty">{barber.specialty}</p>
         </div>
       </div>

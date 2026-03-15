@@ -50,6 +50,7 @@ export async function register(userData) {
     slug: userData.slug,
     name: userData.name,
     email: userData.email,
+    cpf: userData.cpf || null,
     phone: userData.phone || null,
     password: userData.password,
   });

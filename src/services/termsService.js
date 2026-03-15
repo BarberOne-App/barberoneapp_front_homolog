@@ -62,14 +62,15 @@ export const getTermsDocument = async () => {
     }
     
     
-    const response = await axios.get(`${import.meta.env.VITE_API_URL}/settings/1`);
-    if (response.data.termsDocumentUrl) {
-      return {
-        documentUrl: response.data.termsDocumentUrl,
-        fileName: response.data.termsDocumentName || 'documento.pdf'
-      };
-    }
+    // const response = await axios.get(`${import.meta.env.VITE_API_URL}/settings/1`);
+    // if (response.data.termsDocumentUrl) {
+    //   return {
+    //     documentUrl: response.data.termsDocumentUrl,
+    //     fileName: response.data.termsDocumentName || 'documento.pdf'
+    //   };
+    // }
     
+    // return { documentUrl: '', fileName: '' };
     return { documentUrl: '', fileName: '' };
   } catch (error) {
     console.error('Erro ao carregar documento:', error);
@@ -81,12 +82,13 @@ export const deleteTermsDocument = async () => {
   try {
     localStorage.removeItem('termsDocument');
     
-    await axios.patch(`${import.meta.env.VITE_API_URL}/settings/1`, {
-      termsDocumentUrl: '',
-      termsDocumentName: ''
-    });
+    // await axios.patch(`${import.meta.env.VITE_API_URL}/settings/1`, {
+    //   termsDocumentUrl: '',
+    //   termsDocumentName: ''
+    // });
     
-    return { success: true };
+    // return { success: true };
+    return true;
   } catch (error) {
     throw new Error('Erro ao remover documento');
   }

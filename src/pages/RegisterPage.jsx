@@ -117,6 +117,7 @@ export default function RegisterPage() {
         slug: selectedBarbershop?.slug || "",
         name,
         email,
+        cpf: cleanCPF,
         phone: phoneNumbers,
         password,
       };
