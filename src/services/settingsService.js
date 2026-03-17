@@ -151,7 +151,7 @@ export async function saveHomeInfo(homeInfo) {
     } else {
 
       const createResponse = await fetch(`${API_URL}/home-info`, {
-        method: 'POST',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,

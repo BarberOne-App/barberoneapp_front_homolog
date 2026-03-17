@@ -46,11 +46,12 @@ export default function ProfilePage() {
       navigate('/login');
       return;
     }
+    const planId = JSON.parse(localStorage.getItem('planId'));
   
     setCurrentUser(user);
     setNewName(user.name || '');
     loadUserPhoto(user.id);
-    verificarAssinaturaAtiva(user.id);
+    verificarAssinaturaAtiva("d0a33469-b04a-4153-b005-ad506b0eb1e3", user);
     loadDependents(user.id);
 
     // Busca permissoes atualizadas no backend e sincroniza sessao
@@ -317,9 +318,9 @@ export default function ProfilePage() {
     }
   };
 
-  const verificarAssinaturaAtiva = async (userId) => {
+  const verificarAssinaturaAtiva = async (planId, currentUser) => {
     try {
-      const assinatura = await buscarAssinaturaAtiva(userId);
+      const assinatura = await buscarAssinaturaAtiva(planId, currentUser);
       setActiveSubscription(assinatura);
     } catch (e) { }
   };

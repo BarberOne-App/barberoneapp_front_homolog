@@ -57,6 +57,8 @@ export default function SubscriptionModal({ isOpen, onClose, currentUser }) {
     };
     setSelectedPlan(planWithRecurring);
     setShowPaymentModal(true);
+    localStorage.setItem('selectedPlan', JSON.stringify(planWithRecurring));
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
   };
 
   const handlePaymentSuccess = (subscription) => {
@@ -90,9 +92,8 @@ export default function SubscriptionModal({ isOpen, onClose, currentUser }) {
             {plans.map((plan) => (
               <div
                 key={plan.id}
-                className={`subscription-modal__plan ${
-                  plan.recommended ? 'subscription-modal__plan--popular' : ''
-                }`}
+                className={`subscription-modal__plan ${plan.recommended ? 'subscription-modal__plan--popular' : ''
+                  }`}
                 style={{ borderColor: plan.color }}
               >
                 {plan.recommended && (

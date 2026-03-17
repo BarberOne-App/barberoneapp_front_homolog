@@ -5,6 +5,7 @@ import PaymentModal from './PaymentModal.jsx';
 import Toast from './Toast.jsx';
 import './SubscriptionSection.css';
 import { getToken } from '../../services/authService.js';
+import AppointmentsPage from '../../pages/AppointmentsPage.jsx';
 
 export default function SubscriptionSection({ activeSubscription, onSubscribe }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -80,6 +81,8 @@ export default function SubscriptionSection({ activeSubscription, onSubscribe })
     };
     setSelectedPlan(planWithRecurring);
     setIsModalOpen(true);
+    localStorage.setItem('selectedPlan', JSON.stringify(planWithRecurring));
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
   };
 
   const handlePaymentSuccess = (subscription) => {
@@ -106,9 +109,8 @@ export default function SubscriptionSection({ activeSubscription, onSubscribe })
             return (
               <div
                 key={plan.id}
-                className={`subscription-plan ${
-                  plan.recommended ? 'subscription-plan--recommended' : ''
-                }`}
+                className={`subscription-plan ${plan.recommended ? 'subscription-plan--recommended' : ''
+                  }`}
               >
                 {plan.recommended && (
                   <div className="subscription-plan__badge">Recomendado</div>

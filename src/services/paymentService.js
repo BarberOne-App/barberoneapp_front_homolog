@@ -306,30 +306,38 @@ export const buscarAssinaturasUsuario = async (userId) => {
   }
 };
 
-export const buscarAssinaturaAtiva = async (userId) => {
+export const buscarAssinaturaAtiva = async (planId, currentUser) => {
+
+  console.log(currentUser);
   try {
 
     const [resActive, resPending] = await Promise.all([
-      api.get(`/subscriptions?userId=${userId}&status=active`, {
+      api.get(`/subscriptions/${planId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      }),
-      api.get(`/subscriptions?userId=${userId}&status=cancelled`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }),
+      })
     ]);
 
-    const todas = [...resActive.data.items, ...resPending.data.items];
+    // const todas = [...resActive.data.plan, ...resPending.data.plan];
     const hoje = new Date();
 
+    const valida = () => {
 
-    const valida = todas.find(s => {
-      if (!s.nextBillingDate) return false;
-      return new Date(s.nextBillingDate) > hoje;
-    });
+      if(currentUser.id !== resActive.data.userId){
+        return false;
+      }
+
+      if(!resActive.data.nextBillingAt){
+        return false;
+      }
+      return new Date(resActive.data.nextBillingAt) > hoje;
+    }
+
+    // const valida = todas.find(s => {
+    //   if (!s.nextBillingDate) return false;
+    //   return new Date(s.nextBillingDate) > hoje;
+    // });
 
     return valida || null;
   } catch (error) {

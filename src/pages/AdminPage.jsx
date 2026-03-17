@@ -196,13 +196,13 @@ export default function AdminPage() {
   const [heroImageUploading, setHeroImageUploading] = useState(false);
   const [galleryImageUploading, setGalleryImageUploading] = useState(false);
 
- 
+
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [resetPasswordUser, setResetPasswordUser] = useState(null);
   const [resetPasswordForm, setResetPasswordForm] = useState({ newPassword: '', confirmPassword: '' });
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
   const [userSearch, setUserSearch] = useState('');
-  
+
 
 
   const normalizedAppointmentPayments = Array.isArray(appointmentPayments)
@@ -368,7 +368,7 @@ export default function AdminPage() {
     if (selectedMonth) {
       const [year, month] = selectedMonth.split('-');
       filtered = filtered.filter((appointment) => {
-        const appointmentDate = new Date(appointment.date);
+        const appointmentDate = new Date(appointment.startAt);
         return (
           appointmentDate.getFullYear() === parseInt(year) &&
           appointmentDate.getMonth() + 1 === parseInt(month)
@@ -378,12 +378,12 @@ export default function AdminPage() {
 
     if (appointmentDateFilter) {
       filtered = filtered.filter((appointment) => {
-        const appointmentDateStr = new Date(appointment.date).toISOString().split('T')[0];
+        const appointmentDateStr = new Date(appointment.startAt).toISOString().split('T')[0];
         return appointmentDateStr === appointmentDateFilter;
       });
     } else if (appointmentStartDate || appointmentEndDate) {
       filtered = filtered.filter((appointment) => {
-        const appointmentDateStr = new Date(appointment.date).toISOString().split('T')[0];
+        const appointmentDateStr = new Date(appointment.startAt).toISOString().split('T')[0];
         return isDateInRange(appointmentDateStr, appointmentStartDate, appointmentEndDate);
       });
     }
@@ -505,7 +505,7 @@ export default function AdminPage() {
         );
         if (!selectedBarber) return false;
 
-        return payment.barberName === selectedBarber.name;
+        return payment.appointment.barber.displayName === selectedBarber.displayName;
       });
     }
 
@@ -611,6 +611,7 @@ export default function AdminPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
+      console.log(data);
       setBlockedDates(data);
     } catch (error) {
       console.error('Erro ao carregar dias bloqueados:', error);
@@ -661,7 +662,7 @@ export default function AdminPage() {
       const blockData = {
         date: newBlockedDate.date,
         reason: newBlockedDate.reason || (isTimeBlock ? 'Horário bloqueado' : 'Dia bloqueado'),
-        barberId: newBlockedDate.barberId,
+        barberId: newBlockedDate.barberId || null,
         startTime: isTimeBlock ? newBlockedDate.startTime : null,
         endTime: isTimeBlock ? newBlockedDate.endTime : null,
         createdBy: currentUser?.id,
@@ -921,7 +922,7 @@ export default function AdminPage() {
       .then(res => res.ok ? res.json() : null)
       .then(freshUser => {
         if (freshUser) {
-        
+
           const updatedUser = { ...currentUser, ...freshUser };
           localStorage.setItem('session', JSON.stringify(updatedUser));
           currentUserRef.current = updatedUser;
@@ -942,7 +943,7 @@ export default function AdminPage() {
         loadHomeInfo();
       })
       .catch(() => {
-     
+
         const hasAccess = isAdmin || isReceptionist || currentUser?.permissions?.viewAdmin;
         if (!hasAccess) {
           navigate('/appointments');
@@ -1053,16 +1054,22 @@ export default function AdminPage() {
     }
     setResetPasswordLoading(true);
     try {
-      await fetch(`http://localhost:3000/users/${resetPasswordUser.id}`, {
+      await fetch(`https://barbearia-addev-backend.onrender.com/users/${resetPasswordUser.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: resetPasswordForm.newPassword })
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          resetPassword: resetPasswordForm.newPassword,
+          newPassword: resetPasswordForm.newPassword
+        })
       });
-      showToast(`Senha de ${resetPasswordUser.name} redefinida com sucesso!`, 'success');
-      closeResetPasswordModal();
     } catch (error) {
       showToast('Erro ao redefinir senha.', 'danger');
     } finally {
+      showToast(`Senha de ${resetPasswordUser.name} redefinida com sucesso!`, 'success');
+      closeResetPasswordModal();
       setResetPasswordLoading(false);
     }
   };
@@ -1075,7 +1082,10 @@ export default function AdminPage() {
     try {
       await fetch(`https://barbearia-addev-backend.onrender.com/users/${selectedUserPermissions.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ permissions: editingPermissions })
       });
       await loadData();
@@ -1701,11 +1711,11 @@ export default function AdminPage() {
       const updatedAppointment = {
         ...selectedAppointmentForBarberChange,
         barberId: newBarber.id,
-        barberName: newBarber.name,
+        barberName: newBarber.displayName,
       };
       await updateAppointment(selectedAppointmentForBarberChange.id, updatedAppointment);
       await loadData();
-      showToast(`Agendamento transferido para ${newBarber.name}!`, 'success');
+      showToast(`Agendamento transferido para ${newBarber.displayName}!`, 'success');
       closeChangeBarberModal();
     } catch (error) {
       showToast('Erro ao alterar barbeiro.', 'danger');
@@ -1714,7 +1724,7 @@ export default function AdminPage() {
 
   const calculateTotal = (services) => {
     return services.reduce((sum, service) => {
-      const price = Number(String(service.price ?? 0).replace('R$', '').replace(/\./g, '').replace(',', '.'));
+      const price = Number(String(service.unitPrice ?? 0).replace('R$', '').replace(/\./g, '').replace(',', '.'));
       return sum + (isNaN(price) ? 0 : price);
     }, 0);
   };
@@ -2202,12 +2212,13 @@ export default function AdminPage() {
     const commissionPercent = Number(barberData.commissionPercent) || 50;
     const relevantPayments = normalizedAppointmentPayments.filter(p => {
       if (String(p.appointment.barber.id) !== String(barberId) && p.appointment.barber.displayName !== barberData.displayName) return false;
-      if (p.status !== 'paid') return false;
-      if (p.commissionPaid === true) return false;
+      // if (p.status !== 'paid') return false;
+      // if (p.commissionPaid === true) return false;
       const d = p.appointmentDate ? String(p.appointmentDate).slice(0, 10) : (p.paidAt ? String(p.paidAt).slice(0, 10) : '');
       return d >= start && d <= end;
     });
-    const total = relevantPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+    // const total = normalizedAppointmentPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+    const total = normalizedAppointmentPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
     return parseFloat((total * commissionPercent / 100).toFixed(2));
   };
 
@@ -2488,7 +2499,7 @@ export default function AdminPage() {
                 onClick={() => setActiveTab('usuarios')}
                 className={`tab-btn ${activeTab === 'usuarios' ? 'tab-btn--active' : ''}`}
               >
-                 Usuários
+                Usuários
               </button>
             )}
           </div>
@@ -2923,35 +2934,35 @@ export default function AdminPage() {
                                           )}
                                         </td>
                                         <td>
-                                          <strong>{apt.client}</strong>
+                                          <strong>{apt.client.name}</strong>
                                         </td>
                                         <td>
-                                          {apt.isDependent ? (
+                                          {apt.dependent ? (
                                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(255,122,26,0.12)', color: '#ff7a1a', border: '1px solid rgba(255,122,26,0.35)', borderRadius: '20px', padding: '2px 9px', fontSize: '0.75rem', fontWeight: 700 }}>👤 {apt.dependentName}</span>
                                           ) : (
                                             <span style={{ color: '#555' }}>—</span>
                                           )}
                                         </td>
-                                        <td>{apt.date?.split('-').reverse().join('/')}</td>
-                                        <td>{apt.time}</td>
+                                        <td>{new Date(apt.startAt).toLocaleDateString('pt-BR')}</td>
+                                        <td>{new Date(apt.startAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</td>
                                         <td>
                                           <div className="services-list">
                                             {apt.services.map((service, idx) => (
                                               <span key={idx} className="service-pill">
-                                                {service.name}
+                                                {service.serviceName}
                                               </span>
                                             ))}
                                           </div>
                                         </td>
                                         <td className="total-price">R$ {aptTotal.toFixed(2)}</td>
-                                        <td>
-                                          {apt.observation ? (
+                                        <td>  
+                                          {apt.notes ? (
                                             <div>
                                               <button onClick={(e) => { e.stopPropagation(); setExpandedObsId(expandedObsId === apt.id ? null : apt.id); }} className="obs-btn">📝 Ver</button>
                                               {expandedObsId === apt.id && (
                                                 <div className="obs-card">
                                                   <div className="obs-card-label">Observação</div>
-                                                  <div className="obs-card-text">{apt.observation}</div>
+                                                  <div className="obs-card-text">{apt.notes}</div>
                                                 </div>
                                               )}
                                             </div>
@@ -3370,13 +3381,13 @@ export default function AdminPage() {
                           <thead>
                             <tr>
                               <th>Data Agend.</th>
+                              <th>Horário</th>
                               <th>Cliente</th>
                               <th>Para</th>
                               <th>Barbeiro</th>
                               <th>Serviço</th>
                               <th>Valor</th>
                               <th>Status</th>
-
                             </tr>
                           </thead>
                           <tbody>
@@ -3387,6 +3398,13 @@ export default function AdminPage() {
                                 <tr key={payment.id}>
                                   <td data-label="Data">
                                     {new Date(payment.appointment.endAt).toLocaleDateString('pt-BR')} {payment.appointmentTime}
+                                  </td>
+                                  <td data-label="Horário">
+                                    {new Date(payment.appointment.startAt).toLocaleTimeString('pt-BR', {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                      timeZone: 'UTC'
+                                    })}
                                   </td>
                                   <td data-label="Cliente">{allUsers.find(u => u.id === payment.userId)?.name || payment.userName}</td>
                                   <td data-label="Para">
@@ -4918,7 +4936,7 @@ export default function AdminPage() {
                               onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,122,26,0.22)'; }}
                               onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,122,26,0.12)'; }}
                             >
-                               Redefinir Senha
+                              Redefinir Senha
                             </button>
                           </td>
                         </tr>
@@ -4929,10 +4947,10 @@ export default function AdminPage() {
                       const q = userSearch.toLowerCase();
                       return (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
                     }).length === 0 && (
-                      <tr>
-                        <td colSpan={4} style={{ padding: '2rem', textAlign: 'center', color: '#555' }}>Nenhum usuário encontrado.</td>
-                      </tr>
-                    )}
+                        <tr>
+                          <td colSpan={4} style={{ padding: '2rem', textAlign: 'center', color: '#555' }}>Nenhum usuário encontrado.</td>
+                        </tr>
+                      )}
                   </tbody>
                 </table>
               </div>
@@ -5360,7 +5378,7 @@ export default function AdminPage() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h2>Editar Agendamento</h2>
             <p className="modal-subtitle">
-              Cliente: {editingAppointment?.client} | Barbeiro: {editingAppointment?.barberName}
+              Cliente: {editingAppointment?.client.name} | Barbeiro: {editingAppointment?.barber.displayName}
             </p>
             <form onSubmit={handleUpdateAppointment} className="barber-form">
               <Input
@@ -5406,8 +5424,8 @@ export default function AdminPage() {
         <div className="modal-overlay" onClick={closeChangeBarberModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h2>Alterar Barbeiro do Agendamento</h2>
-            <p className="modal-subtitle">Cliente: {selectedAppointmentForBarberChange?.client}</p>
-            <p className="modal-subtitle">Barbeiro atual: {selectedAppointmentForBarberChange?.barberName}</p>
+            <p className="modal-subtitle">Cliente: {selectedAppointmentForBarberChange?.client.name}</p>
+            <p className="modal-subtitle">Barbeiro atual: {selectedAppointmentForBarberChange?.barber.displayName}</p>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -5421,7 +5439,7 @@ export default function AdminPage() {
                   <option value="">Selecione um barbeiro</option>
                   {barbers.map((barber) => (
                     <option key={barber.id} value={barber.id}>
-                      {barber.name}
+                      {barber.displayName}
                     </option>
                   ))}
                 </select>

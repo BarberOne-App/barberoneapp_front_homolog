@@ -39,7 +39,7 @@ export const createAppointment = async (appointmentData) => {
 export const updateAppointment = async (id, updatedData) => {
   const token = getToken();
   try {
-    const response = await axios.put(`${API_URL}/appointments/${id}`, updatedData, {
+    const response = await axios.patch(`${API_URL}/appointments/${id}`, updatedData, {
       headers: {
         Authorization: `Bearer ${token}`,
       },

@@ -142,10 +142,6 @@ export default function PaymentModal({
   const isRecurringSubscription = !isAppointmentPayment && selectedPlan?.isRecurring;
 
   const token = getToken();
-  // const SUBSCRIPTION_LINKS = {
-  //   150: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=248f6838b5a0470c96b23a4edd1905d8',
-  //   1: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=6a4820f29af0439eaedd4ffa13a0acbf',
-  // };
 
   useEffect(() => {
     const loadSubscriptionLinks = async () => {

@@ -290,7 +290,7 @@ export default function Home() {
                   onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
                 >
                   <div className="service-card__image">
-                    <img src={service.image} alt={service.name} />
+                    <img src={service.imageUrl} alt={service.name} />
                   </div>
                   <h3 className="service-card__name">{service.name}</h3>
                   <p

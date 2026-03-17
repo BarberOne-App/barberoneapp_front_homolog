@@ -21,12 +21,20 @@ import {
 } from '../services/appointmentService.js';
 import {
   criarPagamentoAgendamento,
-  buscarPagamentoAgendamento
+  buscarPagamentoAgendamento,
+  criarAssinatura
 } from '../services/paymentService.js';
 import './AuthPages.css';
 import { getToken } from "../services/authService.js";
 
 export default function AppointmentsPage() {
+
+  const selectedPlan = JSON.parse(localStorage.getItem('selectedPlan'));
+  const currentUserPlan = JSON.parse(localStorage.getItem('currentUser'));
+
+  console.log('selectedPlan', selectedPlan);
+  console.log('currentUserPlan', currentUserPlan);
+
   const navigate = useNavigate();
   const location = useLocation();
   const currentUserRef = useRef(getSession());
@@ -79,6 +87,47 @@ export default function AppointmentsPage() {
   const pendingStockUpdate = useRef([]);
   const paymentsCache = useRef({});
   const isFetchingPayments = useRef(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    const preapprovalId = "e5ebbe29ae3d420dbc87648e4b9991bc";
+      // params.get('preapproval_id') ||
+      // params.get('preapproval') ||
+      // params.get('id');
+
+    console.log('PREAPPROVAL ID:', preapprovalId);
+
+    if (preapprovalId) {
+      fetch(`${import.meta.env.VITE_API_URL}/assinatura/${preapprovalId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+        .then(r => r.json())
+        .then(async data => {
+          if (data.status == "authorized") {
+            const subscription = await criarAssinatura({
+              userId: currentUserPlan.id,
+              userName: currentUserPlan.name,
+              planId: selectedPlan.id,
+              planName: selectedPlan.name,
+              planPrice: selectedPlan.price,
+              amount: 89.90,
+              status: 'active',
+              paymentMethod: 'credito',
+              isRecurring: selectedPlan.isRecurring ?? true,
+              autoRenewal: selectedPlan.autoRenewal ?? true,
+              mp_preapproval_id: preapprovalId
+            });
+
+            localStorage.setItem('planId', JSON.stringify(subscription.data.id));
+
+          }
+        })
+        .catch(err => console.error(err));
+    }
+  }, []);
 
   const clearPaymentCache = useCallback((appointmentId) => {
     if (appointmentId) {
@@ -134,27 +183,93 @@ export default function AppointmentsPage() {
   }, []);
 
 
+  const normalizeDateStr = (value) => {
+    if (!value) return '';
+    if (value instanceof Date) return value.toLocaleDateString('en-CA');
+    return String(value).slice(0, 10);
+  };
+
+  const normalizeId = (value) => String(value ?? '');
+
+  const timeToMinutes = (time) => {
+    const [h, m] = String(time || '00:00').split(':').map(Number);
+    return h * 60 + m;
+  };
+
+  const generateSlotsForDuration = (startTime, durationMinutes = 30) => {
+    const slots = [];
+    const totalSlots = Math.ceil((Number(durationMinutes) || 30) / 30);
+    let current = timeToMinutes(startTime);
+
+    for (let i = 0; i < totalSlots; i++) {
+      const hh = String(Math.floor(current / 60)).padStart(2, '0');
+      const mm = String(current % 60).padStart(2, '0');
+      slots.push(`${hh}:${mm}`);
+      current += 30;
+    }
+
+    return slots;
+  };
 
   const isDateBlocked = (dateStr, barberId = null) => {
+    const normalizedDate = normalizeDateStr(dateStr);
+
     return blockedDates.some((blocked) => {
-      const matchDate = blocked.date === dateStr;
-      const matchBarber = !blocked.barberId || blocked.barberId === barberId;
-      const isDayBlock = !blocked.startTime;
-      return matchDate && matchBarber && isDayBlock;
+      const sameDate = normalizeDateStr(blocked.date) === normalizedDate;
+      const appliesToBarber =
+        !blocked.barberId || normalizeId(blocked.barberId) === normalizeId(barberId);
+      const isDayBlock = !blocked.startTime && !blocked.endTime;
+
+      return sameDate && appliesToBarber && isDayBlock;
     });
   };
 
   const isDateBlockedForAll = (dateStr) => {
-    return blockedDates.some((blocked) => blocked.date === dateStr && !blocked.barberId && !blocked.startTime);
+    const normalizedDate = normalizeDateStr(dateStr);
+
+    return blockedDates.some((blocked) => {
+      return (
+        normalizeDateStr(blocked.date) === normalizedDate &&
+        !blocked.barberId &&
+        !blocked.startTime &&
+        !blocked.endTime
+      );
+    });
   };
 
   const getBlockedTimeSlots = (dateStr, barberId = null) => {
+    const normalizedDate = normalizeDateStr(dateStr);
+
     return blockedDates.filter((blocked) => {
-      const matchDate = blocked.date === dateStr;
-      const matchBarber = !blocked.barberId || blocked.barberId === barberId;
-      return matchDate && matchBarber && blocked.startTime && blocked.endTime;
+      const sameDate = normalizeDateStr(blocked.date) === normalizedDate;
+      const appliesToBarber =
+        !blocked.barberId || normalizeId(blocked.barberId) === normalizeId(barberId);
+      const isTimeBlock = !!blocked.startTime && !!blocked.endTime;
+
+      return sameDate && appliesToBarber && isTimeBlock;
     });
   };
+
+  // const isDateBlocked = (dateStr, barberId = null) => {
+  //   return blockedDates.some((blocked) => {
+  //     const matchDate = blocked.date === dateStr;
+  //     const matchBarber = !blocked.barberId || blocked.barberId === barberId;
+  //     const isDayBlock = !blocked.startTime;
+  //     return matchDate && matchBarber && isDayBlock;
+  //   });
+  // };
+
+  // const isDateBlockedForAll = (dateStr) => {
+  //   return blockedDates.some((blocked) => blocked.date === dateStr && !blocked.barberId && !blocked.startTime);
+  // };
+
+  // const getBlockedTimeSlots = (dateStr, barberId = null) => {
+  //   return blockedDates.filter((blocked) => {
+  //     const matchDate = blocked.date === dateStr;
+  //     const matchBarber = !blocked.barberId || blocked.barberId === barberId;
+  //     return matchDate && matchBarber && blocked.startTime && blocked.endTime;
+  //   });
+  // };
 
   useEffect(() => {
     if (location.state?.preSelectedService) {
@@ -612,80 +727,154 @@ export default function AppointmentsPage() {
 
   const getBookedSlots = useCallback((barberId, date) => {
     if (!date) return [];
-    const dateStr = date.toLocaleDateString('pt-BR');
+
+    const selectedDateStr = normalizeDateStr(date);
 
     return appointments
-      .filter((apt) => apt.barberId === barberId && new Date(apt.startAt).toLocaleDateString("pt-BR") === dateStr)
+      .filter((apt) => {
+        const sameBarber = normalizeId(apt.barberId) === normalizeId(barberId);
+        const sameDate = normalizeDateStr(apt.endAt || apt.date || apt.startAt) === selectedDateStr;
+        return sameBarber && sameDate;
+      })
       .flatMap((apt) => {
         let totalDuration = 30;
+
         if (Array.isArray(apt.services) && apt.services.length > 0) {
           totalDuration = apt.services.reduce((sum, s) => {
-            return sum + (s.durationMinutes || 30);
+            return sum + (s.durationMinutes || s.duration || 30);
           }, 0);
         }
 
-        const slots = Math.ceil(totalDuration / 30);
-        const result = [];
-        const time = new Date(apt.startAt).toLocaleTimeString('pt-BR', {
+        const startTime = new Date(apt.startAt).toLocaleTimeString('pt-BR', {
           hour: '2-digit',
           minute: '2-digit',
           timeZone: 'UTC',
         });
-        let [h, m] = time.split(':').map(Number);
 
-        for (let i = 0; i < slots; i++) {
-          const hh = String(h).padStart(2, '0');
-          const mm = String(m).padStart(2, '0');
-          result.push(`${hh}:${mm}`);
-
-          m += 30;
-          if (m >= 60) {
-            m = 0;
-            h += 1;
-          }
-        }
-
-        return result;
+        return generateSlotsForDuration(startTime, totalDuration);
       });
   }, [appointments]);
 
-  const getAvailableTimes = useCallback((barberId, date) => {
+  // const getBookedSlots = useCallback((barberId, date) => {
+  //   if (!date) return [];
+  //   const dateStr = date.toLocaleDateString('pt-BR');
+
+  //   return appointments
+  //     .filter((apt) => apt.barberId === barberId && new Date(apt.startAt).toLocaleDateString("pt-BR") === dateStr)
+  //     .flatMap((apt) => {
+  //       let totalDuration = 30;
+  //       if (Array.isArray(apt.services) && apt.services.length > 0) {
+  //         totalDuration = apt.services.reduce((sum, s) => {
+  //           return sum + (s.durationMinutes || 30);
+  //         }, 0);
+  //       }
+
+  //       const slots = Math.ceil(totalDuration / 30);
+  //       const result = [];
+  //       const time = new Date(apt.startAt).toLocaleTimeString('pt-BR', {
+  //         hour: '2-digit',
+  //         minute: '2-digit',
+  //         timeZone: 'UTC',
+  //       });
+  //       let [h, m] = time.split(':').map(Number);
+
+  //       for (let i = 0; i < slots; i++) {
+  //         const hh = String(h).padStart(2, '0');
+  //         const mm = String(m).padStart(2, '0');
+  //         result.push(`${hh}:${mm}`);
+
+  //         m += 30;
+  //         if (m >= 60) {
+  //           m = 0;
+  //           h += 1;
+  //         }
+  //       }
+
+  //       return result;
+  //     });
+  // }, [appointments]);
+
+  // const getAvailableTimes = useCallback((barberId, date) => {
+  //   if (!date) return [];
+  //   const allTimes = generateTimes(30);
+  //   const dateStr = date.toLocaleDateString('en-CA');
+  //   const bookedTimes = getBookedSlots(barberId, date);
+  //   const blockedSlots = getBlockedTimeSlots(dateStr, barberId);
+
+  //   const today = new Date();
+  //   const isToday = dateStr === today.toLocaleDateString('en-CA');
+
+  //   const timeToMinutes = (t) => {
+  //     const [h, m] = t.split(':').map(Number);
+  //     return h * 60 + m;
+  //   };
+
+  //   return allTimes.filter(time => {
+  //     if (bookedTimes.includes(time)) return false;
+
+  //     if (isToday) {
+  //       const slotMinutes = timeToMinutes(time);
+  //       const nowMinutes = today.getHours() * 60 + today.getMinutes();
+  //       if (slotMinutes <= nowMinutes) return false;
+  //     }
+
+  //     if (blockedSlots.length > 0) {
+  //       const slotMinutes = timeToMinutes(time);
+  //       const isBlocked = blockedSlots.some(blocked => {
+  //         const start = timeToMinutes(blocked.startTime);
+  //         const end = timeToMinutes(blocked.endTime);
+  //         return slotMinutes >= start && slotMinutes <= end;
+  //       });
+  //       if (isBlocked) return false;
+  //     }
+
+  //     return true;
+  //   });
+  // }, [appointments, blockedDates]);
+
+  const getAvailableTimes = useCallback((barberId, date, durationMinutes = 30) => {
     if (!date) return [];
+
     const allTimes = generateTimes(30);
-    const dateStr = date.toLocaleDateString('en-CA');
+    const dateStr = normalizeDateStr(date);
     const bookedTimes = getBookedSlots(barberId, date);
     const blockedSlots = getBlockedTimeSlots(dateStr, barberId);
 
     const today = new Date();
-    const isToday = dateStr === today.toLocaleDateString('en-CA');
+    const isToday = dateStr === normalizeDateStr(today);
 
-    const timeToMinutes = (t) => {
-      const [h, m] = t.split(':').map(Number);
-      return h * 60 + m;
-    };
+    return allTimes.filter((time) => {
+      const startMinutes = timeToMinutes(time);
+      const endMinutes = startMinutes + (Number(durationMinutes) || 30);
 
-    return allTimes.filter(time => {
-      if (bookedTimes.includes(time)) return false;
+      // barbearia fecha às 20:00
+      if (endMinutes > 20 * 60) return false;
 
+      // impede horários passados no dia atual
       if (isToday) {
-        const slotMinutes = timeToMinutes(time);
         const nowMinutes = today.getHours() * 60 + today.getMinutes();
-        if (slotMinutes <= nowMinutes) return false;
+        if (startMinutes <= nowMinutes) return false;
       }
 
-      if (blockedSlots.length > 0) {
-        const slotMinutes = timeToMinutes(time);
-        const isBlocked = blockedSlots.some(blocked => {
-          const start = timeToMinutes(blocked.startTime);
-          const end = timeToMinutes(blocked.endTime);
-          return slotMinutes >= start && slotMinutes <= end;
-        });
-        if (isBlocked) return false;
-      }
+      // verifica conflito com agendamentos já existentes
+      const neededSlots = generateSlotsForDuration(time, durationMinutes);
+      const conflictsWithAppointments = neededSlots.some((slot) => bookedTimes.includes(slot));
+      if (conflictsWithAppointments) return false;
+
+      // verifica conflito com bloqueios por horário
+      const conflictsWithBlocks = blockedSlots.some((blocked) => {
+        const blockedStart = timeToMinutes(blocked.startTime);
+        const blockedEnd = timeToMinutes(blocked.endTime);
+
+        return startMinutes < blockedEnd && endMinutes > blockedStart;
+      });
+
+      if (conflictsWithBlocks) return false;
 
       return true;
     });
-  }, [appointments, blockedDates]);
+  }, [generateTimes, getBookedSlots, blockedDates]);
+
   const showToast = useCallback((message, type = 'success') => {
     setToast({ show: true, message, type });
   }, []);
@@ -897,6 +1086,10 @@ export default function AppointmentsPage() {
         notes: pendingBookingData.observation || '',
       };
 
+      console.log('bookingForUser', bookingForUser);
+      console.log('activeClient', activeClient);
+      console.log('newAppointment', newAppointment);
+
       const createdAppointment = await createAppointment(newAppointment);
 
       const serviceNames = pendingBookingData.services.map((s) => s.name).join(', ');
@@ -1063,7 +1256,7 @@ export default function AppointmentsPage() {
 
         const paymentData = {
           appointmentId: createdAppointment.id,
-          userId: currentUser.id,
+          userId: activeClient.id || currentUser.id,
           userName: activeClient.name,
           amount: purchaseData.finalTotal,
           serviceName: serviceNames,
@@ -1492,9 +1685,18 @@ export default function AppointmentsPage() {
               <DatePicker
                 onSelectDate={handleSelectDate}
                 selectedDate={selectedDate}
-                disabledDates={blockedDates.filter(b => !b.startTime).map(b => b.date)}
+                disabledDates={blockedDates
+                  .filter((b) => !b.barberId && !b.startTime && !b.endTime)
+                  .map((b) => b.date)}
                 maxDate={maxBookingDate}
               />
+
+              {/* <DatePicker
+                onSelectDate={handleSelectDate}
+                selectedDate={selectedDate}
+                disabledDates={blockedDates.filter(b => !b.startTime).map(b => b.date)}
+                maxDate={maxBookingDate}
+              /> */}
 
               {selectedDate && (() => {
                 const dateStr = selectedDate.toLocaleDateString('en-CA');

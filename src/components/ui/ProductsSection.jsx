@@ -34,6 +34,7 @@ export default function ProductsSection({ activeSubscription, onBuyProduct }) {
     { id: 'Acessórios', label: 'Acessórios' }
   ];
 
+  console.log('products', products);
   const calculatePrice = (product) => {
     const priceString = product.price.replace('R$', '').trim();
     const originalPrice = parseFloat(priceString);
@@ -127,8 +128,8 @@ export default function ProductsSection({ activeSubscription, onBuyProduct }) {
                 )}
 
                 <div className="product-card__image">
-                  {product.image ? (
-                    <img src={product.image} alt={product.name} />
+                  {product.image_url ? (
+                    <img src={product.image_url} alt={product.name} />
                   ) : (
                     <div className="product-card__no-image">
                       <Package />
