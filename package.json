@@ -1,5 +1,5 @@
 {
-  "name": "barbeariaaddev",
+  "name": "barberone",
   "version": "1.0.0",
   "description": "",
   "type": "module",
@@ -12,15 +12,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/RodolphoBuettel/BarbeariaADDEV.git"
+    "url": "git+https://github.com/adtech-solutions-softwares/SGA_Barbearia.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/RodolphoBuettel/BarbeariaADDEV/issues"
+    "url": "https://github.com/adtech-solutions-softwares/SGA_Barbearia/issues"
   },
-  "homepage": "https://github.com/RodolphoBuettel/BarbeariaADDEV#readme",
+  "homepage": "https://github.com/adtech-solutions-softwares/SGA_Barbearia#readme",
   "dependencies": {
     "@mercadopago/sdk-react": "^1.0.7",
     "@react-oauth/google": "^0.13.4",

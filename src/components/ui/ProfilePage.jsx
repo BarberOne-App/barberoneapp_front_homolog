@@ -46,7 +46,7 @@ export default function ProfilePage() {
       navigate('/login');
       return;
     }
-    // Renderiza imediatamente com dados da sessao local
+  
     setCurrentUser(user);
     setNewName(user.name || '');
     loadUserPhoto(user.id);

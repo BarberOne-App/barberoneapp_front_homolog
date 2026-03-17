@@ -24,7 +24,7 @@ const LandingPage = () => {
 
   return (
     <div className="landing-container">
-      {/* Header */}
+      
       <header className="landing-header">
         <div className="header-content">
           <div className="logo">
@@ -40,7 +40,7 @@ const LandingPage = () => {
         </div>
       </header>
 
-      {/* Hero Section */}
+     
       <section className="lp-hero">
         <div className="lp-hero-inner">
           <div className="lp-hero-content">
@@ -66,7 +66,7 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Problemas do Mercado */}
+    
       <section className="problems-section">
         <div className="lp-container">
           <h2>O Problema do Mercado</h2>
@@ -93,7 +93,7 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Solução */}
+
       <section id="solucoes" className="solution-section">
         <div className="lp-container">
           <h2>Solução Proposta</h2>
@@ -133,7 +133,7 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Diferenciais */}
+ 
       <section id="sobre" className="differentials-section">
         <div className="lp-container">
           <h2>Nossos Diferenciais</h2>
@@ -154,7 +154,7 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Planos */}
+
       <section id="planos" className="pricing-section">
         <div className="lp-container">
           <h2>Planos Comerciais</h2>
@@ -217,7 +217,6 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Processo */}
       <section className="process-section">
         <div className="lp-container">
           <h2>Nosso Processo</h2>
@@ -243,7 +242,6 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* CTA Final */}
       <section className="cta-section">
         <div className="lp-container">
           <h2>Vamos conversar?</h2>
@@ -257,7 +255,6 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="landing-footer">
         <div className="lp-container">
           <div className="footer-content">

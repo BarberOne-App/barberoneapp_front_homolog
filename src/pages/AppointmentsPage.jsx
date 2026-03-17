@@ -552,7 +552,20 @@ export default function AppointmentsPage() {
     navigate('/login');
   };
 
+  const maxBookingDate = useMemo(() => {
+    const now = new Date();
+    // Permite o mês atual + o próximo mês. Retorna o último dia do mês seguinte.
+    const lastDayOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+    return lastDayOfNextMonth;
+  }, []);
+
   const handleSelectDate = (date) => {
+    if (date > maxBookingDate) {
+      const mes = maxBookingDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+      showToast(`⛔ Agendamentos só são permitidos até ${mes}.`, 'warning');
+      return;
+    }
+
     const dateStr = date.toLocaleDateString('en-CA');
 
     const blockedInfo = blockedDates.find(b => b.date === dateStr && !b.barberId && !b.startTime);
@@ -1480,6 +1493,7 @@ export default function AppointmentsPage() {
                 onSelectDate={handleSelectDate}
                 selectedDate={selectedDate}
                 disabledDates={blockedDates.filter(b => !b.startTime).map(b => b.date)}
+                maxDate={maxBookingDate}
               />
 
               {selectedDate && (() => {
