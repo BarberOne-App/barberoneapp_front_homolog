@@ -119,6 +119,7 @@ export default function RegisterPage() {
         email,
         cpf: cleanCPF,
         phone: phoneNumbers,
+        birthDate,
         password,
       };
 

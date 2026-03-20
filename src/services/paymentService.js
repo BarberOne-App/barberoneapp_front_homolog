@@ -85,6 +85,7 @@ export const criarAssinatura = async (dadosAssinatura) => {
       nextBillingDate: obterProximaDataCobranca(),
       lastBillingDate: new Date().toISOString(),
       paymentMethod: dadosAssinatura.paymentMethod,
+      mp_preapproval_id: dadosAssinatura.mp_preapproval_id || null,
 
       isRecurring: dadosAssinatura.isRecurring ?? true,
       autoRenewal: dadosAssinatura.autoRenewal ?? true,
@@ -308,7 +309,6 @@ export const buscarAssinaturasUsuario = async (userId) => {
 
 export const buscarAssinaturaAtiva = async (planId, currentUser) => {
 
-  console.log(currentUser);
   try {
 
     const [resActive, resPending] = await Promise.all([

@@ -69,14 +69,34 @@ export default function BarberPage() {
 
   const sendBarberNotification = async (appointment) => {
     try {
-      const userData = await getUserById(appointment.clientId);
-      const clientName = userData?.name || appointment.client;
-      const clientPhone = userData?.phone || 'Não cadastrado';
-      const message = `🔔 PRÓXIMO CLIENTE EM 15 MINUTOS!\n\nCliente: ${clientName}\nHorário: ${appointment.time}\nServiço: ${appointment.services.map(s => s.name).join(', ')}\nTelefone: ${clientPhone}`;
+      const clientIdRaw = appointment.clientId || appointment.client?.id;
+      const userData = clientIdRaw ? await getUserById(clientIdRaw) : null;
+      const clientName =
+        userData?.name ||
+        (typeof appointment.client === 'string' ? appointment.client : appointment.client?.name) ||
+        appointment.clientName ||
+        'Cliente';
+      const clientPhone = userData?.phone || appointment.clientPhone || 'Não cadastrado';
+
+      const startDate = appointment.startAt
+        ? new Date(appointment.startAt)
+        : appointment.date
+          ? new Date(`${appointment.date}T${appointment.time || '00:00:00'}`)
+          : null;
+      const time = startDate && !Number.isNaN(startDate.getTime())
+        ? startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+        : (appointment.time || 'Horário não informado');
+
+      const serviceName = Array.isArray(appointment.services)
+        ? appointment.services.map(s => s?.serviceName || s?.name).filter(Boolean).join(', ')
+        : 'Serviço';
+
+      const message = `🔔 PRÓXIMO CLIENTE EM 15 MINUTOS!\n\nCliente: ${clientName}\nHorário: ${time}\nServiço: ${serviceName || 'Serviço'}\nTelefone: ${clientPhone}`;
       
       if (currentUser?.phone) {
-        const barberPhone = currentUser.phone.replace(/\D/g, '');
-        window.open(`https://wa.me/55${barberPhone}?text=${encodeURIComponent(message)}`, '_blank');
+        let barberPhone = currentUser.phone.replace(/\D/g, '');
+        if (!barberPhone.startsWith('55')) barberPhone = `55${barberPhone}`;
+        window.open(`https://wa.me/${barberPhone}?text=${encodeURIComponent(message)}`, '_blank');
       }
       showToast('Notificação: Próximo cliente em 15 minutos!', 'info');
     } catch (error) {
@@ -90,22 +110,49 @@ export default function BarberPage() {
       const appointment = appointments.find(apt => apt.id === appointmentId);
       if (!appointment) return;
 
-      const userData = await getUserById(appointment.clientId);
-      const rawPhone = userData?.phone || appointment.clientPhone;
+      const clientIdRaw = appointment.clientId || appointment.client?.id;
+      const userData = clientIdRaw ? await getUserById(clientIdRaw) : null;
+      const rawPhone = userData?.phone || appointment.clientPhone || appointment.client?.phone;
       if (!rawPhone) return showToast('Cliente não possui telefone cadastrado.', 'danger');
 
-      const phone = rawPhone.replace(/\D/g, '');
-      const date = new Date(appointment.date + 'T00:00:00').toLocaleDateString('pt-BR');
+      let phone = rawPhone.replace(/\D/g, '');
+      if (!phone.startsWith('55')) phone = `55${phone}`;
+
+      const clientName =
+        userData?.name ||
+        (typeof appointment.client === 'string' ? appointment.client : appointment.client?.name) ||
+        appointment.clientName ||
+        'cliente';
+
+      const barberName =
+        appointment.barberName ||
+        appointment.barber?.displayName ||
+        barberProfile?.displayName ||
+        currentUser?.name ||
+        'barbeiro';
+
+      const startDate = appointment.startAt
+        ? new Date(appointment.startAt)
+        : appointment.date
+          ? new Date(`${appointment.date}T${appointment.time || '00:00:00'}`)
+          : null;
+      const date = startDate && !Number.isNaN(startDate.getTime())
+        ? startDate.toLocaleDateString('pt-BR')
+        : 'data não informada';
+      const time = startDate && !Number.isNaN(startDate.getTime())
+        ? startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+        : (appointment.time || 'horário não informado');
+
       const serviceName = Array.isArray(appointment.services) 
-        ? appointment.services.map(s => s.name).join(', ') 
-        : 'Serviço';
+        ? appointment.services.map(s => s?.serviceName || s?.name).filter(Boolean).join(', ') 
+        : (appointment.serviceName || 'Serviço');
 
       const messages = {
-        confirm: `Olá ${appointment.client}!\n\nGostaria de CONFIRMAR seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${appointment.time}\n✂️ Serviço: ${serviceName}\n👨‍🦰 Barbeiro: ${appointment.barberName}\n\nPor favor, responda esta mensagem para confirmar sua presença.\n\n✨ ADDEV Barbearia`,
-        reminder: `Olá ${appointment.client}!\n\n⏰ LEMBRETE do seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${appointment.time}\n✂️ Serviço: ${serviceName}\n👨‍🦰 Barbeiro: ${appointment.barberName}\n\nTe esperamos!\n\n✨ ADDEV Barbearia`
+        confirm: `Olá ${clientName}!\n\nGostaria de CONFIRMAR seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}\n👨‍🦰 Barbeiro: ${barberName}\n\nPor favor, responda esta mensagem para confirmar sua presença.\n\n✨ ADDEV Barbearia`,
+        reminder: `Olá ${clientName}!\n\n⏰ LEMBRETE do seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}\n👨‍🦰 Barbeiro: ${barberName}\n\nTe esperamos!\n\n✨ ADDEV Barbearia`
       };
 
-      window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(messages[type])}`, '_blank');
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(messages[type])}`, '_blank');
       showToast('WhatsApp aberto com sucesso!', 'success');
     } catch (error) {
       showToast('Erro ao abrir WhatsApp.', 'danger');

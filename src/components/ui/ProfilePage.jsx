@@ -51,7 +51,7 @@ export default function ProfilePage() {
     setCurrentUser(user);
     setNewName(user.name || '');
     loadUserPhoto(user.id);
-    verificarAssinaturaAtiva("d0a33469-b04a-4153-b005-ad506b0eb1e3", user);
+    verificarAssinaturaAtiva(planId, user);
     loadDependents(user.id);
 
     // Busca permissoes atualizadas no backend e sincroniza sessao

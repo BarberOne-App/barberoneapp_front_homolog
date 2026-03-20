@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getSession } from '../../services/authService';
-import logoImg from '../../assets/logo-barber-rodrigues-new.jpg';
+import logoImg from '../../assets/barbearia-rodrigues.png';
 import { FaWhatsapp } from 'react-icons/fa';
 import './Header.css';
 

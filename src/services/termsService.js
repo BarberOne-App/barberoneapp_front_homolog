@@ -1,4 +1,7 @@
 import axios from 'axios';
+import { getToken } from './authService';
+
+const API_URL = import.meta.env.VITE_API_URL;
 
 export const uploadTermsDocument = async (file) => {
   return new Promise((resolve, reject) => {
@@ -27,10 +30,16 @@ export const uploadTermsDocument = async (file) => {
           uploadedAt: new Date().toISOString()
         }));
         
+        const token = getToken();
         
-        await axios.patch(`${import.meta.env.VITE_API_URL}/settings/1`, {
+        await axios.put(`${API_URL}/settings`, {
           termsDocumentUrl: base64,
           termsDocumentName: file.name
+        }, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
         });
         
         resolve({ documentUrl: base64, fileName: file.name });
@@ -49,28 +58,30 @@ export const uploadTermsDocument = async (file) => {
 
 export const getTermsDocument = async () => {
   try {
-  
-    const stored = localStorage.getItem('termsDocument');
-    
-    if (stored) {
-      const doc = JSON.parse(stored);
-      return { 
-        documentUrl: doc.data, 
-        fileName: doc.name,
-        uploadedAt: doc.uploadedAt 
+    const token = getToken();
+    const response = await axios.get(`${API_URL}/settings`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (response.data?.termsDocumentUrl) {
+      return {
+        documentUrl: response.data.termsDocumentUrl,
+        fileName: response.data.termsDocumentName || 'documento.pdf',
       };
     }
-    
-    
-    // const response = await axios.get(`${import.meta.env.VITE_API_URL}/settings/1`);
-    // if (response.data.termsDocumentUrl) {
-    //   return {
-    //     documentUrl: response.data.termsDocumentUrl,
-    //     fileName: response.data.termsDocumentName || 'documento.pdf'
-    //   };
-    // }
-    
-    // return { documentUrl: '', fileName: '' };
+
+    const stored = localStorage.getItem('termsDocument');
+    if (stored) {
+      const doc = JSON.parse(stored);
+      return {
+        documentUrl: doc.data,
+        fileName: doc.name,
+        uploadedAt: doc.uploadedAt,
+      };
+    }
+
     return { documentUrl: '', fileName: '' };
   } catch (error) {
     console.error('Erro ao carregar documento:', error);
@@ -80,14 +91,20 @@ export const getTermsDocument = async () => {
 
 export const deleteTermsDocument = async () => {
   try {
+    const token = getToken();
+
+    await axios.put(`${API_URL}/settings`, {
+      termsDocumentUrl: '',
+      termsDocumentName: '',
+    }, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
     localStorage.removeItem('termsDocument');
-    
-    // await axios.patch(`${import.meta.env.VITE_API_URL}/settings/1`, {
-    //   termsDocumentUrl: '',
-    //   termsDocumentName: ''
-    // });
-    
-    // return { success: true };
+
     return true;
   } catch (error) {
     throw new Error('Erro ao remover documento');

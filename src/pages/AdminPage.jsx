@@ -80,6 +80,7 @@ export default function AdminPage() {
     name: '',
     price: '',
     promotionalPrice: '',
+    commissionPercent: '',
     coveredByPlan: false,
     image: '',
     duration: '',
@@ -109,7 +110,6 @@ export default function AdminPage() {
     displayName: '',
     specialty: '',
     photo: '',
-    commissionPercent: 50,
     salarioFixo: '',
     paymentFrequency: 'mensal',
     createUser: false,
@@ -152,6 +152,16 @@ export default function AdminPage() {
   const [expandedObsId, setExpandedObsId] = useState(null);
   const [employeeVales, setEmployeeVales] = useState([]);
   const [employeePayments, setEmployeePayments] = useState([]);
+  const [extraPaymentForm, setExtraPaymentForm] = useState({
+    employeeId: '',
+    amount: '',
+    date: new Date().toISOString().split('T')[0],
+  });
+  const [extraPaymentLoading, setExtraPaymentLoading] = useState(false);
+  const [extraPaymentMonthFilter, setExtraPaymentMonthFilter] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [payrollPeriodFilter, setPayrollPeriodFilter] = useState('mensal');
   const [payrollMonthFilter, setPayrollMonthFilter] = useState(() => {
     const now = new Date();
@@ -170,6 +180,10 @@ export default function AdminPage() {
 
   const [plans, setPlans] = useState([]);
   const [plansLoading, setPlansLoading] = useState(false);
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [editingPlan, setEditingPlan] = useState(null);
+  const [planForm, setPlanForm] = useState({ name: '', price: '' });
+  const [planSaving, setPlanSaving] = useState(false);
   const [showBenefitModal, setShowBenefitModal] = useState(false);
   const [editingBenefit, setEditingBenefit] = useState(null);
   const [selectedPlanForBenefit, setSelectedPlanForBenefit] = useState(null);
@@ -709,33 +723,63 @@ export default function AdminPage() {
     try {
       const appointment = appointments.find((apt) => apt.id === appointmentId);
       if (!appointment) return;
+
+      const clientIdRaw = appointment.clientId || appointment.client?.id;
+      const appointmentClientName =
+        (typeof appointment.client === 'string' ? appointment.client : appointment.client?.name) ||
+        appointment.clientName ||
+        'cliente';
+      const appointmentBarberName =
+        appointment.barberName || appointment.barber?.displayName || 'barbeiro';
+
+      const startDate = appointment.startAt
+        ? new Date(appointment.startAt)
+        : appointment.date
+          ? new Date(`${appointment.date}T${appointment.time || '00:00:00'}`)
+          : null;
+      const date = startDate && !Number.isNaN(startDate.getTime())
+        ? startDate.toLocaleDateString('pt-BR')
+        : 'data não informada';
+      const time = startDate && !Number.isNaN(startDate.getTime())
+        ? startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+        : (appointment.time || 'horário não informado');
+
+      const serviceName = Array.isArray(appointment.services) && appointment.services.length > 0
+        ? appointment.services
+          .map((s) => s?.serviceName || s?.name)
+          .filter(Boolean)
+          .join(', ')
+        : (appointment.serviceName || 'Serviço');
+
       let userData = null;
-      if (appointment.clientId?.toString().startsWith('dep_')) {
-        const depId = appointment.clientId.replace('dep_', '');
+      if (clientIdRaw?.toString().startsWith('dep_')) {
+        const depId = clientIdRaw.replace('dep_', '');
         const dep = allDependents.find(d => d.id?.toString() === depId);
         if (dep) userData = allUsers.find(u => u.id?.toString() === dep.parentId?.toString()) || null;
       } else {
-        userData = await getUserById(appointment.clientId);
+        if (appointment.client?.phone) {
+          userData = appointment.client;
+        } else if (clientIdRaw) {
+          userData = await getUserById(clientIdRaw);
+        }
       }
       if (!userData || !userData.phone) {
         showToast('Cliente não possui telefone cadastrado.', 'danger');
         return;
       }
-      const phone = userData.phone.replace(/\D/g, '');
-      const date = appointment.date?.split('-').reverse().join('/');
-      const serviceName = Array.isArray(appointment.services)
-        ? appointment.services.map((s) => s.name).join(', ')
-        : 'Serviço';
+      let phone = userData.phone.replace(/\D/g, '');
+      if (!phone.startsWith('55')) phone = `55${phone}`;
+
       let message;
       if (type === 'confirm') {
-        message = `Olá ${appointment.client}! Estamos entrando em contato para CONFIRMAR seu agendamento de ${date} às ${appointment.time}: ${serviceName} com ${appointment.barberName}. Por favor, responda esta mensagem para confirmar sua presença.`;
+        message = `Olá ${appointmentClientName}!\n\nEstamos entrando em contato para CONFIRMAR seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}\n👨‍🦰 Barbeiro: ${appointmentBarberName}\n\nPor favor, responda esta mensagem para confirmar sua presença.`;
       } else if (type === 'cancel') {
-        message = `Olá ${appointment.client}! Informamos que infelizmente precisaremos realizar o CANCELAMENTO do seu agendamento de ${date} às ${appointment.time}: ${serviceName}. Nossas desculpas pelo transtorno. Entre em contato conosco para reagendar.`;
+        message = `Olá ${appointmentClientName}!\n\nInformamos que precisaremos realizar o CANCELAMENTO do seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}\n\nNossas desculpas pelo transtorno. Entre em contato conosco para reagendar.`;
       } else if (type === 'noshow') {
-        message = `Olá ${appointment.client}! Notamos que você não compareceu ao seu agendamento de ${date} às ${appointment.time}: ${serviceName}. Sentimos pela ausência! Entre em contato conosco para reagendar quando quiser.`;
+        message = `Olá ${appointmentClientName}!\n\nNotamos que você não compareceu ao seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}\n\nSentimos pela ausência. Entre em contato conosco para reagendar quando quiser.`;
       }
       const encodedMessage = encodeURIComponent(message);
-      const whatsappUrl = `https://wa.me/55${phone}?text=${encodedMessage}`;
+      const whatsappUrl = `https://wa.me/${phone}?text=${encodedMessage}`;
       window.open(whatsappUrl, '_blank');
     } catch (error) {
       showToast('Erro ao abrir WhatsApp.', 'danger');
@@ -1008,6 +1052,29 @@ export default function AdminPage() {
     setConfirmModal({ open: false, message: '', onConfirm: null });
   };
 
+  const formatUserBirthDayMonth = (user) => {
+    const raw = user?.birth_date ?? user?.birthDate ?? user?.dateOfBirth ?? user?.birthday ?? user?.nascimento;
+    if (!raw) return '—';
+
+    if (typeof raw === 'string') {
+      if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+        return `${raw.slice(8, 10)}/${raw.slice(5, 7)}`;
+      }
+
+      const brDate = raw.match(/^(\d{2})\/(\d{2})(?:\/\d{2,4})?$/);
+      if (brDate) {
+        return `${brDate[1]}/${brDate[2]}`;
+      }
+    }
+
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    }
+
+    return '—';
+  };
+
 
   const openPermissionsModal = (user) => {
     setSelectedUserPermissions(user);
@@ -1080,7 +1147,7 @@ export default function AdminPage() {
       return;
     }
     try {
-      await fetch(`https://barbearia-addev-backend.onrender.com/users/${selectedUserPermissions.id}`, {
+      await fetch(`https://barbearia-addev-backend.onrender.com/users/${selectedUserPermissions.id}/permissions`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -1103,7 +1170,6 @@ export default function AdminPage() {
         displayName: employee.name,
         specialty: employee.role === 'admin' ? 'Administrador' : 'Recepcionista',
         photo: employee.photo || '',
-        commissionPercent: 50,
         salarioFixo: employee.salarioFixo || '',
         paymentFrequency: employee.paymentFrequency || 'mensal',
         createUser: false,
@@ -1118,7 +1184,6 @@ export default function AdminPage() {
         displayName: barber.displayName,
         specialty: barber.specialty,
         photo: barber.photo,
-        commissionPercent: barber.commissionPercent || 50,
         salarioFixo: barber.salarioFixo || '',
         paymentFrequency: barber.paymentFrequency || 'mensal',
         createUser: false,
@@ -1134,7 +1199,6 @@ export default function AdminPage() {
         displayName: '',
         specialty: '',
         photo: '',
-        commissionPercent: 50,
         createUser: false,
         userEmail: '',
         userPassword: '',
@@ -1153,7 +1217,6 @@ export default function AdminPage() {
       displayName: '',
       specialty: '',
       photo: '',
-      commissionPercent: 50,
       createUser: false,
       userEmail: '',
       userPassword: '',
@@ -1244,7 +1307,6 @@ export default function AdminPage() {
           displayName: barberForm.displayName,
           specialty: barberForm.specialty,
           photo: barberForm.photo,
-          commissionPercent: barberForm.commissionPercent,
           salarioFixo: parseFloat(barberForm.salarioFixo) || 0,
           paymentFrequency: barberForm.paymentFrequency || 'mensal',
           serviceIds: barberForm.serviceIds || [],
@@ -1487,18 +1549,29 @@ export default function AdminPage() {
 
 
       try {
+        const clientIdRaw = appointment.clientId || appointment.client?.id;
+        const appointmentClientName =
+          (typeof appointment.client === 'string' ? appointment.client : appointment.client?.name) ||
+          appointment.clientName ||
+          'cliente';
+
         let userData = null;
-        if (appointment.clientId?.toString().startsWith('dep_')) {
-          const depId = appointment.clientId.replace('dep_', '');
+        if (clientIdRaw?.toString().startsWith('dep_')) {
+          const depId = clientIdRaw.replace('dep_', '');
           const dep = allDependents.find(d => d.id?.toString() === depId);
           if (dep) userData = allUsers.find(u => u.id?.toString() === dep.parentId?.toString()) || null;
         } else {
-          userData = await getUserById(appointment.clientId);
+          if (appointment.client?.phone) {
+            userData = appointment.client;
+          } else if (clientIdRaw) {
+            userData = await getUserById(clientIdRaw);
+          }
         }
         if (userData?.phone) {
-          const phone = userData.phone.replace(/\D/g, '');
-          const message = `Olá ${appointment.client}! Seu agendamento foi confirmado. Obrigado pela preferência e confiança em nosso serviço! 😊✂️`;
-          const whatsappUrl = `https://wa.me/55${phone}?text=${encodeURIComponent(message)}`;
+          let phone = userData.phone.replace(/\D/g, '');
+          if (!phone.startsWith('55')) phone = `55${phone}`;
+          const message = `Olá ${appointmentClientName}! Seu agendamento foi confirmado. Obrigado pela preferência e confiança em nosso serviço! 😊✂️`;
+          const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
           window.open(whatsappUrl, '_blank');
         }
       } catch (whatsErr) {
@@ -1968,6 +2041,106 @@ export default function AdminPage() {
     setShowBenefitModal(true);
   };
 
+  const openPlanModal = (plan = null) => {
+    if (!isAdmin) {
+      showToast('Apenas administradores podem gerenciar planos.', 'danger');
+      return;
+    }
+
+    if (plan) {
+      setEditingPlan(plan);
+      setPlanForm({
+        name: plan.name || '',
+        price: Number(plan.price || 0),
+      });
+    } else {
+      setEditingPlan(null);
+      setPlanForm({ name: '', price: '' });
+    }
+
+    setShowPlanModal(true);
+  };
+
+  const closePlanModal = () => {
+    setShowPlanModal(false);
+    setEditingPlan(null);
+    setPlanForm({ name: '', price: '' });
+  };
+
+  const handlePlanFormChange = (field, value) => {
+    setPlanForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSavePlan = async (e) => {
+    e.preventDefault();
+
+    if (!isAdmin) {
+      showToast('Apenas administradores podem gerenciar planos.', 'danger');
+      return;
+    }
+
+    const planName = planForm.name?.trim();
+    const planPrice = Number(planForm.price);
+
+    if (!planName) {
+      showToast('Informe o nome do plano.', 'danger');
+      return;
+    }
+
+    if (Number.isNaN(planPrice) || planPrice < 0) {
+      showToast('Informe um preço válido.', 'danger');
+      return;
+    }
+
+    try {
+      setPlanSaving(true);
+
+      if (editingPlan) {
+        const response = await fetch(`https://barbearia-addev-backend.onrender.com/subscription-plans/${editingPlan.id}`, {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: planName,
+            price: planPrice,
+          }),
+        });
+
+        if (!response.ok) throw new Error('Falha ao atualizar plano');
+        showToast('Plano atualizado com sucesso!', 'success');
+      } else {
+        const response = await fetch('https://barbearia-addev-backend.onrender.com/subscription-plans', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: planName,
+            price: planPrice,
+            cutsPerMonth: 0,
+            features: [],
+            active: true,
+            recommended: false,
+          }),
+        });
+
+        if (!response.ok) throw new Error('Falha ao criar plano');
+        showToast('Plano criado com sucesso!', 'success');
+      }
+
+      await loadPlans();
+      closePlanModal();
+    } catch (error) {
+      console.error('Erro ao salvar plano:', error);
+      showToast('Erro ao salvar plano.', 'danger');
+    } finally {
+      setPlanSaving(false);
+    }
+  };
+
   const closeBenefitModal = () => {
     setShowBenefitModal(false);
     setEditingBenefit(null);
@@ -2075,6 +2248,7 @@ export default function AdminPage() {
         name: service.name,
         price: priceValue,
         promotionalPrice: service.promotionalPrice || 0,
+        commissionPercent: service.commissionPercent ?? service.commission_percent ?? 0,
         coveredByPlan: service.covered_by_plan || false,
         image: service.image || '',
         duration: service.durationMinutes || 30,
@@ -2085,6 +2259,7 @@ export default function AdminPage() {
         name: '',
         price: '',
         promotionalPrice: '',
+        commissionPercent: '',
         coveredByPlan: false,
         image: '',
         duration: 30,
@@ -2100,6 +2275,7 @@ export default function AdminPage() {
       name: '',
       price: '',
       promotionalPrice: '',
+      commissionPercent: '',
       coveredByPlan: false,
       image: '',
       duration: 30,
@@ -2121,6 +2297,12 @@ export default function AdminPage() {
 
     try {
       const formattedPrice = `R$ ${parseFloat(serviceForm.price).toFixed(2).replace('.', ',')}`;
+      const parsedCommissionPercent = Number(serviceForm.commissionPercent);
+
+      if (Number.isNaN(parsedCommissionPercent) || parsedCommissionPercent < 0 || parsedCommissionPercent > 100) {
+        showToast('A porcentagem da comissão deve estar entre 0 e 100.', 'danger');
+        return;
+      }
 
       let formattedPromotionalPrice = '';
       // if (serviceForm.promotionalPrice && serviceForm.promotionalPrice.trim() !== '') {
@@ -2134,6 +2316,7 @@ export default function AdminPage() {
         name: serviceForm.name,
         basePrice: Number(serviceForm.price),
         promotionalPrice: Number(serviceForm.promotionalPrice) || 0,
+        commissionPercent: parsedCommissionPercent,
         covered_by_plan: serviceForm.coveredByPlan,
         imageUrl: serviceForm.image || 'https://images.unsplash.com/photo-1596728325488-58c87691e9af',
         durationMinutes: parseInt(serviceForm.duration),
@@ -2236,8 +2419,19 @@ export default function AdminPage() {
     }
     try {
       const vale = { ...valeForm, valor: parseFloat(valeForm.valor), createdAt: new Date().toISOString(), createdBy: currentUser?.id };
-      await fetch('https://barbearia-addev-backend.onrender.com/employeeVales', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(vale) });
-      const res = await fetch('https://barbearia-addev-backend.onrender.com/employeeVales');
+      await fetch('https://barbearia-addev-backend.onrender.com/employeeVales', {
+        method: 'POST',
+        headers:
+        {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }, body: JSON.stringify(vale)
+      });
+      const res = await fetch('https://barbearia-addev-backend.onrender.com/employeeVales', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       setEmployeeVales(await res.json());
       setValeForm({ employeeId: '', valor: '', observacao: '', data: new Date().toISOString().split('T')[0] });
       setShowValeModal(false);
@@ -2251,6 +2445,117 @@ export default function AdminPage() {
       setEmployeeVales(prev => prev.filter(v => v.id !== id));
       showToast('Vale excluído.', 'success');
     });
+  };
+
+  const isExtraPayment = (payment) => {
+    const start = payment?.periodStart;
+    const end = payment?.periodEnd;
+    const salarioFixo = Number(payment?.salarioFixo || 0);
+    const commission = Number(payment?.commission || 0);
+    const totalVales = Number(payment?.totalVales || 0);
+    const liquido = Number(payment?.liquido || 0);
+
+    return Boolean(
+      start &&
+      end &&
+      start === end &&
+      salarioFixo > 0 &&
+      commission === 0 &&
+      totalVales === 0 &&
+      Math.abs(salarioFixo - liquido) < 0.01
+    );
+  };
+
+  const getFilteredExtraPayments = () => {
+    if (!Array.isArray(employeePayments)) return [];
+
+    return employeePayments
+      .filter(isExtraPayment)
+      .filter((payment) => {
+        if (!extraPaymentMonthFilter) return true;
+        const dateRef = payment.paidAt || payment.periodStart;
+        if (!dateRef) return false;
+        const date = new Date(dateRef);
+        if (Number.isNaN(date.getTime())) return false;
+        const [year, month] = extraPaymentMonthFilter.split('-').map(Number);
+        return date.getFullYear() === year && date.getMonth() + 1 === month;
+      })
+      .sort((a, b) => new Date(b.paidAt || b.createdAt || 0) - new Date(a.paidAt || a.createdAt || 0));
+  };
+
+  const handleExtraPaymentFormChange = (field, value) => {
+    setExtraPaymentForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveExtraPayment = async (e) => {
+    e.preventDefault();
+
+    if (!isAdmin || !hasPermission('managePayroll')) {
+      showToast('Você não tem permissão para registrar pagamento extra.', 'danger');
+      return;
+    }
+
+    const employee = employees.find((emp) => String(emp.id) === String(extraPaymentForm.employeeId));
+    const amount = Number(extraPaymentForm.amount);
+    const paymentDate = extraPaymentForm.date;
+
+    if (!employee) {
+      showToast('Selecione um funcionário válido.', 'danger');
+      return;
+    }
+
+    if (Number.isNaN(amount) || amount <= 0) {
+      showToast('Informe um valor maior que zero.', 'danger');
+      return;
+    }
+
+    if (!paymentDate) {
+      showToast('Informe a data do pagamento.', 'danger');
+      return;
+    }
+
+    try {
+      setExtraPaymentLoading(true);
+
+      const payload = {
+        employeeId: employee.id,
+        employeeName: employee.name,
+        period: 'mensal',
+        periodStart: paymentDate,
+        periodEnd: paymentDate,
+        salarioFixo: amount,
+        commission: 0,
+        totalVales: 0,
+        liquido: amount,
+      };
+
+      const response = await fetch('https://barbearia-addev-backend.onrender.com/employeePayments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao registrar pagamento extra');
+      }
+
+      const created = await response.json();
+      setEmployeePayments((prev) => [created, ...prev]);
+      setExtraPaymentForm({
+        employeeId: '',
+        amount: '',
+        date: new Date().toISOString().split('T')[0],
+      });
+      showToast('Pagamento extra registrado com sucesso!', 'success');
+    } catch (error) {
+      console.error('Erro ao registrar pagamento extra:', error);
+      showToast('Erro ao registrar pagamento extra.', 'danger');
+    } finally {
+      setExtraPaymentLoading(false);
+    }
   };
 
   const checkAlreadyPaidInPeriod = (employeeId, period, monthStr) => {
@@ -2460,6 +2765,11 @@ export default function AdminPage() {
             {(isAdmin || hasPermission('managePayroll')) && (
               <button onClick={() => setActiveTab('payroll')} className={`tab-btn ${activeTab === 'payroll' ? 'tab-btn--active' : ''}`}>
                 Pagamentos Funcionários
+              </button>
+            )}
+            {(isAdmin || hasPermission('managePayroll')) && (
+              <button onClick={() => setActiveTab('extraPayments')} className={`tab-btn ${activeTab === 'extraPayments' ? 'tab-btn--active' : ''}`}>
+                Pagamentos Extras
               </button>
             )}
             <button onClick={() => setActiveTab('agendamentos')} className={`tab-btn ${activeTab === 'agendamentos' ? 'tab-btn--active' : ''}`}>
@@ -2837,11 +3147,34 @@ export default function AdminPage() {
                           {barberData && <div className="fluig-expand-icon">{isExpanded ? '▼' : '▶'}</div>}
 
                           <div className="fluig-barber-info">
-                            <img
-                              src={barberData?.photo || `https://i.pravatar.cc/150?img=${barberData?.id || employee.id}`}
-                              alt={employee.name}
-                              className="fluig-barber-photo"
-                            />
+                            {barberData?.photo ? (
+                              <img
+                                src={barberData.photo}
+                                alt={employee.name}
+                                className="fluig-barber-photo"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.nextSibling.style.display = 'flex';
+                                }}
+                              />
+                            ) : null}
+
+                            <div
+                              className="fluig-barber-photo-fallback"
+                              style={{
+                                display: barberData?.photo ? 'none' : 'flex',
+                                width: '48px',
+                                height: '48px',
+                                borderRadius: '50%',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: '#2a2a2a',
+                                border: '1px solid #d4af37',
+                                fontSize: '1.2rem'
+                              }}
+                            >
+                              👤
+                            </div>
                             <div className="fluig-barber-details">
                               <h3 className="fluig-barber-name">{employee.name}</h3>
                               <p className="fluig-barber-specialty">
@@ -2955,7 +3288,7 @@ export default function AdminPage() {
                                           </div>
                                         </td>
                                         <td className="total-price">R$ {aptTotal.toFixed(2)}</td>
-                                        <td>  
+                                        <td>
                                           {apt.notes ? (
                                             <div>
                                               <button onClick={(e) => { e.stopPropagation(); setExpandedObsId(expandedObsId === apt.id ? null : apt.id); }} className="obs-btn">📝 Ver</button>
@@ -3243,6 +3576,121 @@ export default function AdminPage() {
                               </td>
                             </tr>
                           ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'extraPayments' && isAdmin && hasPermission('managePayroll') && (
+            <div className="manage-barbers">
+              <div className="manage-barbers-header">
+                <h2>Pagamentos Extras</h2>
+              </div>
+
+              <div style={{
+                background: '#1a1a1a',
+                border: '1px solid #2a2a2a',
+                borderRadius: '12px',
+                padding: '1rem',
+                marginBottom: '1.5rem'
+              }}>
+                <h3 style={{ marginTop: 0, marginBottom: '0.75rem' }}>Registrar pagamento extra</h3>
+                <form onSubmit={handleSaveExtraPayment} style={{ display: 'grid', gap: '0.75rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
+                    <div>
+                      <label className="form-label">Funcionário</label>
+                      <select
+                        value={extraPaymentForm.employeeId}
+                        onChange={(e) => handleExtraPaymentFormChange('employeeId', e.target.value)}
+                        className="form-input"
+                        required
+                      >
+                        <option value="">Selecione...</option>
+                        {employees
+                          .filter(emp => emp.role === 'barber' || emp.role === 'receptionist' || emp.role === 'admin')
+                          .map((emp) => (
+                            <option key={emp.id} value={emp.id}>
+                              {emp.name} ({emp.role})
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+
+                    <Input
+                      label="Valor (R$)"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={extraPaymentForm.amount}
+                      onChange={(e) => handleExtraPaymentFormChange('amount', e.target.value)}
+                      placeholder="0,00"
+                      required
+                    />
+
+                    <Input
+                      label="Data do pagamento"
+                      type="date"
+                      value={extraPaymentForm.date}
+                      onChange={(e) => handleExtraPaymentFormChange('date', e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <button
+                      type="submit"
+                      className="payroll-pay-btn"
+                      disabled={extraPaymentLoading}
+                      style={{ minWidth: '220px' }}
+                    >
+                      {extraPaymentLoading ? 'Registrando...' : 'Registrar pagamento extra'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              <div className="payroll-history-section">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                  <h3 className="payroll-history-title" style={{ margin: 0 }}>Histórico de pagamentos extras</h3>
+                  <input
+                    type="month"
+                    value={extraPaymentMonthFilter}
+                    onChange={(e) => setExtraPaymentMonthFilter(e.target.value)}
+                    className="payroll-month-input"
+                  />
+                </div>
+
+                {getFilteredExtraPayments().length === 0 ? (
+                  <p className="no-data">Nenhum pagamento extra encontrado para o período selecionado.</p>
+                ) : (
+                  <div className="payroll-table-wrapper">
+                    <table className="payroll-history-table">
+                      <thead>
+                        <tr className="payroll-thead-row">
+                          <th className="payroll-th">Funcionário</th>
+                          <th className="payroll-th payroll-th--right">Valor</th>
+                          <th className="payroll-th payroll-th--center">Data do pagamento</th>
+                          <th className="payroll-th payroll-th--center">Registrado por</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {getFilteredExtraPayments().map((payment) => (
+                          <tr key={payment.id} className="payroll-history-row">
+                            <td className="payroll-td payroll-td--name">{payment.employeeName}</td>
+                            <td className="payroll-td payroll-td--right payroll-value--green">
+                              R$ {Number(payment.liquido || 0).toFixed(2)}
+                            </td>
+                            <td className="payroll-td payroll-td--center payroll-td--muted">
+                              {payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('pt-BR') : '-'}
+                            </td>
+                            <td className="payroll-td payroll-td--center payroll-td--muted">
+                              {payment.paidByName || 'Admin'}
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
@@ -3791,6 +4239,11 @@ export default function AdminPage() {
             <div className="benefits-section">
               <div className="manage-barbers-header">
                 <h2>Gerenciar Benefícios dos Planos</h2>
+                {isAdmin && (
+                  <button onClick={() => openPlanModal()} className="btn-add-barber">
+                    Novo Plano
+                  </button>
+                )}
               </div>
 
               {plansLoading ? (
@@ -3812,6 +4265,17 @@ export default function AdminPage() {
                         <h3>{plan.name}</h3>
                         <span className="plan-price">R$ {plan.price.toFixed(2)}/mês</span>
                       </div>
+                      {isAdmin && (
+                        <div style={{ padding: '0 1rem 0.75rem 1rem' }}>
+                          <button
+                            onClick={() => openPlanModal(plan)}
+                            className="fluig-btn fluig-btn-edit"
+                            style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                          >
+                            Editar nome e preço
+                          </button>
+                        </div>
+                      )}
                       <div className="benefits-list">
                         {plan.features && plan.features.length > 0 ? (
                           plan.features.map((benefit, idx) => (
@@ -4892,7 +5356,7 @@ export default function AdminPage() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid #2a2a2a' }}>
-                      {['Nome', 'E-mail', 'Função', 'Ações'].map(h => (
+                      {['Nome', 'E-mail', 'Aniversário', 'Função', 'Ações'].map(h => (
                         <th key={h} style={{ color: '#888', fontWeight: 600, padding: '10px 12px', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
@@ -4920,6 +5384,9 @@ export default function AdminPage() {
                             </div>
                           </td>
                           <td data-label="E-mail" style={{ padding: '12px 12px', color: '#a8a8a8' }}>{user.email || '—'}</td>
+                          <td data-label="Aniversário" style={{ padding: '12px 12px', color: '#a8a8a8' }}>
+                            {formatUserBirthDayMonth(user)}
+                          </td>
                           <td data-label="Função" style={{ padding: '12px 12px' }}>
                             <span style={{
                               background: user.role === 'admin' || user.isAdmin ? 'rgba(255,122,26,0.15)' : user.role === 'barber' ? 'rgba(100,200,100,0.12)' : 'rgba(100,150,255,0.12)',
@@ -4948,7 +5415,7 @@ export default function AdminPage() {
                       return (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
                     }).length === 0 && (
                         <tr>
-                          <td colSpan={4} style={{ padding: '2rem', textAlign: 'center', color: '#555' }}>Nenhum usuário encontrado.</td>
+                          <td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: '#555' }}>Nenhum usuário encontrado.</td>
                         </tr>
                       )}
                   </tbody>
@@ -5147,17 +5614,6 @@ export default function AdminPage() {
                 placeholder="Ex: Barbeiro Sênior, Recepcionista, etc."
                 disabled={editingBarber?.isUserOnly}
               />
-              {!editingBarber?.isUserOnly && barberForm.userRole === 'barber' && (
-                <Input
-                  label="Porcentagem de Comissão (%)"
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={barberForm.commissionPercent}
-                  onChange={(e) => handleBarberFormChange('commissionPercent', e.target.value)}
-                  required
-                />
-              )}
 
               <Input
                 label="Salário Fixo (R$)"
@@ -5617,6 +6073,43 @@ export default function AdminPage() {
         </div>
       )}
 
+      {showPlanModal && (
+        <div className="modal-overlay" onClick={closePlanModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>{editingPlan ? 'Editar Plano' : 'Novo Plano'}</h2>
+            <form onSubmit={handleSavePlan} className="barber-form">
+              <Input
+                label="Nome do Plano"
+                value={planForm.name}
+                onChange={(e) => handlePlanFormChange('name', e.target.value)}
+                placeholder="Ex: Plano Premium"
+                required
+              />
+
+              <Input
+                label="Preço (R$)"
+                type="number"
+                min="0"
+                step="0.01"
+                value={planForm.price}
+                onChange={(e) => handlePlanFormChange('price', e.target.value)}
+                placeholder="Ex: 99.90"
+                required
+              />
+
+              <div className="modal-actions">
+                <Button type="button" onClick={closePlanModal}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={planSaving}>
+                  {planSaving ? 'Salvando...' : editingPlan ? 'Atualizar' : 'Criar'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {showServiceModal && (
         <div className="modal-overlay" onClick={closeServiceModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -5640,6 +6133,18 @@ export default function AdminPage() {
                 value={serviceForm.price}
                 onChange={(e) => handleServiceFormChange('price', e.target.value)}
                 placeholder="40.00"
+                required
+              />
+
+              <Input
+                label="Porcentagem da Comissão (%)"
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                value={serviceForm.commissionPercent}
+                onChange={(e) => handleServiceFormChange('commissionPercent', e.target.value)}
+                placeholder="50"
                 required
               />
 

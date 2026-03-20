@@ -91,10 +91,9 @@ export default function AppointmentsPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
 
-    const preapprovalId = "e5ebbe29ae3d420dbc87648e4b9991bc";
-      // params.get('preapproval_id') ||
-      // params.get('preapproval') ||
-      // params.get('id');
+    const preapprovalId = params.get('preapproval_id') || params.get('preapproval') || params.get('id');
+
+    //"e5ebbe29ae3d420dbc87648e4b9991bc";
 
     console.log('PREAPPROVAL ID:', preapprovalId);
 
@@ -120,6 +119,8 @@ export default function AppointmentsPage() {
               autoRenewal: selectedPlan.autoRenewal ?? true,
               mp_preapproval_id: preapprovalId
             });
+
+            console.log(subscription);
 
             localStorage.setItem('planId', JSON.stringify(subscription.data.id));
 
@@ -1256,7 +1257,7 @@ export default function AppointmentsPage() {
 
         const paymentData = {
           appointmentId: createdAppointment.id,
-          userId: activeClient.id || currentUser.id,
+          userId: responsibleId || currentUser.id,
           userName: activeClient.name,
           amount: purchaseData.finalTotal,
           serviceName: serviceNames,
