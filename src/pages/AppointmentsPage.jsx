@@ -171,7 +171,7 @@ export default function AppointmentsPage() {
 
   const fetchBlockedDates = useCallback(async () => {
     try {
-      const response = await fetch('https://barbearia-addev-backend.onrender.com/blocked-dates', {
+      const response = await fetch('https://barberone-backend.onrender.com/blocked-dates', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -354,7 +354,7 @@ export default function AppointmentsPage() {
       const [barbersData, servicesData, productsData, appointmentsData] = await Promise.all([
         getBarbers(),
         getAllServices(),
-        fetch('https://barbearia-addev-backend.onrender.com/products', {
+        fetch('https://barberone-backend.onrender.com/products', {
           headers: {
             Authorization: `Bearer ${token}`,
           }
@@ -362,7 +362,7 @@ export default function AppointmentsPage() {
         getAppointments(),
       ]);
 
-      const res = await fetch('https://barbearia-addev-backend.onrender.com/subscriptions', {
+      const res = await fetch('https://barberone-backend.onrender.com/subscriptions', {
         headers: {
           Authorization: `Bearer ${token}`,
         }
@@ -375,7 +375,7 @@ export default function AppointmentsPage() {
       // Só tenta listar usuários se puder agendar para terceiros
       if (canScheduleForOthers) {
         try {
-          const usersResponse = await fetch('https://barbearia-addev-backend.onrender.com/users', {
+          const usersResponse = await fetch('https://barberone-backend.onrender.com/users', {
             headers: {
               Authorization: `Bearer ${token}`,
             }
@@ -418,7 +418,7 @@ export default function AppointmentsPage() {
 
       let deps = [];
       try {
-        const depsRes = await fetch(`https://barbearia-addev-backend.onrender.com/dependents?parentId=${currentUser?.id}`, {
+        const depsRes = await fetch(`https://barberone-backend.onrender.com/dependents?parentId=${currentUser?.id}`, {
           headers: { authorization: `Bearer ${token}` },
         });
 
@@ -461,7 +461,7 @@ export default function AppointmentsPage() {
   //     const [barbersData, servicesData, productsData, appointmentsData] = await Promise.all([
   //       getBarbers(),
   //       getAllServices(),
-  //       fetch('https://barbearia-addev-backend.onrender.com/products', {
+  //       fetch('https://barberone-backend.onrender.com/products', {
   //         headers: {
   //           Authorization: `Bearer ${token}`,
   //         }
@@ -469,14 +469,14 @@ export default function AppointmentsPage() {
   //       getAppointments(),
   //     ]);
 
-  //     const res = await fetch('https://barbearia-addev-backend.onrender.com/subscriptions', {
+  //     const res = await fetch('https://barberone-backend.onrender.com/subscriptions', {
   //       headers: {
   //         Authorization: `Bearer ${token}`,
   //       }
   //     });
 
   //     const subscription = await res.json();
-  //     const usersResponse = await fetch('https://barbearia-addev-backend.onrender.com/users', {
+  //     const usersResponse = await fetch('https://barberone-backend.onrender.com/users', {
   //       headers: {
   //         Authorization: `Bearer ${token}`,
   //       }
@@ -503,7 +503,7 @@ export default function AppointmentsPage() {
 
   //     let deps = [];
   //     try {
-  //       const depsRes = await fetch(`https://barbearia-addev-backend.onrender.com/dependents?parentId=${currentUser?.id}`, {
+  //       const depsRes = await fetch(`https://barberone-backend.onrender.com/dependents?parentId=${currentUser?.id}`, {
   //         headers: { authorization: `Bearer ${token}` },
   //       });
   //       if (depsRes.ok) {
@@ -539,7 +539,7 @@ export default function AppointmentsPage() {
 
   const handleUpdateStock = useCallback(async (productId, quantity) => {
     try {
-      const response = await fetch(`https://barbearia-addev-backend.onrender.com/products/${productId}`, {
+      const response = await fetch(`https://barberone-backend.onrender.com/products/${productId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         }
@@ -547,7 +547,7 @@ export default function AppointmentsPage() {
       const product = await response.json();
       const newStock = Math.max(0, product.stock - quantity);
 
-      await fetch(`https://barbearia-addev-backend.onrender.com/products/${productId}`, {
+      await fetch(`https://barberone-backend.onrender.com/products/${productId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

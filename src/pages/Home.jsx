@@ -129,10 +129,10 @@ export default function Home() {
 
   const handleUpdateStock = async (productId, quantity) => {
     try {
-      const response = await fetch(`https://barbearia-addev-backend.onrender.com/products/${productId}`);
+      const response = await fetch(`https://barberone-backend.onrender.com/products/${productId}`);
       const product = await response.json();
       const newStock = Math.max(0, product.stock - quantity);
-      await fetch(`https://barbearia-addev-backend.onrender.com/products/${productId}`, {
+      await fetch(`https://barberone-backend.onrender.com/products/${productId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stock: newStock }),

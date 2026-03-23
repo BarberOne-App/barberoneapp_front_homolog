@@ -16,7 +16,7 @@ export default function SubscriptionModal({ isOpen, onClose, currentUser }) {
   useEffect(() => {
     const loadPlans = async () => {
       try {
-        const response = await fetch('https://barbearia-addev-backend.onrender.com/subscription-plans', {
+        const response = await fetch('https://barberone-backend.onrender.com/subscription-plans', {
           headers: {
             Authorization: `Bearer ${token}`
           }

@@ -1,7 +1,7 @@
 import api from "./api.js";
 import { getToken } from "./authService.js";
 
-const BASE = "https://barbearia-addev-backend.onrender.com/services";
+const BASE = "https://barberone-backend.onrender.com/services";
 const token = getToken();
 
 export async function getAllServices() {
@@ -29,6 +29,15 @@ export async function getServiceById(id) {
 
 export async function createService(serviceData) {
   const res = await api.post(BASE, serviceData, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.data;
+}
+
+export async function importServices(data) {
+  const res = await api.post(`${BASE}/import`, data, {
     headers: {
       Authorization: `Bearer ${token}`,
     },

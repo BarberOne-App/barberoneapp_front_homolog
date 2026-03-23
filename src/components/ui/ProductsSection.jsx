@@ -10,7 +10,7 @@ export default function ProductsSection({ activeSubscription, onBuyProduct }) {
   const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
-    fetch('https://barbearia-addev-backend.onrender.com/products')
+    fetch('https://barberone-backend.onrender.com/products')
       .then(res => res.json())
       .then(data => setProducts(data))
       .catch(error => console.error('Erro ao carregar produtos:', error));

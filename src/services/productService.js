@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getToken } from './authService';
 
-const API_URL = 'https://barbearia-addev-backend.onrender.com';
+const API_URL = 'https://barberone-backend.onrender.com';
 const token = getToken();
 
 export const getProducts = async () => {
@@ -79,6 +79,19 @@ export const updateProductStock = async (id, newStock) => {
     const response = await axios.patch(`${API_URL}/products/${id}`, {
       stock: newStock
     }, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const importProducts = async (data) => {
+  try {
+    const response = await axios.post(`${API_URL}/products/import`, data, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
