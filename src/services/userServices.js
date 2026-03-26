@@ -22,6 +22,15 @@ export async function createUser(data) {
   return res.data;
 }
 
+export async function importUsers(data) {
+  const res = await api.post(`${BASE}/import`, data, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.data;
+}
+
 export async function userExists(email) {
   try {
     const res = await api.get(`${BASE}/check-email/${encodeURIComponent(email)}`, {

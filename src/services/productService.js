@@ -88,3 +88,16 @@ export const updateProductStock = async (id, newStock) => {
     throw error;
   }
 };
+
+export const importProducts = async (data) => {
+  try {
+    const response = await axios.post(`${API_URL}/products/import`, data, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};

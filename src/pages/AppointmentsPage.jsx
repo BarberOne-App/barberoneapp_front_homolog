@@ -171,7 +171,7 @@ export default function AppointmentsPage() {
 
   const fetchBlockedDates = useCallback(async () => {
     try {
-      const response = await fetch('https://barbearia-addev-backend.onrender.com/blocked-dates', {
+      const response = await fetch('https://barberone-backend.onrender.com/blocked-dates', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -461,7 +461,7 @@ export default function AppointmentsPage() {
   //     const [barbersData, servicesData, productsData, appointmentsData] = await Promise.all([
   //       getBarbers(),
   //       getAllServices(),
-  //       fetch('https://barbearia-addev-backend.onrender.com/products', {
+  //       fetch('https://barberone-backend.onrender.com/products', {
   //         headers: {
   //           Authorization: `Bearer ${token}`,
   //         }
@@ -476,7 +476,7 @@ export default function AppointmentsPage() {
   //     });
 
   //     const subscription = await res.json();
-  //     const usersResponse = await fetch('https://barbearia-addev-backend.onrender.com/users', {
+  //     const usersResponse = await fetch('https://barberone-backend.onrender.com/users', {
   //       headers: {
   //         Authorization: `Bearer ${token}`,
   //       }
@@ -503,7 +503,7 @@ export default function AppointmentsPage() {
 
   //     let deps = [];
   //     try {
-  //       const depsRes = await fetch(`https://barbearia-addev-backend.onrender.com/dependents?parentId=${currentUser?.id}`, {
+  //       const depsRes = await fetch(`https://barberone-backend.onrender.com/dependents?parentId=${currentUser?.id}`, {
   //         headers: { authorization: `Bearer ${token}` },
   //       });
   //       if (depsRes.ok) {

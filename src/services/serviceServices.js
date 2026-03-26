@@ -36,6 +36,15 @@ export async function createService(serviceData) {
   return res.data;
 }
 
+export async function importServices(data) {
+  const res = await api.post(`${BASE}/import`, data, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.data;
+}
+
 
 export async function updateService(id, serviceData) {
   const res = await api.patch(`${BASE}/${id}`, serviceData, {

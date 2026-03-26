@@ -5,15 +5,17 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Toast from '../components/ui/Toast';
 import { getSession, logout } from '../services/authService';
-import { getUserById } from '../services/userServices';
+import { getUserById, getUsers, importUsers as importUsersBatch } from '../services/userServices';
 import { getTermsDocument, uploadTermsDocument, deleteTermsDocument } from '../services/termsService';
 import { getBarbers, createBarber, updateBarber, deleteBarber } from '../services/barberServices';
 import {
   getAppointments,
+  createAppointment,
   deleteAppointment,
   updateAppointment,
 } from '../services/appointmentService';
 import {
+  criarPagamentoAgendamento,
   buscarTodasAssinaturas,
   buscarTodosPagamentosAgendamentos,
   atualizarPagamentoAgendamento,
@@ -25,6 +27,7 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  importProducts as importProductsBatch,
 } from '../services/productService';
 import { getPixKey, savePixKey, getHomeInfo, saveHomeInfo } from '../services/settingsService';
 import './AuthPages.css';
@@ -35,6 +38,7 @@ import {
   createService,
   updateService,
   deleteService,
+  importServices as importServicesBatch,
 } from '../services/serviceServices';
 
 import {
@@ -45,7 +49,6 @@ import {
 } from '../services/homeServices';
 import { uploadImagem } from '../services/cloudinaryService';
 import { getToken } from '../services/authService';
-import { getUsers } from '../services/userServices';
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -211,6 +214,16 @@ export default function AdminPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState(null);
   const [appointmentForm, setAppointmentForm] = useState({ date: '', time: '' });
+  const [showOffScheduleModal, setShowOffScheduleModal] = useState(false);
+  const [offScheduleSaving, setOffScheduleSaving] = useState(false);
+  const [offScheduleForm, setOffScheduleForm] = useState({
+    clientId: '',
+    barberId: '',
+    date: new Date().toISOString().split('T')[0],
+    time: '',
+    serviceIds: [],
+    notes: '',
+  });
 
 
   const [plans, setPlans] = useState([]);
@@ -230,6 +243,12 @@ export default function AdminPage() {
 
 
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const usersImportInputRef = useRef(null);
+  const productsImportInputRef = useRef(null);
+  const servicesImportInputRef = useRef(null);
+  const [importingUsers, setImportingUsers] = useState(false);
+  const [importingProducts, setImportingProducts] = useState(false);
+  const [importingServices, setImportingServices] = useState(false);
 
 
   const [gallery, setGallery] = useState([]);
@@ -669,6 +688,191 @@ export default function AdminPage() {
     return { isValid: false, message: 'Formato inválido. Use CPF, CNPJ, Email, Telefone ou Chave Aleatória', type: '' };
   };
 
+  const normalizeHeader = (header) => String(header || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+
+  const parseBooleanValue = (value) => {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value === 1;
+    const text = String(value || '').trim().toLowerCase();
+    if (!text) return undefined;
+    if (['1', 'true', 'sim', 'yes', 'y'].includes(text)) return true;
+    if (['0', 'false', 'nao', 'não', 'no', 'n'].includes(text)) return false;
+    return undefined;
+  };
+
+  const parseNumberValue = (value) => {
+    if (typeof value === 'number') return value;
+    const normalized = String(value || '')
+      .replace(/\./g, '')
+      .replace(',', '.')
+      .replace(/[^\d.-]/g, '');
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  const getMappedValue = (rawRow, keys) => {
+    const rowMap = Object.entries(rawRow || {}).reduce((acc, [key, value]) => {
+      acc[normalizeHeader(key)] = value;
+      return acc;
+    }, {});
+
+    for (const key of keys) {
+      const value = rowMap[key];
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        return value;
+      }
+    }
+
+    return '';
+  };
+
+  const readExcelRows = async (file) => {
+    const { read, utils } = await import('xlsx');
+    const buffer = await file.arrayBuffer();
+    const workbook = read(buffer, { type: 'array' });
+    const firstSheetName = workbook.SheetNames[0];
+    if (!firstSheetName) return [];
+
+    const worksheet = workbook.Sheets[firstSheetName];
+    return utils.sheet_to_json(worksheet, { defval: '' });
+  };
+
+  const clearFileInput = (ref) => {
+    if (ref?.current) {
+      ref.current.value = '';
+    }
+  };
+
+  const handleImportUsersExcel = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImportingUsers(true);
+    try {
+      const rows = await readExcelRows(file);
+      const mappedRows = rows
+        .map((row) => {
+          const email = String(getMappedValue(row, ['email', 'mail'])).trim().toLowerCase();
+
+          return {
+            name: String(getMappedValue(row, ['nome', 'name', 'usuario'])).trim(),
+            email,
+            phone: String(getMappedValue(row, ['telefone', 'phone', 'celular'])).trim(),
+            cpf: String(getMappedValue(row, ['cpf'])).replace(/\D/g, ''),
+            role: 'client',
+            isAdmin: false,
+          };
+        })
+        .filter((row) => row.name && row.email);
+
+      if (!mappedRows.length) {
+        showToast('Nenhuma linha válida encontrada no Excel de clientes.', 'danger');
+        return;
+      }
+
+      const result = await importUsersBatch({
+        defaultPassword: '123456',
+        skipExisting: true,
+        rows: mappedRows,
+      });
+
+      await loadData();
+
+      const message = `Clientes importados: ${result.createdCount}. Ignorados: ${result.skippedCount || 0}. Erros: ${result.failedCount}. Senha padrão: 123456`;
+      showToast(message, result.failedCount > 0 ? 'danger' : 'success');
+    } catch (error) {
+      console.error('Erro ao importar usuários por Excel:', error);
+      showToast('Erro ao importar clientes por Excel.', 'danger');
+    } finally {
+      setImportingUsers(false);
+      clearFileInput(usersImportInputRef);
+    }
+  };
+
+  const handleImportProductsExcel = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImportingProducts(true);
+    try {
+      const rows = await readExcelRows(file);
+      const mappedRows = rows
+        .map((row) => ({
+          name: String(getMappedValue(row, ['nome', 'name', 'produto'])).trim(),
+          description: String(getMappedValue(row, ['descricao', 'description'])).trim(),
+          category: String(getMappedValue(row, ['categoria', 'category'])).trim(),
+          price: parseNumberValue(getMappedValue(row, ['preco', 'price', 'valor'])),
+          stock: Math.max(0, Math.round(parseNumberValue(getMappedValue(row, ['estoque', 'stock'])))),
+          subscriberDiscount: Math.max(0, Math.round(parseNumberValue(getMappedValue(row, ['descontoassinate', 'subscriberdiscount', 'desconto'])))),
+          imageUrl: String(getMappedValue(row, ['imagem', 'imageurl', 'image'])).trim(),
+          active: parseBooleanValue(getMappedValue(row, ['ativo', 'active'])),
+        }))
+        .filter((row) => row.name && row.price > 0);
+
+      if (!mappedRows.length) {
+        showToast('Nenhuma linha válida encontrada no Excel de produtos.', 'danger');
+        return;
+      }
+
+      const result = await importProductsBatch({ rows: mappedRows });
+      await loadData();
+      showToast(
+        `Produtos importados: ${result.createdCount}. Erros: ${result.failedCount}.`,
+        result.failedCount > 0 ? 'danger' : 'success'
+      );
+    } catch (error) {
+      console.error('Erro ao importar produtos por Excel:', error);
+      showToast('Erro ao importar produtos por Excel.', 'danger');
+    } finally {
+      setImportingProducts(false);
+      clearFileInput(productsImportInputRef);
+    }
+  };
+
+  const handleImportServicesExcel = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImportingServices(true);
+    try {
+      const rows = await readExcelRows(file);
+      const mappedRows = rows
+        .map((row) => ({
+          name: String(getMappedValue(row, ['nome', 'name', 'servico', 'servico_nome'])).trim(),
+          basePrice: parseNumberValue(getMappedValue(row, ['preco', 'price', 'valor', 'baseprice'])),
+          promotionalPrice: parseNumberValue(getMappedValue(row, ['precopromocional', 'promotionalprice'])),
+          durationMinutes: Math.max(1, Math.round(parseNumberValue(getMappedValue(row, ['duracao', 'duration', 'durationminutes'])) || 30)),
+          comissionPercent: Math.max(0, Math.min(100, Math.round(parseNumberValue(getMappedValue(row, ['comissao', 'comissionpercent', 'commissionpercent']))))),
+          covered_by_plan: parseBooleanValue(getMappedValue(row, ['cobertoporplano', 'coveredbyplan', 'covered_by_plan'])),
+          imageUrl: String(getMappedValue(row, ['imagem', 'imageurl', 'image'])).trim(),
+          active: parseBooleanValue(getMappedValue(row, ['ativo', 'active'])),
+        }))
+        .filter((row) => row.name && row.basePrice > 0);
+
+      if (!mappedRows.length) {
+        showToast('Nenhuma linha válida encontrada no Excel de serviços.', 'danger');
+        return;
+      }
+
+      const result = await importServicesBatch({ rows: mappedRows });
+      await loadServices();
+      showToast(
+        `Serviços importados: ${result.createdCount}. Erros: ${result.failedCount}.`,
+        result.failedCount > 0 ? 'danger' : 'success'
+      );
+    } catch (error) {
+      console.error('Erro ao importar serviços por Excel:', error);
+      showToast('Erro ao importar serviços por Excel.', 'danger');
+    } finally {
+      setImportingServices(false);
+      clearFileInput(servicesImportInputRef);
+    }
+  };
+
 
   const fetchBlockedDates = async () => {
     try {
@@ -900,7 +1104,7 @@ export default function AdminPage() {
         buscarTodasVendasProdutos(),
       ]);
 
-      // const usersResponse = await fetch('https://barbearia-addev-backend.onrender.com/users', {
+      // const usersResponse = await fetch('https://barberone-backend.onrender.com/users', {
       //   headers: {
       //     Authorization: `Bearer ${token}`,
       //   },
@@ -975,7 +1179,7 @@ export default function AdminPage() {
   const loadPlans = useCallback(async () => {
     setPlansLoading(true);
     try {
-      const response = await fetch('https://baerberone-backend.onrender.com/subscription-plans', {
+      const response = await fetch('https://barbearia-addev-backend.onrender.com/subscription-plans', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -1319,7 +1523,7 @@ export default function AdminPage() {
           showToast('Email e senha são obrigatórios para criar conta de acesso.', 'danger');
           return;
         }
-        // const checkEmailResponse = await fetch('https://barbearia-addev-backend.onrender.com/users', {
+        // const checkEmailResponse = await fetch('https://barberone-backend.onrender.com/users', {
         //   headers: {
         //     Authorization: `Bearer ${token}`,
         //   },
@@ -1556,10 +1760,6 @@ export default function AdminPage() {
         subscriberDiscount: parseInt(productForm.subscriberDiscount) || 0,
         stock: parseInt(productForm.stock) || 0,
         imageUrl: productForm.imageUrl || '',
-        // price: `R$ ${parseFloat(productForm.price).toFixed(2)}`,
-        price: Number(productForm.price),
-        subscriberDiscount: parseInt(productForm.subscriberDiscount) || 0,
-        stock: parseInt(productForm.stock) || 0,
       };
       if (editingProduct) {
         await updateProduct(editingProduct.id, productData);
@@ -1648,6 +1848,116 @@ export default function AdminPage() {
 
   const handleAppointmentFormChange = (field, value) => {
     setAppointmentForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const openOffScheduleModal = () => {
+    setOffScheduleForm({
+      clientId: '',
+      barberId: '',
+      date: new Date().toISOString().split('T')[0],
+      time: '',
+      serviceIds: [],
+      notes: '',
+    });
+    setShowOffScheduleModal(true);
+  };
+
+  const closeOffScheduleModal = () => {
+    setShowOffScheduleModal(false);
+    setOffScheduleSaving(false);
+  };
+
+  const handleOffScheduleFormChange = (field, value) => {
+    setOffScheduleForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmitOffScheduleAppointment = async (e) => {
+    e.preventDefault();
+
+    if (!offScheduleForm.clientId || !offScheduleForm.barberId || !offScheduleForm.date || !offScheduleForm.time) {
+      showToast('Preencha cliente, barbeiro, data e horário.', 'danger');
+      return;
+    }
+
+    if (!offScheduleForm.serviceIds.length) {
+      showToast('Selecione pelo menos um serviço.', 'danger');
+      return;
+    }
+
+    const selectedClient = allUsers.find((u) => String(u.id) === String(offScheduleForm.clientId));
+    const selectedBarber = barbers.find((b) => String(b.id) === String(offScheduleForm.barberId));
+
+    if (!selectedClient) {
+      showToast('Cliente inválido.', 'danger');
+      return;
+    }
+
+    if (!selectedBarber) {
+      showToast('Barbeiro inválido.', 'danger');
+      return;
+    }
+
+    const selectedServices = services.filter((s) => offScheduleForm.serviceIds.includes(s.id));
+    const mappedServices = selectedServices
+      .map((service) => {
+        const basePrice = Number(service.basePrice ?? service.price ?? 0);
+        const duration = Number(service.durationMinutes ?? service.duration ?? 50);
+        return {
+          id: service.id,
+          name: service.name,
+          basePrice: Number.isNaN(basePrice) ? 0 : basePrice,
+          duration: Number.isNaN(duration) || duration <= 0 ? 50 : duration,
+          quantity: 1,
+        };
+      })
+      .filter((service) => service.id && service.name);
+
+    if (!mappedServices.length) {
+      showToast('Não foi possível montar os serviços do agendamento.', 'danger');
+      return;
+    }
+
+    const totalAmount = mappedServices.reduce((sum, service) => sum + (Number(service.basePrice) || 0), 0);
+
+    try {
+      setOffScheduleSaving(true);
+
+      const createdAppointment = await createAppointment({
+        barberId: selectedBarber.id,
+        clientId: selectedClient.id,
+        date: offScheduleForm.date,
+        time: offScheduleForm.time,
+        notes: offScheduleForm.notes?.trim() || '',
+        services: mappedServices,
+        products: [],
+      });
+
+      await criarPagamentoAgendamento({
+        appointmentId: createdAppointment.id,
+        userId: selectedClient.id,
+        userName: selectedClient.name,
+        amount: totalAmount,
+        serviceName: mappedServices.map((service) => service.name).join(', '),
+        barberName: selectedBarber.displayName,
+        appointmentDate: offScheduleForm.date,
+        appointmentTime: offScheduleForm.time,
+        products: [],
+        status: 'pending',
+        method: 'local',
+      });
+
+      await loadData();
+      closeOffScheduleModal();
+      showToast('Agendamento fora do horário registrado com sucesso!', 'success');
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        (Array.isArray(error?.response?.data) ? error.response.data.join(', ') : null) ||
+        'Erro ao registrar agendamento fora do horário.';
+      showToast(message, 'danger');
+    } finally {
+      setOffScheduleSaving(false);
+    }
   };
 
   const handleUpdateAppointment = async (e) => {
@@ -2441,7 +2751,7 @@ export default function AdminPage() {
         name: serviceForm.name,
         basePrice: Number(serviceForm.price),
         promotionalPrice: Number(serviceForm.promotionalPrice) || 0,
-        commissionPercent: parsedCommissionPercent,
+        comissionPercent: parsedCommissionPercent,
         covered_by_plan: serviceForm.coveredByPlan,
         imageUrl: serviceForm.image || 'https://images.unsplash.com/photo-1596728325488-58c87691e9af',
         durationMinutes: parseInt(serviceForm.duration),
@@ -3570,9 +3880,9 @@ export default function AdminPage() {
                                                 Transferir
                                               </button>
                                             )}
-                                            <button onClick={() => sendWhatsApp(apt.id, 'confirm')} className="action-btn btn-whatsapp">
+                                            {/* <button onClick={() => sendWhatsApp(apt.id, 'confirm')} className="action-btn btn-whatsapp">
                                               WhatsApp
-                                            </button>
+                                            </button> */}
                                             <button onClick={() => handleDeleteAppointment(apt.id)} className="action-btn btn-cancel">
                                               Cancelar
                                             </button>
@@ -3635,6 +3945,7 @@ export default function AdminPage() {
                       <th className="payroll-th">Frequência</th>
                       <th className="payroll-th payroll-th--right">Salário Fixo</th>
                       <th className="payroll-th payroll-th--right">Comissão</th>
+                      <th className="payroll-th payroll-th--right">Pagamentos Extras</th>
                       <th className="payroll-th payroll-th--right">Vales</th>
                       <th className="payroll-th payroll-th--right">Líquido</th>
                       <th className="payroll-th payroll-th--center">Ações</th>
@@ -3649,6 +3960,22 @@ export default function AdminPage() {
                         const commission = barberData ? getBarberCommissionInPeriod(barberData.id, start, end) : 0;
                         const vales = getValesInPeriod(emp.id, start, end);
                         const totalVales = vales.reduce((s, v) => s + v.valor, 0);
+                        const totalExtraPayments = employeePayments
+                          .filter((payment) => {
+                            if (!isExtraPayment(payment)) return false;
+                            if (String(payment.employeeId) !== String(emp.id)) return false;
+                            if (!payrollMonthFilter) return true;
+
+                            const dateRef = payment.paidAt || payment.periodStart;
+                            if (!dateRef) return false;
+
+                            const date = new Date(dateRef);
+                            if (Number.isNaN(date.getTime())) return false;
+
+                            const [year, month] = payrollMonthFilter.split('-').map(Number);
+                            return date.getFullYear() === year && date.getMonth() + 1 === month;
+                          })
+                          .reduce((sum, payment) => sum + Number(payment.liquido || 0), 0);
 
                         const salarioFixo = parseFloat(barberData?.salarioFixo ?? emp.salarioFixo ?? 0) || 0;
                         const liquido = salarioFixo + commission - totalVales;
@@ -3690,6 +4017,11 @@ export default function AdminPage() {
 
                               <td className="payroll-td payroll-td--right payroll-value--blue">
                                 R$ {commission.toFixed(2)}
+                              </td>
+
+
+                              <td className="payroll-td payroll-td--right payroll-value--green">
+                                R$ {totalExtraPayments.toFixed(2)}
                               </td>
 
 
@@ -3740,7 +4072,7 @@ export default function AdminPage() {
 
                             {isExp && (
                               <tr className="payroll-row-expanded-detail">
-                                <td colSpan={7} className="payroll-td-vales-detail">
+                                <td colSpan={8} className="payroll-td-vales-detail">
                                   <div className="payroll-vales-header">
                                     Vales do período: {start} → {end}
                                   </div>
@@ -3957,6 +4289,9 @@ export default function AdminPage() {
             <div className="manage-barbers">
               <div className="manage-barbers-header">
                 <h2>Agendamentos</h2>
+                <button onClick={openOffScheduleModal} className="btn-add-barber">
+                  Registrar fora do horário
+                </button>
               </div>
 
               <div className="agendamentos-filter-container">
@@ -4159,7 +4494,7 @@ export default function AdminPage() {
                                   </td>
                                   <td data-label="Valor">R$ {parseFloat(payment.amount || 0).toFixed(2)}</td>
                                   <td data-label="Status">
-                                    {payment.status === 'pendinglocal' ? (
+                                    {(payment.status === 'pendinglocal' || (payment.status === 'pending' && String(payment.method || payment.paymentMethod || '').toLowerCase() === 'local')) ? (
                                       <span style={{ background: '#e67e2222', color: '#e67e22', border: '1px solid #e67e2255', borderRadius: '20px', padding: '3px 10px', fontSize: '0.75rem', fontWeight: 600 }}> Local</span>
                                     ) : payment.status === 'confirmed_unpaid' ? (
                                       <span style={{ background: '#9b59b622', color: '#9b59b6', border: '1px solid #9b59b655', borderRadius: '20px', padding: '3px 10px', fontSize: '0.75rem', fontWeight: 600 }}>Confirmado s/ Pgto</span>
@@ -4341,7 +4676,7 @@ export default function AdminPage() {
                                         label = 'Pago no Local'; bg = '#27ae6022'; color = '#27ae60'; border = '#27ae6055';
                                       } else if (s === 'paid') {
                                         label = 'Pago'; bg = '#27ae6022'; color = '#27ae60'; border = '#27ae6055';
-                                      } else if (s === 'pendinglocal') {
+                                      } else if (s === 'pendinglocal' || (s === 'pending' && m === 'local')) {
                                         label = 'Pagar no Local'; bg = '#e67e2222'; color = '#e67e22'; border = '#e67e2255';
                                       } else if (s === 'confirmed_unpaid') {
                                         label = 'Confirmado s/ Pgto'; bg = '#9b59b622'; color = '#9b59b6'; border = '#9b59b655';
@@ -4378,11 +4713,31 @@ export default function AdminPage() {
             <div className="products-section">
               <div className="manage-barbers-header">
                 <h2>Gerenciar Produtos</h2>
-                {hasPermission('addProducts') && (
-                  <button onClick={() => openProductModal()} className="btn-add-barber">
-                    Adicionar Produto
-                  </button>
-                )}
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {hasPermission('addProducts') && (
+                    <>
+                      <input
+                        ref={productsImportInputRef}
+                        type="file"
+                        accept=".xlsx,.xls"
+                        style={{ display: 'none' }}
+                        onChange={handleImportProductsExcel}
+                      />
+                      <button
+                        onClick={() => productsImportInputRef.current?.click()}
+                        className="btn-add-barber"
+                        disabled={importingProducts}
+                      >
+                        {importingProducts ? 'Importando...' : 'Importar Produtos (Excel)'}
+                      </button>
+                    </>
+                  )}
+                  {hasPermission('addProducts') && (
+                    <button onClick={() => openProductModal()} className="btn-add-barber">
+                      Adicionar Produto
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="products-grid">
@@ -4421,11 +4776,31 @@ export default function AdminPage() {
             <div className="services-section">
               <div className="manage-barbers-header">
                 <h2>Gerenciar Serviços</h2>
-                {hasPermission('addServices') && (
-                  <button onClick={() => openServiceModal()} className="btn-add-barber">
-                    Adicionar Serviço
-                  </button>
-                )}
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {hasPermission('addServices') && (
+                    <>
+                      <input
+                        ref={servicesImportInputRef}
+                        type="file"
+                        accept=".xlsx,.xls"
+                        style={{ display: 'none' }}
+                        onChange={handleImportServicesExcel}
+                      />
+                      <button
+                        onClick={() => servicesImportInputRef.current?.click()}
+                        className="btn-add-barber"
+                        disabled={importingServices}
+                      >
+                        {importingServices ? 'Importando...' : 'Importar Serviços (Excel)'}
+                      </button>
+                    </>
+                  )}
+                  {hasPermission('addServices') && (
+                    <button onClick={() => openServiceModal()} className="btn-add-barber">
+                      Adicionar Serviço
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="services-grid" style={{
@@ -5202,7 +5577,7 @@ export default function AdminPage() {
                                 <span className="status-badge" style={{ background: '#e74c3c22', color: '#e74c3c', border: '1px solid #e74c3c55' }}>Em Atraso</span>
                               ) : payment.displayStatus === 'confirmed_unpaid' ? (
                                 <span className="status-badge" style={{ background: '#f39c1222', color: '#f39c12', border: '1px solid #f39c1255' }}>Confirmado · Pag. Pendente</span>
-                              ) : payment.status === 'pendinglocal' ? (
+                              ) : (payment.status === 'pendinglocal' || (payment.status === 'pending' && String(payment.method || payment.paymentMethod || '').toLowerCase() === 'local')) ? (
                                 <span className="status-badge status-pending-local">Pagar no Local</span>
                               ) : (
                                 <span className="status-badge status-pending-online">Pagar Online</span>
@@ -5616,15 +5991,31 @@ export default function AdminPage() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
                   <h2 style={{ color: '#fff', fontSize: '1.2rem', margin: 0 }}>👤 Gerenciamento de Usuários</h2>
-                  <p style={{ color: '#888', fontSize: '0.82rem', margin: '4px 0 0' }}>Redefina senhas de clientes em caso de esquecimento.</p>
+                  <p style={{ color: '#888', fontSize: '0.82rem', margin: '4px 0 0' }}>Redefina senhas e importe clientes em massa via Excel.</p>
                 </div>
-                <input
-                  type="text"
-                  placeholder="Buscar por nome ou e-mail..."
-                  value={userSearch}
-                  onChange={e => setUserSearch(e.target.value)}
-                  style={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#fff', padding: '9px 14px', fontSize: '0.85rem', minWidth: '240px', outline: 'none' }}
-                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <input
+                    ref={usersImportInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    style={{ display: 'none' }}
+                    onChange={handleImportUsersExcel}
+                  />
+                  <button
+                    onClick={() => usersImportInputRef.current?.click()}
+                    className="btn-add-barber"
+                    disabled={importingUsers}
+                  >
+                    {importingUsers ? 'Importando...' : 'Importar Clientes (Excel)'}
+                  </button>
+                  <input
+                    type="text"
+                    placeholder="Buscar por nome ou e-mail..."
+                    value={userSearch}
+                    onChange={e => setUserSearch(e.target.value)}
+                    style={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#fff', padding: '9px 14px', fontSize: '0.85rem', minWidth: '240px', outline: 'none' }}
+                  />
+                </div>
               </div>
 
               <div style={{ overflowX: 'auto' }} className="usuarios-table">
@@ -6145,6 +6536,132 @@ export default function AdminPage() {
                   Cancelar
                 </Button>
                 <Button type="submit">Atualizar</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showOffScheduleModal && (
+        <div className="modal-overlay" onClick={closeOffScheduleModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Agendamento Fora do Horário</h2>
+            <p className="modal-subtitle">Registre atendimentos feitos fora do horário de funcionamento.</p>
+            <form onSubmit={handleSubmitOffScheduleAppointment} className="barber-form">
+              <div>
+                <label className="form-label">Cliente</label>
+                <select
+                  className="form-select"
+                  value={offScheduleForm.clientId}
+                  onChange={(e) => handleOffScheduleFormChange('clientId', e.target.value)}
+                  required
+                >
+                  <option value="">Selecione um cliente</option>
+                  {allUsers
+                    .filter((user) => user.role === 'client')
+                    .map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="form-label">Barbeiro</label>
+                <select
+                  className="form-select"
+                  value={offScheduleForm.barberId}
+                  onChange={(e) => handleOffScheduleFormChange('barberId', e.target.value)}
+                  required
+                >
+                  <option value="">Selecione um barbeiro</option>
+                  {barbers.map((barber) => (
+                    <option key={barber.id} value={barber.id}>
+                      {barber.displayName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <Input
+                label="Data"
+                type="date"
+                value={offScheduleForm.date}
+                onChange={(e) => handleOffScheduleFormChange('date', e.target.value)}
+                required
+              />
+
+              <Input
+                label="Horário"
+                type="time"
+                value={offScheduleForm.time}
+                onChange={(e) => handleOffScheduleFormChange('time', e.target.value)}
+                required
+              />
+
+              <div>
+                <label className="form-label">Serviços</label>
+                {services.length === 0 ? (
+                  <p style={{ color: '#666', fontSize: '0.85rem' }}>Nenhum serviço cadastrado.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.4rem' }}>
+                    {services.map((service) => {
+                      const isSelected = offScheduleForm.serviceIds.includes(service.id);
+                      return (
+                        <button
+                          key={service.id}
+                          type="button"
+                          onClick={() => {
+                            handleOffScheduleFormChange(
+                              'serviceIds',
+                              isSelected
+                                ? offScheduleForm.serviceIds.filter((id) => id !== service.id)
+                                : [...offScheduleForm.serviceIds, service.id]
+                            );
+                          }}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            padding: '6px 14px',
+                            borderRadius: '999px',
+                            border: isSelected ? '1.5px solid #ff7a1a' : '1.5px solid #444',
+                            background: isSelected ? 'rgba(255,122,26,0.15)' : 'transparent',
+                            color: isSelected ? '#ff7a1a' : '#888',
+                            fontSize: '0.82rem',
+                            fontWeight: isSelected ? 600 : 400,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          {isSelected && <span style={{ fontSize: '0.75rem' }}>✓</span>}
+                          {service.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="form-label">Observação</label>
+                <textarea
+                  value={offScheduleForm.notes}
+                  onChange={(e) => handleOffScheduleFormChange('notes', e.target.value)}
+                  placeholder="Ex.: cliente chegou após o fechamento"
+                  rows="3"
+                  className="form-textarea"
+                />
+              </div>
+
+              <div className="modal-actions">
+                <Button type="button" onClick={closeOffScheduleModal}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={offScheduleSaving}>
+                  {offScheduleSaving ? 'Registrando...' : 'Registrar atendimento'}
+                </Button>
               </div>
             </form>
           </div>
