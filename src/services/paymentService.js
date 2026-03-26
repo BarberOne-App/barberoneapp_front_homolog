@@ -307,7 +307,7 @@ export const buscarAssinaturasUsuario = async (userId) => {
   }
 };
 
-export const buscarAssinaturaAtiva = async (planId, currentUser) => {
+ export const buscarAssinaturaAtiva = async (planId, currentUser) => {
 
   try {
 
@@ -344,7 +344,7 @@ export const buscarAssinaturaAtiva = async (planId, currentUser) => {
     console.error('Erro ao buscar assinatura ativa:', error);
     return null;
   }
-};
+}; 
 
 export const buscarTodasAssinaturas = async () => {
   try {

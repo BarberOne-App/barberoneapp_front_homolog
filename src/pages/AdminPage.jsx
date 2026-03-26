@@ -54,8 +54,8 @@ export default function AdminPage() {
   const currentUser = currentUserRef.current;
   const [uploadedTermsDoc, setUploadedTermsDoc] = useState(null);
   const [termsDocUrl, setTermsDocUrl] = useState('');
-  // const [activeTab, setActiveTab] = useState('employees');
-  const [activeTab, setActiveTab] = useState('homeInfo');
+/*   const [activeTab, setActiveTab] = useState('employees');
+ */  const [activeTab, setActiveTab] = useState('homeInfo'); 
   const [barbers, setBarbers] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
@@ -85,6 +85,41 @@ export default function AdminPage() {
     image: '',
     duration: '',
   });
+ 
+  const [earningsFilter, setEarningsFilter] = useState('week');
+  const [barberProfile, setBarberProfile] = useState(null);
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+
+
+
+
+  const getPeriodLabel = () => {
+  const now = new Date();
+
+    if (earningsFilter === 'week') {
+      const today = now.getDay();
+      const mondayOffset = today === 0 ? -6 : 1 - today;
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() + mondayOffset);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      return `${weekStart.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} - ${weekEnd.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`;
+    }
+
+    if (earningsFilter === 'month') {
+      return now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    }
+
+    if (earningsFilter === 'custom' && customStartDate && customEndDate) {
+      const start = new Date(customStartDate + 'T00:00:00');
+      const end = new Date(customEndDate + 'T00:00:00');
+      return `${start.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} - ${end.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`;
+    }
+
+    return 'Todos os períodos';
+  };
+
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [pixKey, setPixKey] = useState('');
@@ -482,6 +517,23 @@ export default function AdminPage() {
 
     let filtered = [...payments];
 
+    if (!isAdmin && !isReceptionist) {
+      const loggedInBarber = barbers.find(b => 
+        b.userId === currentUser?.id || 
+        b.id === currentUser?.barberId || 
+        b.email === currentUser?.email
+      );
+
+      if (loggedInBarber) {
+        filtered = filtered.filter(payment => {
+          const paymentBarberId = payment.appointment?.barberId || payment.appointment?.barber?.id || payment.barberId;
+          return paymentBarberId?.toString() === loggedInBarber.id?.toString();
+        });
+      } else {
+        filtered = [];
+      }
+    }
+
     const getDate = (payment) => {
       const rawDate =
         payment?.appointment?.startAt ||
@@ -621,7 +673,7 @@ export default function AdminPage() {
   const fetchBlockedDates = async () => {
     try {
       setLoadingBlockedDates(true);
-      const response = await fetch('https://barbearia-addev-backend.onrender.com/blocked-dates', {
+      const response = await fetch('https://barberone-backend.onrender.com/blocked-dates', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -682,7 +734,7 @@ export default function AdminPage() {
         createdBy: currentUser?.id,
         createdAt: new Date().toISOString(),
       };
-      const response = await fetch('https://barbearia-addev-backend.onrender.com/blocked-dates', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(blockData) });
+      const response = await fetch('https://barberone-backend.onrender.com/blocked-dates', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(blockData) });
       if (response.ok) {
         showToast(isTimeBlock ? 'Horário bloqueado com sucesso!' : 'Data bloqueada com sucesso!', 'success');
         fetchBlockedDates();
@@ -697,7 +749,7 @@ export default function AdminPage() {
   const handleRemoveBlockedDate = (id) => {
     showConfirm('Deseja realmente desbloquear esta data?', async () => {
       try {
-        const response = await fetch(`https://barbearia-addev-backend.onrender.com/blocked-dates/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+        const response = await fetch(`https://barberone-backend.onrender.com/blocked-dates/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
         if (response.ok) {
           showToast('Data desbloqueada com sucesso!', 'success');
           fetchBlockedDates();
@@ -877,7 +929,7 @@ export default function AdminPage() {
         s => s.status === 'cancel_pending' && s.nextBillingDate && new Date(s.nextBillingDate) < today
       );
       for (const s of toExpire) {
-        await fetch(`https://barbearia-addev-backend.onrender.com/subscriptions/${s.id}`, {
+        await fetch(`https://barberone-backend.onrender.com/subscriptions/${s.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'cancelled', updatedAt: new Date().toISOString() }),
@@ -900,12 +952,12 @@ export default function AdminPage() {
       setAllUsers(allUsers);
       setClientSubscriptionStatus(subscriptionStatusMap);
       try {
-        const valesRes = await fetch('https://barbearia-addev-backend.onrender.com/employeeVales', {
+        const valesRes = await fetch('https://barberone-backend.onrender.com/employeeVales', {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-        const paymentsRes = await fetch('https://barbearia-addev-backend.onrender.com/employeePayments', {
+        const paymentsRes = await fetch('https://barberone-backend.onrender.com/employeePayments', {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -923,7 +975,7 @@ export default function AdminPage() {
   const loadPlans = useCallback(async () => {
     setPlansLoading(true);
     try {
-      const response = await fetch('https://barbearia-addev-backend.onrender.com/subscription-plans', {
+      const response = await fetch('https://baerberone-backend.onrender.com/subscription-plans', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -1121,7 +1173,7 @@ export default function AdminPage() {
     }
     setResetPasswordLoading(true);
     try {
-      await fetch(`https://barbearia-addev-backend.onrender.com/users/${resetPasswordUser.id}`, {
+      await fetch(`https://barberone-backend.onrender.com/users/${resetPasswordUser.id}`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1147,7 +1199,7 @@ export default function AdminPage() {
       return;
     }
     try {
-      await fetch(`https://barbearia-addev-backend.onrender.com/users/${selectedUserPermissions.id}/permissions`, {
+      await fetch(`https://barberone-backend.onrender.com/users/${selectedUserPermissions.id}/permissions`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -1252,7 +1304,7 @@ export default function AdminPage() {
           salarioFixo: parseFloat(barberForm.salarioFixo) || 0,
           paymentFrequency: barberForm.paymentFrequency || 'mensal',
         };
-        await fetch(`https://barbearia-addev-backend.onrender.com/users/${editingBarber.userId}`, {
+        await fetch(`https://barberone-backend.onrender.com/users/${editingBarber.userId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(userData),
@@ -1290,7 +1342,7 @@ export default function AdminPage() {
           isAdmin: barberForm.userRole === 'admin',
           createdAt: new Date().toISOString(),
         };
-        const userResponse = await fetch('https://barbearia-addev-backend.onrender.com/users', {
+        const userResponse = await fetch('https://barberone-backend.onrender.com/users', {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1318,7 +1370,7 @@ export default function AdminPage() {
         if (editingBarber && !editingBarber.isUserOnly) {
           await updateBarber(editingBarber.id, barberData);
           if (editingBarber.userId) {
-            await fetch(`https://barbearia-addev-backend.onrender.com/users/${editingBarber.userId}`, {
+            await fetch(`https://barberone-backend.onrender.com/users/${editingBarber.userId}`, {
               method: 'PATCH',
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -1361,7 +1413,7 @@ export default function AdminPage() {
     showConfirm('Deseja realmente excluir este funcionário?', async () => {
       try {
         if (isUserOnly) {
-          await fetch(`https://barbearia-addev-backend.onrender.com/users/${id}`, {
+          await fetch(`https://barberone-backend.onrender.com/users/${id}`, {
             method: 'DELETE',
             headers: {
               Authorization: `Bearer ${token}`,
@@ -1372,7 +1424,7 @@ export default function AdminPage() {
           await deleteBarber(id);
           const barber = barbers.find((b) => b.id === id);
           if (barber?.userId) {
-            await fetch(`https://barbearia-addev-backend.onrender.com/users/${barber.userId}`, {
+            await fetch(`https://barberone-backend.onrender.com/users/${barber.userId}`, {
               method: 'DELETE',
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -1632,7 +1684,7 @@ export default function AdminPage() {
       : 'data não definida';
     try {
 
-      await fetch(`https://barbearia-addev-backend.onrender.com/subscriptions/${sub.id}`, {
+      await fetch(`https://barberone-backend.onrender.com/subscriptions/${sub.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1643,7 +1695,7 @@ export default function AdminPage() {
         }),
       });
 
-      const userRes = await fetch(`https://barbearia-addev-backend.onrender.com/users/${sub.userId}`);
+      const userRes = await fetch(`https://barberone-backend.onrender.com/users/${sub.userId}`);
       if (userRes.ok) {
         const userData = await userRes.json();
         const phone = userData.phone?.replace(/\D/g, '');
@@ -1802,7 +1854,7 @@ export default function AdminPage() {
     }, 0);
   };
 
-  const calculateBarberStats = (barberId) => {
+  const calculateBarberStatsbyBarber = (barberId) => {
     const barber = barbers.find((b) => b.id === barberId);
     const barberAppointments = getAppointmentsByBarber(barberId);
     let totalRevenue = 0;
@@ -1824,6 +1876,76 @@ export default function AdminPage() {
       shopEarnings,
     };
   };
+
+  
+   const getFilteredAppointmentsByPeriod = () => {
+    const now = new Date();
+
+    if (earningsFilter === 'week') {
+      const today = now.getDay();
+      const mondayOffset = today === 0 ? -6 : 1 - today;
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() + mondayOffset);
+      weekStart.setHours(0, 0, 0, 0);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      weekEnd.setHours(23, 59, 59, 999);
+
+      return appointments.filter(apt => {
+        const aptDate = new Date(apt.newDate + 'T00:00:00');
+        return aptDate >= weekStart && aptDate <= weekEnd;
+      });
+    }
+
+    if (earningsFilter === 'month') {
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      return appointments.filter(apt => {
+        const aptDate = new Date(apt.date + 'T00:00:00');
+        return aptDate >= monthStart && aptDate <= monthEnd;
+      });
+    }
+
+    if (earningsFilter === 'custom' && customStartDate && customEndDate) {
+      const start = new Date(customStartDate + 'T00:00:00');
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(customEndDate + 'T00:00:00');
+      end.setHours(23, 59, 59, 999);
+      return appointments.filter(apt => {
+        const aptDate = new Date(apt.date + 'T00:00:00');
+        return aptDate >= start && aptDate <= end;
+      });
+    }
+
+    return appointments;
+  };
+
+
+  const calculateBarberStatsbyPeriod = () => {
+    const filtered = getFilteredAppointmentsByPeriod();
+    let totalRevenue = 0;
+    let totalServices = 0;
+
+    filtered.forEach(apt => {
+      const aptTotal = calculateTotal(apt.services);
+      totalRevenue += aptTotal;
+      totalServices += apt.services.length;
+    });
+
+    const commissionPercent = barberProfile?.commissionPercent || 50;
+    const barberEarnings = (totalRevenue * commissionPercent) / 100;
+    const shopEarnings = totalRevenue - barberEarnings;
+
+    return {
+      totalRevenue,
+      totalServices,
+      appointmentsCount: filtered.length,
+      commissionPercent,
+      barberEarnings,
+      shopEarnings,
+      filteredAppointments: filtered
+    };
+  }; 
 
   const filterPaymentsByMonth = (payments) => {
     if (!selectedMonth) return payments;
@@ -1914,6 +2036,9 @@ export default function AdminPage() {
     });
     return stats;
   };
+
+  const statsbyBarber = calculateBarberStatsbyBarber();
+  const statsbyPeriod = calculateBarberStatsbyPeriod(); 
 
   const handleMarkProductSalePaid = async (sale, method) => {
     try {
@@ -2096,7 +2221,7 @@ export default function AdminPage() {
       setPlanSaving(true);
 
       if (editingPlan) {
-        const response = await fetch(`https://barbearia-addev-backend.onrender.com/subscription-plans/${editingPlan.id}`, {
+        const response = await fetch(`https://barberone-backend.onrender.com/subscription-plans/${editingPlan.id}`, {
           method: 'PATCH',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2111,7 +2236,7 @@ export default function AdminPage() {
         if (!response.ok) throw new Error('Falha ao atualizar plano');
         showToast('Plano atualizado com sucesso!', 'success');
       } else {
-        const response = await fetch('https://barbearia-addev-backend.onrender.com/subscription-plans', {
+        const response = await fetch('https://barberone-backend.onrender.com/subscription-plans', {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2167,7 +2292,7 @@ export default function AdminPage() {
       } else {
         updatedFeatures.push(benefitForm.trim());
       }
-      await fetch(`https://barbearia-addev-backend.onrender.com/subscription-plans/${plan.id}`, {
+      await fetch(`https://barberone-backend.onrender.com/subscription-plans/${plan.id}`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -2198,7 +2323,7 @@ export default function AdminPage() {
         const plan = plans.find((p) => p.id === planId);
         if (!plan) return;
         const updatedFeatures = plan.features.filter((_, idx) => idx !== benefitIndex);
-        await fetch(`https://barbearia-addev-backend.onrender.com/subscription-plans/${plan.id}`, {
+        await fetch(`https://barberone-backend.onrender.com/subscription-plans/${plan.id}`, {
           method: 'PATCH',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2419,7 +2544,7 @@ export default function AdminPage() {
     }
     try {
       const vale = { ...valeForm, valor: parseFloat(valeForm.valor), createdAt: new Date().toISOString(), createdBy: currentUser?.id };
-      await fetch('https://barbearia-addev-backend.onrender.com/employeeVales', {
+      await fetch('https://barberone-backend.onrender.com/employeeVales', {
         method: 'POST',
         headers:
         {
@@ -2427,7 +2552,7 @@ export default function AdminPage() {
           'Content-Type': 'application/json'
         }, body: JSON.stringify(vale)
       });
-      const res = await fetch('https://barbearia-addev-backend.onrender.com/employeeVales', {
+      const res = await fetch('https://barberone-backend.onrender.com/employeeVales', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -2441,7 +2566,7 @@ export default function AdminPage() {
 
   const handleDeleteVale = (id) => {
     showConfirm('Deseja excluir este vale?', async () => {
-      await fetch(`https://barbearia-addev-backend.onrender.com/employeeVales/${id}`, { method: 'DELETE' });
+      await fetch(`https://barberone-backend.onrender.com/employeeVales/${id}`, { method: 'DELETE' });
       setEmployeeVales(prev => prev.filter(v => v.id !== id));
       showToast('Vale excluído.', 'success');
     });
@@ -2529,7 +2654,7 @@ export default function AdminPage() {
         liquido: amount,
       };
 
-      const response = await fetch('https://barbearia-addev-backend.onrender.com/employeePayments', {
+      const response = await fetch('https://barberone-backend.onrender.com/employeePayments', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2593,13 +2718,13 @@ export default function AdminPage() {
           salarioFixo, commission, totalVales, liquido,
           paidAt: new Date().toISOString(), paidBy: currentUser?.id,
         };
-        await fetch('https://barbearia-addev-backend.onrender.com/employeePayments', {
+        await fetch('https://barberone-backend.onrender.com/employeePayments', {
           method: 'POST', headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
           }, body: JSON.stringify(paymentRecord)
         });
-        for (const v of vales) await fetch(`https://barbearia-addev-backend.onrender.com/employeeVales/${v.id}`, {
+        for (const v of vales) await fetch(`https://barberone-backend.onrender.com/employeeVales/${v.id}`, {
           method: 'DELETE',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2616,7 +2741,7 @@ export default function AdminPage() {
             return d >= start && d <= end;
           });
           await Promise.all(toMark.map(p =>
-            fetch(`https://barbearia-addev-backend.onrender.com/appointmentPayments/${p.id}`, {
+            fetch(`https://barberone-backend.onrender.com/appointmentPayments/${p.id}`, {
               method: 'PATCH',
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -2628,9 +2753,9 @@ export default function AdminPage() {
         }
 
         const [valesRes, paymentsRes, aptsRes] = await Promise.all([
-          fetch('https://barbearia-addev-backend.onrender.com/employeeVales'),
-          fetch('https://barbearia-addev-backend.onrender.com/employeePayments'),
-          fetch('https://barbearia-addev-backend.onrender.com/appointmentPayments', {
+          fetch('https://barberone-backend.onrender.com/employeeVales'),
+          fetch('https://barberone-backend.onrender.com/employeePayments'),
+          fetch('https://barberone-backend.onrender.com/appointmentPayments', {
             headers: {
               Authorization: `Bearer ${token}`,
               'Content-Type': 'application/json'
@@ -2749,6 +2874,14 @@ export default function AdminPage() {
             >
               Informações do Site
             </button>
+{ 
+            <button
+              className={`tab-btn ${activeTab === 'earning' ? 'tab-btn--active' : ''}`}
+              onClick={() => setActiveTab('earnings')}
+            >
+              Ganhos 
+            </button> 
+            }
 
             <button
               className={`tab-btn ${activeTab === 'gallery' ? 'tab-btn--active' : ''}`}
@@ -2885,6 +3018,127 @@ export default function AdminPage() {
             </div>
           )}
 
+
+          {activeTab === 'earnings' && (
+            <div className="earnings-section">
+              <div className="earnings-filters">
+                <div className="appointments-tabs" style={{ marginBottom: '1rem', borderBottom: 'none' }}>
+                  <button onClick={() => setEarningsFilter('week')} className={`tab-btn ${earningsFilter === 'week' ? 'tab-btn--active' : ''}`}>
+                    Semana Atual
+                  </button>
+                  <button onClick={() => setEarningsFilter('month')} className={`tab-btn ${earningsFilter === 'month' ? 'tab-btn--active' : ''}`}>
+                    Mês Atual
+                  </button>
+                  <button onClick={() => setEarningsFilter('custom')} className={`tab-btn ${earningsFilter === 'custom' ? 'tab-btn--active' : ''}`}>
+                    Período Personalizado
+                  </button>
+                </div>
+
+                {earningsFilter === 'custom' && (
+                  <div className="custom-date-filters">
+                    <div className="date-input-group">
+                      <label className="form-label">Data Inicial</label>
+                      <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} className="form-select" style={{ maxWidth: '200px' }} />
+                    </div>
+                    <div className="date-input-group">
+                      <label className="form-label">Data Final</label>
+                      <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} className="form-select" style={{ maxWidth: '200px' }} />
+                    </div>
+                  </div>
+                )}
+
+                <div className="period-display">
+                  <p className="auth-subtitle" style={{ margin: '1rem 0', fontSize: '1rem' }}>
+                    Período: <strong style={{ color: 'var(--gold)' }}>{getPeriodLabel()}</strong>
+                  </p>
+                </div>
+              </div>
+
+              <div className="fluig-table-parent" style={{ marginTop: '1.5rem' }}>
+                <div className="fluig-row-parent" style={{ cursor: 'default' }}>
+                  <div className="fluig-barber-info">
+                    <img src={barberProfile?.photo || `https://i.pravatar.cc/150?img=${barberProfile?.id}`} alt={barberProfile?.name} className="fluig-barber-photo" />
+                    <div className="fluig-barber-details">
+                      <h3 className="fluig-barber-name">{barberProfile?.name}</h3>
+                      <p className="fluig-barber-specialty">{barberProfile?.specialty}</p>
+                    </div>
+                  </div>
+
+                  <div className="fluig-barber-stats">
+                    <div className="stat-item">
+                      <span className="stat-label">Atendimentos</span>
+                      <span className="stat-value">{statsbyPeriod.appointmentsCount}</span>
+                    </div>
+                    <div className="stat-item">
+                      <span className="stat-label">Faturamento Total</span>
+                      <span className="stat-value stat-value-highlight">R$ {statsbyPeriod.totalRevenue.toFixed(2)}</span>
+                    </div>
+                    <div className="stat-item">
+                      <span className="stat-label">Sua Comissão ({statsbyPeriod.commissionPercent}%)</span>
+                      <span className="stat-value stat-value-success">R$ {statsbyPeriod.barberEarnings.toFixed(2)}</span>
+                    </div>
+                    <div className="stat-item">
+                      <span className="stat-label">Barbearia</span>
+                      <span className="stat-value">R$ {statsbyPeriod.shopEarnings.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="fluig-children-container">
+                  {statsbyPeriod.filteredAppointments.length === 0 ? (
+                    <p className="no-appointments">Nenhum agendamento encontrado neste período.</p>
+                  ) : (
+                    <table className="fluig-table-children">
+                      <thead>
+                        <tr>
+                          <th>Status</th>
+                          <th>Cliente</th>
+                          <th>Data</th>
+                          <th>Horário</th>
+                          <th>Serviços</th>
+                          <th>Total</th>
+                          <th>Seus Ganhos ({statsbyPeriod.commissionPercent}%)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stats.filteredAppointments.sort((a, b) => new Date(`${b.date}T${b.time}`) - new Date(`${a.date}T${a.time}`)).map(apt => {
+                          const aptTotal = calculateTotal(apt.services);
+                          const barberEarning = (aptTotal * statsbyPeriod.commissionPercent) / 100;
+
+                          return (
+                            <tr key={apt.id} className={apt.status === 'confirmed' ? 'row-confirmed' : ''}>
+                              <td>
+                                {apt.status === 'confirmed' ? (
+                                  <span className="status-badge status-confirmed">Confirmado</span>
+                                ) : apt.status === 'completed' ? (
+                                  <span className="status-badge status-completed">Finalizado</span>
+                                ) : (
+                                  <span className="status-badge status-pending">Pendente</span>
+                                )}
+                              </td>
+                              <td><strong>{apt.client}</strong></td>
+                              <td>{new Date(apt.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                              <td>{apt.time}</td>
+                              <td>
+                                <div className="services-list">
+                                  {apt.services.map((service, idx) => (
+                                    <span key={idx} className="service-pill">{service.name}</span>
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="total-price">R$ {aptTotal.toFixed(2)}</td>
+                              <td className="barber-earning">R$ {barberEarning.toFixed(2)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        
           {activeTab === 'homeInfo' && (
             <div className="tab-content">
               <div className="section-header">
@@ -3134,7 +3388,7 @@ export default function AdminPage() {
                     const barberAppointments = barberData ? getAppointmentsByBarber(barberData.id) : [];
                     const isExpanded = barberData && expandedBarbers[barberData.id];
                     const stats = barberData
-                      ? calculateBarberStats(barberData.id)
+                      ? calculateBarberStatsbyBarber(barberData.id)
                       : { appointmentsCount: 0, totalRevenue: 0, commissionPercent: 0, barberEarnings: 0, shopEarnings: 0 };
 
                     return (
@@ -3791,7 +4045,7 @@ export default function AdminPage() {
                   />
                 </div>
 
-                <div className="filter-group">
+               {/* {  <div className="filter-group">
                   <label>Barbeiro:</label>
                   <select
                     value={selectedBarberFilter}
@@ -3806,6 +4060,27 @@ export default function AdminPage() {
                     ))}
                   </select>
                 </div>
+ } */}
+
+{/* O seletor de barbeiro só será renderizado se o usuário for Admin ou Recepcionista */}
+{(isAdmin || isReceptionist) && (
+  <div className="filter-group">
+    <label>Barbeiro:</label>
+    <select
+      value={selectedBarberFilter}
+      onChange={(e) => setSelectedBarberFilter(e.target.value)}
+      className="filter-select"
+    >
+      <option value="all">Todos os Barbeiros</option>
+      {barbers.map((barber) => (
+        <option key={barber.id} value={barber.id}>
+          {barber.displayName}
+        </option>
+      ))}
+    </select>
+  </div>
+)}
+
 
                 {(appointmentDateFilter || appointmentStartDate || appointmentEndDate || selectedBarberFilter !== 'all') && (
                   <div className="filter-group">

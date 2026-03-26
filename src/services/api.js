@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://barbearia-addev-backend.onrender.com" || "http://localhost:3000",
+  baseURL: "https://barberone-backend.onrender.com" || "http://localhost:3000",
   timeout: 15000,
 });
 

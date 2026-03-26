@@ -390,7 +390,7 @@ export default function BarberPage() {
 
                           return (
                             <tr key={apt.id} className={`${isCompleted ? 'row-completed' : ''} ${isPast && !isCompleted ? 'row-past' : ''} ${isConfirmed ? 'row-confirmed' : ''}`}>
-                              <td><strong>{apt.client}</strong></td>
+                              <td><strong>{apt.client.name}</strong></td>
                               <td>{new Date(apt.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
                               <td><span className="appointment-time">{apt.time}</span></td>
                               <td>

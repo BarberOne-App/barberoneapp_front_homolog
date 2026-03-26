@@ -47,7 +47,7 @@ const LandingPage = () => {
             <h1>Gestão Completa,<br/>Corte Perfeito</h1>
             <p>Plataforma tecnológica de gestão e agendamento para barbearias.
                Automatize processos, controle finanças e escale seu negócio.</p>
-            <div className="lp-hero-buttons">
+            <div className="lp-">
               <button onClick={() => document.getElementById('planos').scrollIntoView({behavior: 'smooth'})}
                       className="btn-primary">
                 Começar Agora

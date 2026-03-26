@@ -31,15 +31,17 @@
 }
 
 .hero__background-image {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: center;
-  position: absolute;
-  top: 0;
+  width: 100%; 
+  height: 100%; 
+  object-fit: cover; 
+  object-position: center; 
+  position: absolute; 
+  top: 0; 
   left: 0;
+  
+  transition: opacity 1s ease-in-out;
+  animation: fadeIn 1.2s ease-in-out;
 }
-
 .hero__overlay {
   position: absolute;
   top: 0;

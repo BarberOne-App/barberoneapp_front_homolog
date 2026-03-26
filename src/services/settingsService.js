@@ -1,6 +1,6 @@
 import { getToken } from "./authService";
 
-const API_URL = 'https://barbearia-addev-backend.onrender.com';
+const API_URL = 'https://barberone-backend.onrender.com';
 const token = getToken();
 
 export async function getPixKey() {

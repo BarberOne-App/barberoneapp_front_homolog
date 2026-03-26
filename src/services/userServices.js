@@ -1,7 +1,7 @@
 import api from "./api.js";
 import { getToken } from "./authService.js";
 
-const BASE = "https://barbearia-addev-backend.onrender.com/users";
+const BASE = "https://barberone-backend.onrender.com/users";
 const token = getToken();
 
 export async function getUsers() {
