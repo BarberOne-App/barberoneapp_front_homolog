@@ -516,12 +516,14 @@ export default function ProfilePage() {
             >
               <FaUser /> Meu Perfil
             </button>
-            <button
-              className={`profile-sidebar__nav-item ${activeTab === 'agendamentos' ? 'active' : ''}`}
-              onClick={() => navigateWithToast('/appointments', 'Indo para Meus Agendamentos...')}
-            >
-              <FaCalendarAlt /> Meus Agendamentos
-            </button>
+            {!isBarber && !isAdmin && (
+              <button
+                className={`profile-sidebar__nav-item ${activeTab === 'agendamentos' ? 'active' : ''}`}
+                onClick={() => navigateWithToast('/appointments', 'Indo para Meus Agendamentos...')}
+              >
+                <FaCalendarAlt /> Meus Agendamentos
+              </button>
+            )}
             {!isBarber && (activeSubscription ? (
               <button
                 className={`profile-sidebar__nav-item ${activeTab === 'assinatura' ? 'active' : ''}`}
@@ -992,10 +994,12 @@ export default function ProfilePage() {
               <div className="profile-quick-actions">
                 <h3 className="profile-quick-actions__title">Ações Rápidas</h3>
                 <div className="profile-quick-actions__grid">
-                  <button className="profile-action-card" onClick={() => navigateWithToast('/appointments', 'Indo para Meus Agendamentos...')}>
-                    <FaCalendarAlt className="profile-action-card__icon" />
-                    <span>Meus Agendamentos</span>
-                  </button>
+                  {!isBarber && !isAdmin && (
+                    <button className="profile-action-card" onClick={() => navigateWithToast('/appointments', 'Indo para Meus Agendamentos...')}>
+                      <FaCalendarAlt className="profile-action-card__icon" />
+                      <span>Meus Agendamentos</span>
+                    </button>
+                  )}
                   {!isBarber && (activeSubscription ? (
                     <button className="profile-action-card" onClick={() => setShowManageModal(true)}>
                       <FaCreditCard className="profile-action-card__icon" />
