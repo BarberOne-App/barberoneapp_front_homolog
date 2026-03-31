@@ -51,6 +51,48 @@ export default function Home() {
     locationCity: ""
   });
 
+  const handleHeroButtonClick = (target) => {
+  if (target.startsWith('#')) {
+    const element = document.querySelector(target);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  } else {
+    navigate(target);
+  }
+};
+
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const carouselSlides = [
+  {
+    url: siteInfo.heroImage || "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
+    target: "#servicos" 
+  },
+  {
+    url: "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
+    target: "#fotos" 
+  },
+  {
+    url: "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
+    target: "#sobre" 
+  },
+  {
+    url: "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
+    target: "#planos"
+  }
+];
+
+   useEffect(() => {
+  if (carouselSlides.length > 0) {
+    const timer = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % carouselSlides.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }
+}, [carouselSlides.length]);
+
+
   useEffect(() => {
     let user = null;
     const possibleKeys = ['user', 'currentUser', 'loggedUser', 'userData'];
@@ -118,14 +160,14 @@ export default function Home() {
     }
   }
 
-  async function verificarAssinaturaAtiva() {
+   async function verificarAssinaturaAtiva() {
     try {
       const assinatura = await buscarAssinaturaAtiva(currentUser.id);
       setActiveSubscription(assinatura);
     } catch (error) {
       console.error('Erro ao verificar assinatura:', error);
     }
-  }
+  } 
 
   const handleUpdateStock = async (productId, quantity) => {
     try {
@@ -249,28 +291,35 @@ export default function Home() {
   return (
     <BaseLayout>
       <div className="home">
-        <section className="hero" id="inicio">
-          <div className="hero__background">
-            <img
-              src={siteInfo.heroImage || "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=2070"}
-              alt="Banner da Barbearia"
-              className="hero__background-image"
-            />
-            <div className="hero__overlay"></div>
-          </div>
+       <section className="hero" id="inicio">
+  <div className="hero__background">
+    <img
+      src={carouselSlides[currentImageIndex].url}
+      alt="Banner da Barbearia"
+      className="hero__background-image"
+      key={currentImageIndex}
+    />
+    <div className="hero__overlay"></div>
+  </div>
 
-          <div className="hero__content">
-            <h1 className="hero__title">{siteInfo.heroTitle || "Estilo e Tradição em um só lugar"}</h1>
-            <p className="hero__subtitle">
-              {siteInfo.heroSubtitle || "Há mais de 10 anos cuidando do seu visual com excelência e profissionalismo"}
-            </p>
-            <div className="hero__buttons">
-              <Link to="/agendamentos">
-                <Button>Agendar Horário</Button>
-              </Link>
-            </div>
-          </div>
-        </section>
+  <div className="hero__content">
+    <h1 className="hero__title">{siteInfo.heroTitle || "Estilo e Tradição"}</h1>
+    <p className="hero__subtitle">{siteInfo.heroSubtitle || "Cuidando do seu visual"}</p>
+
+<div className="hero__buttons">
+  <Button onClick={() => handleHeroButtonClick(carouselSlides[currentImageIndex].target)}>
+    {currentImageIndex === 0 
+      ? "Serviços" 
+      : currentImageIndex === 1 
+      ? "Fotos" 
+      : currentImageIndex === 2
+      ? "Sobre"
+      : "Planos"}
+  </Button>
+</div>
+
+  </div>
+</section>
 
         <section className="services" id="servicos">
           <div className="container">

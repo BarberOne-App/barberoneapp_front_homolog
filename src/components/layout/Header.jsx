@@ -7,6 +7,7 @@ import './Header.css';
 
 const navItems = [
   { label: 'Início', href: '#inicio' },
+  { label: 'Planos', href: '#planos'},
   { label: 'Serviços', href: '#servicos' },
   { label: 'Fotos', href: '#fotos' },
   { label: 'Sobre', href: '#sobre' },

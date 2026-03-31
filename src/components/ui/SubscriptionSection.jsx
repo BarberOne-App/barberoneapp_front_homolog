@@ -92,7 +92,7 @@ export default function SubscriptionSection({ activeSubscription, onSubscribe })
   };
 
   return (
-    <section className="subscription-section">
+    <section className="subscription-section" id='planos'>
       <div className="subscription-section__container">
         <div className="subscription-section__header">
           <h2 className="subscription-section__title">Planos de Assinatura</h2>
