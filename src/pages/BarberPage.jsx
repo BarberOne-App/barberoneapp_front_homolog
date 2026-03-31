@@ -501,7 +501,7 @@ export default function BarberPage() {
                       <span className="stat-value stat-value-highlight">R$ {stats.totalRevenue.toFixed(2)}</span>
                     </div>
                     <div className="stat-item">
-                      <span className="stat-label">Sua Comissão ({stats.commissionPercent}%)</span>
+                      <span className="stat-label">({stats.commissionPercent}%)</span>
                       <span className="stat-value stat-value-success">R$ {stats.barberEarnings.toFixed(2)}</span>
                     </div>
                     <div className="stat-item">

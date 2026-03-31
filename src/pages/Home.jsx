@@ -64,35 +64,6 @@ export default function Home() {
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  const carouselSlides = [
-  {
-    url: siteInfo.heroImage || "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-    target: "#servicos" 
-  },
-  {
-    url: "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-    target: "#fotos" 
-  },
-  {
-    url: "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-    target: "#sobre" 
-  },
-  {
-    url: "https://images.unsplash.com/photo-1596728325488-58c87691e9af",
-    target: "#planos"
-  }
-];
-
-   useEffect(() => {
-  if (carouselSlides.length > 0) {
-    const timer = setInterval(() => {
-      setCurrentImageIndex((prev) => (prev + 1) % carouselSlides.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }
-}, [carouselSlides.length]);
-
-
   useEffect(() => {
     let user = null;
     const possibleKeys = ['user', 'currentUser', 'loggedUser', 'userData'];
@@ -150,9 +121,15 @@ export default function Home() {
       setGallery(galleryData);
       setProducts(productsData);
 
-      if (homeInfoData) {
+      /* if (homeInfoData) {
         setSiteInfo(homeInfoData);
-      }
+      } */
+
+        if (homeInfoData) {
+  const homeData = Array.isArray(homeInfoData) ? homeInfoData[0] : homeInfoData;
+  setSiteInfo(homeData);
+}
+
     } catch (error) {
       console.error('Erro ao carregar dados da Home:', error);
     } finally {
@@ -287,18 +264,20 @@ export default function Home() {
       </BaseLayout>
     );
   }
-
   return (
     <BaseLayout>
-      <div className="home">
-       <section className="hero" id="inicio">
+    <div className="home">
+      <section className="hero" id="inicio">
   <div className="hero__background">
-    <img
-      src={carouselSlides[currentImageIndex].url}
-      alt="Banner da Barbearia"
-      className="hero__background-image"
-      key={currentImageIndex}
-    />
+    {siteInfo.heroImage ? (
+      <img
+        src={siteInfo.heroImage}
+        alt="Banner da Barbearia"
+        className="hero__background-image"
+      />
+    ) : (
+      <div className="hero__background-placeholder" style={{ background: '#111' }} />
+    )}
     <div className="hero__overlay"></div>
   </div>
 
@@ -306,18 +285,13 @@ export default function Home() {
     <h1 className="hero__title">{siteInfo.heroTitle || "Estilo e Tradição"}</h1>
     <p className="hero__subtitle">{siteInfo.heroSubtitle || "Cuidando do seu visual"}</p>
 
-<div className="hero__buttons">
-  <Button onClick={() => handleHeroButtonClick(carouselSlides[currentImageIndex].target)}>
-    {currentImageIndex === 0 
-      ? "Serviços" 
-      : currentImageIndex === 1 
-      ? "Fotos" 
-      : currentImageIndex === 2
-      ? "Sobre"
-      : "Planos"}
-  </Button>
-</div>
-
+    <div className="hero__buttons">
+      <Button onClick={() => navigate("/agendamentos")}>Agendar Agora</Button>
+      <Button variant="outline" onClick={() => {
+        const element = document.querySelector("#servicos");
+        if (element) element.scrollIntoView({ behavior: "smooth" });
+      }}>Conheça os Serviços</Button>
+    </div>
   </div>
 </section>
 
