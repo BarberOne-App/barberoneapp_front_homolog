@@ -184,6 +184,24 @@ export default function AppointmentsPage() {
   }, []);
 
 
+const getUpcomingReminders = useMemo(() => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const depIds = userDependents.map(d => d.id);
+  const userAppointments = appointments.filter(apt =>
+    apt.clientId === currentUser?.id || depIds.includes(apt.clientId)
+  );
+  const future = userAppointments.filter(apt => {
+    const aptDate = new Date(apt.startAt);
+    aptDate.setHours(0, 0, 0, 0);
+    return aptDate >= today;
+  });
+  future.sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
+  return future;
+}, [appointments, currentUser?.id, userDependents]);
+
+
+
   const normalizeDateStr = (value) => {
     if (!value) return '';
     if (value instanceof Date) return value.toLocaleDateString('en-CA');
@@ -1379,6 +1397,75 @@ export default function AppointmentsPage() {
     });
   }, [appointments, currentUser?.id, appointmentFilter, userDependents]);
 
+
+
+  const renderReminder = () => {
+  if (getUpcomingReminders.length === 0) return null;
+  const next = getUpcomingReminders[0];
+  const appointmentDate = new Date(next.startAt);
+  const isToday = appointmentDate.toDateString() === new Date().toDateString();
+  const isTomorrow = new Date(appointmentDate.getTime() - 86400000).toDateString() === new Date().toDateString();
+  
+  let dateLabel = '';
+  if (isToday) dateLabel = 'hoje';
+  else if (isTomorrow) dateLabel = 'amanhã';
+  else dateLabel = `dia ${appointmentDate.toLocaleDateString('pt-BR')}`;
+  
+  const time = appointmentDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+  const services = next.services?.map(s => s.serviceName).join(', ') || 'serviço';
+  const barberName = next.barber?.displayName || 'barbeiro';
+  const products = next.products?.map(p => `${p.productName} (x${p.quantity})`).join(', ') || '';
+  const productText = products ? ` + produtos: ${products}` : '';
+  
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, #d4af37, #b8932a)',
+      color: '#1a1a1a',
+      borderRadius: '12px',
+      padding: '1rem 1.5rem',
+      marginBottom: '1.5rem',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      flexWrap: 'wrap',
+      gap: '1rem',
+    }}>
+      <div>
+        <strong style={{ fontSize: '1rem' }}>📅 Lembrete de agendamento</strong>
+        <p style={{ margin: '0.25rem 0 0', fontSize: '0.9rem' }}>
+          Você tem um agendamento {dateLabel} às <strong>{time}</strong> com <strong>{barberName}</strong> para <strong>{services}</strong>{productText}.
+        </p>
+      </div>
+      <button
+        onClick={() => {
+          setView('myAppointments');
+          setTimeout(() => {
+            document.querySelector('.appointments-table')?.scrollIntoView({ behavior: 'smooth' });
+          }, 100);
+        }}
+        style={{
+          background: '#1a1a1a',
+          border: 'none',
+          color: '#d4af37',
+          padding: '6px 16px',
+          borderRadius: '30px',
+          cursor: 'pointer',
+          fontWeight: 600,
+          fontSize: '0.8rem',
+        }}
+      >
+        Ver detalhes →
+      </button>
+    </div>
+  );
+};
+
+
+
+
+
+
+
   const sortedMyAppointments = useMemo(() => {
     return [...myAppointments].sort((a, b) => {
       const dateA = new Date(`${a.date}T${a.time}`);
@@ -1397,6 +1484,8 @@ export default function AppointmentsPage() {
       </BaseLayout>
     );
   }
+
+
 
   return (
     <BaseLayout>
@@ -1420,6 +1509,10 @@ export default function AppointmentsPage() {
               </button>
             </div>
           </div>
+
+
+          {renderReminder()}
+
 
           <div className="appointments-tabs">
             <button
@@ -1883,7 +1976,7 @@ export default function AppointmentsPage() {
                       {sortedMyAppointments.map((apt) => {
                         const payment = appointmentPayments[apt.id];
                         const isPending = payment && (payment.status === 'pending' || payment.status === 'confirmed_unpaid');
-                        const isPendingLocal = payment[0].status === 'pending' && payment[0].method === 'local';
+                        const isPendingLocal = payment && payment.status === 'pending' && payment.method === 'local';
                         const isPaid = payment && payment.status === 'paid';
                         const isPlanCovered = payment && payment.status === 'plancovered';
 
