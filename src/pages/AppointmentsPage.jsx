@@ -31,10 +31,7 @@ export default function AppointmentsPage() {
 
   const selectedPlan = JSON.parse(localStorage.getItem('selectedPlan'));
   const currentUserPlan = JSON.parse(localStorage.getItem('currentUser'));
-
-  console.log('selectedPlan', selectedPlan);
-  console.log('currentUserPlan', currentUserPlan);
-
+  
   const navigate = useNavigate();
   const location = useLocation();
   const currentUserRef = useRef(getSession());

@@ -47,11 +47,12 @@ export default function ProfilePage() {
       return;
     }
     const planId = JSON.parse(localStorage.getItem('planId'));
-  
+
     setCurrentUser(user);
     setNewName(user.name || '');
     loadUserPhoto(user.id);
-    verificarAssinaturaAtiva(planId, user);
+    // verificarAssinaturaAtiva(planId, user);
+    verificarAssinaturaAtiva(user);
     loadDependents(user.id);
 
     // Busca permissoes atualizadas no backend e sincroniza sessao
@@ -318,11 +319,20 @@ export default function ProfilePage() {
     }
   };
 
-  const verificarAssinaturaAtiva = async (planId, currentUser) => {
+  // const verificarAssinaturaAtiva = async (planId, currentUser) => {
+  //   try {
+  //     const assinatura = await buscarAssinaturaAtiva(planId, currentUser);
+  //     setActiveSubscription(assinatura);
+  //   } catch (e) { }
+  // };
+
+  const verificarAssinaturaAtiva = async (user) => {
     try {
-      const assinatura = await buscarAssinaturaAtiva(planId, currentUser);
+      const assinatura = await buscarAssinaturaAtiva(user.email);
       setActiveSubscription(assinatura);
-    } catch (e) { }
+    } catch (error) {
+      setActiveSubscription(null);
+    }
   };
 
 

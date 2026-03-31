@@ -84,7 +84,7 @@ export const criarAssinatura = async (dadosAssinatura) => {
       startDate: new Date().toISOString(),
       nextBillingDate: obterProximaDataCobranca(),
       lastBillingDate: new Date().toISOString(),
-      paymentMethod: dadosAssinatura.paymentMethod,
+      paymentMethod: "credito",
       mp_preapproval_id: dadosAssinatura.mp_preapproval_id || null,
 
       isRecurring: dadosAssinatura.isRecurring ?? true,
@@ -307,44 +307,61 @@ export const buscarAssinaturasUsuario = async (userId) => {
   }
 };
 
-export const buscarAssinaturaAtiva = async (planId, currentUser) => {
-
+export const buscarAssinaturaAtiva = async (currentUser) => {
   try {
+    const response = await api.get('/stripe/subscriptions/by-email', {
+      params: {
+        email: currentUser,
+      },
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+    });
 
-    const [resActive, resPending] = await Promise.all([
-      api.get(`/subscriptions/${planId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-    ]);
-
-    // const todas = [...resActive.data.plan, ...resPending.data.plan];
-    const hoje = new Date();
-
-    const valida = () => {
-
-      if(currentUser.id !== resActive.data.userId){
-        return false;
-      }
-
-      if(!resActive.data.nextBillingAt){
-        return false;
-      }
-      return new Date(resActive.data.nextBillingAt) > hoje;
-    }
-
-    // const valida = todas.find(s => {
-    //   if (!s.nextBillingDate) return false;
-    //   return new Date(s.nextBillingDate) > hoje;
-    // });
-
-    return valida || null;
+    return response.data.subscriptions[0]?.status || null;
   } catch (error) {
     console.error('Erro ao buscar assinatura ativa:', error);
     return null;
   }
 };
+// export const buscarAssinaturaAtiva = async (planId, currentUser) => {
+
+//   try {
+
+//     const [resActive, resPending] = await Promise.all([
+//       api.get(`/subscriptions/${planId}`, {
+//         headers: {
+//           Authorization: `Bearer ${token}`,
+//         },
+//       })
+//     ]);
+
+//     // const todas = [...resActive.data.plan, ...resPending.data.plan];
+//     const hoje = new Date();
+
+//     const valida = () => {
+
+//       if (currentUser.id !== resActive.data.userId) {
+//         return false;
+//       }
+
+//       if (!resActive.data.nextBillingAt) {
+//         return false;
+//       }
+//       return new Date(resActive.data.nextBillingAt) > hoje;
+//     }
+
+//     // const valida = todas.find(s => {
+//     //   if (!s.nextBillingDate) return false;
+//     //   return new Date(s.nextBillingDate) > hoje;
+//     // });
+
+//     return valida || null;
+//   } catch (error) {
+//     console.error('Erro ao buscar assinatura ativa:', error);
+//     return null;
+//   }
+// };
 
 export const buscarTodasAssinaturas = async () => {
   try {
@@ -396,7 +413,7 @@ export const criarPagamentoAgendamento = async (dadosPagamento) => {
       appointmentTime: dadosPagamento.appointmentTime,
       products: dadosPagamento.products || [],
       status: dadosPagamento.status || 'pending',
-      method: dadosPagamento.method,
+      method: "credito",
       ...(dadosPagamento.status === 'paid' && {
         paidAt: dadosPagamento.paidAt || new Date().toISOString()
       }),
