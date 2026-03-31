@@ -3189,9 +3189,6 @@ const barberNames = useMemo(() => {
             </div>
           </div>
 
-          {renderReminder()}
-
-
           <div className="appointments-tabs">
             {hasPermission('manageSettings') && (
               <button
