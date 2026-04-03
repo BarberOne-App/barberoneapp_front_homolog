@@ -543,7 +543,7 @@ export default function BarberPage() {
                                   <span className="status-badge status-pending">Pendente</span>
                                 )}
                               </td>
-                              <td><strong>{apt.client}</strong></td>
+                              <td><strong>{apt.client.name}</strong></td>
                               <td>{new Date(apt.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
                               <td>{apt.time}</td>
                               <td>

@@ -2175,7 +2175,7 @@
 
 .benefit-text {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
   color: #d0d0d0;
   font-size: 0.9rem;

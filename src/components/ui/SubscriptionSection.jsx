@@ -5,7 +5,7 @@ import PaymentModal from './PaymentModal.jsx';
 import Toast from './Toast.jsx';
 import './SubscriptionSection.css';
 import { getToken } from '../../services/authService.js';
-import AppointmentsPage from '../../pages/AppointmentsPage.jsx';
+import AppointmentsPage from '../../pages/AppointmentsPage-backup.jsx';
 
 export default function SubscriptionSection({ activeSubscription, onSubscribe }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
