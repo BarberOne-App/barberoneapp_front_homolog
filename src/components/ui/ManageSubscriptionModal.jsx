@@ -4,6 +4,7 @@ import { FaWhatsapp } from 'react-icons/fa';
 import axios from 'axios';
 import Button from './Button.jsx';
 import './ManageSubscriptionModal.css';
+import { getToken } from '../../services/authService';
 
 export default function ManageSubscriptionModal({ isOpen, onClose, subscription, user }) {
   const [planDetails, setPlanDetails] = useState(null);
@@ -84,7 +85,18 @@ export default function ManageSubscriptionModal({ isOpen, onClose, subscription,
 
   useEffect(() => {
     async function loadPlanDetails() {
-      if (!subscription?.planId || !isOpen) {
+      if (!isOpen) {
+        setLoading(false);
+        return;
+      }
+
+      if (subscription?.planDetails) {
+        setPlanDetails(subscription.planDetails);
+        setLoading(false);
+        return;
+      }
+
+      if (!subscription?.planId) {
         setLoading(false);
         return;
       }
@@ -93,6 +105,11 @@ export default function ManageSubscriptionModal({ isOpen, onClose, subscription,
       try {
         const { data } = await axios.get(
           `https://barberone-backend.onrender.com/subscription-plans/${subscription.planId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${getToken()}`,
+            },
+          }
         );
         setPlanDetails(data);
         console.log('✅ Plano carregado:', data);
@@ -104,17 +121,17 @@ export default function ManageSubscriptionModal({ isOpen, onClose, subscription,
     }
 
     loadPlanDetails();
-  }, [isOpen, subscription?.planId]);
+  }, [isOpen, subscription?.planId, subscription?.planDetails]);
 
   if (!isOpen || !subscription) return null;
 
-  const planName = subscription.planName || subscription.name || 'Premium';
+  const planName = planDetails?.name || subscription.planName || subscription.name || 'Plano';
   const planKey = planName.toLowerCase();
   const config = planConfigs[planKey] || planConfigs.premium;
   const PlanIcon = config.icon;
 
-  const benefits = planDetails?.features || defaultBenefits[planKey] || defaultBenefits.premium;
-  const planPrice = planDetails?.price || subscription.price || subscription.amount || 150;
+  const benefits = planDetails?.features || subscription?.features || defaultBenefits[planKey] || defaultBenefits.premium;
+  const planPrice = planDetails?.price ?? subscription.price ?? subscription.amount ?? 0;
 
   const formatDate = (date) => {
     if (!date) return 'N/A';

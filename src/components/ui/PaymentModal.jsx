@@ -1809,13 +1809,14 @@
 /// *** STRIPE PAYMENT MODAL - VERSÃO INICIAL COM ELEMENTS E PAYMENT INTENT - AINDA EM DESENVOLVIMENTO *** ///
 
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import {
   criarPagamentoAgendamento,
   atualizarPagamentoAgendamento,
 } from '../../services/paymentService';
+import { deleteAppointment } from '../../services/appointmentService';
 import { getTermsDocument } from '../../services/termsService';
 import { createStripePaymentIntent } from '../../services/stripeService';
 import { getToken } from '../../services/authService';
@@ -1844,6 +1845,27 @@ function StripePaymentForm({
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [validationToast, setValidationToast] = useState({ show: false, message: '' });
   const [termsDocUrl, setTermsDocUrl] = useState('');
+  const [selectedStripeMethod, setSelectedStripeMethod] = useState('card');
+  const pixPollingRef = useRef(null);
+  const stripePixEnabled = String(import.meta.env.VITE_STRIPE_PIX_ENABLED || '').toLowerCase() === 'true';
+
+  const normalizePaymentMethod = () => {
+    if (!stripePixEnabled) return 'card';
+    return selectedStripeMethod === 'pix' ? 'pix' : 'card';
+  };
+
+  // 🔴 ROLLBACK: Deletar agendamento se pagamento falhar
+  const rollbackAppointment = async (appointmentId) => {
+    if (!appointmentId) return;
+    try {
+      console.log('🔄 Desfazendo agendamento:', appointmentId);
+      await deleteAppointment(appointmentId);
+      console.log('✅ Agendamento removido com sucesso');
+    } catch (error) {
+      console.error('⚠️ Erro ao remover agendamento:', error);
+      // Não falhar por isso, o usuário já sabe que o pagamento falhou
+    }
+  };
 
   useEffect(() => {
     const loadTermsDoc = async () => {
@@ -1859,6 +1881,30 @@ function StripePaymentForm({
       loadTermsDoc();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (pixPollingRef.current) {
+        clearInterval(pixPollingRef.current);
+        pixPollingRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!stripePixEnabled && selectedStripeMethod !== 'card') {
+      setSelectedStripeMethod('card');
+    }
+  }, [stripePixEnabled, selectedStripeMethod]);
+
+  useEffect(() => {
+    return () => {
+      if (pixPollingRef.current) {
+        clearInterval(pixPollingRef.current);
+        pixPollingRef.current = null;
+      }
+    };
+  }, []);
 
   const getFinalPrice = () => Number(selectedPlan?.price || 0);
 
@@ -1885,6 +1931,10 @@ function StripePaymentForm({
   };
 
   const handleClose = () => {
+    if (pixPollingRef.current) {
+      clearInterval(pixPollingRef.current);
+      pixPollingRef.current = null;
+    }
     setShowErrorToast(false);
     setErrorMessage('');
     setPaymentStatus(null);
@@ -1893,9 +1943,30 @@ function StripePaymentForm({
 
   const persistSuccessfulPayment = async (paymentIntent) => {
     const finalAmount = getFinalPrice();
+    const paymentMethod = normalizePaymentMethod();
 
     if (isAppointmentPayment) {
-      if (selectedPlan?.needsCreation && selectedPlan?.appointmentData && selectedPlan?.paymentData) {
+      // ✅ NOVO: Agendamento já foi criado no AppointmentsPage.jsx
+      // Apenas registrar a relação do pagamento com o agendamento existente
+      if (selectedPlan?.appointmentId) {
+        // Agendamento já foi criado ANTES do pagamento
+        await criarPagamentoAgendamento({
+          ...selectedPlan.paymentData,
+          appointmentId: selectedPlan.appointmentId,  // ✅ ID já existe
+          status: 'paid',
+          paymentMethod,
+          paidAt: new Date().toISOString(),
+          amount: finalAmount,
+          paymentProvider: 'stripe',
+          stripePaymentIntentId: paymentIntent.id,
+          stripeStatus: paymentIntent.status,
+          cardData: {
+            brand: '',
+            lastDigits: '****',
+          },
+        });
+      } else if (selectedPlan?.needsCreation && selectedPlan?.appointmentData && selectedPlan?.paymentData) {
+        // Fallback para código antigo (if necessário)
         const appointmentResponse = await fetch(
           `${import.meta.env.VITE_API_URL}/appointments`,
           {
@@ -1918,7 +1989,7 @@ function StripePaymentForm({
           ...selectedPlan.paymentData,
           appointmentId: createdAppointment.id,
           status: 'paid',
-          paymentMethod: 'card',
+          paymentMethod,
           paidAt: new Date().toISOString(),
           amount: finalAmount,
           paymentProvider: 'stripe',
@@ -1932,7 +2003,7 @@ function StripePaymentForm({
       } else if (paymentId) {
         await atualizarPagamentoAgendamento(paymentId, {
           status: 'paid',
-          paymentMethod: 'card',
+          paymentMethod,
           paidAt: new Date().toISOString(),
           amount: finalAmount,
           paymentProvider: 'stripe',
@@ -1946,6 +2017,7 @@ function StripePaymentForm({
       }
 
       onSuccess && onSuccess('card');
+      onSuccess && onSuccess(paymentMethod);
       return;
     }
 
@@ -1956,7 +2028,7 @@ function StripePaymentForm({
         planId: selectedPlan?.id,
         planName: selectedPlan?.name,
         amount: finalAmount,
-        paymentMethod: 'card',
+        paymentMethod,
         status: 'approved',
         type: 'one_time',
         transactionId: paymentIntent.id,
@@ -2035,13 +2107,57 @@ function StripePaymentForm({
 
       if (paymentIntent.status === 'processing') {
         setPaymentStatus('processing');
-        setErrorMessage('Pagamento em processamento. Aguarde a confirmação.');
+        setErrorMessage(
+          normalizePaymentMethod() === 'pix'
+            ? 'PIX gerado. Aguardando confirmação do pagamento.'
+            : 'Pagamento em processamento. Aguarde a confirmação.'
+        );
         setShowErrorToast(true);
+
+        if (normalizePaymentMethod() === 'pix') {
+          if (pixPollingRef.current) {
+            clearInterval(pixPollingRef.current);
+            pixPollingRef.current = null;
+          }
+
+          pixPollingRef.current = setInterval(async () => {
+            try {
+              const latest = await stripe.retrievePaymentIntent(clientSecret);
+              const latestIntent = latest.paymentIntent;
+
+              if (!latestIntent) return;
+
+              if (latestIntent.status === 'succeeded') {
+                clearInterval(pixPollingRef.current);
+                pixPollingRef.current = null;
+                await persistSuccessfulPayment(latestIntent);
+                setProcessing(false);
+                onClose();
+                return;
+              }
+
+              if (latestIntent.status === 'canceled' || latestIntent.status === 'requires_payment_method') {
+                clearInterval(pixPollingRef.current);
+                pixPollingRef.current = null;
+                // ❌ PIX não foi concluído - fazer rollback do agendamento
+                await rollbackAppointment(selectedPlan?.appointmentId);
+                setPaymentStatus('rejected');
+                setErrorMessage('Pagamento PIX não foi concluído. Tente novamente.');
+                setShowErrorToast(true);
+              }
+            } catch (pollError) {
+              console.error('Erro ao consultar status do PIX Stripe:', pollError);
+            }
+          }, 3000);
+        }
+
         setProcessing(false);
         return;
       }
 
       if (paymentIntent.status === 'requires_payment_method') {
+        // ❌ Pagamento recusado - fazer rollback do agendamento
+        await rollbackAppointment(selectedPlan?.appointmentId);
         setPaymentStatus('rejected');
         setErrorMessage('Pagamento recusado. Verifique os dados do cartão.');
         setShowErrorToast(true);
@@ -2055,6 +2171,8 @@ function StripePaymentForm({
       setProcessing(false);
     } catch (error) {
       console.error('Erro ao confirmar pagamento Stripe:', error);
+      // ❌ Erro ao processar pagamento - fazer rollback do agendamento
+      await rollbackAppointment(selectedPlan?.appointmentId);
       setErrorMessage(error.message || 'Erro ao processar pagamento. Tente novamente.');
       setShowErrorToast(true);
       setProcessing(false);
@@ -2150,16 +2268,32 @@ function StripePaymentForm({
                 <div className="payment-methods">
                   <button
                     type="button"
-                    className="payment-method-btn active"
+                    className={`payment-method-btn ${selectedStripeMethod === 'card' ? 'active' : ''}`}
                   >
                     Cartão
                   </button>
+                  {stripePixEnabled ? (
+                    <button
+                      type="button"
+                      className={`payment-method-btn ${selectedStripeMethod === 'pix' ? 'active' : ''}`}
+                    >
+                      Pix
+                    </button>
+                  ) : (
+                    <span className="payment-method-hint">Pix indisponível nesta conta Stripe</span>
+                  )}
                 </div>
 
                 <div style={{ marginTop: 16 }}>
                   <PaymentElement
                     options={{
                       layout: 'tabs',
+                    }}
+                    onChange={(event) => {
+                      const selectedType = event?.value?.type;
+                      if (selectedType) {
+                        setSelectedStripeMethod(selectedType);
+                      }
                     }}
                   />
                 </div>
@@ -2233,6 +2367,7 @@ export default function PaymentModal({
   const [clientSecret, setClientSecret] = useState('');
   const [loadingIntent, setLoadingIntent] = useState(false);
   const [intentError, setIntentError] = useState('');
+  const stripePixEnabled = String(import.meta.env.VITE_STRIPE_PIX_ENABLED || '').toLowerCase() === 'true';
 
   useEffect(() => {
     let cancelled = false;
@@ -2248,6 +2383,7 @@ export default function PaymentModal({
         const response = await createStripePaymentIntent({
           amount: Number(selectedPlan.price || 0),
           currency: 'brl',
+          paymentMethodTypes: stripePixEnabled ? ['card', 'pix'] : ['card'],
           customerEmail: currentUser.email,
           metadata: {
             userId: String(currentUser.id || ''),

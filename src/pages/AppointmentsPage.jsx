@@ -77,6 +77,7 @@ export default function AppointmentsPage() {
   const token = getToken();
 
   const [userDependents, setUserDependents] = useState([]);
+  const [selectedClientDependents, setSelectedClientDependents] = useState([]);
   const [bookingForDependent, setBookingForDependent] = useState(null);
   const [showForWhomSelector, setShowForWhomSelector] = useState(false);
 
@@ -138,12 +139,53 @@ export default function AppointmentsPage() {
   }, []);
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.isAdmin === true;
-  const canScheduleForOthers = isAdmin || currentUser?.permissions?.scheduleForOthers === true;
+  const isReceptionist = currentUser?.role === 'receptionist';
+  const canScheduleForOthers = isAdmin || isReceptionist || currentUser?.permissions?.scheduleForOthers === true;
+  const dependentsForBooking = canScheduleForOthers ? selectedClientDependents : userDependents;
 
 
   const activeClient = bookingForDependent
     ? { id: `dep_${bookingForDependent.id}`, name: bookingForDependent.name, isDependent: true, dependentId: bookingForDependent.id }
     : bookingForUser || currentUser;
+
+  useEffect(() => {
+    const fetchDependentsForSelectedClient = async () => {
+      if (!token) return;
+
+      const parentId = canScheduleForOthers
+        ? (bookingForUser?.id || currentUser?.id)
+        : currentUser?.id;
+
+      if (!parentId) {
+        setSelectedClientDependents([]);
+        return;
+      }
+
+      try {
+        const response = await axios.get(`${import.meta.env.VITE_API_URL}/dependents`, {
+          params: { parentId },
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const deps = Array.isArray(response.data)
+          ? response.data
+          : response.data?.items || response.data?.dependents || [];
+
+        setSelectedClientDependents(deps);
+
+        if (bookingForDependent) {
+          const stillExists = deps.some((dep) => dep.id === bookingForDependent.id);
+          if (!stillExists) setBookingForDependent(null);
+        }
+      } catch (error) {
+        console.warn('Erro ao buscar dependentes do cliente selecionado:', error);
+        setSelectedClientDependents([]);
+        setBookingForDependent(null);
+      }
+    };
+
+    fetchDependentsForSelectedClient();
+  }, [token, canScheduleForOthers, bookingForUser?.id, currentUser?.id]);
 
   const checkExistingAppointmentOnDate = useCallback((date) => {
     if (!date || !activeClient?.id) return null;
@@ -1067,18 +1109,8 @@ const getUpcomingReminders = useMemo(() => {
         }
       }
 
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/dependents`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const dependentsList = Array.isArray(response.data)
-        ? response.data
-        : response.data?.dependents || response.data?.data || [];
-
       const selectedDependent = bookingForDependent
-        ? dependentsList.find((dep) => dep.id === bookingForDependent.id)
+        ? dependentsForBooking.find((dep) => dep.id === bookingForDependent.id)
         : null;
 
       const responsibleId = bookingForDependent
@@ -1163,6 +1195,7 @@ const getUpcomingReminders = useMemo(() => {
     isRescheduling,
     existingAppointment,
     activeClient?.id,
+    dependentsForBooking,
     loadData,
     showToast,
     activeUserSubscription,
@@ -1190,59 +1223,76 @@ const getUpcomingReminders = useMemo(() => {
           price: purchaseData.finalTotal
         };
 
-        setSelectedAppointmentForPayment({
-          ...paymentPlan,
-          isAppointment: true,
-          needsCreation: true,
-          appointmentData: {
+        // 🔴 CRIAR AGENDAMENTO PRIMEIRO (antes do pagamento)
+        try {
+          const selectedDependent = bookingForDependent
+            ? dependentsForBooking.find((dep) => dep.id === bookingForDependent.id)
+            : null;
+
+          const responsibleId = bookingForDependent
+            ? (selectedDependent?.parent_id || selectedDependent?.parentId || null)
+            : activeClient.id;
+
+          const newAppointment = {
             barberId: pendingBookingData.barberId,
             barberName: pendingBookingData.barberName,
             services: pendingBookingData.services,
             date: pendingBookingData.date,
             time: pendingBookingData.time,
             client: activeClient.name,
-            clientId: activeClient.id,
+            clientId: responsibleId,
             ...(bookingForDependent ? { isDependent: true, dependentName: bookingForDependent.name, dependentId: bookingForDependent.id } : {}),
             products: purchaseData.products,
             notes: pendingBookingData.observation || '',
-          },
-          paymentData: {
-            userId: currentUser.id,
-            userName: activeClient.name,
-            amount: purchaseData.finalTotal,
-            serviceName: serviceNames,
-            services: pendingBookingData.services,
-            servicePrice: purchaseData.servicePrice || 0,
-            barberName: pendingBookingData.barberName,
-            appointmentDate: pendingBookingData.date,
-            appointmentTime: pendingBookingData.time,
-            products: purchaseData.products,
+          };
+
+          const createdAppointment = await createAppointment(newAppointment);
+
+          // ✅ Agendamento criado com sucesso, agora abrir pagamento
+          setSelectedAppointmentForPayment({
+            ...paymentPlan,
+            isAppointment: true,
+            needsCreation: false,  // ✅ Não precisa criar, já foi criado
+            appointmentId: createdAppointment.id,  // ✅ ID do agendamento já criado
+            appointmentData: newAppointment,
+            paymentData: {
+              userId: responsibleId || currentUser.id,
+              userName: activeClient.name,
+              amount: purchaseData.finalTotal,
+              serviceName: serviceNames,
+              services: pendingBookingData.services,
+              servicePrice: purchaseData.servicePrice || 0,
+              barberName: pendingBookingData.barberName,
+              appointmentDate: pendingBookingData.date,
+              appointmentTime: pendingBookingData.time,
+              products: purchaseData.products,
+            }
+          });
+
+          pendingStockUpdate.current = purchaseData.products || [];
+
+          setShowPaymentChoiceModal(false);
+          setPendingBookingData(null);
+          setPurchaseData(null);
+          setShowPaymentModal(true);
+        } catch (appointmentError) {
+          // ❌ Falhou ao criar agendamento - não abrir pagamento
+          console.error('Erro ao criar agendamento:', appointmentError);
+          
+          // Verificar se é erro de conflito de horário
+          if (appointmentError.response?.status === 400 || appointmentError.message?.includes('Conflito')) {
+            showToast('❌ Horário indisponível! Esse barbeiro já possui agendamento neste horário.', 'danger');
+          } else {
+            showToast(`❌ Erro ao criar agendamento: ${appointmentError.message || 'Tente novamente'}`, 'danger');
           }
-
-        });
-
-
-        pendingStockUpdate.current = purchaseData.products || [];
-
-        setShowPaymentChoiceModal(false);
-        setPendingBookingData(null);
-        setPurchaseData(null);
-        setShowPaymentModal(true);
+          
+          return;
+        }
       } else {
         setBookingInProgress(true);
 
-        const response = await axios.get(`${import.meta.env.VITE_API_URL}/dependents`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        const dependentsList = Array.isArray(response.data)
-          ? response.data
-          : response.data?.dependents || response.data?.data || [];
-
         const selectedDependent = bookingForDependent
-          ? dependentsList.find((dep) => dep.id === bookingForDependent.id)
+          ? dependentsForBooking.find((dep) => dep.id === bookingForDependent.id)
           : null;
 
         const responsibleId = bookingForDependent
@@ -1337,6 +1387,7 @@ const getUpcomingReminders = useMemo(() => {
     isRescheduling,
     existingAppointment,
     activeClient?.id,
+    dependentsForBooking,
     loadData,
     showToast,
     clearPaymentCache
@@ -1369,6 +1420,8 @@ const getUpcomingReminders = useMemo(() => {
 
   const myAppointments = useMemo(() => {
     const today = new Date();
+    today.setHours(0, 0, 0, 0);  // Reset para comparar apenas a data
+    
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
 
@@ -1379,6 +1432,11 @@ const getUpcomingReminders = useMemo(() => {
       if (!isOwn && !isDep) return false;
 
       const aptDate = new Date(apt.endAt);
+      aptDate.setHours(0, 0, 0, 0);  // Reset para comparar apenas a data
+      
+      // 🔴 Excluir agendamentos com data passada (de TODOS os filtros)
+      if (aptDate < today) return false;
+
       const aptMonth = aptDate.getMonth();
       const aptYear = aptDate.getFullYear();
 
@@ -1386,7 +1444,7 @@ const getUpcomingReminders = useMemo(() => {
         return aptMonth === currentMonth && aptYear === currentYear;
       } else if (appointmentFilter === 'upcoming') {
         if (aptYear > currentYear) return true;
-        if (aptYear === currentYear && aptMonth >= currentMonth) return true;
+        if (aptYear === currentYear && aptMonth > currentMonth) return true;
         return false;
       } else {
         return true;
@@ -1522,7 +1580,7 @@ const getUpcomingReminders = useMemo(() => {
               onClick={() => setView('myAppointments')}
               className={`tab-btn ${view === 'myAppointments' ? 'tab-btn--active' : ''}`}
             >
-              Meus Agendamentos ({myAppointments.length})
+              Meus Agendamentos
             </button>
           </div>
 
@@ -1531,7 +1589,7 @@ const getUpcomingReminders = useMemo(() => {
               <h2>Selecione uma data</h2>
 
 
-              {!canScheduleForOthers && userDependents.length > 0 && (
+              {dependentsForBooking.length > 0 && (
                 <div style={{
                   background: '#1a1a1a',
                   border: '1px solid #2a2a2a',
@@ -1541,7 +1599,7 @@ const getUpcomingReminders = useMemo(() => {
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
                     <span style={{ color: '#a8a8a8', fontSize: '0.85rem', fontWeight: 600 }}>
-                      👤 Para quem é o agendamento?
+                      👤 {canScheduleForOthers ? 'Dependentes do cliente selecionado' : 'Para quem é o agendamento?'}
                     </span>
                     {(bookingForDependent) && (
                       <button
@@ -1581,7 +1639,7 @@ const getUpcomingReminders = useMemo(() => {
                     </div>
 
 
-                    {userDependents.map((dep) => (
+                    {dependentsForBooking.map((dep) => (
                       <div
                         key={dep.id}
                         onClick={() => setBookingForDependent(dep)}
@@ -1905,8 +1963,6 @@ const getUpcomingReminders = useMemo(() => {
 
           {view === 'myAppointments' && (
             <div className="appointments__list">
-              <h2>Seus Agendamentos</h2>
-
               <div className="appointments-filter-tabs" style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', borderBottom: '2px solid #333' }}>
                 <button
                   onClick={() => setAppointmentFilter('current')}
@@ -1914,8 +1970,11 @@ const getUpcomingReminders = useMemo(() => {
                 >
                   Este Mês ({appointments.filter(apt => {
                     const aptDate = new Date(apt.endAt);
+                    aptDate.setHours(0, 0, 0, 0);
                     const today = new Date();
-                    const dIds1 = userDependents.map(d => `dep_${d.id}`); return (apt.clientId === currentUser?.id || dIds1.includes(apt.clientId)) && aptDate.getMonth() === today.getMonth() && aptDate.getFullYear() === today.getFullYear();
+                    today.setHours(0, 0, 0, 0);
+                    const dIds1 = userDependents.map(d => `dep_${d.id}`); 
+                    return (apt.clientId === currentUser?.id || dIds1.includes(apt.clientId)) && aptDate.getMonth() === today.getMonth() && aptDate.getFullYear() === today.getFullYear() && aptDate >= today;
                   }).length})
                 </button>
                 <button
@@ -1924,15 +1983,25 @@ const getUpcomingReminders = useMemo(() => {
                 >
                   Próximos ({appointments.filter(apt => {
                     const aptDate = new Date(apt.endAt);
+                    aptDate.setHours(0, 0, 0, 0);
                     const today = new Date();
-                    const dIds2 = userDependents.map(d => `dep_${d.id}`); return (apt.clientId === currentUser?.id || dIds2.includes(apt.clientId)) && (aptDate.getFullYear() > today.getFullYear() || (aptDate.getFullYear() === today.getFullYear() && aptDate.getMonth() >= today.getMonth()));
+                    today.setHours(0, 0, 0, 0);
+                    const dIds2 = userDependents.map(d => `dep_${d.id}`); 
+                    return (apt.clientId === currentUser?.id || dIds2.includes(apt.clientId)) && ((aptDate.getFullYear() > today.getFullYear()) || (aptDate.getFullYear() === today.getFullYear() && aptDate.getMonth() > today.getMonth())) && aptDate >= today;
                   }).length})
                 </button>
                 <button
                   onClick={() => setAppointmentFilter('all')}
                   className={`tab-btn ${appointmentFilter === 'all' ? 'tab-btn--active' : ''}`}
                 >
-                  Todos ({appointments.filter(apt => { const dIds3 = userDependents.map(d => `dep_${d.id}`); return apt.clientId === currentUser?.id || dIds3.includes(apt.clientId); }).length})
+                  Todos ({appointments.filter(apt => { 
+                    const aptDate = new Date(apt.endAt);
+                    aptDate.setHours(0, 0, 0, 0);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const dIds3 = userDependents.map(d => `dep_${d.id}`); 
+                    return (apt.clientId === currentUser?.id || dIds3.includes(apt.clientId)) && aptDate >= today;
+                  }).length})
                 </button>
               </div>
 

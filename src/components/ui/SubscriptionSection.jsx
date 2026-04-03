@@ -1,15 +1,11 @@
 import { Check } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Button from './Button.jsx';
-import PaymentModal from './PaymentModal.jsx';
 import Toast from './Toast.jsx';
 import './SubscriptionSection.css';
 import { getToken } from '../../services/authService.js';
-import AppointmentsPage from '../../pages/AppointmentsPage.jsx';
 
 export default function SubscriptionSection({ activeSubscription, onSubscribe }) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [plans, setPlans] = useState([]);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
@@ -74,21 +70,22 @@ export default function SubscriptionSection({ activeSubscription, onSubscribe })
       return;
     }
 
+    const subscriptionUrl = plan?.mpSubscriptionUrl || plan?.subscriptionUrl;
+    if (!subscriptionUrl) {
+      showToast('Link de assinatura não configurado para esse plano.', 'danger');
+      return;
+    }
+
     const planWithRecurring = {
       ...plan,
       isRecurring: true,
       autoRenewal: true,
     };
-    setSelectedPlan(planWithRecurring);
-    setIsModalOpen(true);
+
     localStorage.setItem('selectedPlan', JSON.stringify(planWithRecurring));
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
-  };
 
-  const handlePaymentSuccess = (subscription) => {
-    showToast(`Assinatura realizada com sucesso! Bem-vindo ao plano ${selectedPlan.name}`, 'success');
-    setIsModalOpen(false);
-    setSelectedPlan(null);
+    window.location.href = subscriptionUrl;
   };
 
   return (
@@ -172,20 +169,6 @@ export default function SubscriptionSection({ activeSubscription, onSubscribe })
           </p>
         </div>
       </div>
-
-      {isModalOpen && selectedPlan && currentUser && (
-        <PaymentModal
-          isOpen={isModalOpen}
-          onClose={() => {
-            setIsModalOpen(false);
-            setSelectedPlan(null);
-          }}
-          selectedPlan={selectedPlan}
-          currentUser={currentUser}
-          onSuccess={handlePaymentSuccess}
-          isAppointmentPayment={false}
-        />
-      )}
 
       {toast.show && (
         <Toast

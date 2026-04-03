@@ -9,6 +9,20 @@ function obterProximaDataCobranca() {
   return proximoMes.toISOString();
 }
 
+function adicionarUmMes(isoDate) {
+  if (!isoDate) return null;
+  const base = new Date(isoDate);
+  if (Number.isNaN(base.getTime())) return null;
+  const next = new Date(base);
+  next.setMonth(next.getMonth() + 1);
+  return next.toISOString();
+}
+
+function normalizeId(value) {
+  if (value == null) return null;
+  return String(value).trim();
+}
+
 function calcularDiasAtraso(nextBillingDate) {
   const hoje = new Date();
   const dataCobranca = new Date(nextBillingDate);
@@ -309,16 +323,92 @@ export const buscarAssinaturasUsuario = async (userId) => {
 
 export const buscarAssinaturaAtiva = async (currentUser) => {
   try {
-    const response = await api.get('/stripe/subscriptions/by-email', {
-      params: {
-        email: currentUser,
-      },
-      headers: {
-        Authorization: `Bearer ${getToken()}`,
-      },
+    const email = typeof currentUser === 'string'
+      ? currentUser
+      : currentUser?.email;
+
+    if (!email) return null;
+
+    const [stripeResponse, plansResponse] = await Promise.all([
+      api.get('/stripe/subscriptions/by-email', {
+        params: {
+          email,
+        },
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+      }),
+      api.get('/subscription-plans', {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+      }),
+    ]);
+
+    const subscriptions = stripeResponse.data?.subscriptions || [];
+    const plans = Array.isArray(plansResponse.data) ? plansResponse.data : [];
+
+    if (!subscriptions.length) return null;
+
+    const statusPriority = {
+      active: 5,
+      trialing: 4,
+      past_due: 3,
+      unpaid: 2,
+      incomplete: 1,
+      incomplete_expired: 0,
+      canceled: -1,
+      ended: -2,
+    };
+
+    const selectedSubscription = [...subscriptions].sort((a, b) => {
+      const aPriority = statusPriority[a.status] ?? -99;
+      const bPriority = statusPriority[b.status] ?? -99;
+      if (bPriority !== aPriority) return bPriority - aPriority;
+      return (b.created || 0) - (a.created || 0);
+    })[0];
+
+    const productId = selectedSubscription?.productId || null;
+    const normalizedProductId = normalizeId(productId);
+    const planFromStripe = selectedSubscription?.plan || null;
+
+    const matchedPlan = plans.find((plan) => {
+      if (!normalizedProductId) return false;
+      const planMpId = plan?.mpPreapprovalPlanId ?? plan?.mp_preapproval_plan_id;
+      if (!planMpId) return false;
+      return normalizeId(planMpId) === normalizedProductId;
     });
 
-    return response.data.subscriptions[0]?.status || null;
+    const resolvedPlan = planFromStripe || matchedPlan || null;
+
+    const stripeCreated = selectedSubscription?.created
+      ? new Date(selectedSubscription.created * 1000).toISOString()
+      : null;
+
+    const nextBillingDate = adicionarUmMes(stripeCreated);
+
+    const matchedPlanName = resolvedPlan?.name || null;
+    const matchedPlanPrice = resolvedPlan?.price ?? null;
+    const matchedPlanFeatures = resolvedPlan?.features || [];
+
+    return {
+      id: selectedSubscription.subscriptionId,
+      subscriptionId: selectedSubscription.subscriptionId,
+      status: selectedSubscription.status,
+      productId,
+      priceId: selectedSubscription.priceId || null,
+      planId: resolvedPlan?.id || null,
+      planName: matchedPlanName || 'Plano',
+      price: matchedPlanPrice,
+      amount: matchedPlanPrice,
+      features: matchedPlanFeatures,
+      nextBillingDate,
+      startDate: stripeCreated,
+      paymentMethod: 'stripe',
+      cancelAtPeriodEnd: !!selectedSubscription?.cancelAtPeriodEnd,
+      planDetails: resolvedPlan,
+      planMatchedByProductId: !!resolvedPlan,
+    };
   } catch (error) {
     console.error('Erro ao buscar assinatura ativa:', error);
     return null;

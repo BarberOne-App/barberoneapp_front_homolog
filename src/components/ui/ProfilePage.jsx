@@ -38,7 +38,7 @@ export default function ProfilePage() {
   const [dependentForm, setDependentForm] = useState({ name: '', age: '', cpf: '' });
   const [savingDependent, setSavingDependent] = useState(false);
   const [deletingDependentId, setDeletingDependentId] = useState(null);
-  const MAX_DEPENDENTS = 3;
+  const MAX_DEPENDENTS = 5;
 
   useEffect(() => {
     const user = getSession();

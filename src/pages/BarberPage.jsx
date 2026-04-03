@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BaseLayout from '../components/layout/BaseLayout';
 import Toast from '../components/ui/Toast';
-import { getSession, logout } from '../services/authService';
+import { getSession, getToken, logout } from '../services/authService';
 import { getUserById } from '../services/userServices';
 import { getAppointments, updateAppointment } from '../services/appointmentService';
 import { getBarbers } from '../services/barberServices';
@@ -12,6 +12,7 @@ export default function BarberPage() {
   const navigate = useNavigate();
   const currentUser = getSession();
   const [appointments, setAppointments] = useState([]);
+  const [employeePayments, setEmployeePayments] = useState([]);
   const [barberProfile, setBarberProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
@@ -22,13 +23,28 @@ export default function BarberPage() {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
+  const token = getToken();
   const isBarber = currentUser?.role === 'barber';
 
   async function loadData() {
     try {
-      const [appointmentsData, barbersData] = await Promise.all([getAppointments(), getBarbers()]);
+      const [appointmentsData, barbersData, employeePaymentsResponse] = await Promise.all([
+        getAppointments(),
+        getBarbers(),
+        fetch('https://barberone-backend.onrender.com/employeePayments', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+      ]);
+
+      const employeePaymentsData = employeePaymentsResponse.ok
+        ? await employeePaymentsResponse.json()
+        : [];
+
       const barber = barbersData.find(b => b.userId === currentUser?.id);
       setBarberProfile(barber);
+      setEmployeePayments(Array.isArray(employeePaymentsData) ? employeePaymentsData : []);
       if (barber) {
         setAppointments(appointmentsData.filter(apt => apt.barberId === barber.id));
       }
@@ -38,6 +54,78 @@ export default function BarberPage() {
       setLoading(false);
     }
   }
+
+  const isExtraPayment = (payment) => {
+    if (!payment) return false;
+    const start = payment.periodStart;
+    const end = payment.periodEnd;
+    const salarioFixo = Number(payment.salarioFixo || 0);
+    const commission = Number(payment.commission || 0);
+    const totalVales = Number(payment.totalVales || 0);
+    const liquido = Number(payment.liquido || 0);
+
+    return Boolean(
+      start &&
+      end &&
+      start === end &&
+      salarioFixo > 0 &&
+      commission === 0 &&
+      totalVales === 0 &&
+      Math.abs(salarioFixo - liquido) < 0.01
+    );
+  };
+
+  const getFilteredExtraPaymentsByPeriod = () => {
+    if (!Array.isArray(employeePayments)) return [];
+
+    const base = employeePayments
+      .filter(isExtraPayment)
+      .filter((payment) => String(payment.employeeId) === String(currentUser?.id));
+
+    const now = new Date();
+
+    if (earningsFilter === 'week') {
+      const today = now.getDay();
+      const mondayOffset = today === 0 ? -6 : 1 - today;
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() + mondayOffset);
+      weekStart.setHours(0, 0, 0, 0);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      weekEnd.setHours(23, 59, 59, 999);
+
+      return base.filter((payment) => {
+        const ref = payment.paidAt || payment.periodStart;
+        if (!ref) return false;
+        const d = new Date(ref);
+        return !Number.isNaN(d.getTime()) && d >= weekStart && d <= weekEnd;
+      });
+    }
+
+    if (earningsFilter === 'month') {
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      return base.filter((payment) => {
+        const ref = payment.paidAt || payment.periodStart;
+        if (!ref) return false;
+        const d = new Date(ref);
+        return !Number.isNaN(d.getTime()) && d >= monthStart && d <= monthEnd;
+      });
+    }
+
+    if (earningsFilter === 'custom' && customStartDate && customEndDate) {
+      const start = new Date(`${customStartDate}T00:00:00`);
+      const end = new Date(`${customEndDate}T23:59:59`);
+      return base.filter((payment) => {
+        const ref = payment.paidAt || payment.periodStart;
+        if (!ref) return false;
+        const d = new Date(ref);
+        return !Number.isNaN(d.getTime()) && d >= start && d <= end;
+      });
+    }
+
+    return base;
+  };
 
   useEffect(() => {
     if (!currentUser) return navigate('/login');
@@ -277,6 +365,7 @@ export default function BarberPage() {
 
   const calculateBarberStats = () => {
     const filtered = getFilteredAppointmentsByPeriod();
+    const filteredExtraPayments = getFilteredExtraPaymentsByPeriod();
     let totalRevenue = 0;
     let totalServices = 0;
 
@@ -289,6 +378,7 @@ export default function BarberPage() {
     const commissionPercent = barberProfile?.commissionPercent || 50;
     const barberEarnings = (totalRevenue * commissionPercent) / 100;
     const shopEarnings = totalRevenue - barberEarnings;
+    const extraPaymentsTotal = filteredExtraPayments.reduce((sum, p) => sum + Number(p.liquido || 0), 0);
 
     return {
       totalRevenue,
@@ -297,7 +387,10 @@ export default function BarberPage() {
       commissionPercent,
       barberEarnings,
       shopEarnings,
-      filteredAppointments: filtered
+      filteredAppointments: filtered,
+      filteredExtraPayments,
+      extraPaymentsTotal,
+      totalWithExtras: barberEarnings + extraPaymentsTotal,
     };
   };
 
@@ -505,8 +598,16 @@ export default function BarberPage() {
                       <span className="stat-value stat-value-success">R$ {stats.barberEarnings.toFixed(2)}</span>
                     </div>
                     <div className="stat-item">
+                      <span className="stat-label">Pag. extras</span>
+                      <span className="stat-value stat-value-success">R$ {stats.extraPaymentsTotal.toFixed(2)}</span>
+                    </div>
+                    <div className="stat-item">
                       <span className="stat-label">Barbearia</span>
                       <span className="stat-value">R$ {stats.shopEarnings.toFixed(2)}</span>
+                    </div>
+                    <div className="stat-item">
+                      <span className="stat-label">Total c/ extras</span>
+                      <span className="stat-value stat-value-highlight">R$ {stats.totalWithExtras.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
@@ -560,6 +661,39 @@ export default function BarberPage() {
                         })}
                       </tbody>
                     </table>
+                  )}
+
+                  {stats.filteredExtraPayments.length > 0 && (
+                    <div style={{ marginTop: '1.25rem' }}>
+                      <h4 style={{ color: 'var(--gold)', marginBottom: '0.75rem' }}>Pagamentos extras do período</h4>
+                      <table className="fluig-table-children">
+                        <thead>
+                          <tr>
+                            <th>Tipo</th>
+                            <th>Data</th>
+                            <th>Valor</th>
+                            <th>Registrado por</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {stats.filteredExtraPayments.map((payment) => {
+                            const dateRef = payment.paidAt || payment.periodStart;
+                            const formattedDate = dateRef
+                              ? new Date(dateRef).toLocaleDateString('pt-BR')
+                              : '-';
+
+                            return (
+                              <tr key={payment.id}>
+                                <td><strong>Pagamento Extra</strong></td>
+                                <td>{formattedDate}</td>
+                                <td className="barber-earning">R$ {Number(payment.liquido || 0).toFixed(2)}</td>
+                                <td>{payment.paidByName || '-'}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
               </div>

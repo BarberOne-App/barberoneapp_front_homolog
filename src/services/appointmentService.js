@@ -7,7 +7,7 @@ const API_URL = 'https://barberone-backend.onrender.com';
 export const getAppointments = async () => {
   const token = getToken();
   try {
-    const response = await axios.get(`${API_URL}/appointments`, {
+    const response = await axios.get(`${API_URL}/appointments?allAppointments=true`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },

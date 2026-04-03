@@ -52,6 +52,7 @@ import { getToken } from '../services/authService';
 
 export default function AdminPage() {
   const navigate = useNavigate();
+  const API_URL = import.meta.env.VITE_API_URL;
 
   const currentUserRef = useRef(getSession());
   const currentUser = currentUserRef.current;
@@ -228,7 +229,12 @@ export default function AdminPage() {
   const [plansLoading, setPlansLoading] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
-  const [planForm, setPlanForm] = useState({ name: '', price: '' });
+  const [planForm, setPlanForm] = useState({
+    name: '',
+    price: '',
+    mpPreapprovalPlanId: '',
+    mpSubscriptionUrl: '',
+  });
   const [planSaving, setPlanSaving] = useState(false);
   const [showBenefitModal, setShowBenefitModal] = useState(false);
   const [editingBenefit, setEditingBenefit] = useState(null);
@@ -355,6 +361,7 @@ const barberNames = useMemo(() => {
     managePayments: { label: 'Ver Relatórios de Pagamentos', category: 'Financeiro', icon: '💰' },
     manageAgendamentos: { label: 'Ver Aba Agendamentos', category: 'Agendamentos', icon: '📅' },
     scheduleForOthers: { label: 'Agendar para Outros Clientes', category: 'Agendamentos', icon: '🗓️' },
+    manageOffScheduleAppointments: { label: 'Agendar Fora do Horário', category: 'Agendamentos', icon: '⏰' },
     manageBenefits: { label: 'Gerenciar Benefícios dos Planos', category: 'Configurações', icon: '🎁' },
     manageSettings: { label: 'Alterar Configurações (PIX, Termos)', category: 'Configurações', icon: '⚙️' },
     manageGallery: { label: 'Gerenciar Galeria de Fotos', category: 'Conteúdo', icon: '🖼️' },
@@ -367,6 +374,9 @@ const barberNames = useMemo(() => {
     if (currentUser.role === 'admin' || currentUser.isAdmin === true) return true;
     return currentUser.permissions?.[permission] === true;
   };
+
+  const canManageGallery = hasPermission('manageGallery');
+  const canManageAgendamentos = hasPermission('manageAgendamentos');
 
   const getFilteredEmployees = () => {
     if (categoryFilter === 'all') {
@@ -453,10 +463,20 @@ const barberNames = useMemo(() => {
   };
 
   useEffect(() => {
-    if (activeTab === 'gallery') {
+    if (activeTab === 'gallery' && canManageGallery) {
       loadGallery();
     }
-  }, [activeTab]);
+  }, [activeTab, canManageGallery]);
+
+  useEffect(() => {
+    if (activeTab === 'gallery' && !canManageGallery) {
+      setActiveTab('calendario');
+    }
+
+    if (activeTab === 'agendamentos' && !canManageAgendamentos) {
+      setActiveTab('calendario');
+    }
+  }, [activeTab, canManageGallery, canManageAgendamentos]);
 
   const toDateStr = (val) => {
     if (!val) return '';
@@ -1197,7 +1217,7 @@ const barberNames = useMemo(() => {
   const loadPlans = useCallback(async () => {
     setPlansLoading(true);
     try {
-      const response = await fetch('https://barberone-backend.onrender.com/subscription-plans', {
+      const response = await fetch(`${API_URL}/subscription-plans`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -1218,7 +1238,7 @@ const barberNames = useMemo(() => {
     } finally {
       setPlansLoading(false);
     }
-  }, []);
+  }, [API_URL, token]);
 
   const adminInitializedRef = useRef(false);
 
@@ -1284,6 +1304,12 @@ const barberNames = useMemo(() => {
       loadPlans();
     }
   }, [activeTab, hasAdminVisibility, plans.length, loadPlans]);
+
+  useEffect(() => {
+    if (isReceptionist && activeTab === 'earnings') {
+      setActiveTab('calendario');
+    }
+  }, [isReceptionist, activeTab]);
 
 
   const getAppointmentByPayment = (payment) => {
@@ -1869,6 +1895,11 @@ const barberNames = useMemo(() => {
   };
 
   const openOffScheduleModal = () => {
+    if (!isAdmin && !hasPermission('manageOffScheduleAppointments')) {
+      showToast('Você não tem permissão para agendar fora do horário.', 'danger');
+      return;
+    }
+
     setOffScheduleForm({
       clientId: '',
       barberId: '',
@@ -1891,6 +1922,11 @@ const barberNames = useMemo(() => {
 
   const handleSubmitOffScheduleAppointment = async (e) => {
     e.preventDefault();
+
+    if (!isAdmin && !hasPermission('manageOffScheduleAppointments')) {
+      showToast('Você não tem permissão para agendar fora do horário.', 'danger');
+      return;
+    }
 
     if (!offScheduleForm.clientId || !offScheduleForm.barberId || !offScheduleForm.date || !offScheduleForm.time) {
       showToast('Preencha cliente, barbeiro, data e horário.', 'danger');
@@ -2251,11 +2287,7 @@ const barberNames = useMemo(() => {
 
   const statsbyPeriod = useMemo(() => {
 
-  console.log("Agendamentos Totais:", appointments.length);
-  console.log("Agendamentos Filtrados:", filtered.length);
-  console.log("Filtro Atual:", earningsFilter);
-  console.log("Perfil do Barbeiro:", barberProfile);
-  
+
 
   let totalRevenue = 0;
 
@@ -2534,10 +2566,12 @@ const barberNames = useMemo(() => {
       setPlanForm({
         name: plan.name || '',
         price: Number(plan.price || 0),
+        mpPreapprovalPlanId: plan.mpPreapprovalPlanId || '',
+        mpSubscriptionUrl: plan.mpSubscriptionUrl || '',
       });
     } else {
       setEditingPlan(null);
-      setPlanForm({ name: '', price: '' });
+      setPlanForm({ name: '', price: '', mpPreapprovalPlanId: '', mpSubscriptionUrl: '' });
     }
 
     setShowPlanModal(true);
@@ -2546,7 +2580,7 @@ const barberNames = useMemo(() => {
   const closePlanModal = () => {
     setShowPlanModal(false);
     setEditingPlan(null);
-    setPlanForm({ name: '', price: '' });
+    setPlanForm({ name: '', price: '', mpPreapprovalPlanId: '', mpSubscriptionUrl: '' });
   };
 
   const handlePlanFormChange = (field, value) => {
@@ -2563,6 +2597,8 @@ const barberNames = useMemo(() => {
 
     const planName = planForm.name?.trim();
     const planPrice = Number(planForm.price);
+    const planMpPreapprovalId = planForm.mpPreapprovalPlanId?.trim() || null;
+    const planSubscriptionUrl = planForm.mpSubscriptionUrl?.trim() || null;
 
     if (!planName) {
       showToast('Informe o nome do plano.', 'danger');
@@ -2578,7 +2614,7 @@ const barberNames = useMemo(() => {
       setPlanSaving(true);
 
       if (editingPlan) {
-        const response = await fetch(`https://barberone-backend.onrender.com/subscription-plans/${editingPlan.id}`, {
+        const response = await fetch(`${API_URL}/subscription-plans/${editingPlan.id}`, {
           method: 'PATCH',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2587,13 +2623,15 @@ const barberNames = useMemo(() => {
           body: JSON.stringify({
             name: planName,
             price: planPrice,
+            mpPreapprovalPlanId: planMpPreapprovalId,
+            mpSubscriptionUrl: planSubscriptionUrl,
           }),
         });
 
         if (!response.ok) throw new Error('Falha ao atualizar plano');
         showToast('Plano atualizado com sucesso!', 'success');
       } else {
-        const response = await fetch('https://barberone-backend.onrender.com/subscription-plans', {
+        const response = await fetch(`${API_URL}/subscription-plans`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2606,6 +2644,8 @@ const barberNames = useMemo(() => {
             features: [],
             active: true,
             recommended: false,
+            mpPreapprovalPlanId: planMpPreapprovalId,
+            mpSubscriptionUrl: planSubscriptionUrl,
           }),
         });
 
@@ -2621,6 +2661,69 @@ const barberNames = useMemo(() => {
     } finally {
       setPlanSaving(false);
     }
+  };
+
+  const handleTogglePlanActive = (plan) => {
+    if (!isAdmin) {
+      showToast('Apenas administradores podem alterar o status do plano.', 'danger');
+      return;
+    }
+
+    const shouldDeactivate = Boolean(plan?.active);
+    const actionLabel = shouldDeactivate ? 'desativar' : 'ativar';
+
+    showConfirm(`Deseja realmente ${actionLabel} o plano "${plan.name}"?`, async () => {
+      try {
+        const response = await fetch(`${API_URL}/subscription-plans/${plan.id}`, {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ active: !shouldDeactivate }),
+        });
+
+        if (!response.ok) throw new Error('Falha ao atualizar status do plano');
+
+        await loadPlans();
+        showToast(
+          shouldDeactivate
+            ? 'Plano desativado com sucesso!'
+            : 'Plano ativado com sucesso!',
+          'success'
+        );
+      } catch (error) {
+        console.error('Erro ao alterar status do plano:', error);
+        showToast('Erro ao alterar status do plano.', 'danger');
+      }
+    });
+  };
+
+  const handleDeletePlan = (plan) => {
+    if (!isAdmin) {
+      showToast('Apenas administradores podem excluir planos.', 'danger');
+      return;
+    }
+
+    showConfirm(`Deseja realmente excluir o plano "${plan.name}"? Esta ação não pode ser desfeita.`, async () => {
+      try {
+        const response = await fetch(`${API_URL}/subscription-plans/${plan.id}`, {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) throw new Error('Falha ao excluir plano');
+
+        await loadPlans();
+        showToast('Plano excluído com sucesso!', 'success');
+      } catch (error) {
+        console.error('Erro ao excluir plano:', error);
+        showToast('Erro ao excluir plano. Verifique se não há assinaturas vinculadas.', 'danger');
+      }
+    });
   };
 
   const closeBenefitModal = () => {
@@ -2649,7 +2752,7 @@ const barberNames = useMemo(() => {
       } else {
         updatedFeatures.push(benefitForm.trim());
       }
-      await fetch(`https://barberone-backend.onrender.com/subscription-plans/${plan.id}`, {
+      await fetch(`${API_URL}/subscription-plans/${plan.id}`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -2680,7 +2783,7 @@ const barberNames = useMemo(() => {
         const plan = plans.find((p) => p.id === planId);
         if (!plan) return;
         const updatedFeatures = plan.features.filter((_, idx) => idx !== benefitIndex);
-        await fetch(`https://barberone-backend.onrender.com/subscription-plans/${plan.id}`, {
+        await fetch(`${API_URL}/subscription-plans/${plan.id}`, {
           method: 'PATCH',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3164,6 +3267,22 @@ const barberNames = useMemo(() => {
     );
   };
 
+    const getPaymentMethodValue = (payment) => {
+      return String(payment?.paymentMethod || payment?.method || '').toLowerCase().trim();
+    };
+
+    const getPaymentTypeLabel = (payment) => {
+      const method = getPaymentMethodValue(payment);
+      const isPlanCovered = payment?.status === 'plan_covered' || payment?.status === 'plancovered' || method === 'subscription';
+
+      if (isPlanCovered) return 'Plano';
+      if (method === 'local' || payment?.status === 'pendinglocal') return 'No Local';
+      if (method === 'pix') return 'PIX';
+      if (method === 'credito' || method === 'crédito' || method === 'debito' || method === 'débito' || method === 'cartao' || method === 'cartão') return 'Cartão';
+      if (method === 'dinheiro') return 'Dinheiro';
+      return 'Avulso';
+    };
+
 
   return (
     <BaseLayout>
@@ -3231,21 +3350,23 @@ const barberNames = useMemo(() => {
             >
               Informações do Site
             </button>
-{ 
-            <button
-              className={`tab-btn ${activeTab === 'earning' ? 'tab-btn--active' : ''}`}
-              onClick={() => setActiveTab('earnings')}
-            >
-              Ganhos 
-            </button> 
-            }
+            {!isReceptionist && (
+              <button
+                className={`tab-btn ${activeTab === 'earnings' ? 'tab-btn--active' : ''}`}
+                onClick={() => setActiveTab('earnings')}
+              >
+                Ganhos
+              </button>
+            )}
 
-            <button
-              className={`tab-btn ${activeTab === 'gallery' ? 'tab-btn--active' : ''}`}
-              onClick={() => setActiveTab('gallery')}
-            >
-              Galeria
-            </button>
+            {canManageGallery && (
+              <button
+                className={`tab-btn ${activeTab === 'gallery' ? 'tab-btn--active' : ''}`}
+                onClick={() => setActiveTab('gallery')}
+              >
+                Galeria
+              </button>
+            )}
 
             {hasPermission('manageEmployees') && (
               <button onClick={() => setActiveTab('employees')} className={`tab-btn ${activeTab === 'employees' ? 'tab-btn--active' : ''}`}>
@@ -3262,9 +3383,11 @@ const barberNames = useMemo(() => {
                 Pagamentos Extras
               </button>
             )}
-            <button onClick={() => setActiveTab('agendamentos')} className={`tab-btn ${activeTab === 'agendamentos' ? 'tab-btn--active' : ''}`}>
-              Agendamentos
-            </button>
+            {canManageAgendamentos && (
+              <button onClick={() => setActiveTab('agendamentos')} className={`tab-btn ${activeTab === 'agendamentos' ? 'tab-btn--active' : ''}`}>
+                Agendamentos
+              </button>
+            )}
             {hasPermission('manageProducts') && (
               <button onClick={() => setActiveTab('products')} className={`tab-btn ${activeTab === 'products' ? 'tab-btn--active' : ''}`}>
                 Produtos ({products.length})
@@ -3316,7 +3439,7 @@ const barberNames = useMemo(() => {
             )}
           </div>
 
-          {activeTab === 'gallery' && (
+          {canManageGallery && activeTab === 'gallery' && (
             <div className="tab-content gallery-admin-container">
               <div className="gallery-section-header">
                 <div className="gallery-header-content">
@@ -3390,7 +3513,7 @@ const barberNames = useMemo(() => {
 
           )}
 
-        {activeTab === 'earnings' && (
+        {!isReceptionist && activeTab === 'earnings' && (
               barberNames.map(barberName => {
                 const isExpanded = expandedBarbers[`pay_${barberName}`];
                 const barberPayments = allPaid.filter(p => (p.appointment?.barber?.displayName || 'Sem barbeiro') === barberName);
@@ -3473,8 +3596,9 @@ const barberNames = useMemo(() => {
                                 .sort((a, b) => (b.appointmentDate || b.paidAt || b.createdAt || '').localeCompare(a.appointmentDate || a.paidAt || a.createdAt || ''))
                                 .map((payment) => {
                                   const isSubscriber = clientSubscriptionStatus[payment.userId] || payment.status === 'plan_covered' || payment.status === 'plancovered' || payment.paymentMethod === 'subscription' || false;
-                                  const isPlanCovered = payment.status === 'plan_covered' || payment.status === 'plancovered' || payment.paymentMethod === 'subscription';
-                                  const tipo = isPlanCovered ? 'plano' : (payment.paymentMethod === 'local' || payment.status === 'pendinglocal') ? 'local' : 'avulso';
+                                  const paymentMethodValue = getPaymentMethodValue(payment);
+                                  const isPlanCovered = payment.status === 'plan_covered' || payment.status === 'plancovered' || paymentMethodValue === 'subscription';
+                                  const tipo = getPaymentTypeLabel(payment);
 
                                   const appointment = payment.appointmentId
                                     ? appointments.find(apt => apt.id?.toString() === payment.appointmentId?.toString())
@@ -3530,15 +3654,18 @@ const barberNames = useMemo(() => {
                                           ? <span style={{ color: '#555', fontSize: '0.82rem' }}>—</span>
                                           : <span style={{ color: '#22c55e', fontWeight: 600 }}>R$ {rowComm.toFixed(2)}</span>}
                                       </td>
-                                      <td><PaymentBadge method={payment.method} /></td>
+                                      <td><PaymentBadge method={paymentMethodValue} /></td>
                                       <td>
                                         <span style={{
                                           padding: '3px 10px', borderRadius: '10px', fontSize: '0.78rem', fontWeight: 600,
-                                          ...(tipo === 'plano' ? { background: '#d4af3722', color: '#d4af37', border: '1px solid #d4af3744' }
-                                            : tipo === 'local' ? { background: '#3498db22', color: '#3498db', border: '1px solid #3498db44' }
-                                              : { background: '#ff7a1a22', color: '#ff7a1a', border: '1px solid #ff7a1a44' })
+                                          ...(tipo === 'Plano' ? { background: '#d4af3722', color: '#d4af37', border: '1px solid #d4af3744' }
+                                            : tipo === 'No Local' ? { background: '#3498db22', color: '#3498db', border: '1px solid #3498db44' }
+                                              : tipo === 'Cartão' ? { background: '#8b5cf622', color: '#a78bfa', border: '1px solid #8b5cf644' }
+                                                : tipo === 'Dinheiro' ? { background: '#22c55e22', color: '#4ade80', border: '1px solid #22c55e55' }
+                                                  : tipo === 'PIX' ? { background: '#00b37722', color: '#00b377', border: '1px solid #00b37755' }
+                                                    : { background: '#ff7a1a22', color: '#ff7a1a', border: '1px solid #ff7a1a44' })
                                         }}>
-                                          {tipo === 'plano' ? '🏅 Plano' : tipo === 'local' ? '🏪 Local' : '💳 Avulso'}
+                                          {tipo === 'Plano' ? '🏅 Plano' : tipo === 'No Local' ? '🏪 Local' : tipo === 'Cartão' ? '💳 Cartão' : tipo === 'Dinheiro' ? '💵 Dinheiro' : tipo === 'PIX' ? '🟢 PIX' : '💳 Avulso'}
                                         </span>
                                       </td>
                                     </tr>
@@ -4389,13 +4516,15 @@ const barberNames = useMemo(() => {
             </div>
           )}
 
-          {activeTab === 'agendamentos' && (
+          {canManageAgendamentos && activeTab === 'agendamentos' && (
             <div className="manage-barbers">
               <div className="manage-barbers-header">
                 <h2>Agendamentos</h2>
-                <button onClick={openOffScheduleModal} className="btn-add-barber">
-                  Registrar fora do horário
-                </button>
+                {(isAdmin || hasPermission('manageOffScheduleAppointments')) && (
+                  <button onClick={openOffScheduleModal} className="btn-add-barber">
+                    Registrar fora do horário
+                  </button>
+                )}
               </div>
 
               <div className="agendamentos-filter-container">
@@ -5019,14 +5148,46 @@ const barberNames = useMemo(() => {
                         <h3>{plan.name}</h3>
                         <span className="plan-price">R$ {plan.price.toFixed(2)}/mês</span>
                       </div>
+                      <div style={{ padding: '0 1rem', marginTop: '0.4rem' }}>
+                        <span
+                          style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            letterSpacing: '0.4px',
+                            color: plan.active ? '#22c55e' : '#f59e0b'
+                          }}
+                        >
+                          {plan.active ? 'ATIVO' : 'DESATIVADO'}
+                        </span>
+                      </div>
                       {isAdmin && (
-                        <div style={{ padding: '0 1rem 0.75rem 1rem' }}>
+                        <div style={{ padding: '0.35rem 1rem 0.75rem 1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                           <button
                             onClick={() => openPlanModal(plan)}
                             className="fluig-btn fluig-btn-edit"
                             style={{ fontSize: '0.75rem', padding: '4px 8px' }}
                           >
                             Editar nome e preço
+                          </button>
+                          <button
+                            onClick={() => handleTogglePlanActive(plan)}
+                            className="fluig-btn"
+                            style={{
+                              fontSize: '0.75rem',
+                              padding: '4px 8px',
+                              background: plan.active ? '#f59e0b22' : '#22c55e22',
+                              color: plan.active ? '#f59e0b' : '#22c55e',
+                              border: `1px solid ${plan.active ? '#f59e0b66' : '#22c55e66'}`
+                            }}
+                          >
+                            {plan.active ? 'Desativar plano' : 'Ativar plano'}
+                          </button>
+                          <button
+                            onClick={() => handleDeletePlan(plan)}
+                            className="fluig-btn fluig-btn-delete"
+                            style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                          >
+                            Excluir plano
                           </button>
                         </div>
                       )}
@@ -5825,8 +5986,9 @@ const barberNames = useMemo(() => {
                     .sort((a, b) => (b.appointmentDate || b.paidAt || b.createdAt || '').localeCompare(a.appointmentDate || a.paidAt || a.createdAt || ''))
                     .map((payment) => {
                       const isSubscriber = clientSubscriptionStatus[payment.userId] || payment.status === 'plan_covered' || payment.status === 'plancovered' || payment.paymentMethod === 'subscription' || false;
-                      const isPlanCovered = payment.status === 'plan_covered' || payment.status === 'plancovered' || payment.paymentMethod === 'subscription';
-                      const tipo = isPlanCovered ? 'plano' : (payment.paymentMethod === 'local' || payment.status === 'pendinglocal') ? 'local' : 'avulso';
+                      const paymentMethodValue = getPaymentMethodValue(payment);
+                      const isPlanCovered = payment.status === 'plan_covered' || payment.status === 'plancovered' || paymentMethodValue === 'subscription';
+                      const tipo = getPaymentTypeLabel(payment);
 
                       const appointment = payment.appointmentId
                         ? appointments.find(apt => apt.id?.toString() === payment.appointmentId?.toString())
@@ -5880,15 +6042,18 @@ const barberNames = useMemo(() => {
                               ? <span style={{ color: '#555', fontSize: '0.82rem' }}>—</span>
                               : <span style={{ color: '#22c55e', fontWeight: 600 }}>R$ {rowComm.toFixed(2)}</span>}
                           </td>
-                          <td><PaymentBadge method={payment.paymentMethod || payment.method} /></td>
+                          <td><PaymentBadge method={paymentMethodValue} /></td>
                           <td>
                             <span style={{
                               padding: '3px 10px', borderRadius: '10px', fontSize: '0.78rem', fontWeight: 600,
-                              ...(tipo === 'plano' ? { background: '#d4af3722', color: '#d4af37', border: '1px solid #d4af3744' }
-                                : tipo === 'local' ? { background: '#3498db22', color: '#3498db', border: '1px solid #3498db44' }
-                                  : { background: '#ff7a1a22', color: '#ff7a1a', border: '1px solid #ff7a1a44' })
+                              ...(tipo === 'Plano' ? { background: '#d4af3722', color: '#d4af37', border: '1px solid #d4af3744' }
+                                : tipo === 'No Local' ? { background: '#3498db22', color: '#3498db', border: '1px solid #3498db44' }
+                                  : tipo === 'Cartão' ? { background: '#8b5cf622', color: '#a78bfa', border: '1px solid #8b5cf644' }
+                                    : tipo === 'Dinheiro' ? { background: '#22c55e22', color: '#4ade80', border: '1px solid #22c55e55' }
+                                      : tipo === 'PIX' ? { background: '#00b37722', color: '#00b377', border: '1px solid #00b37755' }
+                                        : { background: '#ff7a1a22', color: '#ff7a1a', border: '1px solid #ff7a1a44' })
                             }}>
-                              {tipo === 'plano' ? '🏅 Plano' : tipo === 'local' ? '🏪 Local' : '💳 Avulso'}
+                              {tipo === 'Plano' ? '🏅 Plano' : tipo === 'No Local' ? '🏪 Local' : tipo === 'Cartão' ? '💳 Cartão' : tipo === 'Dinheiro' ? '💵 Dinheiro' : tipo === 'PIX' ? '🟢 PIX' : '💳 Avulso'}
                             </span>
                           </td>
                         </tr>
@@ -6958,6 +7123,20 @@ const barberNames = useMemo(() => {
                 onChange={(e) => handlePlanFormChange('price', e.target.value)}
                 placeholder="Ex: 99.90"
                 required
+              />
+
+              <Input
+                label="ID do plano na Stripe"
+                value={planForm.mpPreapprovalPlanId}
+                onChange={(e) => handlePlanFormChange('mpPreapprovalPlanId', e.target.value)}
+                placeholder="Ex: plan_123456"
+              />
+
+              <Input
+                label="Link de assinatura (Stripe)"
+                value={planForm.mpSubscriptionUrl}
+                onChange={(e) => handlePlanFormChange('mpSubscriptionUrl', e.target.value)}
+                placeholder="Ex: https://buy.stripe.com/..."
               />
 
               <div className="modal-actions">

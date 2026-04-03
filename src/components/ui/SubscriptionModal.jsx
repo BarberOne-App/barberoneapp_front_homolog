@@ -183,24 +183,15 @@
 
 
 import { X, Check } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import api from '../../services/api.js';
 import Toast from './Toast.jsx';
 import './SubscriptionModal.css';
 
 export default function SubscriptionModal({ isOpen, onClose, currentUser }) {
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-
-  const plans = [
-    {
-      id: 'plano-basico',
-      name: 'Plano Básico',
-      price: 1,
-      color: '#635bff',
-      recommended: true,
-      subscriptionUrl: 'https://buy.stripe.com/test_fZu14n2zJ10ndO22aj3gk01',
-      features: ['Corte de cabelo', 'Barba'],
-    },
-  ];
+  const [plans, setPlans] = useState([]);
+  const [loadingPlans, setLoadingPlans] = useState(false);
 
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
@@ -210,6 +201,41 @@ export default function SubscriptionModal({ isOpen, onClose, currentUser }) {
     setToast({ show: false, message: '', type: 'success' });
   };
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPlans = async () => {
+      if (!isOpen) return;
+
+      setLoadingPlans(true);
+
+      try {
+        const response = await api.get('/subscription-plans');
+        const data = Array.isArray(response.data) ? response.data : [];
+
+        if (!cancelled) {
+          setPlans(data);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Erro ao carregar planos de assinatura:', error);
+          setPlans([]);
+          showToast('Não foi possível carregar os planos de assinatura.', 'danger');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingPlans(false);
+        }
+      }
+    };
+
+    loadPlans();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleSelectPlan = (plan) => {
@@ -218,7 +244,9 @@ export default function SubscriptionModal({ isOpen, onClose, currentUser }) {
       return;
     }
 
-    if (!plan?.subscriptionUrl) {
+    const subscriptionUrl = plan?.mpSubscriptionUrl || plan?.subscriptionUrl;
+
+    if (!subscriptionUrl) {
       showToast('Link de assinatura não configurado para esse plano.', 'danger');
       return;
     }
@@ -232,7 +260,7 @@ export default function SubscriptionModal({ isOpen, onClose, currentUser }) {
     localStorage.setItem('selectedPlan', JSON.stringify(planWithRecurring));
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
 
-    window.location.href = plan.subscriptionUrl;
+    window.location.href = subscriptionUrl;
   };
 
   return (
@@ -251,57 +279,66 @@ export default function SubscriptionModal({ isOpen, onClose, currentUser }) {
           </div>
 
           <div className="subscription-modal__plans">
-            {plans.map((plan) => (
-              <div
-                key={plan.id}
-                className={`subscription-modal__plan ${plan.recommended ? 'subscription-modal__plan--popular' : ''
-                  }`}
-                style={{ borderColor: plan.color }}
-              >
-                {plan.recommended && (
-                  <div
-                    className="subscription-modal__badge"
-                    style={{ backgroundColor: plan.color }}
-                  >
-                    Mais Popular
-                  </div>
-                )}
-
-                <h3 className="subscription-modal__plan-name">{plan.name}</h3>
-
-                <div className="subscription-modal__plan-price">
-                  <span className="subscription-modal__currency">R$</span>
-                  <span className="subscription-modal__amount">
-                    {Number(plan.price || 0).toFixed(2).replace('.', ',')}
-                  </span>
-                  <span className="subscription-modal__period">/mês</span>
-                </div>
-
-                <ul className="subscription-modal__benefits">
-                  {plan.features?.length ? (
-                    plan.features.map((benefit, index) => (
-                      <li key={index} className="subscription-modal__benefit">
-                        <Check size={18} />
-                        <span>{benefit}</span>
-                      </li>
-                    ))
-                  ) : (
-                    <li className="subscription-modal__benefit" style={{ opacity: 0.5 }}>
-                      <Check size={18} />
-                      <span>Nenhum benefício cadastrado</span>
-                    </li>
-                  )}
-                </ul>
-
-                <button
-                  className="subscription-modal__button"
-                  style={{ backgroundColor: plan.color }}
-                  onClick={() => handleSelectPlan(plan)}
+            {loadingPlans ? (
+              <p style={{ color: '#a8a8a8', gridColumn: '1 / -1', textAlign: 'center' }}>
+                Carregando planos...
+              </p>
+            ) : plans.length > 0 ? (
+              plans.map((plan) => (
+                <div
+                  key={plan.id}
+                  className={`subscription-modal__plan ${plan.recommended ? 'subscription-modal__plan--popular' : ''}`}
+                  style={{ borderColor: plan.color || '#635bff' }}
                 >
-                  Assinar Agora
-                </button>
-              </div>
-            ))}
+                  {plan.recommended && (
+                    <div
+                      className="subscription-modal__badge"
+                      style={{ backgroundColor: plan.color || '#635bff' }}
+                    >
+                      Mais Popular
+                    </div>
+                  )}
+
+                  <h3 className="subscription-modal__plan-name">{plan.name}</h3>
+
+                  <div className="subscription-modal__plan-price">
+                    <span className="subscription-modal__currency">R$</span>
+                    <span className="subscription-modal__amount">
+                      {Number(plan.price || 0).toFixed(2).replace('.', ',')}
+                    </span>
+                    <span className="subscription-modal__period">/mês</span>
+                  </div>
+
+                  <ul className="subscription-modal__benefits">
+                    {plan.features?.length ? (
+                      plan.features.map((benefit, index) => (
+                        <li key={index} className="subscription-modal__benefit">
+                          <Check size={18} />
+                          <span>{benefit}</span>
+                        </li>
+                      ))
+                    ) : (
+                      <li className="subscription-modal__benefit" style={{ opacity: 0.5 }}>
+                        <Check size={18} />
+                        <span>Nenhum benefício cadastrado</span>
+                      </li>
+                    )}
+                  </ul>
+
+                  <button
+                    className="subscription-modal__button"
+                    style={{ backgroundColor: plan.color || '#635bff' }}
+                    onClick={() => handleSelectPlan(plan)}
+                  >
+                    Assinar Agora
+                  </button>
+                </div>
+              ))
+            ) : (
+              <p style={{ color: '#a8a8a8', gridColumn: '1 / -1', textAlign: 'center' }}>
+                Nenhum plano ativo encontrado para esta barbearia.
+              </p>
+            )}
           </div>
 
           <div className="subscription-modal__footer">
