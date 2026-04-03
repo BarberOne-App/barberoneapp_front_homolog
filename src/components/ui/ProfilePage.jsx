@@ -995,7 +995,7 @@ export default function ProfilePage() {
                 <h3 className="profile-quick-actions__title">Ações Rápidas</h3>
                 <div className="profile-quick-actions__grid">
                   {!isBarber && !isAdmin && (
-                    <button className="profile-action-card" onClick={() => navigateWithToast('/appointments', 'Indo para Meus Agendamentos...')}>
+                    <button className="profile-action-card" onClick={() => navigateWithToast('/admin', 'Indo para Meus Agendamentos...')}>
                       <FaCalendarAlt className="profile-action-card__icon" />
                       <span>Meus Agendamentos</span>
                     </button>

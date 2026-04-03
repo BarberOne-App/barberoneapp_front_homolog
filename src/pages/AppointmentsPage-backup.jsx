@@ -17,20 +17,24 @@ import { getAllServices } from '../services/serviceServices.js';
 import {
   getAppointments,
   createAppointment,
-  deleteAppointment,
+  deleteAppointment
 } from '../services/appointmentService.js';
 import {
   criarPagamentoAgendamento,
   buscarPagamentoAgendamento,
-  criarAssinatura,
+  criarAssinatura
 } from '../services/paymentService.js';
 import './AuthPages.css';
-import { getToken } from '../services/authService.js';
+import { getToken } from "../services/authService.js";
 
 export default function AppointmentsPage() {
+
   const selectedPlan = JSON.parse(localStorage.getItem('selectedPlan'));
   const currentUserPlan = JSON.parse(localStorage.getItem('currentUser'));
-  
+
+  console.log('selectedPlan', selectedPlan);
+  console.log('currentUserPlan', currentUserPlan);
+
   const navigate = useNavigate();
   const location = useLocation();
   const currentUserRef = useRef(getSession());
@@ -76,7 +80,6 @@ export default function AppointmentsPage() {
   const token = getToken();
 
   const [userDependents, setUserDependents] = useState([]);
-  const [selectedClientDependents, setSelectedClientDependents] = useState([]);
   const [bookingForDependent, setBookingForDependent] = useState(null);
   const [showForWhomSelector, setShowForWhomSelector] = useState(false);
 
@@ -88,8 +91,7 @@ export default function AppointmentsPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
 
-    const preapprovalId =
-      params.get('preapproval_id') || params.get('preapproval') || params.get('id');
+    const preapprovalId = params.get('preapproval_id') || params.get('preapproval') || params.get('id');
 
     //"e5ebbe29ae3d420dbc87648e4b9991bc";
 
@@ -101,29 +103,30 @@ export default function AppointmentsPage() {
           Authorization: `Bearer ${token}`,
         },
       })
-        .then((r) => r.json())
-        .then(async (data) => {
-          if (data.status == 'authorized') {
+        .then(r => r.json())
+        .then(async data => {
+          if (data.status == "authorized") {
             const subscription = await criarAssinatura({
               userId: currentUserPlan.id,
               userName: currentUserPlan.name,
               planId: selectedPlan.id,
               planName: selectedPlan.name,
               planPrice: selectedPlan.price,
-              amount: 89.9,
+              amount: 89.90,
               status: 'active',
               paymentMethod: 'credito',
               isRecurring: selectedPlan.isRecurring ?? true,
               autoRenewal: selectedPlan.autoRenewal ?? true,
-              mp_preapproval_id: preapprovalId,
+              mp_preapproval_id: preapprovalId
             });
 
             console.log(subscription);
 
             localStorage.setItem('planId', JSON.stringify(subscription.data.id));
+
           }
         })
-        .catch((err) => console.error(err));
+        .catch(err => console.error(err));
     }
   }, []);
 
@@ -138,77 +141,31 @@ export default function AppointmentsPage() {
   }, []);
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.isAdmin === true;
-  const isReceptionist = currentUser?.role === 'receptionist';
-  const canScheduleForOthers = isAdmin || isReceptionist || currentUser?.permissions?.scheduleForOthers === true;
-  const dependentsForBooking = canScheduleForOthers ? selectedClientDependents : userDependents;
+  const canScheduleForOthers = isAdmin || currentUser?.permissions?.scheduleForOthers === true;
+
 
   const activeClient = bookingForDependent
-    ? {
-        id: `dep_${bookingForDependent.id}`,
-        name: bookingForDependent.name,
-        isDependent: true,
-        dependentId: bookingForDependent.id,
-      }
+    ? { id: `dep_${bookingForDependent.id}`, name: bookingForDependent.name, isDependent: true, dependentId: bookingForDependent.id }
     : bookingForUser || currentUser;
 
-  useEffect(() => {
-    const fetchDependentsForSelectedClient = async () => {
-      if (!token) return;
-
-      const parentId = canScheduleForOthers
-        ? (bookingForUser?.id || currentUser?.id)
-        : currentUser?.id;
-
-      if (!parentId) {
-        setSelectedClientDependents([]);
-        return;
-      }
-
-      try {
-        const response = await axios.get(`${import.meta.env.VITE_API_URL}/dependents`, {
-          params: { parentId },
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        const deps = Array.isArray(response.data)
-          ? response.data
-          : response.data?.items || response.data?.dependents || [];
-
-        setSelectedClientDependents(deps);
-
-        if (bookingForDependent) {
-          const stillExists = deps.some((dep) => dep.id === bookingForDependent.id);
-          if (!stillExists) setBookingForDependent(null);
-        }
-      } catch (error) {
-        console.warn('Erro ao buscar dependentes do cliente selecionado:', error);
-        setSelectedClientDependents([]);
-        setBookingForDependent(null);
-      }
-    };
-
-    fetchDependentsForSelectedClient();
-  }, [token, canScheduleForOthers, bookingForUser?.id, currentUser?.id]);
-
-  const checkExistingAppointmentOnDate = useCallback(
-    (date) => {
-      if (!date || !activeClient?.id) return null;
-      const dateStr = date.toLocaleDateString('en-CA');
-      // const existingApt = appointments.find(
-      //   (apt) => apt.clientId === activeClient.id && apt.endAt === dateStr
-      // );
-      const existingApt = appointments.find(
-        (apt) => apt.clientId === activeClient.id && apt.endAt?.split('T')[0] === dateStr,
-      );
-      return existingApt || null;
-    },
-    [appointments, activeClient?.id],
-  );
+  const checkExistingAppointmentOnDate = useCallback((date) => {
+    if (!date || !activeClient?.id) return null;
+    const dateStr = date.toLocaleDateString('en-CA');
+    // const existingApt = appointments.find(
+    //   (apt) => apt.clientId === activeClient.id && apt.endAt === dateStr
+    // );
+    const existingApt = appointments.find(
+      (apt) =>
+        apt.clientId === activeClient.id &&
+        apt.endAt?.split('T')[0] === dateStr
+    );
+    return existingApt || null;
+  }, [appointments, activeClient?.id]);
 
   const hasActiveSubscription = useMemo(() => {
     if (bookingForDependent || bookingForUser) return false;
     return userSubscriptions.some(
-      (sub) => sub.userId === currentUser?.id && sub.status === 'active',
+      (sub) => sub.userId === currentUser?.id && sub.status === 'active'
     );
   }, [userSubscriptions, currentUser?.id, bookingForDependent, bookingForUser]);
 
@@ -226,21 +183,22 @@ export default function AppointmentsPage() {
     }
   }, []);
 
-  const getUpcomingReminders = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const depIds = userDependents.map((d) => d.id);
-    const userAppointments = appointments.filter(
-      (apt) => apt.clientId === currentUser?.id || depIds.includes(apt.clientId),
-    );
-    const future = userAppointments.filter((apt) => {
-      const aptDate = new Date(apt.startAt);
-      aptDate.setHours(0, 0, 0, 0);
-      return aptDate >= today;
-    });
-    future.sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
-    return future;
-  }, [appointments, currentUser?.id, userDependents]);
+
+const getUpcomingReminders = useMemo(() => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const depIds = userDependents.map(d => d.id);
+  const userAppointments = appointments.filter(apt =>
+    apt.clientId === currentUser?.id || depIds.includes(apt.clientId)
+  );
+  const future = userAppointments.filter(apt => {
+    const aptDate = new Date(apt.startAt);
+    aptDate.setHours(0, 0, 0, 0);
+    return aptDate >= today;
+  });
+  future.sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
+  return future;
+}, [appointments, currentUser?.id, userDependents]);
 
   const normalizeDateStr = (value) => {
     if (!value) return '';
@@ -251,9 +209,7 @@ export default function AppointmentsPage() {
   const normalizeId = (value) => String(value ?? '');
 
   const timeToMinutes = (time) => {
-    const [h, m] = String(time || '00:00')
-      .split(':')
-      .map(Number);
+    const [h, m] = String(time || '00:00').split(':').map(Number);
     return h * 60 + m;
   };
 
@@ -344,9 +300,7 @@ export default function AppointmentsPage() {
     if (!currentUser?.id || !userSubscriptions || userSubscriptions.length === 0) {
       return null;
     }
-    return (
-      userSubscriptions.find((s) => s.userId === currentUser.id && s.status === 'active') || null
-    );
+    return userSubscriptions.find((s) => s.userId === currentUser.id && s.status === 'active') || null;
   }, [currentUser?.id, userSubscriptions]);
 
   useEffect(() => {
@@ -370,9 +324,7 @@ export default function AppointmentsPage() {
 
     const setDate = new Date(activeUserSubscription.monthlyBarberSetDate);
     const currentDate = new Date();
-    const isSameMonth =
-      setDate.getMonth() === currentDate.getMonth() &&
-      setDate.getFullYear() === currentDate.getFullYear();
+    const isSameMonth = setDate.getMonth() === currentDate.getMonth() && setDate.getFullYear() === currentDate.getFullYear();
 
     if (isSameMonth) {
       setIsBarberLocked(true);
@@ -385,36 +337,33 @@ export default function AppointmentsPage() {
     }
   }, [userSubscriptions.length, activeUserSubscription]);
 
-  const setMonthlyBarber = useCallback(
-    async (barberId, barberName) => {
-      if (!activeUserSubscription) return;
+  const setMonthlyBarber = useCallback(async (barberId, barberName) => {
+    if (!activeUserSubscription) return;
 
-      try {
-        await api.patch(`/subscriptions/${activeUserSubscription.id}`, {
-          monthlyBarberId: barberId,
-          monthlyBarberName: barberName,
-          monthlyBarberSetDate: new Date().toISOString(),
-        });
+    try {
+      await api.patch(`/subscriptions/${activeUserSubscription.id}`, {
+        monthlyBarberId: barberId,
+        monthlyBarberName: barberName,
+        monthlyBarberSetDate: new Date().toISOString()
+      });
 
-        setIsBarberLocked(true);
-        setLockedBarberId(barberId);
-        setLockedBarberName(barberName);
+      setIsBarberLocked(true);
+      setLockedBarberId(barberId);
+      setLockedBarberName(barberName);
 
-        setToast({
-          show: true,
-          message: `${barberName} é seu barbeiro fixo este mês!`,
-          type: 'success',
-        });
-      } catch (error) {
-        setToast({
-          show: true,
-          message: 'Erro ao definir barbeiro fixo',
-          type: 'danger',
-        });
-      }
-    },
-    [activeUserSubscription],
-  );
+      setToast({
+        show: true,
+        message: `${barberName} é seu barbeiro fixo este mês!`,
+        type: 'success'
+      });
+    } catch (error) {
+      setToast({
+        show: true,
+        message: 'Erro ao definir barbeiro fixo',
+        type: 'danger'
+      });
+    }
+  }, [activeUserSubscription]);
 
   const loadData = useCallback(async () => {
     try {
@@ -424,7 +373,7 @@ export default function AppointmentsPage() {
         fetch('https://barberone-backend.onrender.com/products', {
           headers: {
             Authorization: `Bearer ${token}`,
-          },
+          }
         }).then((res) => res.json()),
         getAppointments(),
       ]);
@@ -432,7 +381,7 @@ export default function AppointmentsPage() {
       const res = await fetch('https://barberone-backend.onrender.com/subscriptions', {
         headers: {
           Authorization: `Bearer ${token}`,
-        },
+        }
       });
 
       const subscription = await res.json();
@@ -445,7 +394,7 @@ export default function AppointmentsPage() {
           const usersResponse = await fetch('https://barberone-backend.onrender.com/users', {
             headers: {
               Authorization: `Bearer ${token}`,
-            },
+            }
           });
 
           const usersJson = await usersResponse.json();
@@ -485,12 +434,9 @@ export default function AppointmentsPage() {
 
       let deps = [];
       try {
-        const depsRes = await fetch(
-          `https://barberone-backend.onrender.com/dependents?parentId=${currentUser?.id}`,
-          {
-            headers: { authorization: `Bearer ${token}` },
-          },
-        );
+        const depsRes = await fetch(`https://barberone-backend.onrender.com/dependents?parentId=${currentUser?.id}`, {
+          headers: { authorization: `Bearer ${token}` },
+        });
 
         if (depsRes.ok) {
           const depsJson = await depsRes.json();
@@ -503,8 +449,8 @@ export default function AppointmentsPage() {
 
       const depIds = deps.map((d) => `dep_${d.id}`);
 
-      const userAppointments = appointmentsData.filter(
-        (apt) => apt.clientId === currentUser?.id || depIds.includes(apt.clientId),
+      const userAppointments = appointmentsData.filter((apt) =>
+        apt.clientId === currentUser?.id || depIds.includes(apt.clientId)
       );
 
       const paymentsMap = {};
@@ -612,7 +558,7 @@ export default function AppointmentsPage() {
       const response = await fetch(`https://barberone-backend.onrender.com/products/${productId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
-        },
+        }
       });
       const product = await response.json();
       const newStock = Math.max(0, product.stock - quantity);
@@ -623,7 +569,7 @@ export default function AppointmentsPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ stock: newStock }),
+        body: JSON.stringify({ stock: newStock })
       });
 
       setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, stock: newStock } : p)));
@@ -653,6 +599,7 @@ export default function AppointmentsPage() {
     loadData();
     fetchBlockedDates();
 
+
     const mpPending = sessionStorage.getItem('mp_pending_plan');
     const urlParams = new URLSearchParams(window.location.search);
     const mpStatus = urlParams.get('status');
@@ -667,11 +614,7 @@ export default function AppointmentsPage() {
           window.history.replaceState({}, document.title, window.location.pathname);
 
           if (mpStatus === 'approved') {
-            if (
-              selectedPlan?.needsCreation &&
-              selectedPlan?.appointmentData &&
-              selectedPlan?.paymentData
-            ) {
+            if (selectedPlan?.needsCreation && selectedPlan?.appointmentData && selectedPlan?.paymentData) {
               const createdAppointment = await createAppointment(selectedPlan.appointmentData);
               await criarPagamentoAgendamento({
                 ...selectedPlan.paymentData,
@@ -682,10 +625,6 @@ export default function AppointmentsPage() {
                 amount: finalTotal,
                 mercadoPagoId: mpPaymentId,
               });
-
-              // Adiciona o agendamento criado ao estado local imediatamente
-              setAppointments((prev) => [createdAppointment, ...prev]);
-
               await loadData();
               const serviceNames = selectedPlan.paymentData?.serviceName || '';
               setSuccessData({
@@ -693,26 +632,17 @@ export default function AppointmentsPage() {
                 message: 'Pagamento aprovado e agendamento realizado com sucesso!',
                 details: [
                   { label: 'Barbeiro', value: selectedPlan.appointmentData.barberName },
-                  {
-                    label: 'Data',
-                    value: new Date(
-                      `${selectedPlan.appointmentData.date}T00:00:00`,
-                    ).toLocaleDateString('pt-BR'),
-                  },
+                  { label: 'Data', value: new Date(`${selectedPlan.appointmentData.date}T00:00:00`).toLocaleDateString('pt-BR') },
                   { label: 'Horário', value: selectedPlan.appointmentData.time },
                   { label: 'Serviços', value: serviceNames },
                   { label: 'Total', value: `R$ ${Number(finalTotal).toFixed(2)}` },
-                ],
+                ]
               });
               setShowSuccessModal(true);
               setView('myAppointments');
             }
           } else if (mpStatus === 'pending') {
-            if (
-              selectedPlan?.needsCreation &&
-              selectedPlan?.appointmentData &&
-              selectedPlan?.paymentData
-            ) {
+            if (selectedPlan?.needsCreation && selectedPlan?.appointmentData && selectedPlan?.paymentData) {
               const createdAppointment = await createAppointment(selectedPlan.appointmentData);
               await criarPagamentoAgendamento({
                 ...selectedPlan.paymentData,
@@ -722,25 +652,15 @@ export default function AppointmentsPage() {
                 amount: finalTotal,
                 mercadoPagoId: mpPaymentId,
               });
-
-              // Adiciona o agendamento criado ao estado local imediatamente
-              setAppointments((prev) => [createdAppointment, ...prev]);
-
               await loadData();
               setSuccessData({
                 title: 'Pagamento em Análise',
-                message:
-                  'Seu agendamento foi criado e o pagamento está sendo processado. Você receberá uma confirmação em breve.',
+                message: 'Seu agendamento foi criado e o pagamento está sendo processado. Você receberá uma confirmação em breve.',
                 details: [
                   { label: 'Barbeiro', value: selectedPlan.appointmentData.barberName },
-                  {
-                    label: 'Data',
-                    value: new Date(
-                      `${selectedPlan.appointmentData.date}T00:00:00`,
-                    ).toLocaleDateString('pt-BR'),
-                  },
+                  { label: 'Data', value: new Date(`${selectedPlan.appointmentData.date}T00:00:00`).toLocaleDateString('pt-BR') },
                   { label: 'Horário', value: selectedPlan.appointmentData.time },
-                ],
+                ]
               });
               setShowSuccessModal(true);
               setView('myAppointments');
@@ -756,6 +676,7 @@ export default function AppointmentsPage() {
 
       handleMpReturn();
     }
+
   }, []);
 
   const handleLogout = () => {
@@ -779,7 +700,7 @@ export default function AppointmentsPage() {
 
     const dateStr = date.toLocaleDateString('en-CA');
 
-    const blockedInfo = blockedDates.find((b) => b.date === dateStr && !b.barberId && !b.startTime);
+    const blockedInfo = blockedDates.find(b => b.date === dateStr && !b.barberId && !b.startTime);
 
     if (blockedInfo) {
       showToast(`📅 Data bloqueada: ${blockedInfo.reason}`, 'warning');
@@ -821,39 +742,35 @@ export default function AppointmentsPage() {
     }, 0);
   }, []);
 
-  const getBookedSlots = useCallback(
-    (barberId, date) => {
-      if (!date) return [];
+  const getBookedSlots = useCallback((barberId, date) => {
+    if (!date) return [];
 
-      const selectedDateStr = normalizeDateStr(date);
+    const selectedDateStr = normalizeDateStr(date);
 
-      return appointments
-        .filter((apt) => {
-          const sameBarber = normalizeId(apt.barberId) === normalizeId(barberId);
-          const sameDate =
-            normalizeDateStr(apt.endAt || apt.date || apt.startAt) === selectedDateStr;
-          return sameBarber && sameDate;
-        })
-        .flatMap((apt) => {
-          let totalDuration = 30;
+    return appointments
+      .filter((apt) => {
+        const sameBarber = normalizeId(apt.barberId) === normalizeId(barberId);
+        const sameDate = normalizeDateStr(apt.endAt || apt.date || apt.startAt) === selectedDateStr;
+        return sameBarber && sameDate;
+      })
+      .flatMap((apt) => {
+        let totalDuration = 30;
 
-          if (Array.isArray(apt.services) && apt.services.length > 0) {
-            totalDuration = apt.services.reduce((sum, s) => {
-              return sum + (s.durationMinutes || s.duration || 30);
-            }, 0);
-          }
+        if (Array.isArray(apt.services) && apt.services.length > 0) {
+          totalDuration = apt.services.reduce((sum, s) => {
+            return sum + (s.durationMinutes || s.duration || 30);
+          }, 0);
+        }
 
-          const startTime = new Date(apt.startAt).toLocaleTimeString('pt-BR', {
-            hour: '2-digit',
-            minute: '2-digit',
-            timeZone: 'UTC',
-          });
-
-          return generateSlotsForDuration(startTime, totalDuration);
+        const startTime = new Date(apt.startAt).toLocaleTimeString('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'UTC',
         });
-    },
-    [appointments],
-  );
+
+        return generateSlotsForDuration(startTime, totalDuration);
+      });
+  }, [appointments]);
 
   // const getBookedSlots = useCallback((barberId, date) => {
   //   if (!date) return [];
@@ -932,51 +849,48 @@ export default function AppointmentsPage() {
   //   });
   // }, [appointments, blockedDates]);
 
-  const getAvailableTimes = useCallback(
-    (barberId, date, durationMinutes = 30) => {
-      if (!date) return [];
+  const getAvailableTimes = useCallback((barberId, date, durationMinutes = 30) => {
+    if (!date) return [];
 
-      const allTimes = generateTimes(30);
-      const dateStr = normalizeDateStr(date);
-      const bookedTimes = getBookedSlots(barberId, date);
-      const blockedSlots = getBlockedTimeSlots(dateStr, barberId);
+    const allTimes = generateTimes(30);
+    const dateStr = normalizeDateStr(date);
+    const bookedTimes = getBookedSlots(barberId, date);
+    const blockedSlots = getBlockedTimeSlots(dateStr, barberId);
 
-      const today = new Date();
-      const isToday = dateStr === normalizeDateStr(today);
+    const today = new Date();
+    const isToday = dateStr === normalizeDateStr(today);
 
-      return allTimes.filter((time) => {
-        const startMinutes = timeToMinutes(time);
-        const endMinutes = startMinutes + (Number(durationMinutes) || 30);
+    return allTimes.filter((time) => {
+      const startMinutes = timeToMinutes(time);
+      const endMinutes = startMinutes + (Number(durationMinutes) || 30);
 
-        // barbearia fecha às 20:00
-        if (endMinutes > 20 * 60) return false;
+      // barbearia fecha às 20:00
+      if (endMinutes > 20 * 60) return false;
 
-        // impede horários passados no dia atual
-        if (isToday) {
-          const nowMinutes = today.getHours() * 60 + today.getMinutes();
-          if (startMinutes <= nowMinutes) return false;
-        }
+      // impede horários passados no dia atual
+      if (isToday) {
+        const nowMinutes = today.getHours() * 60 + today.getMinutes();
+        if (startMinutes <= nowMinutes) return false;
+      }
 
-        // verifica conflito com agendamentos já existentes
-        const neededSlots = generateSlotsForDuration(time, durationMinutes);
-        const conflictsWithAppointments = neededSlots.some((slot) => bookedTimes.includes(slot));
-        if (conflictsWithAppointments) return false;
+      // verifica conflito com agendamentos já existentes
+      const neededSlots = generateSlotsForDuration(time, durationMinutes);
+      const conflictsWithAppointments = neededSlots.some((slot) => bookedTimes.includes(slot));
+      if (conflictsWithAppointments) return false;
 
-        // verifica conflito com bloqueios por horário
-        const conflictsWithBlocks = blockedSlots.some((blocked) => {
-          const blockedStart = timeToMinutes(blocked.startTime);
-          const blockedEnd = timeToMinutes(blocked.endTime);
+      // verifica conflito com bloqueios por horário
+      const conflictsWithBlocks = blockedSlots.some((blocked) => {
+        const blockedStart = timeToMinutes(blocked.startTime);
+        const blockedEnd = timeToMinutes(blocked.endTime);
 
-          return startMinutes < blockedEnd && endMinutes > blockedStart;
-        });
-
-        if (conflictsWithBlocks) return false;
-
-        return true;
+        return startMinutes < blockedEnd && endMinutes > blockedStart;
       });
-    },
-    [generateTimes, getBookedSlots, blockedDates],
-  );
+
+      if (conflictsWithBlocks) return false;
+
+      return true;
+    });
+  }, [generateTimes, getBookedSlots, blockedDates]);
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ show: true, message, type });
@@ -996,117 +910,107 @@ export default function AppointmentsPage() {
     }, 0);
     return parseFloat(total.toFixed(2));
   }, []);
-  const handleBook = useCallback(
-    async (bookingData) => {
-      try {
-        if (!selectedDate) {
-          showToast('Selecione uma data.', 'danger');
-          return;
-        }
-
-        const dateStr = selectedDate.toLocaleDateString('en-CA');
-
-        if (isDateBlockedForAll(dateStr)) {
-          showToast('Esta data está bloqueada para agendamentos.', 'danger');
-          return;
-        }
-
-        if (isDateBlocked(dateStr, bookingData.barberId)) {
-          showToast('Este barbeiro não está disponível nesta data.', 'danger');
-          return;
-        }
-
-        const existingAptOnDate = appointments.find(
-          (apt) => apt.clientId === activeClient.id && apt.date === dateStr,
-        );
-
-        if (existingAptOnDate && !isRescheduling) {
-          setExistingAppointment(existingAptOnDate);
-          setShowConflictModal(true);
-          return;
-        }
-
-        if (
-          !isAdmin &&
-          activeUserSubscription &&
-          isBarberLocked &&
-          bookingData.barberId !== lockedBarberId
-        ) {
-          showToast(
-            `Você já selecionou ${lockedBarberName} no início deste mês. O barbeiro só pode ser alterado no próximo mês.`,
-            'warning',
-          );
-          return;
-        }
-
-        const serviceDuration = calculateTotalDuration(bookingData.services);
-        const availableTimes = getAvailableTimes(
-          bookingData.barberId,
-          selectedDate,
-          serviceDuration,
-        );
-
-        if (!availableTimes.includes(bookingData.time)) {
-          showToast('Este horário não está mais disponível. Por favor, selecione outro.', 'danger');
-          await loadData();
-          return;
-        }
-
-        const servicePrice = calculateTotal(bookingData.services);
-
-        setPendingBookingData({
-          ...bookingData,
-          date: dateStr,
-          servicePrice,
-          observation,
-          dateFormatted: selectedDate.toLocaleDateString('pt-BR'),
-        });
-
-        setShowProductsModal(true);
-      } catch (error) {
-        showToast('Erro ao realizar agendamento.', 'danger');
-      }
-    },
-    [
-      selectedDate,
-      isRescheduling,
-      appointments,
-      activeClient?.id,
-      getAvailableTimes,
-      showToast,
-      loadData,
-      calculateTotal,
-      isAdmin,
-      activeUserSubscription,
-      isBarberLocked,
-      lockedBarberId,
-      lockedBarberName,
-      calculateTotalDuration,
-      isDateBlocked,
-      isDateBlockedForAll,
-    ],
-  );
-
-  const handleProductsConfirm = useCallback(
-    (data) => {
-      if (!pendingBookingData) return;
-
-      setPurchaseData(data);
-      setShowProductsModal(false);
-
-      const hasProducts = data.products.length > 0;
-
-      const hasSubscription = data.hasActiveSubscription && !bookingForDependent && !bookingForUser;
-
-      if (!hasProducts && hasSubscription) {
-        handleDirectConfirmation();
+  const handleBook = useCallback(async (bookingData) => {
+    try {
+      if (!selectedDate) {
+        showToast('Selecione uma data.', 'danger');
         return;
       }
 
-      setShowPaymentChoiceModal(true);
-    },
-    [pendingBookingData, bookingForDependent],
-  );
+      const dateStr = selectedDate.toLocaleDateString('en-CA');
+
+      if (isDateBlockedForAll(dateStr)) {
+        showToast('Esta data está bloqueada para agendamentos.', 'danger');
+        return;
+      }
+
+      if (isDateBlocked(dateStr, bookingData.barberId)) {
+        showToast('Este barbeiro não está disponível nesta data.', 'danger');
+        return;
+      }
+
+      const existingAptOnDate = appointments.find(
+        (apt) => apt.clientId === activeClient.id && apt.date === dateStr
+      );
+
+      if (existingAptOnDate && !isRescheduling) {
+        setExistingAppointment(existingAptOnDate);
+        setShowConflictModal(true);
+        return;
+      }
+
+      if (
+        !isAdmin &&
+        activeUserSubscription &&
+        isBarberLocked &&
+        bookingData.barberId !== lockedBarberId
+      ) {
+        showToast(
+          `Você já selecionou ${lockedBarberName} no início deste mês. O barbeiro só pode ser alterado no próximo mês.`,
+          'warning'
+        );
+        return;
+      }
+
+      const serviceDuration = calculateTotalDuration(bookingData.services);
+      const availableTimes = getAvailableTimes(bookingData.barberId, selectedDate, serviceDuration);
+
+      if (!availableTimes.includes(bookingData.time)) {
+        showToast('Este horário não está mais disponível. Por favor, selecione outro.', 'danger');
+        await loadData();
+        return;
+      }
+
+      const servicePrice = calculateTotal(bookingData.services);
+
+      setPendingBookingData({
+        ...bookingData,
+        date: dateStr,
+        servicePrice,
+        observation,
+        dateFormatted: selectedDate.toLocaleDateString('pt-BR')
+      });
+
+      setShowProductsModal(true);
+    } catch (error) {
+      showToast('Erro ao realizar agendamento.', 'danger');
+    }
+  }, [
+    selectedDate,
+    isRescheduling,
+    appointments,
+    activeClient?.id,
+    getAvailableTimes,
+    showToast,
+    loadData,
+    calculateTotal,
+    isAdmin,
+    activeUserSubscription,
+    isBarberLocked,
+    lockedBarberId,
+    lockedBarberName,
+    calculateTotalDuration,
+    isDateBlocked,
+    isDateBlockedForAll
+  ]);
+
+  const handleProductsConfirm = useCallback((data) => {
+    if (!pendingBookingData) return;
+
+    setPurchaseData(data);
+    setShowProductsModal(false);
+
+    const hasProducts = data.products.length > 0;
+
+    const hasSubscription = data.hasActiveSubscription && !bookingForDependent && !bookingForUser;
+
+    if (!hasProducts && hasSubscription) {
+      handleDirectConfirmation();
+      return;
+    }
+
+    setShowPaymentChoiceModal(true);
+  }, [pendingBookingData, bookingForDependent]);
 
   const handleReschedule = useCallback(async () => {
     if (!existingAppointment) return;
@@ -1164,12 +1068,22 @@ export default function AppointmentsPage() {
         }
       }
 
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/dependents`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const dependentsList = Array.isArray(response.data)
+        ? response.data
+        : response.data?.dependents || response.data?.data || [];
+
       const selectedDependent = bookingForDependent
-        ? dependentsForBooking.find((dep) => dep.id === bookingForDependent.id)
+        ? dependentsList.find((dep) => dep.id === bookingForDependent.id)
         : null;
 
       const responsibleId = bookingForDependent
-        ? selectedDependent?.parent_id || selectedDependent?.parentId || null
+        ? (selectedDependent?.parent_id || selectedDependent?.parentId || null)
         : activeClient.id;
 
       if (bookingForDependent && !responsibleId) {
@@ -1184,13 +1098,7 @@ export default function AppointmentsPage() {
         time: pendingBookingData.time,
         client: activeClient.name,
         clientId: responsibleId,
-        ...(bookingForDependent
-          ? {
-              isDependent: true,
-              dependentName: bookingForDependent.name,
-              dependentId: bookingForDependent.id,
-            }
-          : {}),
+        ...(bookingForDependent ? { isDependent: true, dependentName: bookingForDependent.name, dependentId: bookingForDependent.id } : {}),
         products: [],
         notes: pendingBookingData.observation || '',
       };
@@ -1214,14 +1122,10 @@ export default function AppointmentsPage() {
         appointmentTime: pendingBookingData.time,
         products: [],
         status: 'plancovered',
-        paymentMethod: 'subscription',
+        paymentMethod: 'subscription'
       };
 
       await criarPagamentoAgendamento(paymentData);
-
-      // Adiciona o agendamento criado ao estado local imediatamente
-      setAppointments((prev) => [createdAppointment, ...prev]);
-
       await loadData();
       await new Promise((resolve) => setTimeout(resolve, 500));
 
@@ -1234,8 +1138,8 @@ export default function AppointmentsPage() {
           { label: 'Barbeiro', value: pendingBookingData.barberName },
           { label: 'Data', value: pendingBookingData.dateFormatted },
           { label: 'Horário', value: pendingBookingData.time },
-          { label: 'Serviços', value: serviceNames },
-        ],
+          { label: 'Serviços', value: serviceNames }
+        ]
       });
 
       setShowSuccessModal(true);
@@ -1260,7 +1164,6 @@ export default function AppointmentsPage() {
     isRescheduling,
     existingAppointment,
     activeClient?.id,
-    dependentsForBooking,
     loadData,
     showToast,
     activeUserSubscription,
@@ -1268,217 +1171,177 @@ export default function AppointmentsPage() {
     isAdmin,
     barbers,
     setMonthlyBarber,
-    clearPaymentCache,
+    clearPaymentCache
   ]);
 
-  const handlePaymentChoice = useCallback(
-    async (payNow) => {
-      try {
-        if (!pendingBookingData || !purchaseData) return;
+  const handlePaymentChoice = useCallback(async (payNow) => {
+    try {
+      if (!pendingBookingData || !purchaseData) return;
 
-        if (payNow) {
-          const serviceNames = pendingBookingData.services.map((s) => s.name).join(', ');
-          const productNames = purchaseData.products
-            .map((p) => `${p.name} x${p.quantity}`)
-            .join(', ');
-          const fullDescription = productNames ? `${serviceNames}, ${productNames}` : serviceNames;
+      if (payNow) {
+        const serviceNames = pendingBookingData.services.map((s) => s.name).join(', ');
+        const productNames = purchaseData.products
+          .map((p) => `${p.name} x${p.quantity}`)
+          .join(', ');
+        const fullDescription = productNames ? `${serviceNames}, ${productNames}` : serviceNames;
 
-          const paymentPlan = {
-            id: `temp-${Date.now()}`,
-            name: fullDescription,
-            price: purchaseData.finalTotal,
-          };
+        const paymentPlan = {
+          id: `temp-${Date.now()}`,
+          name: fullDescription,
+          price: purchaseData.finalTotal
+        };
 
-        // 🔴 CRIAR AGENDAMENTO PRIMEIRO (antes do pagamento)
-        try {
-          const selectedDependent = bookingForDependent
-            ? dependentsForBooking.find((dep) => dep.id === bookingForDependent.id)
-            : null;
-
-          const responsibleId = bookingForDependent
-            ? (selectedDependent?.parent_id || selectedDependent?.parentId || null)
-            : activeClient.id;
-
-          const newAppointment = {
+        setSelectedAppointmentForPayment({
+          ...paymentPlan,
+          isAppointment: true,
+          needsCreation: true,
+          appointmentData: {
             barberId: pendingBookingData.barberId,
             barberName: pendingBookingData.barberName,
             services: pendingBookingData.services,
             date: pendingBookingData.date,
             time: pendingBookingData.time,
             client: activeClient.name,
-            clientId: responsibleId,
+            clientId: activeClient.id,
             ...(bookingForDependent ? { isDependent: true, dependentName: bookingForDependent.name, dependentId: bookingForDependent.id } : {}),
             products: purchaseData.products,
             notes: pendingBookingData.observation || '',
-          };
-
-          const createdAppointment = await createAppointment(newAppointment);
-
-          // ✅ Agendamento criado com sucesso, agora abrir pagamento
-          setSelectedAppointmentForPayment({
-            ...paymentPlan,
-            isAppointment: true,
-            needsCreation: false,  // ✅ Não precisa criar, já foi criado
-            appointmentId: createdAppointment.id,  // ✅ ID do agendamento já criado
-            appointmentData: newAppointment,
-            paymentData: {
-              userId: responsibleId || currentUser.id,
-              userName: activeClient.name,
-              amount: purchaseData.finalTotal,
-              serviceName: serviceNames,
-              services: pendingBookingData.services,
-              servicePrice: purchaseData.servicePrice || 0,
-              barberName: pendingBookingData.barberName,
-              appointmentDate: pendingBookingData.date,
-              appointmentTime: pendingBookingData.time,
-              products: purchaseData.products,
-            }
-          });
-
-            pendingStockUpdate.current = purchaseData.products || [];
-
-            setShowPaymentChoiceModal(false);
-            setPendingBookingData(null);
-            setPurchaseData(null);
-            setShowPaymentModal(true);
-        } catch (appointmentError) {
-          // ❌ Falhou ao criar agendamento - não abrir pagamento
-          console.error('Erro ao criar agendamento:', appointmentError);
-          
-          // Verificar se é erro de conflito de horário
-          if (appointmentError.response?.status === 400 || appointmentError.message?.includes('Conflito')) {
-            showToast('❌ Horário indisponível! Esse barbeiro já possui agendamento neste horário.', 'danger');
-          } else {
-            showToast(`❌ Erro ao criar agendamento: ${appointmentError.message || 'Tente novamente'}`, 'danger');
-          }
-          
-          return;
-        }
-        } else {
-          setBookingInProgress(true);
-
-          const response = await axios.get(`${import.meta.env.VITE_API_URL}/dependents`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-
-          const dependentsList = Array.isArray(response.data)
-            ? response.data
-            : response.data?.dependents || response.data?.data || [];
-
-          const selectedDependent = bookingForDependent
-            ? dependentsList.find((dep) => dep.id === bookingForDependent.id)
-            : null;
-
-          const responsibleId = bookingForDependent
-            ? selectedDependent?.parent_id || selectedDependent?.parentId || null
-            : activeClient.id;
-
-          if (bookingForDependent && !responsibleId) {
-            throw new Error('Não foi possível localizar o responsável do dependente.');
-          }
-
-          const newAppointment = {
-            barberId: pendingBookingData.barberId,
-            barberName: pendingBookingData.barberName,
-            services: pendingBookingData.services,
-            date: pendingBookingData.date,
-            time: pendingBookingData.time,
-            client: activeClient.name,
-            clientId: responsibleId,
-            ...(bookingForDependent
-              ? {
-                  isDependent: true,
-                  dependentName: bookingForDependent.name,
-                  dependentId: bookingForDependent.id,
-                }
-              : {}),
-            products: purchaseData.products,
-            notes: pendingBookingData.observation || '',
-          };
-
-          const createdAppointment = await createAppointment(newAppointment);
-
-          const serviceNames = pendingBookingData.services.map((s) => s.name).join(', ');
-
-          const paymentData = {
-            appointmentId: createdAppointment.id,
-            userId: responsibleId || currentUser.id,
+          },
+          paymentData: {
+            userId: currentUser.id,
             userName: activeClient.name,
             amount: purchaseData.finalTotal,
             serviceName: serviceNames,
+            services: pendingBookingData.services,
+            servicePrice: purchaseData.servicePrice || 0,
             barberName: pendingBookingData.barberName,
             appointmentDate: pendingBookingData.date,
             appointmentTime: pendingBookingData.time,
             products: purchaseData.products,
-            status: 'pending',
-            method: 'local',
-          };
-
-          await criarPagamentoAgendamento(paymentData);
-          clearPaymentCache(createdAppointment.id);
-
-          // Adiciona o agendamento criado ao estado local imediatamente
-          setAppointments((prev) => [createdAppointment, ...prev]);
-
-          if (purchaseData.products && purchaseData.products.length > 0) {
-            await Promise.all(
-              purchaseData.products.map((p) => handleUpdateStock(p.id, p.quantity || 1)),
-            );
           }
 
-          await loadData();
-          await new Promise((resolve) => setTimeout(resolve, 500));
+        });
 
-          const productInfo =
-            purchaseData.products.length > 0 ? ` + ${purchaseData.products.length} produto(s)` : '';
 
-          setSuccessData({
-            title: isRescheduling ? 'Reagendamento Confirmado!' : 'Agendamento Confirmado!',
-            message: isRescheduling
-              ? 'Seu agendamento foi reagendado com sucesso! O pagamento será realizado no estabelecimento.'
-              : 'Seu agendamento foi confirmado! O pagamento será realizado no estabelecimento.',
-            details: [
-              { label: 'Barbeiro', value: pendingBookingData.barberName },
-              { label: 'Data', value: pendingBookingData.dateFormatted },
-              { label: 'Horário', value: pendingBookingData.time },
-              { label: 'Serviços', value: `${serviceNames}${productInfo}` },
-              { label: 'Total', value: `R$ ${purchaseData.finalTotal.toFixed(2)}` },
-            ],
-          });
+        pendingStockUpdate.current = purchaseData.products || [];
 
-          setShowSuccessModal(true);
-          setShowPaymentChoiceModal(false);
-          setPendingBookingData(null);
-          setPurchaseData(null);
-          setExistingAppointment(null);
-          setIsRescheduling(false);
-          setSelectedDate(null);
-          setView('myAppointments');
+        setShowPaymentChoiceModal(false);
+        setPendingBookingData(null);
+        setPurchaseData(null);
+        setShowPaymentModal(true);
+      } else {
+        setBookingInProgress(true);
+
+        const response = await axios.get(`${import.meta.env.VITE_API_URL}/dependents`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const dependentsList = Array.isArray(response.data)
+          ? response.data
+          : response.data?.dependents || response.data?.data || [];
+
+        const selectedDependent = bookingForDependent
+          ? dependentsList.find((dep) => dep.id === bookingForDependent.id)
+          : null;
+
+        const responsibleId = bookingForDependent
+          ? (selectedDependent?.parent_id || selectedDependent?.parentId || null)
+          : activeClient.id;
+
+        if (bookingForDependent && !responsibleId) {
+          throw new Error('Não foi possível localizar o responsável do dependente.');
         }
-      } catch (error) {
-        console.error('Erro:', error);
-        showToast(error.response?.data?.message || error.message, 'danger');
+
+        const newAppointment = {
+          barberId: pendingBookingData.barberId,
+          barberName: pendingBookingData.barberName,
+          services: pendingBookingData.services,
+          date: pendingBookingData.date,
+          time: pendingBookingData.time,
+          client: activeClient.name,
+          clientId: responsibleId,
+          ...(bookingForDependent ? { isDependent: true, dependentName: bookingForDependent.name, dependentId: bookingForDependent.id } : {}),
+          products: purchaseData.products,
+          notes: pendingBookingData.observation || '',
+        };
+
+        const createdAppointment = await createAppointment(newAppointment);
+
+        const serviceNames = pendingBookingData.services.map((s) => s.name).join(', ');
+
+        const paymentData = {
+          appointmentId: createdAppointment.id,
+          userId: responsibleId || currentUser.id,
+          userName: activeClient.name,
+          amount: purchaseData.finalTotal,
+          serviceName: serviceNames,
+          barberName: pendingBookingData.barberName,
+          appointmentDate: pendingBookingData.date,
+          appointmentTime: pendingBookingData.time,
+          products: purchaseData.products,
+          status: 'pending',
+          method: 'local'
+        };
+
+        await criarPagamentoAgendamento(paymentData);
+        clearPaymentCache(createdAppointment.id);
+
+
+        if (purchaseData.products && purchaseData.products.length > 0) {
+          await Promise.all(
+            purchaseData.products.map(p => handleUpdateStock(p.id, p.quantity || 1))
+          );
+        }
+
+        await loadData();
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        const productInfo = purchaseData.products.length > 0 ? ` + ${purchaseData.products.length} produto(s)` : '';
+
+        setSuccessData({
+          title: isRescheduling ? 'Reagendamento Confirmado!' : 'Agendamento Confirmado!',
+          message: isRescheduling
+            ? 'Seu agendamento foi reagendado com sucesso! O pagamento será realizado no estabelecimento.'
+            : 'Seu agendamento foi confirmado! O pagamento será realizado no estabelecimento.',
+          details: [
+            { label: 'Barbeiro', value: pendingBookingData.barberName },
+            { label: 'Data', value: pendingBookingData.dateFormatted },
+            { label: 'Horário', value: pendingBookingData.time },
+            { label: 'Serviços', value: `${serviceNames}${productInfo}` },
+            { label: 'Total', value: `R$ ${purchaseData.finalTotal.toFixed(2)}` }
+          ]
+        });
+
+        setShowSuccessModal(true);
+        setShowPaymentChoiceModal(false);
+        setPendingBookingData(null);
+        setPurchaseData(null);
         setExistingAppointment(null);
         setIsRescheduling(false);
         setSelectedDate(null);
-      } finally {
-        setBookingInProgress(false);
+        setView('myAppointments');
       }
-    },
-    [
-      pendingBookingData,
-      purchaseData,
-      isRescheduling,
-      existingAppointment,
-      activeClient?.id,
-    dependentsForBooking,
-      loadData,
-      showToast,
-      clearPaymentCache,
-    ],
-  );
+    } catch (error) {
+      console.error('Erro:', error);
+      showToast(error.response?.data?.message || error.message, 'danger');
+      setExistingAppointment(null);
+      setIsRescheduling(false);
+      setSelectedDate(null);
+    } finally {
+      setBookingInProgress(false);
+    }
+  }, [
+    pendingBookingData,
+    purchaseData,
+    isRescheduling,
+    existingAppointment,
+    activeClient?.id,
+    loadData,
+    showToast,
+    clearPaymentCache
+  ]);
 
   const handlePaymentSuccess = useCallback(async () => {
     clearAllPaymentsCache();
@@ -1507,23 +1370,16 @@ export default function AppointmentsPage() {
 
   const myAppointments = useMemo(() => {
     const today = new Date();
-    today.setHours(0, 0, 0, 0);  // Reset para comparar apenas a data
-    
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
 
-    const depClientIds = userDependents.map((d) => d.id);
+    const depClientIds = userDependents.map(d => d.id);
     return appointments.filter((apt) => {
       const isOwn = apt.clientId === currentUser?.id;
       const isDep = depClientIds.includes(apt.clientId);
       if (!isOwn && !isDep) return false;
 
       const aptDate = new Date(apt.endAt);
-      aptDate.setHours(0, 0, 0, 0);  // Reset para comparar apenas a data
-      
-      // 🔴 Excluir agendamentos com data passada (de TODOS os filtros)
-      if (aptDate < today) return false;
-
       const aptMonth = aptDate.getMonth();
       const aptYear = aptDate.getFullYear();
 
@@ -1531,7 +1387,7 @@ export default function AppointmentsPage() {
         return aptMonth === currentMonth && aptYear === currentYear;
       } else if (appointmentFilter === 'upcoming') {
         if (aptYear > currentYear) return true;
-        if (aptYear === currentYear && aptMonth > currentMonth) return true;
+        if (aptYear === currentYear && aptMonth >= currentMonth) return true;
         return false;
       } else {
         return true;
@@ -1540,75 +1396,65 @@ export default function AppointmentsPage() {
   }, [appointments, currentUser?.id, appointmentFilter, userDependents]);
 
   const renderReminder = () => {
-    if (getUpcomingReminders.length === 0) return null;
-    const next = getUpcomingReminders[0];
-    const appointmentDate = new Date(next.startAt);
-    const isToday = appointmentDate.toDateString() === new Date().toDateString();
-    const isTomorrow =
-      new Date(appointmentDate.getTime() - 86400000).toDateString() === new Date().toDateString();
-
-    let dateLabel = '';
-    if (isToday) dateLabel = 'hoje';
-    else if (isTomorrow) dateLabel = 'amanhã';
-    else dateLabel = `dia ${appointmentDate.toLocaleDateString('pt-BR')}`;
-
-    const time = appointmentDate.toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'UTC',
-    });
-    const services = next.services?.map((s) => s.serviceName).join(', ') || 'serviço';
-    const barberName = next.barber?.displayName || 'barbeiro';
-    const products =
-      next.products?.map((p) => `${p.productName} (x${p.quantity})`).join(', ') || '';
-    const productText = products ? ` + produtos: ${products}` : '';
-
-    return (
-      <div
+  if (getUpcomingReminders.length === 0) return null;
+  const next = getUpcomingReminders[0];
+  const appointmentDate = new Date(next.startAt);
+  const isToday = appointmentDate.toDateString() === new Date().toDateString();
+  const isTomorrow = new Date(appointmentDate.getTime() - 86400000).toDateString() === new Date().toDateString();
+  
+  let dateLabel = '';
+  if (isToday) dateLabel = 'hoje';
+  else if (isTomorrow) dateLabel = 'amanhã';
+  else dateLabel = `dia ${appointmentDate.toLocaleDateString('pt-BR')}`;
+  
+  const time = appointmentDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+  const services = next.services?.map(s => s.serviceName).join(', ') || 'serviço';
+  const barberName = next.barber?.displayName || 'barbeiro';
+  const products = next.products?.map(p => `${p.productName} (x${p.quantity})`).join(', ') || '';
+  const productText = products ? ` + produtos: ${products}` : '';
+  
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, #d4af37, #b8932a)',
+      color: '#1a1a1a',
+      borderRadius: '12px',
+      padding: '1rem 1.5rem',
+      marginBottom: '1.5rem',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      flexWrap: 'wrap',
+      gap: '1rem',
+    }}>
+      <div>
+        <strong style={{ fontSize: '1rem' }}>📅 Lembrete de agendamento</strong>
+        <p style={{ margin: '0.25rem 0 0', fontSize: '0.9rem' }}>
+          Você tem um agendamento {dateLabel} às <strong>{time}</strong> com <strong>{barberName}</strong> para <strong>{services}</strong>{productText}.
+        </p>
+      </div>
+      <button
+        onClick={() => {
+          setView('myAppointments');
+          setTimeout(() => {
+            document.querySelector('.appointments-table')?.scrollIntoView({ behavior: 'smooth' });
+          }, 100);
+        }}
         style={{
-          background: 'linear-gradient(135deg, #d4af37, #b8932a)',
-          color: '#1a1a1a',
-          borderRadius: '12px',
-          padding: '1rem 1.5rem',
-          marginBottom: '1.5rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '1rem',
+          background: '#1a1a1a',
+          border: 'none',
+          color: '#d4af37',
+          padding: '6px 16px',
+          borderRadius: '30px',
+          cursor: 'pointer',
+          fontWeight: 600,
+          fontSize: '0.8rem',
         }}
       >
-        <div>
-          <strong style={{ fontSize: '1rem' }}>📅 Lembrete de agendamento</strong>
-          <p style={{ margin: '0.25rem 0 0', fontSize: '0.9rem' }}>
-            Você tem um agendamento {dateLabel} às <strong>{time}</strong> com{' '}
-            <strong>{barberName}</strong> para <strong>{services}</strong>
-            {productText}.
-          </p>
-        </div>
-        <button
-          onClick={() => {
-            setView('myAppointments');
-            setTimeout(() => {
-              document.querySelector('.appointments-table')?.scrollIntoView({ behavior: 'smooth' });
-            }, 100);
-          }}
-          style={{
-            background: '#1a1a1a',
-            border: 'none',
-            color: '#d4af37',
-            padding: '6px 16px',
-            borderRadius: '30px',
-            cursor: 'pointer',
-            fontWeight: 600,
-            fontSize: '0.8rem',
-          }}
-        >
-          Ver detalhes →
-        </button>
-      </div>
-    );
-  };
+        Ver detalhes →
+      </button>
+    </div>
+  );
+};
 
   const sortedMyAppointments = useMemo(() => {
     return [...myAppointments].sort((a, b) => {
@@ -1637,8 +1483,7 @@ export default function AppointmentsPage() {
             <div>
               <h1 className="auth-title">Agendamentos</h1>
               <p className="auth-subtitle">
-                Usuário: {currentUser?.name}{' '}
-                {isAdmin && <span style={{ marginLeft: '10px', color: '#d4af37' }}>(Admin)</span>}
+                Usuário: {currentUser?.name} {isAdmin && <span style={{ marginLeft: '10px', color: '#d4af37' }}>(Admin)</span>}
               </p>
             </div>
             <div className="admin-header-actions">
@@ -1666,7 +1511,7 @@ export default function AppointmentsPage() {
               onClick={() => setView('myAppointments')}
               className={`tab-btn ${view === 'myAppointments' ? 'tab-btn--active' : ''}`}
             >
-              Meus Agendamentos
+              Meus Agendamentos ({myAppointments.length})
             </button>
           </div>
 
@@ -1674,40 +1519,23 @@ export default function AppointmentsPage() {
             <div className="appointments__booking">
               <h2>Selecione uma data</h2>
 
+
               {!canScheduleForOthers && userDependents.length > 0 && (
-                <div
-                  style={{
-                    background: '#1a1a1a',
-                    border: '1px solid #2a2a2a',
-                    borderRadius: '12px',
-                    padding: '1rem 1.25rem',
-                    marginBottom: '1.5rem',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginBottom: '0.75rem',
-                    }}
-                  >
+                <div style={{
+                  background: '#1a1a1a',
+                  border: '1px solid #2a2a2a',
+                  borderRadius: '12px',
+                  padding: '1rem 1.25rem',
+                  marginBottom: '1.5rem',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
                     <span style={{ color: '#a8a8a8', fontSize: '0.85rem', fontWeight: 600 }}>
-                      👤 {canScheduleForOthers ? 'Dependentes do cliente selecionado' : 'Para quem é o agendamento?'}
+                      👤 Para quem é o agendamento?
                     </span>
-                    {bookingForDependent && (
+                    {(bookingForDependent) && (
                       <button
-                        onClick={() => {
-                          setBookingForDependent(null);
-                          setShowForWhomSelector(false);
-                        }}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#e74c3c',
-                          cursor: 'pointer',
-                          fontSize: '0.78rem',
-                        }}
+                        onClick={() => { setBookingForDependent(null); setShowForWhomSelector(false); }}
+                        style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', fontSize: '0.78rem' }}
                       >
                         ✕ Limpar seleção
                       </button>
@@ -1715,135 +1543,63 @@ export default function AppointmentsPage() {
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+
                     <div
-                      onClick={() => {
-                        setBookingForDependent(null);
-                        setShowForWhomSelector(false);
-                      }}
+                      onClick={() => { setBookingForDependent(null); setShowForWhomSelector(false); }}
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.75rem',
-                        padding: '10px 12px',
-                        borderRadius: 9,
+                        display: 'flex', alignItems: 'center', gap: '0.75rem',
+                        padding: '10px 12px', borderRadius: 9,
                         background: !bookingForDependent ? 'rgba(255,122,26,0.10)' : '#111',
                         border: '1px solid ' + (!bookingForDependent ? '#ff7a1a' : '#222'),
                         cursor: 'pointer',
                       }}
                     >
-                      <div
-                        style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: '50%',
-                          background: '#2a2a2a',
-                          overflow: 'hidden',
-                          flexShrink: 0,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        {currentUser?.photo ? (
-                          <img
-                            src={currentUser.photo}
-                            alt=""
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                          />
-                        ) : (
-                          '👤'
-                        )}
+                      <div style={{
+                        width: 36, height: 36, borderRadius: '50%', background: '#2a2a2a',
+                        overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {currentUser?.photo
+                          ? <img src={currentUser.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : '👤'}
                       </div>
                       <div>
-                        <p
-                          style={{ margin: 0, color: '#fff', fontWeight: 600, fontSize: '0.88rem' }}
-                        >
-                          {currentUser?.name}
-                        </p>
-                        <p style={{ margin: 0, fontSize: '0.72rem', color: '#ff7a1a' }}>
-                          Você mesmo
-                        </p>
+                        <p style={{ margin: 0, color: '#fff', fontWeight: 600, fontSize: '0.88rem' }}>{currentUser?.name}</p>
+                        <p style={{ margin: 0, fontSize: '0.72rem', color: '#ff7a1a' }}>Você mesmo</p>
                       </div>
-                      {!bookingForDependent && (
-                        <span
-                          style={{
-                            marginLeft: 'auto',
-                            color: '#ff7a1a',
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                          }}
-                        >
-                          ✓ Selecionado
-                        </span>
-                      )}
+                      {!bookingForDependent && <span style={{ marginLeft: 'auto', color: '#ff7a1a', fontSize: '0.75rem', fontWeight: 700 }}>✓ Selecionado</span>}
                     </div>
 
-                    {dependentsForBooking.map((dep) => (
+
+                    {userDependents.map((dep) => (
                       <div
                         key={dep.id}
                         onClick={() => setBookingForDependent(dep)}
                         style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.75rem',
-                          padding: '10px 12px',
-                          borderRadius: 9,
-                          background:
-                            bookingForDependent?.id === dep.id ? 'rgba(255,122,26,0.10)' : '#111',
-                          border:
-                            '1px solid ' +
-                            (bookingForDependent?.id === dep.id ? '#ff7a1a' : '#222'),
+                          display: 'flex', alignItems: 'center', gap: '0.75rem',
+                          padding: '10px 12px', borderRadius: 9,
+                          background: bookingForDependent?.id === dep.id ? 'rgba(255,122,26,0.10)' : '#111',
+                          border: '1px solid ' + (bookingForDependent?.id === dep.id ? '#ff7a1a' : '#222'),
                           cursor: 'pointer',
                         }}
                       >
-                        <div
-                          style={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: '50%',
-                            background: 'rgba(255,122,26,0.15)',
-                            border: '1px solid rgba(255,122,26,0.3)',
-                            flexShrink: 0,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#ff7a1a',
-                            fontWeight: 700,
-                            fontSize: '1rem',
-                          }}
-                        >
+                        <div style={{
+                          width: 36, height: 36, borderRadius: '50%',
+                          background: 'rgba(255,122,26,0.15)', border: '1px solid rgba(255,122,26,0.3)',
+                          flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: '#ff7a1a', fontWeight: 700, fontSize: '1rem',
+                        }}>
                           {dep.name.charAt(0).toUpperCase()}
                         </div>
                         <div style={{ flex: 1 }}>
-                          <p
-                            style={{
-                              margin: 0,
-                              color: '#fff',
-                              fontWeight: 600,
-                              fontSize: '0.88rem',
-                            }}
-                          >
-                            {dep.name}
-                          </p>
+                          <p style={{ margin: 0, color: '#fff', fontWeight: 600, fontSize: '0.88rem' }}>{dep.name}</p>
                           <p style={{ margin: 0, fontSize: '0.72rem', color: '#777' }}>
                             {dep.age} anos · CPF: {dep.cpf}
                           </p>
-                          <p
-                            style={{
-                              margin: 0,
-                              fontSize: '0.7rem',
-                              color: '#e59a00',
-                              marginTop: 2,
-                            }}
-                          >
+                          <p style={{ margin: 0, fontSize: '0.7rem', color: '#e59a00', marginTop: 2 }}>
                             ⚠️ Pagamento individual necessário — não utiliza seu plano
                           </p>
                         </div>
-                        {bookingForDependent?.id === dep.id && (
-                          <span style={{ color: '#ff7a1a', fontSize: '0.75rem', fontWeight: 700 }}>
-                            ✓ Selecionado
-                          </span>
-                        )}
+                        {bookingForDependent?.id === dep.id && <span style={{ color: '#ff7a1a', fontSize: '0.75rem', fontWeight: 700 }}>✓ Selecionado</span>}
                       </div>
                     ))}
                   </div>
@@ -1851,23 +1607,14 @@ export default function AppointmentsPage() {
               )}
 
               {canScheduleForOthers && (
-                <div
-                  style={{
-                    background: '#1a1a1a',
-                    border: '1px solid #2a2a2a',
-                    borderRadius: '12px',
-                    padding: '1rem 1.25rem',
-                    marginBottom: '1.5rem',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginBottom: bookingForUser ? '0.75rem' : 0,
-                    }}
-                  >
+                <div style={{
+                  background: '#1a1a1a',
+                  border: '1px solid #2a2a2a',
+                  borderRadius: '12px',
+                  padding: '1rem 1.25rem',
+                  marginBottom: '1.5rem',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: bookingForUser ? '0.75rem' : 0 }}>
                     <span style={{ color: '#a8a8a8', fontSize: '0.85rem', fontWeight: 600 }}>
                       📅 Agendar para:
                     </span>
@@ -1884,67 +1631,39 @@ export default function AppointmentsPage() {
                         fontWeight: 600,
                       }}
                     >
-                      {showUserSelector
-                        ? 'Fechar'
-                        : bookingForUser
-                          ? 'Alterar'
-                          : 'Selecionar cliente'}
+                      {showUserSelector ? 'Fechar' : bookingForUser ? 'Alterar' : 'Selecionar cliente'}
                     </button>
                   </div>
 
+
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <div
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: '50%',
-                        background: '#2a2a2a',
-                        overflow: 'hidden',
-                        border: '2px solid ' + (bookingForUser ? '#ff7a1a' : '#444'),
-                        flexShrink: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '1.1rem',
-                      }}
-                    >
-                      {bookingForUser?.photo || currentUser?.photo ? (
+                    <div style={{
+                      width: 40, height: 40, borderRadius: '50%',
+                      background: '#2a2a2a',
+                      overflow: 'hidden',
+                      border: '2px solid ' + (bookingForUser ? '#ff7a1a' : '#444'),
+                      flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '1.1rem',
+                    }}>
+                      {(bookingForUser?.photo || currentUser?.photo) ? (
                         <img
                           src={bookingForUser?.photo || currentUser?.photo}
                           alt="avatar"
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                          }}
+                          onError={(e) => { e.target.style.display = 'none'; }}
                         />
-                      ) : (
-                        '👤'
-                      )}
+                      ) : '👤'}
                     </div>
                     <div>
                       <p style={{ margin: 0, color: '#fff', fontWeight: 600, fontSize: '0.9rem' }}>
                         {bookingForUser ? bookingForUser.name : currentUser?.name}
-                        {!bookingForUser && (
-                          <span style={{ color: '#ff7a1a', marginLeft: 6, fontSize: '0.75rem' }}>
-                            (você)
-                          </span>
-                        )}
+                        {!bookingForUser && <span style={{ color: '#ff7a1a', marginLeft: 6, fontSize: '0.75rem' }}>(você)</span>}
                       </p>
                       {bookingForUser && (
                         <button
-                          onClick={() => {
-                            setBookingForUser(null);
-                            setShowUserSelector(false);
-                          }}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#e74c3c',
-                            cursor: 'pointer',
-                            fontSize: '0.75rem',
-                            padding: 0,
-                            marginTop: 2,
-                          }}
+                          onClick={() => { setBookingForUser(null); setShowUserSelector(false); }}
+                          style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', fontSize: '0.75rem', padding: 0, marginTop: 2 }}
                         >
                           ✕ Remover seleção
                         </button>
@@ -1960,93 +1679,50 @@ export default function AppointmentsPage() {
                         value={userSearch}
                         onChange={(e) => setUserSearch(e.target.value)}
                         style={{
-                          width: '100%',
-                          padding: '8px 12px',
-                          background: '#111',
-                          border: '1px solid #333',
-                          borderRadius: 8,
-                          color: '#fff',
-                          fontSize: '0.85rem',
-                          boxSizing: 'border-box',
-                          marginBottom: '0.5rem',
+                          width: '100%', padding: '8px 12px',
+                          background: '#111', border: '1px solid #333',
+                          borderRadius: 8, color: '#fff', fontSize: '0.85rem',
+                          boxSizing: 'border-box', marginBottom: '0.5rem',
                           outline: 'none',
                         }}
                         autoFocus
                       />
-                      <div
-                        style={{
-                          maxHeight: 220,
-                          overflowY: 'auto',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '0.4rem',
-                        }}
-                      >
+                      <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+
                         <div
-                          onClick={() => {
-                            setBookingForUser(null);
-                            setShowUserSelector(false);
-                            setUserSearch('');
-                          }}
+                          onClick={() => { setBookingForUser(null); setShowUserSelector(false); setUserSearch(''); }}
                           style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.75rem',
-                            padding: '8px 10px',
-                            borderRadius: 8,
+                            display: 'flex', alignItems: 'center', gap: '0.75rem',
+                            padding: '8px 10px', borderRadius: 8,
                             background: !bookingForUser ? 'rgba(255,122,26,0.12)' : '#111',
                             border: '1px solid ' + (!bookingForUser ? '#ff7a1a' : '#222'),
                             cursor: 'pointer',
                           }}
                         >
-                          <div
-                            style={{
-                              width: 34,
-                              height: 34,
-                              borderRadius: '50%',
-                              background: '#2a2a2a',
-                              overflow: 'hidden',
-                              flexShrink: 0,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            {currentUser?.photo ? (
-                              <img
-                                src={currentUser.photo}
-                                alt=""
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                              />
-                            ) : (
-                              '👤'
-                            )}
+                          <div style={{
+                            width: 34, height: 34, borderRadius: '50%',
+                            background: '#2a2a2a', overflow: 'hidden', flexShrink: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            {currentUser?.photo
+                              ? <img src={currentUser.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              : '👤'}
                           </div>
                           <div>
-                            <p
-                              style={{
-                                margin: 0,
-                                color: '#fff',
-                                fontSize: '0.85rem',
-                                fontWeight: 600,
-                              }}
-                            >
-                              {currentUser?.name}
-                            </p>
-                            <p style={{ margin: 0, color: '#ff7a1a', fontSize: '0.72rem' }}>
-                              Você mesmo
-                            </p>
+                            <p style={{ margin: 0, color: '#fff', fontSize: '0.85rem', fontWeight: 600 }}>{currentUser?.name}</p>
+                            <p style={{ margin: 0, color: '#ff7a1a', fontSize: '0.72rem' }}>Você mesmo</p>
                           </div>
                         </div>
 
                         {allUsers
-                          .filter(
-                            (u) =>
-                              u.id !== currentUser?.id &&
-                              u.role === 'client' &&
-                              (!userSearch.trim() ||
-                                u.name?.toLowerCase().includes(userSearch.toLowerCase()) ||
-                                u.phone?.includes(userSearch)),
+                          .filter((u) =>
+                            u.id !== currentUser?.id &&
+                            u.role === 'client' &&
+                            (
+                              !userSearch.trim() ||
+                              u.name?.toLowerCase().includes(userSearch.toLowerCase()) ||
+                              u.phone?.includes(userSearch)
+                            )
                           )
                           .map((u) => (
                             <div
@@ -2057,58 +1733,25 @@ export default function AppointmentsPage() {
                                 setUserSearch('');
                               }}
                               style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.75rem',
-                                padding: '8px 10px',
-                                borderRadius: 8,
-                                background:
-                                  bookingForUser?.id === u.id ? 'rgba(255,122,26,0.12)' : '#111',
-                                border:
-                                  '1px solid ' + (bookingForUser?.id === u.id ? '#ff7a1a' : '#222'),
+                                display: 'flex', alignItems: 'center', gap: '0.75rem',
+                                padding: '8px 10px', borderRadius: 8,
+                                background: bookingForUser?.id === u.id ? 'rgba(255,122,26,0.12)' : '#111',
+                                border: '1px solid ' + (bookingForUser?.id === u.id ? '#ff7a1a' : '#222'),
                                 cursor: 'pointer',
                               }}
                             >
-                              <div
-                                style={{
-                                  width: 34,
-                                  height: 34,
-                                  borderRadius: '50%',
-                                  background: '#2a2a2a',
-                                  overflow: 'hidden',
-                                  flexShrink: 0,
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                }}
-                              >
-                                {u.photo ? (
-                                  <img
-                                    src={u.photo}
-                                    alt={u.name}
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                    onError={(e) => {
-                                      e.target.style.display = 'none';
-                                    }}
-                                  />
-                                ) : (
-                                  '👤'
-                                )}
+                              <div style={{
+                                width: 34, height: 34, borderRadius: '50%',
+                                background: '#2a2a2a', overflow: 'hidden', flexShrink: 0,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              }}>
+                                {u.photo
+                                  ? <img src={u.photo} alt={u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; }} />
+                                  : '👤'}
                               </div>
                               <div>
-                                <p
-                                  style={{
-                                    margin: 0,
-                                    color: '#fff',
-                                    fontSize: '0.85rem',
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  {u.name}
-                                </p>
-                                <p style={{ margin: 0, color: '#666', fontSize: '0.72rem' }}>
-                                  {u.phone || u.email || u.role}
-                                </p>
+                                <p style={{ margin: 0, color: '#fff', fontSize: '0.85rem', fontWeight: 600 }}>{u.name}</p>
+                                <p style={{ margin: 0, color: '#666', fontSize: '0.72rem' }}>{u.phone || u.email || u.role}</p>
                               </div>
                             </div>
                           ))}
@@ -2133,219 +1776,150 @@ export default function AppointmentsPage() {
                 maxDate={maxBookingDate}
               /> */}
 
-              {selectedDate &&
-                (() => {
-                  const dateStr = selectedDate.toLocaleDateString('en-CA');
-                  const blockedInfo = blockedDates.find(
-                    (b) => b.date === dateStr && !b.barberId && !b.startTime,
-                  );
+              {selectedDate && (() => {
+                const dateStr = selectedDate.toLocaleDateString('en-CA');
+                const blockedInfo = blockedDates.find(b => b.date === dateStr && !b.barberId && !b.startTime);
 
-                  if (blockedInfo) {
-                    return (
-                      <div
-                        style={{
-                          background: '#ff4444',
-                          color: 'white',
-                          padding: '1rem',
-                          borderRadius: '8px',
-                          marginTop: '1rem',
-                          textAlign: 'center',
-                        }}
-                      >
-                        <h3 style={{ margin: '0 0 0.5rem 0' }}>⚠️ Data Bloqueada</h3>
-                        <p style={{ margin: '0.5rem 0' }}>{blockedInfo.reason}</p>
-                        <p style={{ margin: '0.5rem 0', fontSize: '0.9rem' }}>
-                          Nenhum agendamento disponível nesta data.
-                        </p>
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
-
-              {selectedDate &&
-                !showConflictModal &&
-                (() => {
-                  const dateStr = selectedDate.toLocaleDateString('en-CA');
-                  const isBlockedForAll = blockedDates.some(
-                    (b) => b.date === dateStr && !b.barberId && !b.startTime,
-                  );
-
-                  if (isBlockedForAll) {
-                    return null;
-                  }
-
+                if (blockedInfo) {
                   return (
-                    <div className="appointments__barbers">
-                      <h2>Barbeiros disponíveis em {selectedDate.toLocaleDateString('pt-BR')}</h2>
-                      <div style={{ marginBottom: '1.5rem' }}>
-                        <label
-                          style={{
-                            color: '#a8a8a8',
-                            fontSize: '0.85rem',
-                            fontWeight: 600,
-                            display: 'block',
-                            marginBottom: '0.5rem',
-                          }}
-                        >
-                          Observação (opcional)
-                        </label>
-                        <textarea
-                          value={observation}
-                          onChange={(e) => setObservation(e.target.value)}
-                          placeholder="Ex: Quero o cabelo mais curto dos lados, barba degradê..."
-                          rows={3}
-                          style={{
-                            width: '100%',
-                            padding: '0.75rem',
-                            background: '#1a1a1a',
-                            border: '1px solid #333',
-                            borderRadius: '8px',
-                            color: '#fff',
-                            fontSize: '0.9rem',
-                            fontFamily: 'inherit',
-                            resize: 'vertical',
-                            boxSizing: 'border-box',
-                            outline: 'none',
-                          }}
-                        />
-                      </div>
-                      {barbers.length === 0 ? (
-                        <p>Nenhum barbeiro disponível.</p>
-                      ) : (
-                        barbers.map((barber) => {
-                          const barberWithPhoto = {
-                            ...barber,
-                            photo:
-                              barber.photo ||
-                              barber.avatar ||
-                              `https://i.pravatar.cc/150?img=${barber.id}`,
-                          };
-
-                          const dateStr = selectedDate.toLocaleDateString('en-CA');
-                          const isBarberBlocked = blockedDates.some(
-                            (b) => b.date === dateStr && b.barberId === barber.id && !b.startTime,
-                          );
-
-                          if (isBarberBlocked) {
-                            return null;
-                          }
-
-                          const shouldHideBarber =
-                            !isAdmin &&
-                            activeUserSubscription &&
-                            isBarberLocked &&
-                            barber.id !== lockedBarberId;
-
-                          if (shouldHideBarber) return null;
-
-                          return (
-                            <BarberCard
-                              key={barber.id}
-                              barber={barberWithPhoto}
-                              services={
-                                barberWithPhoto.serviceIds && barberWithPhoto.serviceIds.length > 0
-                                  ? services.filter((s) =>
-                                      barberWithPhoto.serviceIds.includes(s.id),
-                                    )
-                                  : services
-                              }
-                              selectedDate={selectedDate}
-                              barberId={barber.id}
-                              getBookedSlots={getBookedSlots}
-                              generateTimes={generateTimes}
-                              getAvailableTimes={getAvailableTimes}
-                              calculateTotalDuration={calculateTotalDuration}
-                              onBook={handleBook}
-                              showToast={showToast}
-                              preSelectedService={preSelectedService}
-                            />
-                          );
-                        })
-                      )}
+                    <div style={{
+                      background: '#ff4444',
+                      color: 'white',
+                      padding: '1rem',
+                      borderRadius: '8px',
+                      marginTop: '1rem',
+                      textAlign: 'center'
+                    }}>
+                      <h3 style={{ margin: '0 0 0.5rem 0' }}>⚠️ Data Bloqueada</h3>
+                      <p style={{ margin: '0.5rem 0' }}>{blockedInfo.reason}</p>
+                      <p style={{ margin: '0.5rem 0', fontSize: '0.9rem' }}>
+                        Nenhum agendamento disponível nesta data.
+                      </p>
                     </div>
                   );
-                })()}
+                }
+                return null;
+              })()}
+
+              {selectedDate && !showConflictModal && (() => {
+                const dateStr = selectedDate.toLocaleDateString('en-CA');
+                const isBlockedForAll = blockedDates.some(b => b.date === dateStr && !b.barberId && !b.startTime);
+
+                if (isBlockedForAll) {
+                  return null;
+                }
+
+                return (
+                  <div className="appointments__barbers">
+                    <h2>Barbeiros disponíveis em {selectedDate.toLocaleDateString('pt-BR')}</h2>
+                    <div style={{ marginBottom: '1.5rem' }}>
+                      <label style={{ color: '#a8a8a8', fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '0.5rem' }}>
+                        Observação (opcional)
+                      </label>
+                      <textarea
+                        value={observation}
+                        onChange={(e) => setObservation(e.target.value)}
+                        placeholder="Ex: Quero o cabelo mais curto dos lados, barba degradê..."
+                        rows={3}
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          background: '#1a1a1a',
+                          border: '1px solid #333',
+                          borderRadius: '8px',
+                          color: '#fff',
+                          fontSize: '0.9rem',
+                          fontFamily: 'inherit',
+                          resize: 'vertical',
+                          boxSizing: 'border-box',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                    {barbers.length === 0 ? (
+                      <p>Nenhum barbeiro disponível.</p>
+                    ) : (
+                      barbers.map((barber) => {
+                        const barberWithPhoto = {
+                          ...barber,
+                          photo: barber.photo || barber.avatar || `https://i.pravatar.cc/150?img=${barber.id}`,
+                        };
+
+                        const dateStr = selectedDate.toLocaleDateString('en-CA');
+                        const isBarberBlocked = blockedDates.some(
+                          b => b.date === dateStr && b.barberId === barber.id && !b.startTime
+                        );
+
+                        if (isBarberBlocked) {
+                          return null;
+                        }
+
+                        const shouldHideBarber =
+                          !isAdmin &&
+                          activeUserSubscription &&
+                          isBarberLocked &&
+                          barber.id !== lockedBarberId;
+
+                        if (shouldHideBarber) return null;
+
+                        return (
+                          <BarberCard
+                            key={barber.id}
+                            barber={barberWithPhoto}
+                            services={
+                              barberWithPhoto.serviceIds && barberWithPhoto.serviceIds.length > 0
+                                ? services.filter((s) => barberWithPhoto.serviceIds.includes(s.id))
+                                : services
+                            }
+                            selectedDate={selectedDate}
+                            barberId={barber.id}
+                            getBookedSlots={getBookedSlots}
+                            generateTimes={generateTimes}
+                            getAvailableTimes={getAvailableTimes}
+                            calculateTotalDuration={calculateTotalDuration}
+                            onBook={handleBook}
+                            showToast={showToast}
+                            preSelectedService={preSelectedService}
+                          />
+                        );
+                      })
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
 
           {view === 'myAppointments' && (
             <div className="appointments__list">
-              
+              <h2>Seus Agendamentos</h2>
 
-              <div
-                className="appointments-filter-tabs"
-                style={{
-                  display: 'flex',
-                  gap: '1rem',
-                  marginBottom: '1.5rem',
-                  borderBottom: '2px solid #333',
-                }}
-              >
+              <div className="appointments-filter-tabs" style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', borderBottom: '2px solid #333' }}>
                 <button
                   onClick={() => setAppointmentFilter('current')}
                   className={`tab-btn ${appointmentFilter === 'current' ? 'tab-btn--active' : ''}`}
                 >
-                  Este Mês (
-                  {
-                    appointments.filter((apt) => {
-                      const aptDate = new Date(apt.endAt);
-                    aptDate.setHours(0, 0, 0, 0);
-                      const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                      const dIds1 = userDependents.map((d) => `dep_${d.id}`); 
-                   
-                      return (
-                        (apt.clientId === currentUser?.id || dIds1.includes(apt.clientId)) &&
-                        aptDate.getMonth() === today.getMonth() &&
-                        aptDate.getFullYear() === today.getFullYear() && aptDate >= today
-                      );
-                    }).length
-                  }
-                  )
+                  Este Mês ({appointments.filter(apt => {
+                    const aptDate = new Date(apt.endAt);
+                    const today = new Date();
+                    const dIds1 = userDependents.map(d => `dep_${d.id}`); return (apt.clientId === currentUser?.id || dIds1.includes(apt.clientId)) && aptDate.getMonth() === today.getMonth() && aptDate.getFullYear() === today.getFullYear();
+                  }).length})
                 </button>
                 <button
                   onClick={() => setAppointmentFilter('upcoming')}
                   className={`tab-btn ${appointmentFilter === 'upcoming' ? 'tab-btn--active' : ''}`}
                 >
-                  Próximos (
-                  {
-                    appointments.filter((apt) => {
-                      const aptDate = new Date(apt.endAt);
-                    aptDate.setHours(0, 0, 0, 0);
-                      const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                      const dIds2 = userDependents.map((d) => `dep_${d.id}`); 
-                   
-                      return (
-                        (apt.clientId === currentUser?.id || dIds2.includes(apt.clientId)) &&
-                        ((aptDate.getFullYear() > today.getFullYear()) ||
-                          (aptDate.getFullYear() === today.getFullYear() &&
-                            aptDate.getMonth() > today.getMonth())) && aptDate >= today
-                      );
-                    }).length
-                  }
-                  )
+                  Próximos ({appointments.filter(apt => {
+                    const aptDate = new Date(apt.endAt);
+                    const today = new Date();
+                    const dIds2 = userDependents.map(d => `dep_${d.id}`); return (apt.clientId === currentUser?.id || dIds2.includes(apt.clientId)) && (aptDate.getFullYear() > today.getFullYear() || (aptDate.getFullYear() === today.getFullYear() && aptDate.getMonth() >= today.getMonth()));
+                  }).length})
                 </button>
                 <button
                   onClick={() => setAppointmentFilter('all')}
                   className={`tab-btn ${appointmentFilter === 'all' ? 'tab-btn--active' : ''}`}
                 >
-                  Todos (
-                  {
-                    appointments.filter((apt) => {
-                      
-                    const aptDate = new Date(apt.endAt);
-                    aptDate.setHours(0, 0, 0, 0);
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    const dIds3 = userDependents.map((d) => `dep_${d.id}`); 
-                   
-                      return (apt.clientId === currentUser?.id || dIds3.includes(apt.clientId)) && aptDate >= today;
-                 
-                    }).length
-                  }
-                  )
+                  Todos ({appointments.filter(apt => { const dIds3 = userDependents.map(d => `dep_${d.id}`); return apt.clientId === currentUser?.id || dIds3.includes(apt.clientId); }).length})
                 </button>
               </div>
 
@@ -2385,11 +1959,8 @@ export default function AppointmentsPage() {
                     <tbody>
                       {sortedMyAppointments.map((apt) => {
                         const payment = appointmentPayments[apt.id];
-                        const isPending =
-                          payment &&
-                          (payment.status === 'pending' || payment.status === 'confirmed_unpaid');
-                        const isPendingLocal =
-                          payment && payment.status === 'pending' && payment.method === 'local';
+                        const isPending = payment && (payment.status === 'pending' || payment.status === 'confirmed_unpaid');
+                        const isPendingLocal = payment && payment.status === 'pending' && payment.method === 'local';
                         const isPaid = payment && payment.status === 'paid';
                         const isPlanCovered = payment && payment.status === 'plancovered';
 
@@ -2404,28 +1975,21 @@ export default function AppointmentsPage() {
 
                         const servicesTotal = Array.isArray(apt.services)
                           ? apt.services.reduce((sum, s) => {
-                              const price =
-                                typeof s.unitPrice === 'string'
-                                  ? parseFloat(
-                                      s.unitPrice.replace(/R\$/g, '').replace(/,/g, '.').trim(),
-                                    ) || 0
-                                  : s.unitPrice || 0;
-                              return sum + price;
-                            }, 0)
+                            const price = typeof s.unitPrice === 'string'
+                              ? parseFloat(s.unitPrice.replace(/R\$/g, '').replace(/,/g, '.').trim()) || 0
+                              : s.unitPrice || 0;
+                            return sum + price;
+                          }, 0)
                           : 0;
 
-                        const productsTotal =
-                          apt.products && apt.products.length > 0
-                            ? apt.products.reduce((sum, p) => {
-                                const price =
-                                  typeof p.unitPrice === 'string'
-                                    ? parseFloat(
-                                        p.unitPrice.replace(/R\$/g, '').replace(/,/g, '.').trim(),
-                                      ) || 0
-                                    : p.unitPrice || 0;
-                                return sum + price * (p.quantity || 1);
-                              }, 0)
-                            : 0;
+                        const productsTotal = apt.products && apt.products.length > 0
+                          ? apt.products.reduce((sum, p) => {
+                            const price = typeof p.unitPrice === 'string'
+                              ? parseFloat(p.unitPrice.replace(/R\$/g, '').replace(/,/g, '.').trim()) || 0
+                              : p.unitPrice || 0;
+                            return sum + (price * (p.quantity || 1));
+                          }, 0)
+                          : 0;
 
                         const total = servicesTotal + productsTotal;
 
@@ -2444,7 +2008,7 @@ export default function AppointmentsPage() {
                         }
 
                         const barber = barbers.find((b) => b.id === apt.barberId);
-                        const barberPhoto = '';
+                        const barberPhoto = "";
                         // = barber
                         //   ? barber.photo || barber.avatar || `https://i.pravatar.cc/150?img=${barber.id}`
                         //   : `https://i.pravatar.cc/150?img=${apt.barberId}`;
@@ -2457,33 +2021,21 @@ export default function AppointmentsPage() {
                                   src={barberPhoto}
                                   alt={apt.barber.displayName}
                                   className="appointment-barber-avatar"
-                                  // onError={(e) => {
-                                  //   e.target.src = `https://i.pravatar.cc/150?img=${apt.barberId}`;
-                                  // }}
+                                // onError={(e) => {
+                                //   e.target.src = `https://i.pravatar.cc/150?img=${apt.barberId}`;
+                                // }}
                                 />
-                                <span className="appointment-barber-name">
-                                  {apt.barber.displayName}
-                                </span>
+                                <span className="appointment-barber-name">{apt.barber.displayName}</span>
                               </div>
                             </td>
                             <td data-label="Para">
                               {apt.dependent ? (
-                                <span
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    background: 'rgba(255,122,26,0.12)',
-                                    color: '#ff7a1a',
-                                    border: '1px solid rgba(255,122,26,0.35)',
-                                    borderRadius: '20px',
-                                    padding: '2px 10px',
-                                    fontSize: '0.78rem',
-                                    fontWeight: 700,
-                                  }}
-                                >
-                                  👤 {apt.dependent.name}
-                                </span>
+                                <span style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                  background: 'rgba(255,122,26,0.12)', color: '#ff7a1a',
+                                  border: '1px solid rgba(255,122,26,0.35)', borderRadius: '20px',
+                                  padding: '2px 10px', fontSize: '0.78rem', fontWeight: 700
+                                }}>👤 {apt.dependent.name}</span>
                               ) : (
                                 <span style={{ color: '#666', fontSize: '0.82rem' }}>Você</span>
                               )}
@@ -2511,9 +2063,7 @@ export default function AppointmentsPage() {
                               {apt.notes ? (
                                 <div>
                                   <button
-                                    onClick={() =>
-                                      setExpandedObsId(expandedObsId === apt.id ? null : apt.id)
-                                    }
+                                    onClick={() => setExpandedObsId(expandedObsId === apt.id ? null : apt.id)}
                                     style={{
                                       background: 'rgba(212,175,55,0.12)',
                                       border: '1px solid rgba(212,175,55,0.35)',
@@ -2529,20 +2079,18 @@ export default function AppointmentsPage() {
                                     📝 Ver
                                   </button>
                                   {expandedObsId === apt.id && (
-                                    <div
-                                      style={{
-                                        marginTop: 8,
-                                        background: 'rgba(212,175,55,0.07)',
-                                        border: '1px solid rgba(212,175,55,0.2)',
-                                        borderRadius: '8px',
-                                        padding: '8px 10px',
-                                        fontSize: '0.82rem',
-                                        color: '#d4c48a',
-                                        fontStyle: 'italic',
-                                        maxWidth: '200px',
-                                        lineHeight: '1.5',
-                                      }}
-                                    >
+                                    <div style={{
+                                      marginTop: 8,
+                                      background: 'rgba(212,175,55,0.07)',
+                                      border: '1px solid rgba(212,175,55,0.2)',
+                                      borderRadius: '8px',
+                                      padding: '8px 10px',
+                                      fontSize: '0.82rem',
+                                      color: '#d4c48a',
+                                      fontStyle: 'italic',
+                                      maxWidth: '200px',
+                                      lineHeight: '1.5',
+                                    }}>
                                       {apt.notes}
                                     </div>
                                   )}
@@ -2570,16 +2118,11 @@ export default function AppointmentsPage() {
                               </span>
                             </td>
                             <td data-label="Status" className="appointment-status-cell">
-                              <span className={`appointment-status ${statusClass}`}>
-                                {statusText}
-                              </span>
+                              <span className={`appointment-status ${statusClass}`}>{statusText}</span>
                             </td>
                             <td>
                               <div className="appointment-actions">
-                                <button
-                                  onClick={() => handleDeleteClick(apt.id)}
-                                  className="btn-action cancel"
-                                >
+                                <button onClick={() => handleDeleteClick(apt.id)} className="btn-action cancel">
                                   Cancelar
                                 </button>
                               </div>
@@ -2605,7 +2148,7 @@ export default function AppointmentsPage() {
         onConfirm={handleProductsConfirm}
         hasActiveSubscription={hasActiveSubscription}
         servicePrice={pendingBookingData?.servicePrice || 0}
-        serviceName={pendingBookingData?.services?.map((s) => s.name).join(', ') || ''}
+        serviceName={pendingBookingData?.services?.map(s => s.name).join(', ') || ''}
         onUpdateStock={handleUpdateStock}
       />
 
@@ -2620,11 +2163,11 @@ export default function AppointmentsPage() {
         appointmentDetails={
           pendingBookingData
             ? {
-                barberName: pendingBookingData.barberName,
-                date: pendingBookingData.dateFormatted,
-                time: pendingBookingData.time,
-                serviceName: pendingBookingData.services.map((s) => s.name).join(', '),
-              }
+              barberName: pendingBookingData.barberName,
+              date: pendingBookingData.dateFormatted,
+              time: pendingBookingData.time,
+              serviceName: pendingBookingData.services.map((s) => s.name).join(', ')
+            }
             : null
         }
         purchaseData={purchaseData}
@@ -2677,39 +2220,20 @@ export default function AppointmentsPage() {
               <p style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>
                 Você já possui um agendamento para esta data:
               </p>
-              <div
-                style={{
-                  background: '#1a1a1a',
-                  padding: '1rem',
-                  borderRadius: '8px',
-                  marginBottom: '1.5rem',
-                }}
-              >
+              <div style={{ background: '#1a1a1a', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div><strong>Barbeiro:</strong> {existingAppointment.barber.displayName}</div>
+                  <div><strong>Data:</strong> {new Date(existingAppointment.endAt).toLocaleDateString('pt-BR')}</div>
+                  <div><strong>Horário:</strong> {existingAppointment.time}</div>
                   <div>
-                    <strong>Barbeiro:</strong> {existingAppointment.barber.displayName}
-                  </div>
-                  <div>
-                    <strong>Data:</strong>{' '}
-                    {new Date(existingAppointment.endAt).toLocaleDateString('pt-BR')}
-                  </div>
-                  <div>
-                    <strong>Horário:</strong> {existingAppointment.time}
-                  </div>
-                  <div>
-                    <strong>Serviços:</strong>{' '}
-                    {Array.isArray(existingAppointment.services)
-                      ? existingAppointment.services.map((s) => s.serviceName).join(', ')
-                      : '-'}
+                    <strong>Serviços:</strong> {Array.isArray(existingAppointment.services) ? existingAppointment.services.map((s) => s.serviceName).join(', ') : '-'}
                   </div>
                 </div>
               </div>
               <p style={{ marginBottom: '1.5rem', color: '#999' }}>
                 Gostaria de reagendar ou cancelar este agendamento?
               </p>
-              <div
-                style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}
-              >
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
                 <button
                   onClick={handleCancelExisting}
                   className="btn-action cancel"

@@ -4,6 +4,7 @@ import Button from './Button.jsx';
 import Toast from './Toast.jsx';
 import './SubscriptionSection.css';
 import { getToken } from '../../services/authService.js';
+import AppointmentsPage from '../../pages/AppointmentsPage-backup.jsx';
 
 export default function SubscriptionSection({ activeSubscription, onSubscribe }) {
   const [currentUser, setCurrentUser] = useState(null);

@@ -124,7 +124,7 @@ export default function Home() {
       /* if (homeInfoData) {
         setSiteInfo(homeInfoData);
       } */
-
+     
         if (homeInfoData) {
   const homeData = Array.isArray(homeInfoData) ? homeInfoData[0] : homeInfoData;
   setSiteInfo(homeData);
