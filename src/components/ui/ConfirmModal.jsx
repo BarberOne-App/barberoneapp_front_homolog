@@ -20,34 +20,34 @@ export default function ConfirmModal({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="confirm-modal-overlay" onClick={onClose}>
       <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
 
         <div className="confirm-modal-header">
-          <button className="modal-close" onClick={onClose}>
+          <button className="confirm-modal__close" onClick={onClose}>
             <X size={24} />
           </button>
         </div>
 
-        <div className="confirm-modal-icon confirm-modal-icon--{variant}">
+        <div className={`confirm-modal__icon confirm-modal__icon--${variant}`}>
           <AlertTriangle size={48} />
         </div>
 
-        <div className="confirm-modal-content">
+        <div className="confirm-modal__content">
           <h2>{title}</h2>
           <p>{message}</p>
         </div>
 
-        <div className="confirm-modal-actions">
+        <div className="confirm-modal__actions">
           <Button
             onClick={onClose}
-            className="confirm-modal-button--cancel"
+            className="confirm-modal__button--cancel"
           >
             {cancelText}
           </Button>
           <Button
             onClick={handleConfirm}
-            className={`confirm-modal-button--confirm confirm-modal-button--${variant}`}
+            className={`confirm-modal__button--confirm confirm-modal__button--${variant}`}
           >
             {confirmText}
           </Button>

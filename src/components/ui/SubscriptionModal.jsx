@@ -188,6 +188,20 @@ import api from '../../services/api.js';
 import Toast from './Toast.jsx';
 import './SubscriptionModal.css';
 
+const PLAN_SERVICE_FEATURE_PREFIX = 'SERVICO_INCLUSO::';
+
+const formatBenefitLabel = (benefit) => {
+  if (typeof benefit !== 'string') return benefit;
+
+  if (benefit.startsWith(PLAN_SERVICE_FEATURE_PREFIX)) {
+    const parts = benefit.split('::');
+    const serviceName = parts.slice(2).join('::').trim();
+    return `Serviço incluído: ${serviceName || 'Serviço'}`;
+  }
+
+  return benefit;
+};
+
 export default function SubscriptionModal({ isOpen, onClose, currentUser }) {
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [plans, setPlans] = useState([]);
@@ -314,7 +328,7 @@ export default function SubscriptionModal({ isOpen, onClose, currentUser }) {
                       plan.features.map((benefit, index) => (
                         <li key={index} className="subscription-modal__benefit">
                           <Check size={18} />
-                          <span>{benefit}</span>
+                          <span>{formatBenefitLabel(benefit)}</span>
                         </li>
                       ))
                     ) : (

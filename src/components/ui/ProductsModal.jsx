@@ -8,6 +8,7 @@ export default function ProductsModal({
   products,
   onConfirm,
   hasActiveSubscription,
+  serviceCoveredByPlan = false,
   servicePrice = 0,
   serviceName = '',
   onUpdateStock,
@@ -49,10 +50,22 @@ export default function ProductsModal({
     return isNaN(price) ? 0 : price;
   };
 
+  const getSubscriberDiscount = (product) => {
+    const rawDiscount =
+      product?.subscriberDiscount ?? product?.subscriber_discount ?? product?.subscriberdiscount ?? 0;
+    const parsed = Number(rawDiscount);
+    return Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : 0;
+  };
+
+  const getProductImage = (product) => {
+    return product?.image || product?.imageUrl || product?.image_url || '';
+  };
+
   const calculateProductPrice = (product) => {
     const basePrice = parsePrice(product.price);
-    if (hasActiveSubscription && product.subscriberDiscount) {
-      return parseFloat((basePrice * (1 - product.subscriberDiscount / 100)).toFixed(2));
+    const discountPercent = getSubscriberDiscount(product);
+    if (hasActiveSubscription && discountPercent > 0) {
+      return parseFloat((basePrice * (1 - discountPercent / 100)).toFixed(2));
     }
     return basePrice;
   };
@@ -66,7 +79,7 @@ export default function ProductsModal({
 
   const calculateFinalTotal = () => {
     const productsTotal = calculateProductsTotal();
-    return hasActiveSubscription
+    return serviceCoveredByPlan
       ? productsTotal
       : parseFloat((servicePrice + productsTotal).toFixed(2));
   };
@@ -83,9 +96,10 @@ export default function ProductsModal({
     onConfirm({
       products: productsWithCalculatedPrice,
       productsTotal,
-      servicePrice: hasActiveSubscription ? 0 : servicePrice,
+      servicePrice: serviceCoveredByPlan ? 0 : servicePrice,
       finalTotal,
       hasActiveSubscription,
+      serviceCoveredByPlan,
     });
     setSelectedProducts([]);
   };
@@ -94,9 +108,10 @@ export default function ProductsModal({
     onConfirm({
       products: [],
       productsTotal: 0,
-      servicePrice: hasActiveSubscription ? 0 : servicePrice,
-      finalTotal: hasActiveSubscription ? 0 : servicePrice,
+      servicePrice: serviceCoveredByPlan ? 0 : servicePrice,
+      finalTotal: serviceCoveredByPlan ? 0 : servicePrice,
       hasActiveSubscription,
+      serviceCoveredByPlan,
     });
     setSelectedProducts([]);
   };
@@ -125,6 +140,8 @@ export default function ProductsModal({
               {products.map(product => {
                 const selected = selectedProducts.find(p => p.id === product.id);
                 const price = calculateProductPrice(product);
+                const discountPercent = getSubscriberDiscount(product);
+                const productImage = getProductImage(product);
                 const isOutOfStock = product.stock !== undefined && product.stock <= 0;
 
                 return (
@@ -133,11 +150,11 @@ export default function ProductsModal({
                     className={`product-card ${selected ? 'selected' : ''} ${isOutOfStock ? 'out-of-stock' : ''}`}
                     onClick={() => !isOutOfStock && handleProductToggle(product)}
                   >
-                    {product.image && (
+                    {productImage && (
                       <div className="product-image">
-                        <img src={product.image} alt={product.name} />
-                        {hasActiveSubscription && product.subscriberDiscount && (
-                          <span className="discount-badge">-{product.subscriberDiscount}%</span>
+                        <img src={productImage} alt={product.name} />
+                        {hasActiveSubscription && discountPercent > 0 && (
+                          <span className="discount-badge">-{discountPercent}%</span>
                         )}
                       </div>
                     )}
@@ -147,10 +164,20 @@ export default function ProductsModal({
                       <p className="product-description">{product.description}</p>
 
                       <div className="product-pricing">
-                        {hasActiveSubscription && product.subscriberDiscount ? (
+                        {hasActiveSubscription && discountPercent > 0 ? (
                           <>
                             <span className="original-price">
                               R$ {parsePrice(product.price).toFixed(2)}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: '0.76rem',
+                                color: '#8b949e',
+                                display: 'block',
+                                marginTop: '0.15rem',
+                              }}
+                            >
+                              Preço assinante
                             </span>
                             <span className="discounted-price">
                               R$ {price.toFixed(2)}
@@ -187,7 +214,7 @@ export default function ProductsModal({
 
         <div className="products-modal-summary">
           <div className="summary-breakdown">
-            {!hasActiveSubscription && (
+            {!serviceCoveredByPlan && (
               <div className="summary-row">
                 <span>Serviço ({serviceName || 'Serviço não informado'})</span>
                 <span>R$ {parsePrice(servicePrice).toFixed(2)}</span>
@@ -207,7 +234,7 @@ export default function ProductsModal({
                   : `R$ ${finalTotal.toFixed(2)}`}
               </span>
             </div>
-            {hasActiveSubscription && (
+            {serviceCoveredByPlan && (
               <p className="subscriber-note">✓ Serviço coberto pelo seu plano ativo</p>
             )}
           </div>
@@ -234,6 +261,7 @@ ProductsModal.propTypes = {
   products: PropTypes.array.isRequired,
   onConfirm: PropTypes.func.isRequired,
   hasActiveSubscription: PropTypes.bool,
+  serviceCoveredByPlan: PropTypes.bool,
   servicePrice: PropTypes.number,
   serviceName: PropTypes.string,
   onUpdateStock: PropTypes.func,

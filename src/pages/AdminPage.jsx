@@ -203,6 +203,7 @@ export default function AdminPage() {
     scheduleLine1: '',
     scheduleLine2: '',
     scheduleLine3: '',
+    whatsappNumber: '',
     locationTitle: '',
     locationAddress: '',
     locationCity: '',
@@ -268,6 +269,7 @@ export default function AdminPage() {
   const [editingBenefit, setEditingBenefit] = useState(null);
   const [selectedPlanForBenefit, setSelectedPlanForBenefit] = useState(null);
   const [benefitForm, setBenefitForm] = useState('');
+  const [benefitServiceId, setBenefitServiceId] = useState('');
 
   const [selectedUserPermissions, setSelectedUserPermissions] = useState(null);
   const [editingPermissions, setEditingPermissions] = useState({});
@@ -578,6 +580,25 @@ useEffect(() => {
   const getFilteredAppointments = () => {
     let filtered = [...appointments];
 
+    if (isBarber) {
+      const loggedInBarber = barbers.find(
+        (b) =>
+          b.userId?.toString() === currentUser?.id?.toString() ||
+          b.id?.toString() === currentUser?.barberId?.toString() ||
+          (currentUser?.email && b.email === currentUser.email),
+      );
+
+      if (loggedInBarber) {
+        filtered = filtered.filter(
+          (appointment) =>
+            (appointment.barberId || appointment.barber?.id)?.toString() ===
+            loggedInBarber.id?.toString(),
+        );
+      } else {
+        filtered = [];
+      }
+    }
+
     if (selectedMonth) {
       const [year, month] = selectedMonth.split('-');
       filtered = filtered.filter((appointment) => {
@@ -637,6 +658,15 @@ useEffect(() => {
       ...prev,
       [field]: value,
     }));
+  };
+
+  const formatWhatsAppNumber = (value) => {
+    const cleaned = String(value || '').replace(/\D/g, '').slice(0, 11);
+
+    if (cleaned.length <= 2) return cleaned;
+    if (cleaned.length <= 7) return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
+
+    return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7)}`;
   };
 
   const getFilteredAppointmentPayments = () => {
@@ -2755,6 +2785,23 @@ const statsForEarnings = useMemo(() => {
 const filteredAppointmentsAdmin = useMemo(() => {
   let filtered = [...appointments];
 
+  if (isBarber) {
+    const loggedInBarber = barbers.find(
+      (b) =>
+        b.userId?.toString() === currentUser?.id?.toString() ||
+        b.id?.toString() === currentUser?.barberId?.toString() ||
+        (currentUser?.email && b.email === currentUser.email),
+    );
+
+    if (loggedInBarber) {
+      filtered = filtered.filter(
+        (apt) => (apt.barberId || apt.barber?.id)?.toString() === loggedInBarber.id?.toString(),
+      );
+    } else {
+      filtered = [];
+    }
+  }
+
   if (selectedMonth) {
     const [year, month] = selectedMonth.split('-');
     filtered = filtered.filter((apt) => {
@@ -2781,7 +2828,19 @@ const filteredAppointmentsAdmin = useMemo(() => {
 
   filtered.sort((a, b) => new Date(b.startAt) - new Date(a.startAt));
   return filtered;
-}, [appointments, earningsFilter, customStartDate, customEndDate, isAdmin, barberProfile, calculateTotal, employeePayments]);
+}, [
+  appointments,
+  selectedMonth,
+  appointmentDateFilter,
+  appointmentStartDate,
+  appointmentEndDate,
+  selectedBarberFilter,
+  isBarber,
+  barbers,
+  currentUser?.id,
+  currentUser?.barberId,
+  currentUser?.email,
+]);
 
   const filteredAppointmentPayments = getFilteredPayments();
 
@@ -2852,10 +2911,50 @@ const filteredAppointmentsAdmin = useMemo(() => {
       p.paymentMethod === 'subscription',
   );
 
+  const BENEFIT_SERVICE_PREFIX = 'SERVICO_INCLUSO::';
+
+  const sanitizeBenefitText = (value) => {
+    if (typeof value !== 'string') return '';
+    let cleaned = value.trim().replace(/\s+/g, ' ');
+    cleaned = cleaned.replace(/(\d)([a-zA-Z])/g, '$1 $2');
+    return cleaned;
+  };
+
+  const parseBenefit = (benefit) => {
+    const raw = typeof benefit === 'string' ? benefit : '';
+
+    if (raw.startsWith(BENEFIT_SERVICE_PREFIX)) {
+      const parts = raw.split('::');
+      return {
+        raw,
+        isServiceLinked: true,
+        serviceId: parts[1] || '',
+        serviceName: parts.slice(2).join('::').trim(),
+      };
+    }
+
+    return {
+      raw,
+      isServiceLinked: false,
+      serviceId: '',
+      serviceName: '',
+    };
+  };
+
+  const formatBenefitLabel = (benefit) => {
+    const parsed = parseBenefit(benefit);
+    if (parsed.isServiceLinked) {
+      return `Serviço incluído: ${parsed.serviceName || 'Serviço'}`;
+    }
+    return sanitizeBenefitText(parsed.raw);
+  };
+
   const openBenefitModal = (planId, benefit = null, benefitIndex = null) => {
+    const parsedBenefit = parseBenefit(benefit);
     setSelectedPlanForBenefit({ planId, benefitIndex });
     setEditingBenefit(benefit);
-    setBenefitForm(benefit || '');
+    setBenefitForm(parsedBenefit.isServiceLinked ? '' : parsedBenefit.raw || '');
+    setBenefitServiceId(parsedBenefit.serviceId || '');
     setShowBenefitModal(true);
   };
 
@@ -3035,6 +3134,7 @@ const filteredAppointmentsAdmin = useMemo(() => {
     setEditingBenefit(null);
     setSelectedPlanForBenefit(null);
     setBenefitForm('');
+    setBenefitServiceId('');
   };
 
   const handleSaveBenefit = async (e) => {
@@ -3044,15 +3144,20 @@ const filteredAppointmentsAdmin = useMemo(() => {
     return;
   }
 
-  let rawBenefit = benefitForm.trim();
-  
-  // 🔥 NOVO: Remove espaços entre caracteres isolados
-  let cleaned = rawBenefit.trim().replace(/\s+/g, ' ');
-  cleaned = cleaned.replace(/(\d)([a-zA-Z])/g, '$1 $2');
-  if (!cleaned) {
-    showToast('Digite um benefício válido.', 'danger');
+  const selectedService = benefitServiceId
+    ? services.find((service) => String(service.id) === String(benefitServiceId))
+    : null;
+
+  const cleaned = sanitizeBenefitText(benefitForm);
+
+  if (!selectedService && !cleaned) {
+    showToast('Digite um benefício válido ou selecione um serviço.', 'danger');
     return;
   }
+
+  const benefitValue = selectedService
+    ? `${BENEFIT_SERVICE_PREFIX}${selectedService.id}::${selectedService.name}`
+    : cleaned;
 
   try {
     const plan = plans.find((p) => p.id === selectedPlanForBenefit.planId);
@@ -3060,9 +3165,9 @@ const filteredAppointmentsAdmin = useMemo(() => {
 
     let updatedFeatures = [...plan.features];
     if (selectedPlanForBenefit.benefitIndex !== null) {
-      updatedFeatures[selectedPlanForBenefit.benefitIndex] = cleaned;
+      updatedFeatures[selectedPlanForBenefit.benefitIndex] = benefitValue;
     } else {
-      updatedFeatures.push(cleaned);
+      updatedFeatures.push(benefitValue);
     }
 
     await fetch(`${API_URL}/subscription-plans/${plan.id}`, {
@@ -4246,6 +4351,76 @@ const filteredAppointmentsAdmin = useMemo(() => {
                     onChange={(e) => handleHomeInfoChange('scheduleLine3', e.target.value)}
                     placeholder="Ex: Domingo: Fechado"
                   />
+
+                  <div
+                    style={{
+                      marginTop: '1.2rem',
+                      padding: '1.2rem',
+                      borderRadius: '12px',
+                      border: '1px solid rgba(255, 182, 39, 0.2)',
+                      background:
+                        'linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.01) 100%)',
+                    }}
+                  >
+                    <div style={{ textAlign: 'center', marginBottom: '0.8rem' }}>
+                      <h4
+                        style={{
+                          margin: 0,
+                          color: '#ffb627',
+                          fontSize: '1.25rem',
+                          fontWeight: 700,
+                        }}
+                      >
+                        📞 Contato WhatsApp
+                      </h4>
+                    </div>
+
+                    <div
+                      style={{
+                        height: '2px',
+                        width: '100%',
+                        background: 'linear-gradient(90deg, #ffb627 0%, rgba(255, 182, 39, 0.35) 100%)',
+                        borderRadius: '999px',
+                        marginBottom: '1.2rem',
+                      }}
+                    />
+
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label>Número do WhatsApp (com DDD)</label>
+                      <input
+                        type="text"
+                        value={homeInfo.whatsappNumber}
+                        onChange={(e) =>
+                          handleHomeInfoChange(
+                            'whatsappNumber',
+                            formatWhatsAppNumber(e.target.value),
+                          )
+                        }
+                        inputMode="numeric"
+                        maxLength={15}
+                        placeholder="Ex: 85991173279"
+                        style={{
+                          width: '100%',
+                          padding: '0.9rem 1rem',
+                          borderRadius: '10px',
+                          border: '1px solid #1f1f1f',
+                          background: '#0e0e0e',
+                          color: '#f5f5f5',
+                          fontSize: '1rem',
+                        }}
+                      />
+                      <p
+                        style={{
+                          marginTop: '0.65rem',
+                          marginBottom: 0,
+                          color: '#9ca3af',
+                          fontSize: '0.86rem',
+                        }}
+                      >
+                        Use apenas números ou formato com DDD. Será usado no link "fale conosco".
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="form-section" style={{ marginTop: '2rem' }}>
@@ -5533,9 +5708,7 @@ const filteredAppointmentsAdmin = useMemo(() => {
                             <div key={idx} className="benefit-item">
                              <div style={{wordBreak: 'break-word', whiteSpace: 'normal', display: 'inline-block' }}>
                               <span className="benefit-icon">✓</span>{' '}
-                              {typeof benefit === 'string' 
-                                ? benefit.replace(/\s+/g, ' ').trim()
-                                : benefit}
+                              {formatBenefitLabel(benefit)}
                             </div>
  {/* whiteSpace: 'normal !important', wordBreak: 'break-word', */}
                               {isAdmin && (
@@ -8284,21 +8457,52 @@ const filteredAppointmentsAdmin = useMemo(() => {
       <h2>{editingBenefit ? '✏️ Editar Benefício' : '➕ Adicionar Benefício'}</h2>
       <form onSubmit={handleSaveBenefit} className="barber-form">
         <div>
+          <label className="form-label">Serviço vinculado (opcional)</label>
+          <select
+            value={benefitServiceId}
+            onChange={(e) => setBenefitServiceId(e.target.value)}
+            className="form-input"
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              background: '#1a1a1a',
+              border: '1px solid #333',
+              borderRadius: '8px',
+              color: '#fff',
+              fontSize: '0.95rem',
+            }}
+          >
+            <option value="">Nenhum (benefício textual)</option>
+            {services
+              .slice()
+              .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
+              .map((service) => (
+                <option key={service.id} value={service.id}>
+                  {service.name}
+                </option>
+              ))}
+          </select>
+          <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '6px' }}>
+            Ao selecionar um serviço, ele será coberto pelo plano no agendamento.
+          </p>
+        </div>
+        <div>
           <label className="form-label">Descrição do Benefício</label>
           <textarea
             value={benefitForm}
             onChange={(e) => setBenefitForm(e.target.value)}
             placeholder="Ex.: 2 cortes por mês | Brinde especial | Desconto em produtos"
-            required
+            required={!benefitServiceId}
+            disabled={!!benefitServiceId}
             rows="3"
             className="form-textarea"
             style={{
               width: '100%',
               padding: '12px',
-              background: '#1a1a1a',
+              background: benefitServiceId ? '#121212' : '#1a1a1a',
               border: '1px solid #333',
               borderRadius: '8px',
-              color: '#fff',
+              color: benefitServiceId ? '#666' : '#fff',
               fontSize: '0.95rem',
               resize: 'vertical',
             }}

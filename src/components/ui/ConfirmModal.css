@@ -1,10 +1,22 @@
+.confirm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 2000;
+}
+
 .confirm-modal-header {
   position: relative;
   height: 40px;
   margin-bottom: 16px;
 }
 
-.modal-close {
+.confirm-modal__close {
   position: absolute;
   top: 12px;
   right: 12px;
@@ -20,7 +32,7 @@
   transition: all 0.2s ease;
 }
 
-.modal-close:hover {
+.confirm-modal__close:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
 }
@@ -80,19 +92,33 @@
   justify-content: center;
 }
 
+/* Evita tremida do modal causada por hover com translate/shadow do botão global */
+.confirm-modal .btn {
+  transform: none;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.confirm-modal .btn:hover,
+.confirm-modal .btn:active {
+  transform: none;
+}
+
 .confirm-modal__button--cancel {
   flex: 1;
   background: #333;
   border: none;
+  box-shadow: none;
 }
 
 .confirm-modal__button--cancel:hover {
   background: #444;
+  box-shadow: none;
 }
 
 .confirm-modal__button--confirm {
   flex: 1;
   border: none;
+  box-shadow: 0 6px 16px rgba(255, 122, 26, 0.35);
 }
 
 .confirm-modal__button--danger {

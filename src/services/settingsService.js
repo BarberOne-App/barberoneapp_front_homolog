@@ -86,6 +86,7 @@ export async function getHomeInfo() {
         scheduleLine1: homeInfoData.schedule_line1 ?? homeInfoData.scheduleLine1 ?? "Seg - 14h as 20h",
         scheduleLine2: homeInfoData.schedule_line2 ?? homeInfoData.scheduleLine2 ?? "Terça a Sab. - 09h as 20h",
         scheduleLine3: homeInfoData.schedule_line3 ?? homeInfoData.scheduleLine3 ?? "Domingo: Fechado",
+        whatsappNumber: homeInfoData.whatsapp_number ?? homeInfoData.whatsappNumber ?? "",
         locationTitle: homeInfoData.location_title ?? homeInfoData.locationTitle ?? "Localização",
         locationAddress: homeInfoData.location_address ?? homeInfoData.locationAddress ?? "Av. val paraíso,1396",
         locationCity: homeInfoData.location_city ?? homeInfoData.locationCity ?? "Jangurussu - Fortaleza/CE",
@@ -104,6 +105,7 @@ export async function getHomeInfo() {
       scheduleLine1: "Seg - 14h as 20h",
       scheduleLine2: "Terça a Sab. - 09h as 20h",
       scheduleLine3: "Domingo: Fechado",
+      whatsappNumber: "",
       locationTitle: "Localização",
       locationAddress: "Av. val paraíso,1396",
       locationCity: "Jangurussu - Fortaleza/CE"
@@ -123,6 +125,7 @@ export async function getHomeInfo() {
       scheduleLine1: "Seg - 14h as 20h",
       scheduleLine2: "Terça a Sab. - 09h as 20h",
       scheduleLine3: "Domingo: Fechado",
+      whatsappNumber: "",
       locationTitle: "Localização",
       locationAddress: "Av. val paraíso,1396",
       locationCity: "Jangurussu - Fortaleza/CE"
@@ -151,6 +154,7 @@ export async function saveHomeInfo(homeInfo) {
         schedule_line1: homeInfo.scheduleLine1 ?? null,
         schedule_line2: homeInfo.scheduleLine2 ?? null,
         schedule_line3: homeInfo.scheduleLine3 ?? null,
+        whatsapp_number: homeInfo.whatsappNumber ?? null,
         location_title: homeInfo.locationTitle ?? null,
         location_address: homeInfo.locationAddress ?? null,
         location_city: homeInfo.locationCity ?? null,

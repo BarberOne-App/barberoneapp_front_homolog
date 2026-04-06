@@ -1,5 +1,34 @@
 import api from "./api";
 
+const TOKEN_EXPIRY_LEEWAY_SECONDS = 30;
+
+function decodeJwtPayload(token) {
+  try {
+    const base64Url = String(token || "").split(".")[1];
+    if (!base64Url) return null;
+
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+    const decoded = atob(padded);
+    return JSON.parse(decoded);
+  } catch {
+    return null;
+  }
+}
+
+export function isTokenValid(token) {
+  if (!token) return false;
+
+  const payload = decodeJwtPayload(token);
+  if (!payload || typeof payload !== "object") return false;
+
+  // Se não tiver exp, considera inválido para evitar sessão fantasma.
+  if (!payload.exp) return false;
+
+  const nowInSeconds = Math.floor(Date.now() / 1000);
+  return Number(payload.exp) > nowInSeconds + TOKEN_EXPIRY_LEEWAY_SECONDS;
+}
+
 /**
  * Login via backend real — POST /auth/login
  * O backend exige { slug, email, password } e retorna { token, barbershop, user }
@@ -83,6 +112,12 @@ export function saveSession(data) {
 }
 
 export function getSession() {
+  const token = localStorage.getItem("token");
+  if (!isTokenValid(token)) {
+    logout();
+    return null;
+  }
+
   try {
     const user = localStorage.getItem("currentUser");
     return user ? JSON.parse(user) : null;
@@ -92,7 +127,16 @@ export function getSession() {
 }
 
 export function getToken() {
-  return localStorage.getItem("token");
+  const token = localStorage.getItem("token");
+  if (!isTokenValid(token)) {
+    logout();
+    return null;
+  }
+  return token;
+}
+
+export function hasValidSession() {
+  return !!getToken() && !!getSession();
 }
 
 export function logout() {
@@ -103,6 +147,8 @@ export function logout() {
 }
 
 export const getRedirectPath = () => {
+  if (!hasValidSession()) return '/login';
+
   const user = getSession();
   if (!user) return '/login';
   if (user.role === 'admin' || user.isAdmin) return '/admin';

@@ -50,6 +50,7 @@ export default function ProfilePage() {
 
     setCurrentUser(user);
     setNewName(user.name || '');
+    setProfilePhoto(user.photoUrl || user.photo || null);
     loadUserPhoto(user.id);
     // verificarAssinaturaAtiva(planId, user);
     verificarAssinaturaAtiva(user);
@@ -62,9 +63,13 @@ export default function ProfilePage() {
       .then(res => res.ok ? res.json() : null)
       .then(freshUser => {
         if (!freshUser) return;
-        const updatedUser = { ...user, permissions: freshUser.permissions ?? user.permissions };
+        const updatedUser = {
+          ...user,
+          permissions: freshUser.permissions ?? user.permissions,
+          photoUrl: freshUser.photoUrl ?? user.photoUrl ?? user.photo ?? null,
+        };
         setCurrentUser(updatedUser);
-        localStorage.setItem('session', JSON.stringify(updatedUser));
+        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
       })
       .catch(() => { });
   }, []);
@@ -78,7 +83,8 @@ export default function ProfilePage() {
       });
       if (res.ok) {
         const userData = await res.json();
-        if (userData.photo) setProfilePhoto(userData.photo);
+        const persistedPhoto = userData.photoUrl || userData.photo || null;
+        if (persistedPhoto) setProfilePhoto(persistedPhoto);
       }
     } catch (e) { }
   };
@@ -358,23 +364,28 @@ export default function ProfilePage() {
     try {
       const secure_url = await uploadImagem(pendingFile, 'perfil');
 
-      await fetch(`${import.meta.env.VITE_API_URL}/users/${currentUser.id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/users/${currentUser.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ photo: secure_url }),
+        body: JSON.stringify({ photoUrl: secure_url }),
       });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(errorBody || 'Não foi possível salvar a foto no perfil.');
+      }
 
       URL.revokeObjectURL(photoPreview);
       setProfilePhoto(secure_url);
       setPhotoPreview(null);
       setPendingFile(null);
       setPhotoSuccess(true);
-      const updatedUser = { ...currentUser, photo: secure_url };
+      const updatedUser = { ...currentUser, photoUrl: secure_url };
       setCurrentUser(updatedUser);
-      localStorage.setItem('session', JSON.stringify(updatedUser));
+      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
       showToast('Foto atualizada!');
       setTimeout(() => setPhotoSuccess(false), 3000);
     } catch (err) {
@@ -406,7 +417,7 @@ export default function ProfilePage() {
       if (res.ok) {
         const updatedUser = { ...currentUser, name: newName.trim() };
         setCurrentUser(updatedUser);
-        localStorage.setItem('session', JSON.stringify(updatedUser));
+        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
         setEditingName(false);
       }
     } catch (e) {

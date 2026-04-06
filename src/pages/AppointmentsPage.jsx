@@ -23,6 +23,7 @@ import {
   criarPagamentoAgendamento,
   buscarPagamentoAgendamento,
   criarAssinatura,
+  buscarAssinaturaAtiva,
 } from '../services/paymentService.js';
 import './AuthPages.css';
 import { getToken } from '../services/authService.js';
@@ -54,8 +55,12 @@ export default function AppointmentsPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successData, setSuccessData] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showMonthlyLockConfirmModal, setShowMonthlyLockConfirmModal] = useState(false);
+  const [pendingMonthlyLockBookingData, setPendingMonthlyLockBookingData] = useState(null);
   const [appointmentToDelete, setAppointmentToDelete] = useState(null);
   const [userSubscriptions, setUserSubscriptions] = useState([]);
+  const [stripeActiveSubscription, setStripeActiveSubscription] = useState(null);
+  const [activeSubscriptionPlanFeatures, setActiveSubscriptionPlanFeatures] = useState([]);
   const [appointmentFilter, setAppointmentFilter] = useState('current');
   const [preSelectedService, setPreSelectedService] = useState(null);
   const [bookingInProgress, setBookingInProgress] = useState(false);
@@ -81,6 +86,7 @@ export default function AppointmentsPage() {
   const [showForWhomSelector, setShowForWhomSelector] = useState(false);
 
   const hasLoadedOnce = useRef(false);
+  const hasShownMonthlyBarberNotice = useRef(false);
   const pendingStockUpdate = useRef([]);
   const paymentsCache = useRef({});
   const isFetchingPayments = useRef(false);
@@ -207,9 +213,18 @@ export default function AppointmentsPage() {
 
   const hasActiveSubscription = useMemo(() => {
     if (bookingForDependent || bookingForUser) return false;
-    return userSubscriptions.some(
-      (sub) => sub.userId === currentUser?.id && sub.status === 'active',
-    );
+
+    const currentUserId = String(currentUser?.id ?? '');
+    const hasBackendSubscription = userSubscriptions.some((sub) => {
+      const subscriptionUserId = String(sub?.userId ?? sub?.user?.id ?? '');
+      const subscriptionStatus = String(sub?.status ?? '').toLowerCase();
+      return subscriptionUserId === currentUserId && subscriptionStatus === 'active';
+    });
+
+    const stripeStatus = String(stripeActiveSubscription?.status ?? '').toLowerCase();
+    const hasStripeSubscription = stripeStatus === 'active' || stripeStatus === 'trialing';
+
+    return hasBackendSubscription || hasStripeSubscription;
   }, [userSubscriptions, currentUser?.id, bookingForDependent, bookingForUser]);
 
   const fetchBlockedDates = useCallback(async () => {
@@ -344,16 +359,143 @@ export default function AppointmentsPage() {
     if (!currentUser?.id || !userSubscriptions || userSubscriptions.length === 0) {
       return null;
     }
+
+    const currentUserId = String(currentUser.id);
     return (
-      userSubscriptions.find((s) => s.userId === currentUser.id && s.status === 'active') || null
+      userSubscriptions.find((sub) => {
+        const subscriptionUserId = String(sub?.userId ?? sub?.user?.id ?? '');
+        const subscriptionStatus = String(sub?.status ?? '').toLowerCase();
+        return subscriptionUserId === currentUserId && subscriptionStatus === 'active';
+      }) || null
     );
   }, [currentUser?.id, userSubscriptions]);
 
   useEffect(() => {
-    if (!userSubscriptions.length || !hasLoadedOnce.current) return;
+    let cancelled = false;
 
-    hasLoadedOnce.current = true;
+    const loadStripeActiveSubscription = async () => {
+      if (!currentUser?.email) {
+        setStripeActiveSubscription(null);
+        return;
+      }
 
+      try {
+        const subscription = await buscarAssinaturaAtiva(currentUser);
+        if (!cancelled) {
+          setStripeActiveSubscription(subscription || null);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setStripeActiveSubscription(null);
+        }
+      }
+    };
+
+    loadStripeActiveSubscription();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.email]);
+
+  const activeSubscriptionForCoverage = useMemo(() => {
+    return activeUserSubscription || stripeActiveSubscription || null;
+  }, [activeUserSubscription, stripeActiveSubscription]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadActivePlanFeatures = async () => {
+      if (!activeSubscriptionForCoverage?.planId) {
+        setActiveSubscriptionPlanFeatures([]);
+        return;
+      }
+
+      if (Array.isArray(activeSubscriptionForCoverage?.plan?.features)) {
+        setActiveSubscriptionPlanFeatures(activeSubscriptionForCoverage.plan.features);
+        return;
+      }
+
+      if (Array.isArray(activeSubscriptionForCoverage?.features)) {
+        setActiveSubscriptionPlanFeatures(activeSubscriptionForCoverage.features);
+        return;
+      }
+
+      try {
+        const response = await api.get(`/subscription-plans/${activeSubscriptionForCoverage.planId}`);
+        const features = Array.isArray(response?.data?.features) ? response.data.features : [];
+        if (!cancelled) {
+          setActiveSubscriptionPlanFeatures(features);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setActiveSubscriptionPlanFeatures([]);
+        }
+      }
+    };
+
+    loadActivePlanFeatures();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeSubscriptionForCoverage?.planId,
+    activeSubscriptionForCoverage?.plan?.features,
+    activeSubscriptionForCoverage?.features,
+  ]);
+
+  const PLAN_SERVICE_FEATURE_PREFIX = 'SERVICO_INCLUSO::';
+
+  const normalizeFeatureText = (value) =>
+    String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase();
+
+  const coveredPlanServices = useMemo(() => {
+    const byId = new Set();
+
+    const planFeatures =
+      activeSubscriptionForCoverage?.plan?.features ||
+      activeSubscriptionForCoverage?.features ||
+      activeSubscriptionPlanFeatures ||
+      [];
+
+    if (!hasActiveSubscription || !planFeatures.length) {
+      return { byId };
+    }
+
+    planFeatures.forEach((feature) => {
+      if (typeof feature !== 'string') return;
+
+      if (feature.startsWith(PLAN_SERVICE_FEATURE_PREFIX)) {
+        const parts = feature.split('::');
+        const serviceId = parts[1];
+
+        if (serviceId) byId.add(String(serviceId));
+        return;
+      }
+    });
+
+    return { byId };
+  }, [
+    hasActiveSubscription,
+    activeSubscriptionForCoverage,
+    activeSubscriptionPlanFeatures,
+  ]);
+
+  const isServiceCoveredByPlan = useCallback(
+    (service) => {
+      if (!hasActiveSubscription || !service) return false;
+
+      const serviceId = service.id != null ? String(service.id) : '';
+      return !!serviceId && coveredPlanServices.byId.has(serviceId);
+    },
+    [hasActiveSubscription, coveredPlanServices],
+  );
+  useEffect(() => {
     if (!activeUserSubscription) {
       setIsBarberLocked(false);
       setLockedBarberId(null);
@@ -361,14 +503,18 @@ export default function AppointmentsPage() {
       return;
     }
 
-    if (!activeUserSubscription.monthlyBarberId || !activeUserSubscription.monthlyBarberSetDate) {
+    const monthlyBarberId = activeUserSubscription.monthlyBarberId;
+    const monthlyBarberSetAt =
+      activeUserSubscription.monthlyBarberSetAt || activeUserSubscription.monthlyBarberSetDate;
+
+    if (!monthlyBarberId || !monthlyBarberSetAt) {
       setIsBarberLocked(false);
       setLockedBarberId(null);
       setLockedBarberName(null);
       return;
     }
 
-    const setDate = new Date(activeUserSubscription.monthlyBarberSetDate);
+    const setDate = new Date(monthlyBarberSetAt);
     const currentDate = new Date();
     const isSameMonth =
       setDate.getMonth() === currentDate.getMonth() &&
@@ -376,24 +522,91 @@ export default function AppointmentsPage() {
 
     if (isSameMonth) {
       setIsBarberLocked(true);
-      setLockedBarberId(activeUserSubscription.monthlyBarberId);
-      setLockedBarberName(activeUserSubscription.monthlyBarberName);
+      setLockedBarberId(monthlyBarberId);
+      setLockedBarberName(
+        activeUserSubscription.monthlyBarber?.displayName ||
+          activeUserSubscription.monthlyBarberName ||
+          null,
+      );
     } else {
       setIsBarberLocked(false);
       setLockedBarberId(null);
       setLockedBarberName(null);
     }
-  }, [userSubscriptions.length, activeUserSubscription]);
+  }, [activeUserSubscription]);
+
+  const derivedMonthlyLockedBarber = useMemo(() => {
+    if (!hasActiveSubscription || !currentUser?.id || !Array.isArray(appointments)) {
+      return null;
+    }
+
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const startRefRaw =
+      activeSubscriptionForCoverage?.startedAt ||
+      activeSubscriptionForCoverage?.startDate ||
+      activeSubscriptionForCoverage?.createdAt ||
+      null;
+    const startRef = startRefRaw ? new Date(startRefRaw) : null;
+    const hasValidStartRef = !!startRef && !Number.isNaN(startRef.getTime());
+
+    const ownAppointmentsThisMonth = appointments
+      .filter((apt) => {
+        const sameClient = normalizeId(apt.clientId) === normalizeId(currentUser.id);
+        if (!sameClient) return false;
+
+        const aptDate = new Date(apt.startAt || apt.endAt);
+        if (Number.isNaN(aptDate.getTime())) return false;
+
+        const inCurrentMonth =
+          aptDate.getMonth() === currentMonth && aptDate.getFullYear() === currentYear;
+        if (!inCurrentMonth) return false;
+
+        if (hasValidStartRef && aptDate < startRef) return false;
+
+        return true;
+      })
+      .sort((a, b) => new Date(a.startAt || a.endAt) - new Date(b.startAt || b.endAt));
+
+    const firstAppointment = ownAppointmentsThisMonth[0];
+    if (!firstAppointment?.barberId) return null;
+
+    const barberFromList = barbers.find(
+      (barber) => normalizeId(barber.id) === normalizeId(firstAppointment.barberId),
+    );
+
+    return {
+      barberId: firstAppointment.barberId,
+      barberName:
+        firstAppointment?.barber?.displayName ||
+        firstAppointment?.barberName ||
+        barberFromList?.displayName ||
+        barberFromList?.name ||
+        null,
+    };
+  }, [
+    hasActiveSubscription,
+    currentUser?.id,
+    appointments,
+    activeSubscriptionForCoverage,
+    barbers,
+  ]);
+
+  const effectiveLockedBarberId = lockedBarberId || derivedMonthlyLockedBarber?.barberId || null;
+  const effectiveLockedBarberName =
+    lockedBarberName || derivedMonthlyLockedBarber?.barberName || null;
+  const effectiveIsBarberLocked =
+    !!hasActiveSubscription && !!effectiveLockedBarberId && !bookingForDependent && !bookingForUser;
 
   const setMonthlyBarber = useCallback(
     async (barberId, barberName) => {
-      if (!activeUserSubscription) return;
+      if (!activeUserSubscription) return true;
 
       try {
         await api.patch(`/subscriptions/${activeUserSubscription.id}`, {
           monthlyBarberId: barberId,
-          monthlyBarberName: barberName,
-          monthlyBarberSetDate: new Date().toISOString(),
         });
 
         setIsBarberLocked(true);
@@ -405,15 +618,29 @@ export default function AppointmentsPage() {
           message: `${barberName} é seu barbeiro fixo este mês!`,
           type: 'success',
         });
+        return true;
       } catch (error) {
         setToast({
           show: true,
           message: 'Erro ao definir barbeiro fixo',
           type: 'danger',
         });
+        return false;
       }
     },
     [activeUserSubscription],
+  );
+
+  const ensureMonthlyBarberLock = useCallback(
+    async (barberId, barberName) => {
+      if (isAdmin || !activeUserSubscription || effectiveIsBarberLocked) return;
+
+      const locked = await setMonthlyBarber(barberId, barberName);
+      if (!locked) {
+        throw new Error('Não foi possível vincular o barbeiro à assinatura para este mês.');
+      }
+    },
+    [isAdmin, activeUserSubscription, effectiveIsBarberLocked, setMonthlyBarber],
   );
 
   const loadData = useCallback(async () => {
@@ -480,7 +707,12 @@ export default function AppointmentsPage() {
       setServices(servicesData);
       setProducts(productsData);
       setAppointments(appointmentsData);
-      setUserSubscriptions(Array.isArray(subscription?.items) ? subscription.items : []);
+      const normalizedSubscriptions = Array.isArray(subscription?.items)
+        ? subscription.items
+        : Array.isArray(subscription)
+          ? subscription
+          : [];
+      setUserSubscriptions(normalizedSubscriptions);
       setAllUsers(allUsersArray);
 
       let deps = [];
@@ -511,7 +743,7 @@ export default function AppointmentsPage() {
       for (const apt of userAppointments) {
         try {
           const payment = await buscarPagamentoAgendamento(apt.id);
-          if (payment) paymentsMap[apt.id] = payment;
+          if (payment) paymentsMap[apt.id] = Array.isArray(payment) ? payment[0] || null : payment;
         } catch (error) {
           console.error(`Erro ao buscar pagamento ${apt.id}`, error);
         }
@@ -1028,15 +1260,30 @@ export default function AppointmentsPage() {
 
         if (
           !isAdmin &&
-          activeUserSubscription &&
-          isBarberLocked &&
-          bookingData.barberId !== lockedBarberId
+          hasActiveSubscription &&
+          effectiveIsBarberLocked &&
+          normalizeId(bookingData.barberId) !== normalizeId(effectiveLockedBarberId)
         ) {
           showToast(
-            `Você já selecionou ${lockedBarberName} no início deste mês. O barbeiro só pode ser alterado no próximo mês.`,
+            `Você já selecionou ${effectiveLockedBarberName || 'seu barbeiro fixo'} no início deste mês. O barbeiro só pode ser alterado no próximo mês.`,
             'warning',
           );
           return;
+        }
+
+        if (
+          !isAdmin &&
+          hasActiveSubscription &&
+          !effectiveIsBarberLocked &&
+          !bookingForDependent &&
+          !bookingForUser &&
+          !hasShownMonthlyBarberNotice.current
+        ) {
+          hasShownMonthlyBarberNotice.current = true;
+          showToast(
+            `Atenção: ao confirmar este agendamento, ${bookingData.barberName} ficará vinculado à sua assinatura durante todo este mês.`,
+            'warning',
+          );
         }
 
         const serviceDuration = calculateTotalDuration(bookingData.services);
@@ -1052,12 +1299,29 @@ export default function AppointmentsPage() {
           return;
         }
 
-        const servicePrice = calculateTotal(bookingData.services);
+        const allServicePrice = calculateTotal(bookingData.services);
+        const payableServices = hasActiveSubscription
+          ? bookingData.services.filter((service) => !isServiceCoveredByPlan(service))
+          : bookingData.services;
+        const coveredServices = hasActiveSubscription
+          ? bookingData.services
+              .filter((service) => isServiceCoveredByPlan(service))
+              .map((service) => service.name || service.serviceName)
+          : [];
+        const servicePrice = calculateTotal(payableServices);
+        const allSelectedServicesCoveredByPlan =
+          hasActiveSubscription &&
+          Array.isArray(bookingData.services) &&
+          bookingData.services.length > 0 &&
+          payableServices.length === 0;
 
         setPendingBookingData({
           ...bookingData,
           date: dateStr,
           servicePrice,
+          originalServicePrice: allServicePrice,
+          serviceCoveredByPlan: allSelectedServicesCoveredByPlan,
+          coveredServices,
           observation,
           dateFormatted: selectedDate.toLocaleDateString('pt-BR'),
         });
@@ -1076,11 +1340,12 @@ export default function AppointmentsPage() {
       showToast,
       loadData,
       calculateTotal,
+      isServiceCoveredByPlan,
       isAdmin,
-      activeUserSubscription,
-      isBarberLocked,
-      lockedBarberId,
-      lockedBarberName,
+      hasActiveSubscription,
+      effectiveIsBarberLocked,
+      effectiveLockedBarberId,
+      effectiveLockedBarberName,
       calculateTotalDuration,
       isDateBlocked,
       isDateBlockedForAll,
@@ -1095,18 +1360,58 @@ export default function AppointmentsPage() {
       setShowProductsModal(false);
 
       const hasProducts = data.products.length > 0;
+      const canDirectConfirmByPlanCoverage =
+        pendingBookingData.serviceCoveredByPlan === true &&
+        Number(pendingBookingData.servicePrice || 0) === 0;
 
-      const hasSubscription = data.hasActiveSubscription && !bookingForDependent && !bookingForUser;
-
-      if (!hasProducts && hasSubscription) {
+      if (!hasProducts && data.finalTotal === 0 && canDirectConfirmByPlanCoverage) {
         handleDirectConfirmation();
         return;
       }
 
       setShowPaymentChoiceModal(true);
     },
-    [pendingBookingData, bookingForDependent],
+    [pendingBookingData],
   );
+
+  const handleBookWithMonthlyLockConfirm = useCallback(
+    (bookingData) => {
+      const requiresMonthlyLockConfirm =
+        !isAdmin &&
+        hasActiveSubscription &&
+        !effectiveIsBarberLocked &&
+        !bookingForDependent &&
+        !bookingForUser;
+
+      if (requiresMonthlyLockConfirm) {
+        setPendingMonthlyLockBookingData(bookingData);
+        setShowMonthlyLockConfirmModal(true);
+        return;
+      }
+
+      handleBook(bookingData);
+    },
+    [
+      isAdmin,
+      hasActiveSubscription,
+      effectiveIsBarberLocked,
+      bookingForDependent,
+      bookingForUser,
+      handleBook,
+    ],
+  );
+
+  const handleMonthlyLockConfirm = useCallback(() => {
+    if (!pendingMonthlyLockBookingData) {
+      setShowMonthlyLockConfirmModal(false);
+      return;
+    }
+
+    const bookingData = pendingMonthlyLockBookingData;
+    setPendingMonthlyLockBookingData(null);
+    setShowMonthlyLockConfirmModal(false);
+    handleBook(bookingData);
+  }, [pendingMonthlyLockBookingData, handleBook]);
 
   const handleReschedule = useCallback(async () => {
     if (!existingAppointment) return;
@@ -1157,11 +1462,8 @@ export default function AppointmentsPage() {
 
       setBookingInProgress(true);
 
-      if (activeUserSubscription && !isBarberLocked && !isAdmin) {
-        const selectedBarber = barbers.find((b) => b.id === pendingBookingData.barberId);
-        if (selectedBarber) {
-          await setMonthlyBarber(selectedBarber.id, selectedBarber.name);
-        }
+      if (activeUserSubscription && !isAdmin) {
+        await ensureMonthlyBarberLock(pendingBookingData.barberId, pendingBookingData.barberName);
       }
 
       const selectedDependent = bookingForDependent
@@ -1213,7 +1515,7 @@ export default function AppointmentsPage() {
         appointmentDate: pendingBookingData.date,
         appointmentTime: pendingBookingData.time,
         products: [],
-        status: 'plancovered',
+        status: 'covered',
         paymentMethod: 'subscription',
       };
 
@@ -1266,8 +1568,7 @@ export default function AppointmentsPage() {
     activeUserSubscription,
     isBarberLocked,
     isAdmin,
-    barbers,
-    setMonthlyBarber,
+      ensureMonthlyBarberLock,
     clearPaymentCache,
   ]);
 
@@ -1291,6 +1592,10 @@ export default function AppointmentsPage() {
 
         // 🔴 CRIAR AGENDAMENTO PRIMEIRO (antes do pagamento)
         try {
+          if (activeUserSubscription && !isAdmin) {
+            await ensureMonthlyBarberLock(pendingBookingData.barberId, pendingBookingData.barberName);
+          }
+
           const selectedDependent = bookingForDependent
             ? dependentsForBooking.find((dep) => dep.id === bookingForDependent.id)
             : null;
@@ -1356,6 +1661,10 @@ export default function AppointmentsPage() {
         }
         } else {
           setBookingInProgress(true);
+
+          if (activeUserSubscription && !isAdmin) {
+            await ensureMonthlyBarberLock(pendingBookingData.barberId, pendingBookingData.barberName);
+          }
 
           const response = await axios.get(`${import.meta.env.VITE_API_URL}/dependents`, {
             headers: {
@@ -1473,10 +1782,13 @@ export default function AppointmentsPage() {
       isRescheduling,
       existingAppointment,
       activeClient?.id,
-    dependentsForBooking,
+      dependentsForBooking,
       loadData,
       showToast,
       clearPaymentCache,
+      activeUserSubscription,
+      isAdmin,
+      ensureMonthlyBarberLock,
     ],
   );
 
@@ -1506,11 +1818,9 @@ export default function AppointmentsPage() {
   }, [appointmentToDelete, loadData, showToast, clearPaymentCache]);
 
   const myAppointments = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);  // Reset para comparar apenas a data
-    
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
 
     const depClientIds = userDependents.map((d) => d.id);
     return appointments.filter((apt) => {
@@ -1518,14 +1828,14 @@ export default function AppointmentsPage() {
       const isDep = depClientIds.includes(apt.clientId);
       if (!isOwn && !isDep) return false;
 
-      const aptDate = new Date(apt.endAt);
-      aptDate.setHours(0, 0, 0, 0);  // Reset para comparar apenas a data
-      
-      // 🔴 Excluir agendamentos com data passada (de TODOS os filtros)
-      if (aptDate < today) return false;
+      const appointmentDateTime = new Date(apt.startAt || apt.endAt);
+      if (Number.isNaN(appointmentDateTime.getTime())) return false;
 
-      const aptMonth = aptDate.getMonth();
-      const aptYear = aptDate.getFullYear();
+      // Remove agendamentos que já passaram considerando data e hora atual.
+      if (appointmentDateTime < now) return false;
+
+      const aptMonth = appointmentDateTime.getMonth();
+      const aptYear = appointmentDateTime.getFullYear();
 
       if (appointmentFilter === 'current') {
         return aptMonth === currentMonth && aptYear === currentYear;
@@ -2178,6 +2488,39 @@ export default function AppointmentsPage() {
                   return (
                     <div className="appointments__barbers">
                       <h2>Barbeiros disponíveis em {selectedDate.toLocaleDateString('pt-BR')}</h2>
+                      {!isAdmin && hasActiveSubscription && !effectiveIsBarberLocked && !bookingForDependent && !bookingForUser && (
+                        <div
+                          style={{
+                            margin: '0.6rem 0 1rem',
+                            padding: '0.7rem 0.9rem',
+                            borderRadius: '8px',
+                            border: '1px solid rgba(212, 175, 55, 0.5)',
+                            background: 'rgba(212, 175, 55, 0.12)',
+                            color: '#d4af37',
+                            fontSize: '0.85rem',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Seu primeiro agendamento do mês define seu barbeiro fixo por 1 mês de assinatura. A troca só ficará disponível no próximo mês.
+                        </div>
+                      )}
+                      {!isAdmin && hasActiveSubscription && effectiveIsBarberLocked && !bookingForDependent && !bookingForUser && (
+                        <div
+                          style={{
+                            margin: '0.6rem 0 1rem',
+                            padding: '0.7rem 0.9rem',
+                            borderRadius: '8px',
+                            border: '1px solid rgba(34, 197, 94, 0.45)',
+                            background: 'rgba(34, 197, 94, 0.12)',
+                            color: '#22c55e',
+                            fontSize: '0.85rem',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Barbeiro fixo da assinatura este mês: {effectiveLockedBarberName || 'selecionado'}.
+                          Apenas ele ficará disponível para novos agendamentos até o próximo mês.
+                        </div>
+                      )}
                       <div style={{ marginBottom: '1.5rem' }}>
                         <label
                           style={{
@@ -2233,9 +2576,9 @@ export default function AppointmentsPage() {
 
                           const shouldHideBarber =
                             !isAdmin &&
-                            activeUserSubscription &&
-                            isBarberLocked &&
-                            barber.id !== lockedBarberId;
+                            hasActiveSubscription &&
+                            effectiveIsBarberLocked &&
+                            normalizeId(barber.id) !== normalizeId(effectiveLockedBarberId);
 
                           if (shouldHideBarber) return null;
 
@@ -2244,11 +2587,9 @@ export default function AppointmentsPage() {
                               key={barber.id}
                               barber={barberWithPhoto}
                               services={
-                                barberWithPhoto.serviceIds && barberWithPhoto.serviceIds.length > 0
-                                  ? services.filter((s) =>
-                                      barberWithPhoto.serviceIds.includes(s.id),
-                                    )
-                                  : services
+                                Array.isArray(barberWithPhoto.serviceIds)
+                                  ? services.filter((s) => barberWithPhoto.serviceIds.includes(s.id))
+                                  : []
                               }
                               selectedDate={selectedDate}
                               barberId={barber.id}
@@ -2256,9 +2597,11 @@ export default function AppointmentsPage() {
                               generateTimes={generateTimes}
                               getAvailableTimes={getAvailableTimes}
                               calculateTotalDuration={calculateTotalDuration}
-                              onBook={handleBook}
+                              onBook={handleBookWithMonthlyLockConfirm}
                               showToast={showToast}
                               preSelectedService={preSelectedService}
+                              hasActiveSubscription={hasActiveSubscription}
+                              isServiceCoveredByPlan={isServiceCoveredByPlan}
                             />
                           );
                         })
@@ -2367,6 +2710,8 @@ export default function AppointmentsPage() {
                       <col />
                       <col />
                       <col />
+                      <col />
+                      <col />
                     </colgroup>
                     <thead>
                       <tr>
@@ -2379,19 +2724,31 @@ export default function AppointmentsPage() {
                         <th>Produtos</th>
                         <th>Total</th>
                         <th>Status</th>
+                        <th>Pagamento</th>
                         <th>Ações</th>
                       </tr>
                     </thead>
                     <tbody>
                       {sortedMyAppointments.map((apt) => {
                         const payment = appointmentPayments[apt.id];
+                        const appointmentStatus = String(apt.status || '').toLowerCase();
                         const isPending =
                           payment &&
                           (payment.status === 'pending' || payment.status === 'confirmed_unpaid');
                         const isPendingLocal =
                           payment && payment.status === 'pending' && payment.method === 'local';
                         const isPaid = payment && payment.status === 'paid';
-                        const isPlanCovered = payment && payment.status === 'plancovered';
+                        const isPlanCovered =
+                          payment &&
+                          (payment.status === 'covered' ||
+                            payment.status === 'plancovered' ||
+                            payment.status === 'plan_covered' ||
+                            payment.paymentMethod === 'subscription');
+                        const paymentMethodRaw = String(
+                          payment?.method || payment?.paymentMethod || '',
+                        ).toLowerCase();
+                        const isLocalPayment =
+                          paymentMethodRaw === 'local' || paymentMethodRaw === 'pendinglocal';
 
                         const appointmentDate = new Date(apt.endAt);
                         const formattedDate = appointmentDate.toLocaleDateString('pt-BR');
@@ -2427,20 +2784,45 @@ export default function AppointmentsPage() {
                               }, 0)
                             : 0;
 
-                        const total = servicesTotal + productsTotal;
+                        const allServicesCoveredByPlan =
+                          Array.isArray(apt.services) &&
+                          apt.services.length > 0 &&
+                          apt.services.every((service) =>
+                            isServiceCoveredByPlan({
+                              id: service.serviceId || service.id,
+                              name: service.serviceName || service.name,
+                            }),
+                          );
+
+                        const shouldZeroByCoverage = allServicesCoveredByPlan && productsTotal === 0;
+
+                        const effectiveServicesTotal =
+                          isPlanCovered || shouldZeroByCoverage ? 0 : servicesTotal;
+                        const total = effectiveServicesTotal + productsTotal;
 
                         let statusClass = 'pending';
                         let statusText = 'Pendente';
 
-                        if (isPaid) {
-                          statusClass = 'paid';
-                          statusText = 'Pago';
-                        } else if (isPendingLocal) {
-                          statusClass = 'pending-local';
-                          statusText = 'Pagar no Local';
-                        } else if (isPlanCovered) {
-                          statusClass = 'plan-covered';
-                          statusText = 'Plano Ativo';
+                        let paymentStatusClass = 'paid';
+                        let paymentStatusText = 'Pago';
+
+                        if (isLocalPayment) {
+                          paymentStatusClass = 'pending-local';
+                          paymentStatusText = 'Local';
+                        }
+
+                        if (appointmentStatus === 'confirmed') {
+                          statusClass = 'confirmed';
+                          statusText = 'Confirmado';
+                        } else if (appointmentStatus === 'completed') {
+                          statusClass = 'completed';
+                          statusText = 'Finalizado';
+                        } else if (appointmentStatus === 'cancelled') {
+                          statusClass = 'cancelled';
+                          statusText = 'Cancelado';
+                        } else if (appointmentStatus === 'no_show') {
+                          statusClass = 'cancelled';
+                          statusText = 'Não Compareceu';
                         }
 
                         const barber = barbers.find((b) => b.id === apt.barberId);
@@ -2574,6 +2956,11 @@ export default function AppointmentsPage() {
                                 {statusText}
                               </span>
                             </td>
+                            <td data-label="Pagamento" className="appointment-status-cell">
+                              <span className={`appointment-status ${paymentStatusClass}`}>
+                                {paymentStatusText}
+                              </span>
+                            </td>
                             <td>
                               <div className="appointment-actions">
                                 <button
@@ -2604,6 +2991,7 @@ export default function AppointmentsPage() {
         products={products}
         onConfirm={handleProductsConfirm}
         hasActiveSubscription={hasActiveSubscription}
+        serviceCoveredByPlan={pendingBookingData?.serviceCoveredByPlan || false}
         servicePrice={pendingBookingData?.servicePrice || 0}
         serviceName={pendingBookingData?.services?.map((s) => s.name).join(', ') || ''}
         onUpdateStock={handleUpdateStock}
@@ -2636,6 +3024,20 @@ export default function AppointmentsPage() {
         title={successData?.title}
         message={successData?.message}
         details={successData?.details}
+      />
+
+      <ConfirmModal
+        isOpen={showMonthlyLockConfirmModal}
+        onClose={() => {
+          setShowMonthlyLockConfirmModal(false);
+          setPendingMonthlyLockBookingData(null);
+        }}
+        onConfirm={handleMonthlyLockConfirm}
+        title="Regra do Barbeiro da Assinatura"
+        message={`Ao confirmar este agendamento com ${pendingMonthlyLockBookingData?.barberName || 'este barbeiro'}, você ficará vinculado a ele durante 1 mês da assinatura ativa. Nesse período, não poderá ser atendido por outro barbeiro e a troca só será liberada no próximo mês.`}
+        confirmText="Entendi e confirmar"
+        cancelText="Cancelar"
+        variant="warning"
       />
 
       <ConfirmModal

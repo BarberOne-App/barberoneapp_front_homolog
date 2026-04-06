@@ -4,6 +4,24 @@ import { getToken } from './authService';
 const API_URL = 'https://barberone-backend.onrender.com';
 const token = getToken();
 
+const normalizeProduct = (product) => {
+  if (!product || typeof product !== 'object') return product;
+
+  return {
+    ...product,
+    name: product.name ?? '',
+    description: product.description ?? '',
+    category: product.category ?? '',
+    price: product.price ?? 0,
+    stock: product.stock ?? 0,
+    active: product.active ?? true,
+    subscriberDiscount:
+      product.subscriberDiscount ?? product.subscriber_discount ?? product.subscriberdiscount ?? 0,
+    imageUrl: product.imageUrl ?? product.image_url ?? product.image ?? '',
+    image: product.image ?? product.image_url ?? product.imageUrl ?? '',
+  };
+};
+
 export const getProducts = async () => {
   try {
     const response = await axios.get(`${API_URL}/products`, {
@@ -11,7 +29,9 @@ export const getProducts = async () => {
         Authorization: `Bearer ${token}`,
       },
     });
-    return response.data;
+    return Array.isArray(response.data)
+      ? response.data.map(normalizeProduct)
+      : normalizeProduct(response.data);
   } catch (error) {
     throw error;
   }
@@ -25,7 +45,7 @@ export const getProductById = async (id) => {
         Authorization: `Bearer ${token}`,
       },
     });
-    return response.data;
+    return normalizeProduct(response.data);
   } catch (error) {
     throw error;
   }
@@ -39,7 +59,7 @@ export const createProduct = async (productData) => {
         Authorization: `Bearer ${token}`,
       },
     });
-    return response.data;
+    return normalizeProduct(response.data);
   } catch (error) {
     throw error;
   }
@@ -53,7 +73,7 @@ export const updateProduct = async (id, productData) => {
         Authorization: `Bearer ${token}`,
       },
     });
-    return response.data;
+    return normalizeProduct(response.data);
   } catch (error) {
     throw error;
   }

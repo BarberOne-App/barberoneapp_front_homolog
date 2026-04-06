@@ -6,6 +6,20 @@ import './SubscriptionSection.css';
 import { getToken } from '../../services/authService.js';
 import AppointmentsPage from '../../pages/AppointmentsPage-backup.jsx';
 
+const PLAN_SERVICE_FEATURE_PREFIX = 'SERVICO_INCLUSO::';
+
+const formatBenefitLabel = (benefit) => {
+  if (typeof benefit !== 'string') return benefit;
+
+  if (benefit.startsWith(PLAN_SERVICE_FEATURE_PREFIX)) {
+    const parts = benefit.split('::');
+    const serviceName = parts.slice(2).join('::').trim();
+    return `Serviço incluído: ${serviceName || 'Serviço'}`;
+  }
+
+  return benefit;
+};
+
 export default function SubscriptionSection({ activeSubscription, onSubscribe }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [plans, setPlans] = useState([]);
@@ -138,7 +152,7 @@ export default function SubscriptionSection({ activeSubscription, onSubscribe })
                     plan.features.map((feature, index) => (
                       <li key={index} className="subscription-plan__feature">
                         <Check className="subscription-plan__feature-icon" size={20} />
-                        {feature}
+                        {formatBenefitLabel(feature)}
                       </li>
                     ))
                   ) : (

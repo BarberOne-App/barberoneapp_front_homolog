@@ -6,6 +6,20 @@ import Button from './Button.jsx';
 import './ManageSubscriptionModal.css';
 import { getToken } from '../../services/authService';
 
+const PLAN_SERVICE_FEATURE_PREFIX = 'SERVICO_INCLUSO::';
+
+const formatBenefitLabel = (benefit) => {
+  if (typeof benefit !== 'string') return benefit;
+
+  if (benefit.startsWith(PLAN_SERVICE_FEATURE_PREFIX)) {
+    const parts = benefit.split('::');
+    const serviceName = parts.slice(2).join('::').trim();
+    return `Serviço incluído: ${serviceName || 'Serviço'}`;
+  }
+
+  return benefit;
+};
+
 export default function ManageSubscriptionModal({ isOpen, onClose, subscription, user }) {
   const [planDetails, setPlanDetails] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -193,7 +207,8 @@ export default function ManageSubscriptionModal({ isOpen, onClose, subscription,
               <div>
                 <span className="detail-label">Método de Pagamento</span>
                 <span className="detail-value">
-                  {subscription.paymentMethod?.toUpperCase() || 'N/A'}
+                  CARTÃO
+                  {/* {subscription.paymentMethod?.toUpperCase() || 'N/A'} */}
                 </span>
               </div>
             </div>
@@ -224,7 +239,7 @@ export default function ManageSubscriptionModal({ isOpen, onClose, subscription,
                 {benefits.map((benefit, index) => (
                   <li key={index}>
                     <Check size={18} color="#4caf50" />
-                    <span>{benefit}</span>
+                    <span>{formatBenefitLabel(benefit)}</span>
                   </li>
                 ))}
               </ul>

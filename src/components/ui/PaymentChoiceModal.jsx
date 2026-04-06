@@ -11,7 +11,12 @@ export default function PaymentChoiceModal({ isOpen, onClose, onChoose, appointm
   };
 
   const hasProducts = purchaseData?.products && purchaseData.products.length > 0;
-  const isFreeForSubscriber = purchaseData?.hasActiveSubscription && !hasProducts;
+  const isFreeForSubscriber =
+    purchaseData?.hasActiveSubscription &&
+    purchaseData?.serviceCoveredByPlan === true &&
+    Number(purchaseData?.servicePrice || 0) === 0 &&
+    Number(purchaseData?.finalTotal || 0) === 0 &&
+    !hasProducts;
 
   return (
     <div className="modal-overlay">

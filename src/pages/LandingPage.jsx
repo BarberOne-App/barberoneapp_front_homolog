@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getSession } from '../services/authService';
+import { getRedirectPath, hasValidSession } from '../services/authService';
 import './LandingPage.css';
 
 const LandingPage = () => {
@@ -9,12 +9,12 @@ const LandingPage = () => {
   const [selectedPlan, setSelectedPlan] = useState(null);
 
   const handleLogin = () => {
-    const user = getSession();
-    if (user) {
-      navigate('/home');
-    } else {
+    if (!hasValidSession()) {
       navigate('/login');
+      return;
     }
+
+    navigate(getRedirectPath());
   };
 
   const handleSubscribe = (plan) => {

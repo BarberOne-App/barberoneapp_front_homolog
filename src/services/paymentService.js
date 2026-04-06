@@ -492,6 +492,10 @@ export const cancelarAssinatura = async (subscriptionId) => {
 export const criarPagamentoAgendamento = async (dadosPagamento) => {
 
   try {
+    const rawMethod = String(dadosPagamento.method || dadosPagamento.paymentMethod || 'local').toLowerCase();
+    const normalizedMethod = rawMethod === 'online' ? 'credito' : rawMethod;
+    const normalizedStatus = String(dadosPagamento.status || 'pending').toLowerCase();
+
     const pagamento = {
       appointmentId: dadosPagamento.appointmentId,
       userId: dadosPagamento.userId,
@@ -502,9 +506,9 @@ export const criarPagamentoAgendamento = async (dadosPagamento) => {
       appointmentDate: dadosPagamento.appointmentDate,
       appointmentTime: dadosPagamento.appointmentTime,
       products: dadosPagamento.products || [],
-      status: dadosPagamento.status || 'pending',
-      method: "credito",
-      ...(dadosPagamento.status === 'paid' && {
+      status: normalizedStatus,
+      method: normalizedMethod,
+      ...(normalizedStatus === 'paid' && {
         paidAt: dadosPagamento.paidAt || new Date().toISOString()
       }),
       type: 'appointment',
@@ -532,7 +536,8 @@ export const buscarPagamentoAgendamento = async (appointmentId) => {
         Authorization: `Bearer ${token}`,
       },
     });
-    return response.data.items;
+    const items = response.data.items;
+    return Array.isArray(items) ? items[0] || null : items || null;
   } catch (error) {
     console.error('Erro ao buscar pagamento:', error);
     return null;

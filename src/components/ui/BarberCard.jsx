@@ -204,6 +204,8 @@ export default function BarberCard({
   onBook,
   showToast,
   preSelectedService,
+  hasActiveSubscription = false,
+  isServiceCoveredByPlan = () => false,
 }) {
   const [selectedServices, setSelectedServices] = useState([]);
   const [selectedTime, setSelectedTime] = useState('');
@@ -306,10 +308,20 @@ export default function BarberCard({
     return Number(price);
   };
 
+  const getEffectiveServicePrice = (service) => {
+    const raw = parsePrice(service.basePrice);
+    if (hasActiveSubscription && isServiceCoveredByPlan(service)) return 0;
+    return raw;
+  };
+
   const totalPrice = selectedServices.reduce(
-    (sum, s) => sum + parsePrice(s.basePrice),
+    (sum, s) => sum + getEffectiveServicePrice(s),
     0
   );
+
+  const selectedCoveredCount = selectedServices.filter(
+    (service) => hasActiveSubscription && isServiceCoveredByPlan(service),
+  ).length;
 
   return (
     <div className="barber-card">
@@ -324,8 +336,16 @@ export default function BarberCard({
       <div className="barber-card__services">
         <h4>Serviços</h4>
         <div className="services-grid">
+          {services.length === 0 && (
+            <p style={{ color: '#a8a8a8', textAlign: 'center', padding: '1rem' }}>
+              Este barbeiro ainda não possui serviços de domínio configurados.
+            </p>
+          )}
+
           {services.map((service) => {
             const isSelected = selectedServices.find((s) => s.id === service.id);
+            const coveredByPlan = hasActiveSubscription && isServiceCoveredByPlan(service);
+            const originalPrice = parsePrice(service.basePrice);
 
             return (
               <div
@@ -336,10 +356,29 @@ export default function BarberCard({
               >
                 <div className="service-box__name">{service.name}</div>
                 <div className="service-box__price">
-                  {Number(service.basePrice).toLocaleString('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL',
-                  })}
+                  {coveredByPlan ? (
+                    <>
+                      <span style={{ color: '#22c55e', fontWeight: 700 }}>R$ 0,00</span>
+                      <span
+                        style={{
+                          marginLeft: '0.45rem',
+                          textDecoration: 'line-through',
+                          opacity: 0.65,
+                          fontSize: '0.82rem',
+                        }}
+                      >
+                        {originalPrice.toLocaleString('pt-BR', {
+                          style: 'currency',
+                          currency: 'BRL',
+                        })}
+                      </span>
+                    </>
+                  ) : (
+                    originalPrice.toLocaleString('pt-BR', {
+                      style: 'currency',
+                      currency: 'BRL',
+                    })
+                  )}
                 </div>
                 {isSelected && <div className="service-box__check">✓</div>}
               </div>
@@ -349,7 +388,16 @@ export default function BarberCard({
 
         {selectedServices.length > 0 && (
           <div className="total-price">
-            <strong>Total:</strong> R$ {totalPrice.toFixed(2)} ({totalDuration} min)
+            <strong>Total:</strong>{' '}
+            {totalPrice === 0
+              ? 'Grátis (Plano)'
+              : `R$ ${totalPrice.toFixed(2)}`}{' '}
+            ({totalDuration} min)
+            {selectedCoveredCount > 0 && (
+              <span style={{ marginLeft: '0.5rem', color: '#22c55e', fontWeight: 600 }}>
+                {selectedCoveredCount} serviço(s) coberto(s)
+              </span>
+            )}
           </div>
         )}
       </div>
