@@ -1958,9 +1958,9 @@ export default function AppointmentsPage() {
                   Painel Admin
                 </button>
               )}
-              <button className="btn-header btn-header-logout" onClick={handleLogout}>
+              {/* <button className="btn-header btn-header-logout" onClick={handleLogout}>
                 Sair
-              </button>
+              </button> */}
             </div>
           </div>
 

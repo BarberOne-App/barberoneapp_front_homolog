@@ -23,6 +23,11 @@ function normalizeId(value) {
   return String(value).trim();
 }
 
+function isActiveStripeSubscriptionStatus(status) {
+  const normalizedStatus = String(status ?? '').toLowerCase();
+  return ['active', 'trialing', 'past_due', 'unpaid'].includes(normalizedStatus);
+}
+
 function calcularDiasAtraso(nextBillingDate) {
   const hoje = new Date();
   const dataCobranca = new Date(nextBillingDate);
@@ -350,6 +355,12 @@ export const buscarAssinaturaAtiva = async (currentUser) => {
 
     if (!subscriptions.length) return null;
 
+    const activeSubscriptions = subscriptions.filter((subscription) =>
+      isActiveStripeSubscriptionStatus(subscription?.status),
+    );
+
+    if (!activeSubscriptions.length) return null;
+
     const statusPriority = {
       active: 5,
       trialing: 4,
@@ -361,7 +372,7 @@ export const buscarAssinaturaAtiva = async (currentUser) => {
       ended: -2,
     };
 
-    const selectedSubscription = [...subscriptions].sort((a, b) => {
+    const selectedSubscription = [...activeSubscriptions].sort((a, b) => {
       const aPriority = statusPriority[a.status] ?? -99;
       const bPriority = statusPriority[b.status] ?? -99;
       if (bPriority !== aPriority) return bPriority - aPriority;

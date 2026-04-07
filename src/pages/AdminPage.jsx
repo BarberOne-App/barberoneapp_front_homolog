@@ -112,6 +112,34 @@ export default function AdminPage() {
   const [earningsFilter, setEarningsFilter] = useState('week');
   const [barberProfile, setBarberProfile] = useState(null);
   const isBarber = useMemo(() => currentUser?.role === 'barber', [currentUser?.role]);
+  const loggedInBarberProfile = useMemo(() => {
+    const isAdminUser = currentUser?.role === 'admin' || currentUser?.isAdmin === true;
+    if (isAdminUser) return barberProfile;
+
+    const matchedBarber = barbers.find(
+      (barber) =>
+        String(barber.userId || '') === String(currentUser?.id || '') ||
+        String(barber.id || '') === String(currentUser?.barberId || '') ||
+        (currentUser?.email &&
+          String(barber.email || '').toLowerCase() === String(currentUser.email).toLowerCase()),
+    );
+
+    return barberProfile || matchedBarber || null;
+  }, [barbers, barberProfile, currentUser?.barberId, currentUser?.email, currentUser?.id, currentUser?.isAdmin, currentUser?.role]);
+  const loggedInBarberReferenceIds = useMemo(() => {
+    return Array.from(
+      new Set(
+        [
+          loggedInBarberProfile?.id,
+          loggedInBarberProfile?.userId,
+          currentUser?.id,
+          currentUser?.barberId,
+        ]
+          .filter(Boolean)
+          .map((value) => String(value)),
+      ),
+    );
+  }, [loggedInBarberProfile?.id, loggedInBarberProfile?.userId, currentUser?.barberId, currentUser?.id]);
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
@@ -2747,8 +2775,8 @@ const statsForEarnings = useMemo(() => {
     return aptDate >= start && aptDate <= end;
   });
 
-  if (!isAdmin && barberProfile) {
-    filtered = filtered.filter(apt => apt.barberId === barberProfile.id);
+    if (!isAdmin && loggedInBarberProfile) {
+      filtered = filtered.filter((apt) => String(apt.barberId) === String(loggedInBarberProfile.id));
   }
 
   let totalRevenue = 0;
@@ -2757,17 +2785,22 @@ const statsForEarnings = useMemo(() => {
   });
 
   let extraPaymentsTotal = 0;
-  if (!isAdmin && barberProfile) {
+    if (!isAdmin && loggedInBarberProfile) {
     const extraPaymentsInPeriod = employeePayments.filter(payment => {
       if (!isExtraPayment(payment)) return false;
-      if (String(payment.employeeId) !== String(barberProfile.id)) return false;
-      const paymentDate = new Date(payment.periodStart);
+        if (
+          loggedInBarberReferenceIds.length > 0 &&
+          !loggedInBarberReferenceIds.includes(String(payment.employeeId))
+        ) {
+          return false;
+        }
+        const paymentDate = new Date(payment.paidAt || payment.periodStart || payment.createdAt);
       return paymentDate >= start && paymentDate <= end;
     });
     extraPaymentsTotal = extraPaymentsInPeriod.reduce((sum, p) => sum + (p.liquido || 0), 0);
   }
 
-  const commissionPercent = barberProfile?.commissionPercent || 50;
+  const commissionPercent = loggedInBarberProfile?.commissionPercent || 50;
   const barberEarnings = (totalRevenue * commissionPercent) / 100;
 
   return {
@@ -2779,7 +2812,7 @@ const statsForEarnings = useMemo(() => {
     filteredAppointments: filtered,
     extraPaymentsTotal,   // <-- novo campo
   };
-}, [appointments, earningsFilter, customStartDate, customEndDate, isAdmin, barberProfile, calculateTotal, employeePayments]);
+  }, [appointments, earningsFilter, customStartDate, customEndDate, isAdmin, loggedInBarberProfile, calculateTotal, employeePayments]);
 
 
 const filteredAppointmentsAdmin = useMemo(() => {
@@ -3484,7 +3517,7 @@ const filteredAppointmentsAdmin = useMemo(() => {
     });
   };
 
-  const isExtraPayment = (payment) => {
+  function isExtraPayment(payment) {
     const start = payment?.periodStart;
     const end = payment?.periodEnd;
     const salarioFixo = Number(payment?.salarioFixo || 0);
@@ -3501,7 +3534,7 @@ const filteredAppointmentsAdmin = useMemo(() => {
       totalVales === 0 &&
       Math.abs(salarioFixo - liquido) < 0.01,
     );
-  };
+  }
 
   const getFilteredExtraPayments = () => {
     if (!Array.isArray(employeePayments)) return [];
@@ -3792,9 +3825,9 @@ const filteredAppointmentsAdmin = useMemo(() => {
               {/* <button onClick={() => navigate('/appointments')} className="btn-header">
                 Agendamentos
               </button> */}
-              <button className="btn-header btn-header-logout" onClick={handleLogout}>
+              {/* <button className="btn-header btn-header-logout" onClick={handleLogout}>
                 Sair
-              </button>
+              </button> */}
             </div>
           </div>
 
@@ -4106,6 +4139,12 @@ const filteredAppointmentsAdmin = useMemo(() => {
                         {statsForEarnings.filteredAppointments.map((apt) => {
                           const aptTotal = calculateTotal(apt.services);
                           const barberEarning = (aptTotal * statsForEarnings.commissionPercent) / 100;
+                          const aptDate = new Date(apt.startAt);
+                          const formattedDate = aptDate.toLocaleDateString('pt-BR');
+                          const formattedTime = aptDate.toLocaleTimeString('pt-BR', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          });
                           return (
                             <tr key={apt.id}>
                               <td>
@@ -4118,12 +4157,14 @@ const filteredAppointmentsAdmin = useMemo(() => {
                                 )}
                               </td>
                               <td><strong>{apt.client.name}</strong></td>
-                              {new Date(apt.startAt).toLocaleDateString('pt-BR')}
-                              {new Date(apt.startAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                              <td>{formattedDate}</td>
+                              <td>
+                                <span className="appointment-time">{formattedTime}</span>
+                              </td>
                               <td>
                                 <div className="services-list">
                                   {apt.services.map((s, idx) => (
-                                    <span key={idx} className="service-pill">{s.name}</span>
+                                    <span key={idx} className="service-pill">{s.serviceName}</span>
                                   ))}
                                 </div>
                               </td>

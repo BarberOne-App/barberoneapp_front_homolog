@@ -428,7 +428,7 @@ export default function BarberPage() {
               </p>
             </div>
             <div className="admin-header-actions">
-              <button className="btn-header btn-header-logout" onClick={handleLogout}>Sair</button>
+              {/* <button className="btn-header btn-header-logout" onClick={handleLogout}>Sair</button> */}
             </div>
           </div>
 

@@ -3233,9 +3233,9 @@ const barberNames = useMemo(() => {
               <button onClick={() => navigate('/appointments')} className="btn-header">
                 Agendamentos
               </button>
-              <button className="btn-header btn-header-logout" onClick={handleLogout}>
+              {/* <button className="btn-header btn-header-logout" onClick={handleLogout}>
                 Sair
-              </button>
+              </button> */}
             </div>
           </div>
 
