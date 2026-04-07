@@ -77,6 +77,7 @@ export default function AppointmentsPage() {
   const [bookingForUser, setBookingForUser] = useState(null);
   const [showUserSelector, setShowUserSelector] = useState(false);
   const [userSearch, setUserSearch] = useState('');
+  const [barberAvatarErrors, setBarberAvatarErrors] = useState({});
 
   const token = getToken();
 
@@ -2826,7 +2827,12 @@ export default function AppointmentsPage() {
                         }
 
                         const barber = barbers.find((b) => b.id === apt.barberId);
-                        const barberPhoto = '';
+                        const barberDisplayName =
+                          apt?.barber?.displayName || barber?.displayName || 'Barbeiro';
+                        const barberPhoto = barber?.photo || barber?.avatar || apt?.barber?.photo || '';
+                        const barberInitial =
+                          String(barberDisplayName).trim().charAt(0).toUpperCase() || '?';
+                        const showBarberPhoto = Boolean(barberPhoto) && !barberAvatarErrors[apt.id];
                         // = barber
                         //   ? barber.photo || barber.avatar || `https://i.pravatar.cc/150?img=${barber.id}`
                         //   : `https://i.pravatar.cc/150?img=${apt.barberId}`;
@@ -2835,16 +2841,22 @@ export default function AppointmentsPage() {
                           <tr key={apt.id}>
                             <td data-label="Barbeiro">
                               <div className="appointment-barber">
-                                <img
-                                  src={barberPhoto}
-                                  alt={apt.barber.displayName}
-                                  className="appointment-barber-avatar"
-                                  // onError={(e) => {
-                                  //   e.target.src = `https://i.pravatar.cc/150?img=${apt.barberId}`;
-                                  // }}
-                                />
+                                {showBarberPhoto ? (
+                                  <img
+                                    src={barberPhoto}
+                                    alt={barberDisplayName}
+                                    className="appointment-barber-avatar"
+                                    onError={() =>
+                                      setBarberAvatarErrors((prev) => ({ ...prev, [apt.id]: true }))
+                                    }
+                                  />
+                                ) : (
+                                  <div className="appointment-barber-avatar appointment-barber-avatar--fallback">
+                                    {barberInitial}
+                                  </div>
+                                )}
                                 <span className="appointment-barber-name">
-                                  {apt.barber.displayName}
+                                  {barberDisplayName}
                                 </span>
                               </div>
                             </td>

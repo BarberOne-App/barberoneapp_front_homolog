@@ -32,6 +32,15 @@
   flex-shrink: 0;
 }
 
+.barber-card__avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ff7a1a;
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
 .barber-card__info {
   flex: 1;
 }

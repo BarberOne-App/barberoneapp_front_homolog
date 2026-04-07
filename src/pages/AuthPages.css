@@ -1252,6 +1252,16 @@
   flex-shrink: 0;
 }
 
+.appointment-barber-avatar--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #d4af37;
+  font-size: 0.95rem;
+  font-weight: 700;
+  background: #1f1f1f;
+}
+
 .appointment-barber-name {
   color: #fff;
   font-weight: 600;

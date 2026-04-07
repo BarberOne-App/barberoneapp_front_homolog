@@ -34,10 +34,27 @@ export default function ProductsSection({ activeSubscription, onBuyProduct }) {
     { id: 'Acessórios', label: 'Acessórios' }
   ];
 
-  console.log('products', products);
+  const parsePrice = (value) => {
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : 0;
+    }
+
+    if (typeof value !== 'string') {
+      return 0;
+    }
+
+    const normalized = value
+      .replace('R$', '')
+      .replace(/\s/g, '')
+      .replace(/\./g, '')
+      .replace(',', '.');
+
+    const parsed = parseFloat(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
   const calculatePrice = (product) => {
-    const priceString = product.price.replace('R$', '').trim();
-    const originalPrice = parseFloat(priceString);
+    const originalPrice = parsePrice(product?.price);
     
     if (isNaN(originalPrice) || originalPrice <= 0) {
       return {

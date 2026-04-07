@@ -209,9 +209,15 @@ export default function BarberCard({
 }) {
   const [selectedServices, setSelectedServices] = useState([]);
   const [selectedTime, setSelectedTime] = useState('');
+  const [avatarError, setAvatarError] = useState(false);
   const hasPreSelected = useRef(false);
 
   const barberName = barber.displayName || barber.name || 'Barbeiro';
+  const barberInitial = String(barberName).trim().charAt(0).toUpperCase() || '?';
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [barber?.photo]);
 
   useEffect(() => {
     if (preSelectedService && !hasPreSelected.current) {
@@ -326,7 +332,16 @@ export default function BarberCard({
   return (
     <div className="barber-card">
       <div className="barber-card__header">
-        <img src={barber.photo} alt={barberName} className="barber-card__avatar" />
+        {barber?.photo && !avatarError ? (
+          <img
+            src={barber.photo}
+            alt={barberName}
+            className="barber-card__avatar"
+            onError={() => setAvatarError(true)}
+          />
+        ) : (
+          <div className="barber-card__avatar barber-card__avatar-fallback">{barberInitial}</div>
+        )}
         <div className="barber-card__info">
           <h3 className="barber-card__name">{barberName}</h3>
           <p className="barber-card__specialty">{barber.specialty}</p>
