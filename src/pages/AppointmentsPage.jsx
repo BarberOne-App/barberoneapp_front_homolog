@@ -19,6 +19,7 @@ import {
   createAppointment,
   deleteAppointment,
 } from '../services/appointmentService.js';
+import { getHomeInfo } from '../services/settingsService.js';
 import {
   criarPagamentoAgendamento,
   buscarPagamentoAgendamento,
@@ -43,6 +44,11 @@ export default function AppointmentsPage() {
   const [services, setServices] = useState([]);
   const [products, setProducts] = useState([]);
   const [appointments, setAppointments] = useState([]);
+  const [homeInfo, setHomeInfo] = useState({
+    scheduleLine1: 'Seg - 14h as 20h',
+    scheduleLine2: 'Terça a Sab. - 09h as 20h',
+    scheduleLine3: 'Domingo: Fechado',
+  });
   const [appointmentPayments, setAppointmentPayments] = useState({});
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
@@ -265,6 +271,102 @@ export default function AppointmentsPage() {
   };
 
   const normalizeId = (value) => String(value ?? '');
+
+  const normalizeText = (value) =>
+    String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+
+  const parseTimeValue = (value) => {
+    const match = String(value || '').match(/(\d{1,2})(?:[:h](\d{2}))?/i);
+    if (!match) return null;
+
+    const hours = Number(match[1]);
+    const minutes = Number(match[2] || 0);
+
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+    return hours * 60 + minutes;
+  };
+
+  const parseDaysFromScheduleLine = (line, fallbackIndex = 0) => {
+    const text = normalizeText(line);
+
+    if (text.includes('domingo') || text.includes('dom')) return [0];
+    if (text.includes('seg') || text.includes('segunda')) {
+      if (text.includes('a sab')) return [1, 2, 3, 4, 5, 6];
+      if (text.includes('a sex')) return [1, 2, 3, 4, 5];
+      return [1];
+    }
+    if (text.includes('ter') || text.includes('terça')) {
+      if (text.includes('a sab')) return [2, 3, 4, 5, 6];
+      if (text.includes('a sex')) return [2, 3, 4, 5];
+      return [2];
+    }
+    if (text.includes('qua') || text.includes('quarta')) return [3];
+    if (text.includes('qui') || text.includes('quinta')) return [4];
+    if (text.includes('sex') || text.includes('sexta')) return [5];
+    if (text.includes('sab') || text.includes('sábado')) return [6];
+
+    return fallbackIndex === 0 ? [1] : fallbackIndex === 1 ? [2, 3, 4, 5, 6] : [0];
+  };
+
+  const workingHoursByDay = useMemo(() => {
+    const defaultConfig = {
+      0: null,
+      1: { open: 14 * 60, close: 20 * 60 },
+      2: { open: 9 * 60, close: 20 * 60 },
+      3: { open: 9 * 60, close: 20 * 60 },
+      4: { open: 9 * 60, close: 20 * 60 },
+      5: { open: 9 * 60, close: 20 * 60 },
+      6: { open: 9 * 60, close: 20 * 60 },
+    };
+
+    const config = { ...defaultConfig };
+    const lines = [homeInfo?.scheduleLine1, homeInfo?.scheduleLine2, homeInfo?.scheduleLine3]
+      .map((line, index) => ({ line, index }))
+      .filter(({ line }) => Boolean(String(line || '').trim()));
+
+    lines.forEach(({ line, index }) => {
+      const text = normalizeText(line);
+      const days = parseDaysFromScheduleLine(line, index);
+
+      if (text.includes('fechado')) {
+        days.forEach((day) => {
+          config[day] = null;
+        });
+        return;
+      }
+
+      const times = Array.from(String(line || '').matchAll(/(\d{1,2})(?:[:h](\d{2}))?/g))
+        .map((match) => parseTimeValue(`${match[1]}:${match[2] || '00'}`))
+        .filter((value) => value != null);
+
+      const open = times[0];
+      const close = times[1];
+
+      if (open == null || close == null || close <= open) return;
+
+      days.forEach((day) => {
+        config[day] = { open, close };
+      });
+    });
+
+    return config;
+  }, [homeInfo?.scheduleLine1, homeInfo?.scheduleLine2, homeInfo?.scheduleLine3]);
+
+  const getWorkingHoursForDate = useCallback(
+    (date) => {
+      if (!date) return null;
+
+      const config = workingHoursByDay[date.getDay()];
+      if (config === null) return null;
+      if (config?.open != null && config?.close != null) return config;
+
+      return { open: 9 * 60, close: 20 * 60 };
+    },
+    [workingHoursByDay],
+  );
 
   const timeToMinutes = (time) => {
     const [h, m] = String(time || '00:00')
@@ -646,7 +748,7 @@ export default function AppointmentsPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [barbersData, servicesData, productsData, appointmentsData] = await Promise.all([
+      const [barbersData, servicesData, productsData, appointmentsData, homeInfoData] = await Promise.all([
         getBarbers(),
         getAllServices(),
         fetch('https://barberone-backend.onrender.com/products', {
@@ -655,6 +757,7 @@ export default function AppointmentsPage() {
           },
         }).then((res) => res.json()),
         getAppointments(),
+        getHomeInfo(),
       ]);
 
       const res = await fetch('https://barberone-backend.onrender.com/subscriptions', {
@@ -708,6 +811,13 @@ export default function AppointmentsPage() {
       setServices(servicesData);
       setProducts(productsData);
       setAppointments(appointmentsData);
+      if (homeInfoData) {
+        const normalizedHomeInfo = Array.isArray(homeInfoData) ? homeInfoData[0] : homeInfoData;
+        setHomeInfo((prev) => ({
+          ...prev,
+          ...normalizedHomeInfo,
+        }));
+      }
       const normalizedSubscriptions = Array.isArray(subscription?.items)
         ? subscription.items
         : Array.isArray(subscription)
@@ -1169,20 +1279,32 @@ export default function AppointmentsPage() {
     (barberId, date, durationMinutes = 30) => {
       if (!date) return [];
 
-      const allTimes = generateTimes(30);
       const dateStr = normalizeDateStr(date);
       const bookedTimes = getBookedSlots(barberId, date);
       const blockedSlots = getBlockedTimeSlots(dateStr, barberId);
+      const workingHours = getWorkingHoursForDate(date);
+
+      if (!workingHours) return [];
 
       const today = new Date();
       const isToday = dateStr === normalizeDateStr(today);
 
+      const startBoundary = Math.max(workingHours.open, 0);
+      const endBoundary = Math.max(
+        workingHours.close - (Number(durationMinutes) || 30),
+        startBoundary,
+      );
+
+      const allTimes = [];
+      for (let current = startBoundary; current <= endBoundary; current += 30) {
+        const h = String(Math.floor(current / 60)).padStart(2, '0');
+        const m = String(current % 60).padStart(2, '0');
+        allTimes.push(`${h}:${m}`);
+      }
+
       return allTimes.filter((time) => {
         const startMinutes = timeToMinutes(time);
         const endMinutes = startMinutes + (Number(durationMinutes) || 30);
-
-        // barbearia fecha às 20:00
-        if (endMinutes > 20 * 60) return false;
 
         // impede horários passados no dia atual
         if (isToday) {
@@ -1208,7 +1330,7 @@ export default function AppointmentsPage() {
         return true;
       });
     },
-    [generateTimes, getBookedSlots, blockedDates],
+    [getBookedSlots, blockedDates, getWorkingHoursForDate],
   );
 
   const showToast = useCallback((message, type = 'success') => {
