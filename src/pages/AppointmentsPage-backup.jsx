@@ -1432,7 +1432,7 @@ const getUpcomingReminders = useMemo(() => {
           Você tem um agendamento {dateLabel} às <strong>{time}</strong> com <strong>{barberName}</strong> para <strong>{services}</strong>{productText}.
         </p>
       </div>
-      <button
+      {/* <button
         onClick={() => {
           setView('myAppointments');
           setTimeout(() => {
@@ -1451,7 +1451,7 @@ const getUpcomingReminders = useMemo(() => {
         }}
       >
         Ver detalhes →
-      </button>
+      </button> */}
     </div>
   );
 };

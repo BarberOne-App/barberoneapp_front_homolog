@@ -64,14 +64,14 @@ export default function AdminPage() {
   /*   const [activeTab, setActiveTab] = useState('employees');*/
   const [activeTab, setActiveTab] = useState('agendamentos');
   useEffect(() => {
-  if (currentUser) {
-    if (currentUser.role === 'admin' || currentUser.isAdmin === true) {
-      setActiveTab('homeInfo');  // ou a aba que desejar para admin
-    } else {
-      setActiveTab('agendamentos');
+    if (currentUser) {
+      if (currentUser.role === 'admin' || currentUser.isAdmin === true) {
+        setActiveTab('homeInfo');  // ou a aba que desejar para admin
+      } else {
+        setActiveTab('agendamentos');
+      }
     }
-  }
-}, [currentUser]);
+  }, [currentUser]);
   const [barbers, setBarbers] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
@@ -473,24 +473,24 @@ export default function AdminPage() {
     return employees.filter((emp) => emp.role === categoryFilter);
   };
 
-const [filter, setFilter] = useState('today');
-const [todayAppointments, setTodayAppointments] = useState([]);
-const [filteredAppointments, setFilteredAppointments] = useState([]);
+  const [filter, setFilter] = useState('today');
+  const [todayAppointments, setTodayAppointments] = useState([]);
+  const [filteredAppointments, setFilteredAppointments] = useState([]);
 
-// useEffect para atualizar os estados derivados
-useEffect(() => {
-  const now = new Date();
-  const today = now.toLocaleDateString('en-CA');
-  let filtered = [...appointments].sort((a, b) => {
-    const dateA = new Date(`${a.date}T${a.time}`);
-    const dateB = new Date(`${b.date}T${b.time}`);
-    return dateA - dateB;
-  });
-  if (filter === 'today') filtered = filtered.filter(apt => apt.date === today);
-  if (filter === 'upcoming') filtered = filtered.filter(apt => new Date(`${apt.date}T${apt.time}`) >= now);
-  setFilteredAppointments(filtered);
-  setTodayAppointments(appointments.filter(apt => apt.date === today));
-}, [appointments, filter]);
+  // useEffect para atualizar os estados derivados
+  useEffect(() => {
+    const now = new Date();
+    const today = now.toLocaleDateString('en-CA');
+    let filtered = [...appointments].sort((a, b) => {
+      const dateA = new Date(`${a.date}T${a.time}`);
+      const dateB = new Date(`${b.date}T${b.time}`);
+      return dateA - dateB;
+    });
+    if (filter === 'today') filtered = filtered.filter(apt => apt.date === today);
+    if (filter === 'upcoming') filtered = filtered.filter(apt => new Date(`${apt.date}T${apt.time}`) >= now);
+    setFilteredAppointments(filtered);
+    setTodayAppointments(appointments.filter(apt => apt.date === today));
+  }, [appointments, filter]);
 
   const loadGallery = async () => {
     try {
@@ -1043,7 +1043,7 @@ useEffect(() => {
             1,
             Math.round(
               parseNumberValue(getMappedValue(row, ['duracao', 'duration', 'durationminutes'])) ||
-                30,
+              30,
             ),
           ),
           comissionPercent: Math.max(
@@ -1237,9 +1237,9 @@ useEffect(() => {
       const serviceName =
         Array.isArray(appointment.services) && appointment.services.length > 0
           ? appointment.services
-              .map((s) => s?.serviceName || s?.name)
-              .filter(Boolean)
-              .join(', ')
+            .map((s) => s?.serviceName || s?.name)
+            .filter(Boolean)
+            .join(', ')
           : appointment.serviceName || 'Serviço';
 
       let userData = null;
@@ -1386,8 +1386,8 @@ useEffect(() => {
       const updatedSubs =
         toExpire.length > 0
           ? subscriptionsData.map((s) =>
-              toExpire.find((e) => e.id === s.id) ? { ...s, status: 'cancelled' } : s,
-            )
+            toExpire.find((e) => e.id === s.id) ? { ...s, status: 'cancelled' } : s,
+          )
           : subscriptionsData;
 
       const subsWithCpf = updatedSubs.items.map((sub) => {
@@ -2089,21 +2089,21 @@ useEffect(() => {
     }
   };
 
-const handleCompleteAppointment = async (appointmentId) => {
-  try {
-    const appointment = appointments.find((apt) => apt.id === appointmentId);
-    if (!appointment) {
-      showToast('Agendamento não encontrado.', 'danger');
-      return;
+  const handleCompleteAppointment = async (appointmentId) => {
+    try {
+      const appointment = appointments.find((apt) => apt.id === appointmentId);
+      if (!appointment) {
+        showToast('Agendamento não encontrado.', 'danger');
+        return;
+      }
+      await updateAppointment(appointmentId, { ...appointment, status: 'completed' });
+      await loadData();
+      showToast('Atendimento finalizado com sucesso!', 'success');
+    } catch (error) {
+      console.error('Erro ao finalizar atendimento:', error);
+      showToast('Erro ao finalizar atendimento.', 'danger');
     }
-    await updateAppointment(appointmentId, { ...appointment, status: 'completed' });
-    await loadData();
-    showToast('Atendimento finalizado com sucesso!', 'success');
-  } catch (error) {
-    console.error('Erro ao finalizar atendimento:', error);
-    showToast('Erro ao finalizar atendimento.', 'danger');
-  }
-};
+  };
 
   const openEditModal = (appointment) => {
     setEditingAppointment(appointment);
@@ -2147,113 +2147,113 @@ const handleCompleteAppointment = async (appointmentId) => {
     setOffScheduleForm((prev) => ({ ...prev, [field]: value }));
   };
 
- const handleSubmitOffScheduleAppointment = async (e) => {
-  e.preventDefault();
+  const handleSubmitOffScheduleAppointment = async (e) => {
+    e.preventDefault();
 
     if (!isAdmin && !hasPermission('manageOffScheduleAppointments')) {
       showToast('Você não tem permissão para agendar fora do horário.', 'danger');
       return;
     }
 
-  if (
-    !offScheduleForm.clientId ||
-    !offScheduleForm.barberId ||
-    !offScheduleForm.date ||
-    !offScheduleForm.time
-  ) {
-    showToast('Preencha cliente, barbeiro, data e horário.', 'danger');
-    return;
-  }
+    if (
+      !offScheduleForm.clientId ||
+      !offScheduleForm.barberId ||
+      !offScheduleForm.date ||
+      !offScheduleForm.time
+    ) {
+      showToast('Preencha cliente, barbeiro, data e horário.', 'danger');
+      return;
+    }
 
-  if (!offScheduleForm.serviceIds.length) {
-    showToast('Selecione pelo menos um serviço.', 'danger');
-    return;
-  }
+    if (!offScheduleForm.serviceIds.length) {
+      showToast('Selecione pelo menos um serviço.', 'danger');
+      return;
+    }
 
-  const selectedClient = allUsers.find((u) => String(u.id) === String(offScheduleForm.clientId));
-  const selectedBarber = barbers.find((b) => String(b.id) === String(offScheduleForm.barberId));
+    const selectedClient = allUsers.find((u) => String(u.id) === String(offScheduleForm.clientId));
+    const selectedBarber = barbers.find((b) => String(b.id) === String(offScheduleForm.barberId));
 
-  if (!selectedClient) {
-    showToast('Cliente inválido.', 'danger');
-    return;
-  }
+    if (!selectedClient) {
+      showToast('Cliente inválido.', 'danger');
+      return;
+    }
 
-  if (!selectedBarber) {
-    showToast('Barbeiro inválido.', 'danger');
-    return;
-  }
-  const selectedServices = services.filter((s) => offScheduleForm.serviceIds.includes(s.id));
-  const mappedServices = selectedServices
-    .map((service) => {
-      const basePrice = Number(service.basePrice ?? service.price ?? 0);
-      const duration = Number(service.durationMinutes ?? service.duration ?? 50);
-      return {
-        id: service.id,
-        name: service.name,
-        basePrice: Number.isNaN(basePrice) ? 0 : basePrice,
-        duration: Number.isNaN(duration) || duration <= 0 ? 50 : duration,
-        quantity: 1,
-      };
-    })
-    .filter((service) => service.id && service.name);
+    if (!selectedBarber) {
+      showToast('Barbeiro inválido.', 'danger');
+      return;
+    }
+    const selectedServices = services.filter((s) => offScheduleForm.serviceIds.includes(s.id));
+    const mappedServices = selectedServices
+      .map((service) => {
+        const basePrice = Number(service.basePrice ?? service.price ?? 0);
+        const duration = Number(service.durationMinutes ?? service.duration ?? 50);
+        return {
+          id: service.id,
+          name: service.name,
+          basePrice: Number.isNaN(basePrice) ? 0 : basePrice,
+          duration: Number.isNaN(duration) || duration <= 0 ? 50 : duration,
+          quantity: 1,
+        };
+      })
+      .filter((service) => service.id && service.name);
 
-  if (!mappedServices.length) {
-    showToast('Não foi possível montar os serviços do agendamento.', 'danger');
-    return;
-  }
+    if (!mappedServices.length) {
+      showToast('Não foi possível montar os serviços do agendamento.', 'danger');
+      return;
+    }
 
-  const totalAmount = mappedServices.reduce(
-    (sum, service) => sum + (Number(service.basePrice) || 0),
-    0,
-  );
+    const totalAmount = mappedServices.reduce(
+      (sum, service) => sum + (Number(service.basePrice) || 0),
+      0,
+    );
 
-  const localDateTime = new Date(`${offScheduleForm.date}T${offScheduleForm.time}:00`);
-  const startAtUTC = localDateTime.toISOString();
+    const localDateTime = new Date(`${offScheduleForm.date}T${offScheduleForm.time}:00`);
+    const startAtUTC = localDateTime.toISOString();
 
-  try {
-    setOffScheduleSaving(true);
+    try {
+      setOffScheduleSaving(true);
 
-   const utcDate = startAtUTC.split('T')[0];            // "2026-04-02"
-const utcTime = startAtUTC.split('T')[1].slice(0, 5); // "22:00"
+      const utcDate = startAtUTC.split('T')[0];            // "2026-04-02"
+      const utcTime = startAtUTC.split('T')[1].slice(0, 5); // "22:00"
 
-const createdAppointment = await createAppointment({
-  barberId: selectedBarber.id,
-  clientId: selectedClient.id,
-  date: utcDate,
-  time: utcTime,
-  notes: offScheduleForm.notes?.trim() || '',
-  services: mappedServices,
-  products: [],
-});
+      const createdAppointment = await createAppointment({
+        barberId: selectedBarber.id,
+        clientId: selectedClient.id,
+        date: utcDate,
+        time: utcTime,
+        notes: offScheduleForm.notes?.trim() || '',
+        services: mappedServices,
+        products: [],
+      });
 
-    await criarPagamentoAgendamento({
-      appointmentId: createdAppointment.id,
-      userId: selectedClient.id,
-      userName: selectedClient.name,
-      amount: totalAmount,
-      serviceName: mappedServices.map((service) => service.name).join(', '),
-      barberName: selectedBarber.displayName,
-      appointmentDate: offScheduleForm.date,
-      appointmentTime: offScheduleForm.time,
-      products: [],
-      status: 'pending',
-      method: 'local',
-    });
+      await criarPagamentoAgendamento({
+        appointmentId: createdAppointment.id,
+        userId: selectedClient.id,
+        userName: selectedClient.name,
+        amount: totalAmount,
+        serviceName: mappedServices.map((service) => service.name).join(', '),
+        barberName: selectedBarber.displayName,
+        appointmentDate: offScheduleForm.date,
+        appointmentTime: offScheduleForm.time,
+        products: [],
+        status: 'pending',
+        method: 'local',
+      });
 
-    setAppointments((prev) => [createdAppointment, ...prev]);
-    await loadData();
-    closeOffScheduleModal();
-    showToast('Agendamento fora do horário registrado com sucesso!', 'success');
-  } catch (error) {
-    const message =
-      error?.response?.data?.message ||
-      (Array.isArray(error?.response?.data) ? error.response.data.join(', ') : null) ||
-      'Erro ao registrar agendamento fora do horário.';
-    showToast(message, 'danger');
-  } finally {
-    setOffScheduleSaving(false);
-  }
-};
+      setAppointments((prev) => [createdAppointment, ...prev]);
+      await loadData();
+      closeOffScheduleModal();
+      showToast('Agendamento fora do horário registrado com sucesso!', 'success');
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        (Array.isArray(error?.response?.data) ? error.response.data.join(', ') : null) ||
+        'Erro ao registrar agendamento fora do horário.';
+      showToast(message, 'danger');
+    } finally {
+      setOffScheduleSaving(false);
+    }
+  };
 
   const handleUpdateAppointment = async (e) => {
     e.preventDefault();
@@ -2583,10 +2583,10 @@ const createdAppointment = await createAppointment({
     return payments.filter((payment) => {
       const paymentDate = new Date(
         payment.createdAt ||
-          payment.appointmentDate ||
-          payment.date ||
-          payment.startDate ||
-          payment.nextPaymentDate,
+        payment.appointmentDate ||
+        payment.date ||
+        payment.startDate ||
+        payment.nextPaymentDate,
       );
       return (
         paymentDate.getFullYear() === parseInt(year) &&
@@ -2744,50 +2744,50 @@ const createdAppointment = await createAppointment({
   };
 
 
-const statsForEarnings = useMemo(() => {
-  const now = new Date();
-  let start = new Date();
-  let end = new Date();
+  const statsForEarnings = useMemo(() => {
+    const now = new Date();
+    let start = new Date();
+    let end = new Date();
 
-  if (earningsFilter === 'week') {
-    const today = now.getDay();
-    const diff = now.getDate() - today + (today === 0 ? -6 : 1);
-    start.setDate(diff);
-    start.setHours(0, 0, 0, 0);
-    end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    end.setHours(23, 59, 59, 999);
-  } else if (earningsFilter === 'month') {
-    start = new Date(now.getFullYear(), now.getMonth(), 1);
-    end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-  } else if (earningsFilter === 'custom' && customStartDate && customEndDate) {
-    start = new Date(customStartDate);
-    end = new Date(customEndDate);
-    end.setHours(23, 59, 59, 999);
-  } else {
-    start = new Date(0);
-    end = new Date();
-  }
+    if (earningsFilter === 'week') {
+      const today = now.getDay();
+      const diff = now.getDate() - today + (today === 0 ? -6 : 1);
+      start.setDate(diff);
+      start.setHours(0, 0, 0, 0);
+      end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+    } else if (earningsFilter === 'month') {
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    } else if (earningsFilter === 'custom' && customStartDate && customEndDate) {
+      start = new Date(customStartDate);
+      end = new Date(customEndDate);
+      end.setHours(23, 59, 59, 999);
+    } else {
+      start = new Date(0);
+      end = new Date();
+    }
 
-  let filtered = appointments.filter(apt => {
-    if (!apt.startAt) return false;
-    const aptDate = new Date(apt.startAt);
-    return aptDate >= start && aptDate <= end;
-  });
+    let filtered = appointments.filter(apt => {
+      if (!apt.startAt) return false;
+      const aptDate = new Date(apt.startAt);
+      return aptDate >= start && aptDate <= end;
+    });
 
     if (!isAdmin && loggedInBarberProfile) {
       filtered = filtered.filter((apt) => String(apt.barberId) === String(loggedInBarberProfile.id));
-  }
+    }
 
-  let totalRevenue = 0;
-  filtered.forEach(apt => {
-    totalRevenue += calculateTotal(apt.services);
-  });
+    let totalRevenue = 0;
+    filtered.forEach(apt => {
+      totalRevenue += calculateTotal(apt.services);
+    });
 
-  let extraPaymentsTotal = 0;
+    let extraPaymentsTotal = 0;
     if (!isAdmin && loggedInBarberProfile) {
-    const extraPaymentsInPeriod = employeePayments.filter(payment => {
-      if (!isExtraPayment(payment)) return false;
+      const extraPaymentsInPeriod = employeePayments.filter(payment => {
+        if (!isExtraPayment(payment)) return false;
         if (
           loggedInBarberReferenceIds.length > 0 &&
           !loggedInBarberReferenceIds.includes(String(payment.employeeId))
@@ -2795,85 +2795,85 @@ const statsForEarnings = useMemo(() => {
           return false;
         }
         const paymentDate = new Date(payment.paidAt || payment.periodStart || payment.createdAt);
-      return paymentDate >= start && paymentDate <= end;
-    });
-    extraPaymentsTotal = extraPaymentsInPeriod.reduce((sum, p) => sum + (p.liquido || 0), 0);
-  }
+        return paymentDate >= start && paymentDate <= end;
+      });
+      extraPaymentsTotal = extraPaymentsInPeriod.reduce((sum, p) => sum + (p.liquido || 0), 0);
+    }
 
-  const commissionPercent = loggedInBarberProfile?.commissionPercent || 50;
-  const barberEarnings = (totalRevenue * commissionPercent) / 100;
+    const commissionPercent = loggedInBarberProfile?.commissionPercent || 50;
+    const barberEarnings = (totalRevenue * commissionPercent) / 100;
 
-  return {
-    totalRevenue,
-    appointmentsCount: filtered.length,
-    commissionPercent,
-    barberEarnings,
-    shopEarnings: totalRevenue - barberEarnings,
-    filteredAppointments: filtered,
-    extraPaymentsTotal,   // <-- novo campo
-  };
+    return {
+      totalRevenue,
+      appointmentsCount: filtered.length,
+      commissionPercent,
+      barberEarnings,
+      shopEarnings: totalRevenue - barberEarnings,
+      filteredAppointments: filtered,
+      extraPaymentsTotal,   // <-- novo campo
+    };
   }, [appointments, earningsFilter, customStartDate, customEndDate, isAdmin, loggedInBarberProfile, calculateTotal, employeePayments]);
 
 
-const filteredAppointmentsAdmin = useMemo(() => {
-  let filtered = [...appointments];
+  const filteredAppointmentsAdmin = useMemo(() => {
+    let filtered = [...appointments];
 
-  if (isBarber) {
-    const loggedInBarber = barbers.find(
-      (b) =>
-        b.userId?.toString() === currentUser?.id?.toString() ||
-        b.id?.toString() === currentUser?.barberId?.toString() ||
-        (currentUser?.email && b.email === currentUser.email),
-    );
-
-    if (loggedInBarber) {
-      filtered = filtered.filter(
-        (apt) => (apt.barberId || apt.barber?.id)?.toString() === loggedInBarber.id?.toString(),
+    if (isBarber) {
+      const loggedInBarber = barbers.find(
+        (b) =>
+          b.userId?.toString() === currentUser?.id?.toString() ||
+          b.id?.toString() === currentUser?.barberId?.toString() ||
+          (currentUser?.email && b.email === currentUser.email),
       );
-    } else {
-      filtered = [];
+
+      if (loggedInBarber) {
+        filtered = filtered.filter(
+          (apt) => (apt.barberId || apt.barber?.id)?.toString() === loggedInBarber.id?.toString(),
+        );
+      } else {
+        filtered = [];
+      }
     }
-  }
 
-  if (selectedMonth) {
-    const [year, month] = selectedMonth.split('-');
-    filtered = filtered.filter((apt) => {
-      const aptDate = new Date(apt.startAt);
-      return aptDate.getFullYear() === parseInt(year) && aptDate.getMonth() + 1 === parseInt(month);
-    });
-  }
+    if (selectedMonth) {
+      const [year, month] = selectedMonth.split('-');
+      filtered = filtered.filter((apt) => {
+        const aptDate = new Date(apt.startAt);
+        return aptDate.getFullYear() === parseInt(year) && aptDate.getMonth() + 1 === parseInt(month);
+      });
+    }
 
-  if (appointmentDateFilter) {
-    filtered = filtered.filter((apt) => {
-      const aptDateStr = new Date(apt.startAt).toISOString().split('T')[0];
-      return aptDateStr === appointmentDateFilter;
-    });
-  } else if (appointmentStartDate || appointmentEndDate) {
-    filtered = filtered.filter((apt) => {
-      const aptDateStr = new Date(apt.startAt).toISOString().split('T')[0];
-      return isDateInRange(aptDateStr, appointmentStartDate, appointmentEndDate);
-    });
-  }
+    if (appointmentDateFilter) {
+      filtered = filtered.filter((apt) => {
+        const aptDateStr = new Date(apt.startAt).toISOString().split('T')[0];
+        return aptDateStr === appointmentDateFilter;
+      });
+    } else if (appointmentStartDate || appointmentEndDate) {
+      filtered = filtered.filter((apt) => {
+        const aptDateStr = new Date(apt.startAt).toISOString().split('T')[0];
+        return isDateInRange(aptDateStr, appointmentStartDate, appointmentEndDate);
+      });
+    }
 
-  if (selectedBarberFilter !== 'all') {
-    filtered = filtered.filter((apt) => apt.barberId === selectedBarberFilter);
-  }
+    if (selectedBarberFilter !== 'all') {
+      filtered = filtered.filter((apt) => apt.barberId === selectedBarberFilter);
+    }
 
-  filtered.sort((a, b) => new Date(b.startAt) - new Date(a.startAt));
-  return filtered;
-}, [
-  appointments,
-  selectedMonth,
-  appointmentDateFilter,
-  appointmentStartDate,
-  appointmentEndDate,
-  selectedBarberFilter,
-  isBarber,
-  barbers,
-  currentUser?.id,
-  currentUser?.barberId,
-  currentUser?.email,
-]);
+    filtered.sort((a, b) => new Date(b.startAt) - new Date(a.startAt));
+    return filtered;
+  }, [
+    appointments,
+    selectedMonth,
+    appointmentDateFilter,
+    appointmentStartDate,
+    appointmentEndDate,
+    selectedBarberFilter,
+    isBarber,
+    barbers,
+    currentUser?.id,
+    currentUser?.barberId,
+    currentUser?.email,
+  ]);
 
   const filteredAppointmentPayments = getFilteredPayments();
 
@@ -3171,59 +3171,59 @@ const filteredAppointmentsAdmin = useMemo(() => {
   };
 
   const handleSaveBenefit = async (e) => {
-  e.preventDefault();
-  if (!isAdmin) {
-    showToast('Apenas administradores podem gerenciar benefícios.', 'danger');
-    return;
-  }
-
-  const selectedService = benefitServiceId
-    ? services.find((service) => String(service.id) === String(benefitServiceId))
-    : null;
-
-  const cleaned = sanitizeBenefitText(benefitForm);
-
-  if (!selectedService && !cleaned) {
-    showToast('Digite um benefício válido ou selecione um serviço.', 'danger');
-    return;
-  }
-
-  const benefitValue = selectedService
-    ? `${BENEFIT_SERVICE_PREFIX}${selectedService.id}::${selectedService.name}`
-    : cleaned;
-
-  try {
-    const plan = plans.find((p) => p.id === selectedPlanForBenefit.planId);
-    if (!plan) return;
-
-    let updatedFeatures = [...plan.features];
-    if (selectedPlanForBenefit.benefitIndex !== null) {
-      updatedFeatures[selectedPlanForBenefit.benefitIndex] = benefitValue;
-    } else {
-      updatedFeatures.push(benefitValue);
+    e.preventDefault();
+    if (!isAdmin) {
+      showToast('Apenas administradores podem gerenciar benefícios.', 'danger');
+      return;
     }
 
-    await fetch(`${API_URL}/subscription-plans/${plan.id}`, {
-      method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ features: updatedFeatures }),
-    });
+    const selectedService = benefitServiceId
+      ? services.find((service) => String(service.id) === String(benefitServiceId))
+      : null;
 
-    await loadPlans();
-    showToast(
-      selectedPlanForBenefit.benefitIndex !== null
-        ? 'Benefício atualizado com sucesso!'
-        : 'Benefício adicionado com sucesso!',
-      'success'
-    );
-    closeBenefitModal();
-  } catch (error) {
-    showToast('Erro ao salvar benefício.', 'danger');
-  }
-};
+    const cleaned = sanitizeBenefitText(benefitForm);
+
+    if (!selectedService && !cleaned) {
+      showToast('Digite um benefício válido ou selecione um serviço.', 'danger');
+      return;
+    }
+
+    const benefitValue = selectedService
+      ? `${BENEFIT_SERVICE_PREFIX}${selectedService.id}::${selectedService.name}`
+      : cleaned;
+
+    try {
+      const plan = plans.find((p) => p.id === selectedPlanForBenefit.planId);
+      if (!plan) return;
+
+      let updatedFeatures = [...plan.features];
+      if (selectedPlanForBenefit.benefitIndex !== null) {
+        updatedFeatures[selectedPlanForBenefit.benefitIndex] = benefitValue;
+      } else {
+        updatedFeatures.push(benefitValue);
+      }
+
+      await fetch(`${API_URL}/subscription-plans/${plan.id}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ features: updatedFeatures }),
+      });
+
+      await loadPlans();
+      showToast(
+        selectedPlanForBenefit.benefitIndex !== null
+          ? 'Benefício atualizado com sucesso!'
+          : 'Benefício adicionado com sucesso!',
+        'success'
+      );
+      closeBenefitModal();
+    } catch (error) {
+      showToast('Erro ao salvar benefício.', 'danger');
+    }
+  };
 
   const handleDeleteBenefit = (planId, benefitIndex) => {
     if (!isAdmin) {
@@ -3616,21 +3616,21 @@ const filteredAppointmentsAdmin = useMemo(() => {
         throw new Error('Falha ao registrar pagamento extra');
       }
 
-        const created = await response.json();
-        setEmployeePayments((prev) => [created, ...prev]);
-        setExtraPaymentForm({
-          employeeId: '',
-          amount: '',
-          date: new Date().toISOString().split('T')[0],
-        });
-        showToast('Pagamento extra registrado com sucesso!', 'success');
-      } catch (error) {
-        console.error('Erro ao registrar pagamento extra:', error);
-        showToast('Erro ao registrar pagamento extra.', 'danger');
-      } finally {
-        setExtraPaymentLoading(false);
-      }
-    };
+      const created = await response.json();
+      setEmployeePayments((prev) => [created, ...prev]);
+      setExtraPaymentForm({
+        employeeId: '',
+        amount: '',
+        date: new Date().toISOString().split('T')[0],
+      });
+      showToast('Pagamento extra registrado com sucesso!', 'success');
+    } catch (error) {
+      console.error('Erro ao registrar pagamento extra:', error);
+      showToast('Erro ao registrar pagamento extra.', 'danger');
+    } finally {
+      setExtraPaymentLoading(false);
+    }
+  };
 
   const checkAlreadyPaidInPeriod = (employeeId, period, monthStr) => {
     const { start, end } = getPayrollPeriodDates(period, monthStr);
@@ -3790,21 +3790,21 @@ const filteredAppointmentsAdmin = useMemo(() => {
     );
   };
 
-    const getPaymentMethodValue = (payment) => {
-      return String(payment?.paymentMethod || payment?.method || '').toLowerCase().trim();
-    };
+  const getPaymentMethodValue = (payment) => {
+    return String(payment?.paymentMethod || payment?.method || '').toLowerCase().trim();
+  };
 
-    const getPaymentTypeLabel = (payment) => {
-      const method = getPaymentMethodValue(payment);
-      const isPlanCovered = payment?.status === 'plan_covered' || payment?.status === 'plancovered' || method === 'subscription';
+  const getPaymentTypeLabel = (payment) => {
+    const method = getPaymentMethodValue(payment);
+    const isPlanCovered = payment?.status === 'plan_covered' || payment?.status === 'plancovered' || method === 'subscription';
 
-      if (isPlanCovered) return 'Plano';
-      if (method === 'local' || payment?.status === 'pendinglocal') return 'No Local';
-      if (method === 'pix') return 'PIX';
-      if (method === 'credito' || method === 'crédito' || method === 'debito' || method === 'débito' || method === 'cartao' || method === 'cartão') return 'Cartão';
-      if (method === 'dinheiro') return 'Dinheiro';
-      return 'Avulso';
-    };
+    if (isPlanCovered) return 'Plano';
+    if (method === 'local' || payment?.status === 'pendinglocal') return 'No Local';
+    if (method === 'pix') return 'PIX';
+    if (method === 'credito' || method === 'crédito' || method === 'debito' || method === 'débito' || method === 'cartao' || method === 'cartão') return 'Cartão';
+    if (method === 'dinheiro') return 'Dinheiro';
+    return 'Avulso';
+  };
 
 
   return (
@@ -3832,129 +3832,129 @@ const filteredAppointmentsAdmin = useMemo(() => {
           </div>
 
 
-<div className="appointments-tabs">
-  {/* Abas visíveis para todos (inclusive barbeiros) */}
-  <button
-    onClick={() => setActiveTab('calendario')}
-    className={`tab-btn ${activeTab === 'calendario' ? 'tab-btn--active' : ''}`}
-  >
-    Calendário
-  </button>
-  {(isAdmin || isBarber) && (
-  <button
-    onClick={() => setActiveTab('earnings')}
-    className={`tab-btn ${activeTab === 'earnings' ? 'tab-btn--active' : ''}`}
-  >
-    Ganhos
-  </button>
-)}
-  <button
-    onClick={() => setActiveTab('agendamentos')}
-    className={`tab-btn ${activeTab === 'agendamentos' ? 'tab-btn--active' : ''}`}
-  >
-    Agendamentos
-  </button>
+          <div className="appointments-tabs">
+            {/* Abas visíveis para todos (inclusive barbeiros) */}
+            <button
+              onClick={() => setActiveTab('calendario')}
+              className={`tab-btn ${activeTab === 'calendario' ? 'tab-btn--active' : ''}`}
+            >
+              Calendário
+            </button>
+            {(isAdmin || isBarber) && (
+              <button
+                onClick={() => setActiveTab('earnings')}
+                className={`tab-btn ${activeTab === 'earnings' ? 'tab-btn--active' : ''}`}
+              >
+                Ganhos
+              </button>
+            )}
+            <button
+              onClick={() => setActiveTab('agendamentos')}
+              className={`tab-btn ${activeTab === 'agendamentos' ? 'tab-btn--active' : ''}`}
+            >
+              Agendamentos
+            </button>
 
-  {/* Abas que NÃO aparecem para barbeiros */}
-  {!isBarber && (
-    <>
-      {hasPermission('manageSettings') && (
-        <button
-          className={`tab-btn ${activeTab === 'terms' ? 'tab-btn--active' : ''}`}
-          onClick={() => setActiveTab('terms')}
-        >
-          Termos e Documentos
-        </button>
-      )}
-      {hasPermission('manageServices') && (
-        <button
-          className={`tab-btn ${activeTab === 'services' ? 'tab-btn--active' : ''}`}
-          onClick={() => setActiveTab('services')}
-        >
-          Serviços ({services.length})
-        </button>
-      )}
-      {hasPermission('manageSettings') && (
-        <button
-          className={`tab-btn ${activeTab === 'homeInfo' ? 'tab-btn--active' : ''}`}
-          onClick={() => setActiveTab('homeInfo')}
-        >
-          Informações do Site
-        </button>
-      )}
-      <button
-        className={`tab-btn ${activeTab === 'gallery' ? 'tab-btn--active' : ''}`}
-        onClick={() => setActiveTab('gallery')}
-      >
-        Galeria
-      </button>
-      {hasPermission('manageEmployees') && (
-        <button
-          onClick={() => setActiveTab('employees')}
-          className={`tab-btn ${activeTab === 'employees' ? 'tab-btn--active' : ''}`}
-        >
-          Gerenciar Funcionários
-        </button>
-      )}
-      {(isAdmin || hasPermission('managePayroll')) && (
-        <>
-          <button
-            onClick={() => setActiveTab('payroll')}
-            className={`tab-btn ${activeTab === 'payroll' ? 'tab-btn--active' : ''}`}
-          >
-            Pagamentos Funcionários
-          </button>
-          <button
-            onClick={() => setActiveTab('extraPayments')}
-            className={`tab-btn ${activeTab === 'extraPayments' ? 'tab-btn--active' : ''}`}
-          >
-            Pagamentos Extras
-          </button>
-        </>
-      )}
-      {hasPermission('manageProducts') && (
-        <button
-          onClick={() => setActiveTab('products')}
-          className={`tab-btn ${activeTab === 'products' ? 'tab-btn--active' : ''}`}
-        >
-          Produtos ({products.length})
-        </button>
-      )}
-      {hasPermission('manageBenefits') && (
-        <button
-          onClick={() => setActiveTab('benefits')}
-          className={`tab-btn ${activeTab === 'benefits' ? 'tab-btn--active' : ''}`}
-        >
-          Benefícios dos Planos
-        </button>
-      )}
-      {isAdmin && hasPermission('managePayments') && (
-        <button
-          onClick={() => setActiveTab('payments')}
-          className={`tab-btn ${activeTab === 'payments' ? 'tab-btn--active' : ''}`}
-        >
-          Pagamentos {pendingPayments.length > 0 && `(${pendingPayments.length})`}
-        </button>
-      )}
-      {hasPermission('managePayments') && (
-        <button
-          onClick={() => setActiveTab('cancelPlanos')}
-          className={`tab-btn ${activeTab === 'cancelPlanos' ? 'tab-btn--active' : ''}`}
-        >
-          Cancelamento de Planos
-        </button>
-      )}
-      {isAdmin && (
-        <button
-          onClick={() => setActiveTab('usuarios')}
-          className={`tab-btn ${activeTab === 'usuarios' ? 'tab-btn--active' : ''}`}
-        >
-          Usuários
-        </button>
-      )}
-    </>
-  )}
-</div>
+            {/* Abas que NÃO aparecem para barbeiros */}
+            {!isBarber && (
+              <>
+                {hasPermission('manageSettings') && (
+                  <button
+                    className={`tab-btn ${activeTab === 'terms' ? 'tab-btn--active' : ''}`}
+                    onClick={() => setActiveTab('terms')}
+                  >
+                    Termos e Documentos
+                  </button>
+                )}
+                {hasPermission('manageServices') && (
+                  <button
+                    className={`tab-btn ${activeTab === 'services' ? 'tab-btn--active' : ''}`}
+                    onClick={() => setActiveTab('services')}
+                  >
+                    Serviços ({services.length})
+                  </button>
+                )}
+                {hasPermission('manageSettings') && (
+                  <button
+                    className={`tab-btn ${activeTab === 'homeInfo' ? 'tab-btn--active' : ''}`}
+                    onClick={() => setActiveTab('homeInfo')}
+                  >
+                    Informações do Site
+                  </button>
+                )}
+                <button
+                  className={`tab-btn ${activeTab === 'gallery' ? 'tab-btn--active' : ''}`}
+                  onClick={() => setActiveTab('gallery')}
+                >
+                  Galeria
+                </button>
+                {hasPermission('manageEmployees') && (
+                  <button
+                    onClick={() => setActiveTab('employees')}
+                    className={`tab-btn ${activeTab === 'employees' ? 'tab-btn--active' : ''}`}
+                  >
+                    Gerenciar Funcionários
+                  </button>
+                )}
+                {(isAdmin || hasPermission('managePayroll')) && (
+                  <>
+                    <button
+                      onClick={() => setActiveTab('payroll')}
+                      className={`tab-btn ${activeTab === 'payroll' ? 'tab-btn--active' : ''}`}
+                    >
+                      Pagamentos Funcionários
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('extraPayments')}
+                      className={`tab-btn ${activeTab === 'extraPayments' ? 'tab-btn--active' : ''}`}
+                    >
+                      Pagamentos Extras
+                    </button>
+                  </>
+                )}
+                {hasPermission('manageProducts') && (
+                  <button
+                    onClick={() => setActiveTab('products')}
+                    className={`tab-btn ${activeTab === 'products' ? 'tab-btn--active' : ''}`}
+                  >
+                    Produtos ({products.length})
+                  </button>
+                )}
+                {hasPermission('manageBenefits') && (
+                  <button
+                    onClick={() => setActiveTab('benefits')}
+                    className={`tab-btn ${activeTab === 'benefits' ? 'tab-btn--active' : ''}`}
+                  >
+                    Benefícios dos Planos
+                  </button>
+                )}
+                {isAdmin && hasPermission('managePayments') && (
+                  <button
+                    onClick={() => setActiveTab('payments')}
+                    className={`tab-btn ${activeTab === 'payments' ? 'tab-btn--active' : ''}`}
+                  >
+                    Pagamentos {pendingPayments.length > 0 && `(${pendingPayments.length})`}
+                  </button>
+                )}
+                {hasPermission('managePayments') && (
+                  <button
+                    onClick={() => setActiveTab('cancelPlanos')}
+                    className={`tab-btn ${activeTab === 'cancelPlanos' ? 'tab-btn--active' : ''}`}
+                  >
+                    Cancelamento de Planos
+                  </button>
+                )}
+                {isAdmin && (
+                  <button
+                    onClick={() => setActiveTab('usuarios')}
+                    className={`tab-btn ${activeTab === 'usuarios' ? 'tab-btn--active' : ''}`}
+                  >
+                    Usuários
+                  </button>
+                )}
+              </>
+            )}
+          </div>
 
 
 
@@ -4046,7 +4046,7 @@ const filteredAppointmentsAdmin = useMemo(() => {
             </div>
           )}
 
-            {!isReceptionist && activeTab === 'earnings' && (
+          {!isReceptionist && activeTab === 'earnings' && (
             <div className="earnings-section">
               <div className="earnings-filters">
                 <div className="appointments-tabs" style={{ marginBottom: '1rem', borderBottom: 'none' }}>
@@ -4537,12 +4537,12 @@ const filteredAppointmentsAdmin = useMemo(() => {
                     const stats = barberData
                       ? calculateBarberStatsbyBarber(barberData.id)
                       : {
-                          appointmentsCount: 0,
-                          totalRevenue: 0,
-                          commissionPercent: 0,
-                          barberEarnings: 0,
-                          shopEarnings: 0,
-                        };
+                        appointmentsCount: 0,
+                        totalRevenue: 0,
+                        commissionPercent: 0,
+                        barberEarnings: 0,
+                        shopEarnings: 0,
+                      };
 
                     return (
                       <div key={employee.id} className="fluig-table-parent">
@@ -5246,229 +5246,230 @@ const filteredAppointmentsAdmin = useMemo(() => {
 
 
           {canManageAgendamentos && activeTab === 'agendamentos' && (
-  <div className="manage-barbers">
-    <div className="manage-barbers-header">
-      <h2>Agendamentos</h2>
+            <div className="manage-barbers">
+              <div className="manage-barbers-header">
+                <h2>Agendamentos</h2>
                 {(isAdmin || hasPermission('manageOffScheduleAppointments')) && (
-        <button onClick={openOffScheduleModal} className="btn-add-barber">
-          Registrar fora do horário
-        </button>
+                  <button onClick={openOffScheduleModal} className="btn-add-barber">
+                    Registrar fora do horário
+                  </button>
                 )}
-    </div>
+              </div>
 
-    {/* FILTROS (originais do AdminPage) */}
-    <div className="agendamentos-filter-container">
-      <div className="agendamentos-filter-header">
-        <div>
-          <h3 className="agendamentos-filter-title">
-            <span className="agendamentos-filter-title-icon">📅</span>
-            Filtrar Agendamentos
-          </h3>
-          <p className="agendamentos-filter-subtitle">Selecione o período desejado</p>
-        </div>
-        {selectedMonth && (
-          <div className="agendamentos-results-badge">
-            {filteredAppointmentsAdmin.length} resultado(s)
-          </div>
-        )}
-      </div>
+              {/* FILTROS (originais do AdminPage) */}
+              <div className="agendamentos-filter-container">
+                <div className="agendamentos-filter-header">
+                  <div>
+                    <h3 className="agendamentos-filter-title">
+                      <span className="agendamentos-filter-title-icon">📅</span>
+                      Filtrar Agendamentos
+                    </h3>
+                    <p className="agendamentos-filter-subtitle">Selecione o período desejado</p>
+                  </div>
+                  {selectedMonth && (
+                    <div className="agendamentos-results-badge">
+                      {filteredAppointmentsAdmin.length} resultado(s)
+                    </div>
+                  )}
+                </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-        <label htmlFor="agendamentos-month-select" className="agendamentos-filter-label">
-          Período
-        </label>
-        <select
-          id="agendamentos-month-select"
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
-          className="agendamentos-month-select"
-        >
-          {generateMonthOptions().map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
-    </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <label htmlFor="agendamentos-month-select" className="agendamentos-filter-label">
+                    Período
+                  </label>
+                  <select
+                    id="agendamentos-month-select"
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="agendamentos-month-select"
+                  >
+                    {generateMonthOptions().map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-    <div className="filters-container">
-      <div className="filter-group">
-        <label>Data Específica:</label>
-        <input
-          type="date"
-          value={appointmentDateFilter}
-          onChange={(e) => {
-            setAppointmentDateFilter(e.target.value);
-            if (e.target.value) {
-              setAppointmentStartDate('');
-              setAppointmentEndDate('');
-            }
-          }}
-          className="filter-input"
-        />
-      </div>
+              <div className="filters-container">
+                <div className="filter-group">
+                  <label>Data Específica:</label>
+                  <input
+                    type="date"
+                    value={appointmentDateFilter}
+                    onChange={(e) => {
+                      setAppointmentDateFilter(e.target.value);
+                      if (e.target.value) {
+                        setAppointmentStartDate('');
+                        setAppointmentEndDate('');
+                      }
+                    }}
+                    className="filter-input"
+                  />
+                </div>
 
-      <div className="filter-group">
-        <label>De:</label>
-        <input
-          type="date"
-          value={appointmentStartDate}
-          onChange={(e) => {
-            setAppointmentStartDate(e.target.value);
-            if (e.target.value) setAppointmentDateFilter('');
-          }}
-          className="filter-input"
-          disabled={!!appointmentDateFilter}
-        />
-      </div>
+                <div className="filter-group">
+                  <label>De:</label>
+                  <input
+                    type="date"
+                    value={appointmentStartDate}
+                    onChange={(e) => {
+                      setAppointmentStartDate(e.target.value);
+                      if (e.target.value) setAppointmentDateFilter('');
+                    }}
+                    className="filter-input"
+                    disabled={!!appointmentDateFilter}
+                  />
+                </div>
 
-      <div className="filter-group">
-        <label>Até:</label>
-        <input
-          type="date"
-          value={appointmentEndDate}
-          onChange={(e) => {
-            setAppointmentEndDate(e.target.value);
-            if (e.target.value) setAppointmentDateFilter('');
-          }}
-          className="filter-input"
-          disabled={!!appointmentDateFilter}
-        />
-      </div>
+                <div className="filter-group">
+                  <label>Até:</label>
+                  <input
+                    type="date"
+                    value={appointmentEndDate}
+                    onChange={(e) => {
+                      setAppointmentEndDate(e.target.value);
+                      if (e.target.value) setAppointmentDateFilter('');
+                    }}
+                    className="filter-input"
+                    disabled={!!appointmentDateFilter}
+                  />
+                </div>
 
-      {(isAdmin || isReceptionist) && (
-        <div className="filter-group">
-          <label>Barbeiro:</label>
-          <select
-            value={selectedBarberFilter}
-            onChange={(e) => setSelectedBarberFilter(e.target.value)}
-            className="filter-select"
-          >
-            <option value="all">Todos os Barbeiros</option>
-            {barbers.map((barber) => (
-              <option key={barber.id} value={barber.id}>
-                {barber.displayName}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+                {(isAdmin || isReceptionist) && (
+                  <div className="filter-group">
+                    <label>Barbeiro:</label>
+                    <select
+                      value={selectedBarberFilter}
+                      onChange={(e) => setSelectedBarberFilter(e.target.value)}
+                      className="filter-select"
+                    >
+                      <option value="all">Todos os Barbeiros</option>
+                      {barbers.map((barber) => (
+                        <option key={barber.id} value={barber.id}>
+                          {barber.displayName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
-      {(appointmentDateFilter || appointmentStartDate || appointmentEndDate || selectedBarberFilter !== 'all') && (
-        <div className="filter-group">
-          <button onClick={clearAppointmentFilters} className="clear-filters-btn">
-            Limpar Filtros
-          </button>
-        </div>
-      )}
-    </div>
+                {(appointmentDateFilter || appointmentStartDate || appointmentEndDate || selectedBarberFilter !== 'all') && (
+                  <div className="filter-group">
+                    <button onClick={clearAppointmentFilters} className="clear-filters-btn">
+                      Limpar Filtros
+                    </button>
+                  </div>
+                )}
+              </div>
 
-    {/* TABELA (copiada da BarberPage) */}
-    <div className="barber-appointments-section">
-      {filteredAppointmentsAdmin.length === 0 ? (
-        <p className="calendar-empty">
-          Nenhum agendamento encontrado para o período selecionado.
-        </p>
-      ) : (
-        <div className="fluig-table-parent" style={{ marginTop: '1.5rem' }}>
-          <table className="fluig-table-children">
-            <thead>
-              <tr>
-                <th>Cliente</th>
-                <th>Data</th>
-                <th>Horário</th>
-                <th>Serviços</th>
-                <th>Telefone</th>
-                <th>Status</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAppointmentsAdmin.map((apt) => {
-  const appointmentDate = new Date(apt.startAt);
-  const isPast = appointmentDate < new Date();
-  const isCompleted = apt.status === 'completed';
-  const isConfirmed = apt.status === 'confirmed';
-  
-  // Formatação da data e hora
-  const formattedDate = appointmentDate.toLocaleDateString('pt-BR');
-  const formattedTime = appointmentDate.toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-  
-  // Nome do cliente (pode estar em apt.client.name ou apt.clientName)
-  const clientName = apt.client?.name || apt.clientName || 'Cliente';
-  
-  // Telefone do cliente
-  const clientPhone = apt.client?.phone || apt.clientPhone || '-';
-  
-  // Lista de serviços (cada serviço pode ter serviceName ou name)
-  const serviceNames = Array.isArray(apt.services)
-    ? apt.services.map(s => s.serviceName || s.name).filter(Boolean)
-    : [];
+              {/* TABELA (copiada da BarberPage) */}
+              <div className="barber-appointments-section">
+                {filteredAppointmentsAdmin.length === 0 ? (
+                  <p className="calendar-empty">
+                    Nenhum agendamento encontrado para o período selecionado.
+                  </p>
+                ) : (
+                  <div className="fluig-table-parent" style={{ marginTop: '1.5rem' }}>
+                    <table className="fluig-table-children">
+                      <thead>
+                        <tr>
+                          <th>Cliente</th>
+                          <th>Data</th>
+                          <th>Horário</th>
+                          <th>Serviços</th>
+                          <th>Telefone</th>
+                          <th>Status</th>
+                          <th>Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredAppointmentsAdmin.map((apt) => {
+                          const appointmentDate = new Date(apt.startAt);
+                          const isPast = appointmentDate < new Date();
+                          const isCompleted = apt.status === 'completed';
+                          const isConfirmed = apt.status === 'confirmed';
 
-  return (
-    <tr key={apt.id} className={`${isCompleted ? 'row-completed' : ''} ${isPast && !isCompleted ? 'row-past' : ''} ${isConfirmed ? 'row-confirmed' : ''}`}>
-      <td><strong>{clientName}</strong></td>
-      <td>{formattedDate}</td>
-      <td><span className="appointment-time">{formattedTime}</span></td>
-      <td>
-        <div className="services-list-compact">
-          {serviceNames.length > 0 ? (
-            serviceNames.map((name, idx) => (
-              <div key={idx} className="service-item-compact">{name}</div>
-            ))
-          ) : (
-            <span className="no-services">—</span>
+                          // Formatação da data e hora
+                          const formattedDate = appointmentDate.toLocaleDateString('pt-BR');
+                          const formattedTime = appointmentDate.toLocaleTimeString('pt-BR', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            timeZone: 'UTC',
+                          });
+
+                          // Nome do cliente (pode estar em apt.client.name ou apt.clientName)
+                          const clientName = apt.client?.name || apt.clientName || 'Cliente';
+
+                          // Telefone do cliente
+                          const clientPhone = apt.client?.phone || apt.clientPhone || '-';
+
+                          // Lista de serviços (cada serviço pode ter serviceName ou name)
+                          const serviceNames = Array.isArray(apt.services)
+                            ? apt.services.map(s => s.serviceName || s.name).filter(Boolean)
+                            : [];
+
+                          return (
+                            <tr key={apt.id} className={`${isCompleted ? 'row-completed' : ''} ${isPast && !isCompleted ? 'row-past' : ''} ${isConfirmed ? 'row-confirmed' : ''}`}>
+                              <td><strong>{clientName}</strong></td>
+                              <td>{formattedDate}</td>
+                              <td><span className="appointment-time">{formattedTime}</span></td>
+                              <td>
+                                <div className="services-list-compact">
+                                  {serviceNames.length > 0 ? (
+                                    serviceNames.map((name, idx) => (
+                                      <div key={idx} className="service-item-compact">{name}</div>
+                                    ))
+                                  ) : (
+                                    <span className="no-services">—</span>
+                                  )}
+                                </div>
+                              </td>
+                              <td><span className="client-phone">{clientPhone}</span></td>
+                              <td>
+                                {isCompleted ? (
+                                  <span className="status-badge status-completed">Finalizado</span>
+                                ) : isConfirmed ? (
+                                  <span className="status-badge status-confirmed">Confirmado</span>
+                                ) : (
+                                  <span className="status-badge status-pending">Pendente</span>
+                                )}
+                              </td>
+                              <td>
+                                <div className="barber-table-actions">
+                                  {!isCompleted && (
+                                    <>
+                                      {!isConfirmed && (
+                                        <button onClick={() => handleConfirmAppointment(apt.id)} className="action-btn-table btn-confirm-table">
+                                          Confirmar
+                                        </button>
+                                      )}
+                                      <button onClick={() => sendWhatsApp(apt.id, 'confirm')} className="action-btn-table btn-whatsapp-table">
+                                        💬 Mensagem
+                                      </button>
+                                      <button onClick={() => sendWhatsApp(apt.id, 'reminder')} className="action-btn-table btn-reminder-table">
+                                        🔔 Lembrete
+                                      </button>
+                                      {!isPast && (
+                                        <button onClick={() => handleCompleteAppointment(apt.id)} className="action-btn-table btn-complete-table">
+                                          ✅ Finalizar
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
-        </div>
-      </td>
-      <td><span className="client-phone">{clientPhone}</span></td>
-      <td>
-        {isCompleted ? (
-          <span className="status-badge status-completed">Finalizado</span>
-        ) : isConfirmed ? (
-          <span className="status-badge status-confirmed">Confirmado</span>
-        ) : (
-          <span className="status-badge status-pending">Pendente</span>
-        )}
-      </td>
-      <td>
-        <div className="barber-table-actions">
-          {!isCompleted && (
-            <>
-              {!isConfirmed && (
-                <button onClick={() => handleConfirmAppointment(apt.id)} className="action-btn-table btn-confirm-table">
-                  Confirmar
-                </button>
-              )}
-              <button onClick={() => sendWhatsApp(apt.id, 'confirm')} className="action-btn-table btn-whatsapp-table">
-                💬 Mensagem
-              </button>
-              <button onClick={() => sendWhatsApp(apt.id, 'reminder')} className="action-btn-table btn-reminder-table">
-                🔔 Lembrete
-              </button>
-              {!isPast && (
-                <button onClick={() => handleCompleteAppointment(apt.id)} className="action-btn-table btn-complete-table">
-                  ✅ Finalizar
-                </button>
-              )}
-            </>
-          )}
-        </div>
-      </td>
-    </tr>
-  );
-})}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  </div>
-)}
 
 
 
@@ -5747,11 +5748,11 @@ const filteredAppointmentsAdmin = useMemo(() => {
                           plan.features.map((benefit, idx) => (
 
                             <div key={idx} className="benefit-item">
-                             <div style={{wordBreak: 'break-word', whiteSpace: 'normal', display: 'inline-block' }}>
-                              <span className="benefit-icon">✓</span>{' '}
-                              {formatBenefitLabel(benefit)}
-                            </div>
- {/* whiteSpace: 'normal !important', wordBreak: 'break-word', */}
+                              <div style={{ wordBreak: 'break-word', whiteSpace: 'normal', display: 'inline-block' }}>
+                                <span className="benefit-icon">✓</span>{' '}
+                                {formatBenefitLabel(benefit)}
+                              </div>
+                              {/* whiteSpace: 'normal !important', wordBreak: 'break-word', */}
                               {isAdmin && (
                                 <div className="benefit-actions">
                                   <button
@@ -6130,11 +6131,11 @@ const filteredAppointmentsAdmin = useMemo(() => {
                           (s.status === 'active' || s.status === 'cancel_pending') &&
                           (subscriptionSearchType === 'name'
                             ? (s.userName || '')
-                                .toLowerCase()
-                                .includes(subscriptionSearch.toLowerCase())
+                              .toLowerCase()
+                              .includes(subscriptionSearch.toLowerCase())
                             : (s.userCpf || '')
-                                .replace(/\D/g, '')
-                                .includes(subscriptionSearch.replace(/\D/g, ''))),
+                              .replace(/\D/g, '')
+                              .includes(subscriptionSearch.replace(/\D/g, ''))),
                       ).length
                     }{' '}
                     resultado(s)
@@ -6171,19 +6172,19 @@ const filteredAppointmentsAdmin = useMemo(() => {
                         </td>
                       </tr>
                     ) : subscriptions
-                        .filter((s) => s.status === 'active' || s.status === 'cancel_pending')
-                        .filter((s) => {
-                          if (!subscriptionSearch.trim()) return true;
-                          if (subscriptionSearchType === 'name') {
-                            return (s.user.name || '')
-                              .toLowerCase()
-                              .includes(subscriptionSearch.toLowerCase());
-                          } else {
-                            return (s.userCpf || '')
-                              .replace(/\D/g, '')
-                              .includes(subscriptionSearch.replace(/\D/g, ''));
-                          }
-                        }).length === 0 ? (
+                      .filter((s) => s.status === 'active' || s.status === 'cancel_pending')
+                      .filter((s) => {
+                        if (!subscriptionSearch.trim()) return true;
+                        if (subscriptionSearchType === 'name') {
+                          return (s.user.name || '')
+                            .toLowerCase()
+                            .includes(subscriptionSearch.toLowerCase());
+                        } else {
+                          return (s.userCpf || '')
+                            .replace(/\D/g, '')
+                            .includes(subscriptionSearch.replace(/\D/g, ''));
+                        }
+                      }).length === 0 ? (
                       <tr>
                         <td
                           colSpan="6"
@@ -6903,22 +6904,22 @@ const filteredAppointmentsAdmin = useMemo(() => {
                                     const tipo = isPlanCovered
                                       ? 'plano'
                                       : payment.paymentMethod === 'local' ||
-                                          payment.status === 'pendinglocal'
+                                        payment.status === 'pendinglocal'
                                         ? 'local'
                                         : 'avulso';
 
                                     const appointment = payment.appointmentId
                                       ? appointments.find(
-                                          (apt) =>
-                                            apt.id?.toString() ===
-                                            payment.appointmentId?.toString(),
-                                        )
+                                        (apt) =>
+                                          apt.id?.toString() ===
+                                          payment.appointmentId?.toString(),
+                                      )
                                       : appointments.find(
-                                          (apt) =>
-                                            apt.clientId === payment.userId &&
-                                            apt.date === payment.appointmentDate &&
-                                            apt.time === payment.appointmentTime,
-                                        );
+                                        (apt) =>
+                                          apt.clientId === payment.userId &&
+                                          apt.date === payment.appointmentDate &&
+                                          apt.time === payment.appointmentTime,
+                                      );
                                     const productsList =
                                       appointment?.products?.filter((pr) => pr && pr.productName) ||
                                       [];
@@ -6927,11 +6928,11 @@ const filteredAppointmentsAdmin = useMemo(() => {
                                       const price =
                                         typeof prod.unitPrice === 'string'
                                           ? parseFloat(
-                                              prod.unitPrice
-                                                .replace(/R\$/g, '')
-                                                .replace(/,/g, '.')
-                                                .trim(),
-                                            ) || 0
+                                            prod.unitPrice
+                                              .replace(/R\$/g, '')
+                                              .replace(/,/g, '.')
+                                              .trim(),
+                                          ) || 0
                                           : prod.unitPrice || 0;
                                       return s + price * (prod.quantity || 1);
                                     }, 0);
@@ -6947,8 +6948,8 @@ const filteredAppointmentsAdmin = useMemo(() => {
                                         <td>
                                           {payment.appointment?.startAt
                                             ? new Date(
-                                                payment.appointment.startAt,
-                                              ).toLocaleDateString('pt-BR')
+                                              payment.appointment.startAt,
+                                            ).toLocaleDateString('pt-BR')
                                             : '—'}
                                         </td>
                                         <td>
@@ -7056,21 +7057,21 @@ const filteredAppointmentsAdmin = useMemo(() => {
                                               fontWeight: 600,
                                               ...(tipo === 'plano'
                                                 ? {
-                                                    background: '#d4af3722',
-                                                    color: '#d4af37',
-                                                    border: '1px solid #d4af3744',
-                                                  }
+                                                  background: '#d4af3722',
+                                                  color: '#d4af37',
+                                                  border: '1px solid #d4af3744',
+                                                }
                                                 : tipo === 'local'
                                                   ? {
-                                                      background: '#3498db22',
-                                                      color: '#3498db',
-                                                      border: '1px solid #3498db44',
-                                                    }
+                                                    background: '#3498db22',
+                                                    color: '#3498db',
+                                                    border: '1px solid #3498db44',
+                                                  }
                                                   : {
-                                                      background: '#ff7a1a22',
-                                                      color: '#ff7a1a',
-                                                      border: '1px solid #ff7a1a44',
-                                                    }),
+                                                    background: '#ff7a1a22',
+                                                    color: '#ff7a1a',
+                                                    border: '1px solid #ff7a1a44',
+                                                  }),
                                             }}
                                           >
                                             {tipo === 'plano'
@@ -7553,15 +7554,15 @@ const filteredAppointmentsAdmin = useMemo(() => {
                         (u.email || '').toLowerCase().includes(q)
                       );
                     }).length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={5}
-                          style={{ padding: '2rem', textAlign: 'center', color: '#555' }}
-                        >
-                          Nenhum usuário encontrado.
-                        </td>
-                      </tr>
-                    )}
+                        <tr>
+                          <td
+                            colSpan={5}
+                            style={{ padding: '2rem', textAlign: 'center', color: '#555' }}
+                          >
+                            Nenhum usuário encontrado.
+                          </td>
+                        </tr>
+                      )}
                   </tbody>
                 </table>
               </div>
@@ -8493,75 +8494,75 @@ const filteredAppointmentsAdmin = useMemo(() => {
       )}
 
       {showBenefitModal && (
-  <div className="modal-overlay" onClick={closeBenefitModal}>
-    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-      <h2>{editingBenefit ? '✏️ Editar Benefício' : '➕ Adicionar Benefício'}</h2>
-      <form onSubmit={handleSaveBenefit} className="barber-form">
-        <div>
-          <label className="form-label">Serviço vinculado (opcional)</label>
-          <select
-            value={benefitServiceId}
-            onChange={(e) => setBenefitServiceId(e.target.value)}
-            className="form-input"
-            style={{
-              width: '100%',
-              padding: '10px 12px',
-              background: '#1a1a1a',
-              border: '1px solid #333',
-              borderRadius: '8px',
-              color: '#fff',
-              fontSize: '0.95rem',
-            }}
-          >
-            <option value="">Nenhum (benefício textual)</option>
-            {services
-              .slice()
-              .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
-              .map((service) => (
-                <option key={service.id} value={service.id}>
-                  {service.name}
-                </option>
-              ))}
-          </select>
-          <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '6px' }}>
-            Ao selecionar um serviço, ele será coberto pelo plano no agendamento.
-          </p>
+        <div className="modal-overlay" onClick={closeBenefitModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>{editingBenefit ? '✏️ Editar Benefício' : '➕ Adicionar Benefício'}</h2>
+            <form onSubmit={handleSaveBenefit} className="barber-form">
+              <div>
+                <label className="form-label">Serviço vinculado (opcional)</label>
+                <select
+                  value={benefitServiceId}
+                  onChange={(e) => setBenefitServiceId(e.target.value)}
+                  className="form-input"
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    background: '#1a1a1a',
+                    border: '1px solid #333',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '0.95rem',
+                  }}
+                >
+                  <option value="">Nenhum (benefício textual)</option>
+                  {services
+                    .slice()
+                    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
+                    .map((service) => (
+                      <option key={service.id} value={service.id}>
+                        {service.name}
+                      </option>
+                    ))}
+                </select>
+                <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '6px' }}>
+                  Ao selecionar um serviço, ele será coberto pelo plano no agendamento.
+                </p>
+              </div>
+              <div>
+                <label className="form-label">Descrição do Benefício</label>
+                <textarea
+                  value={benefitForm}
+                  onChange={(e) => setBenefitForm(e.target.value)}
+                  placeholder="Ex.: 2 cortes por mês | Brinde especial | Desconto em produtos"
+                  required={!benefitServiceId}
+                  disabled={!!benefitServiceId}
+                  rows="3"
+                  className="form-textarea"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    background: benefitServiceId ? '#121212' : '#1a1a1a',
+                    border: '1px solid #333',
+                    borderRadius: '8px',
+                    color: benefitServiceId ? '#666' : '#fff',
+                    fontSize: '0.95rem',
+                    resize: 'vertical',
+                  }}
+                />
+                <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '6px' }}>
+                  Evite quebras de linha e espaços duplicados – eles serão removidos automaticamente.
+                </p>
+              </div>
+              <div className="modal-actions">
+                <Button type="button" onClick={closeBenefitModal}>
+                  Cancelar
+                </Button>
+                <Button type="submit">{editingBenefit ? 'Atualizar' : 'Adicionar'}</Button>
+              </div>
+            </form>
+          </div>
         </div>
-        <div>
-          <label className="form-label">Descrição do Benefício</label>
-          <textarea
-            value={benefitForm}
-            onChange={(e) => setBenefitForm(e.target.value)}
-            placeholder="Ex.: 2 cortes por mês | Brinde especial | Desconto em produtos"
-            required={!benefitServiceId}
-            disabled={!!benefitServiceId}
-            rows="3"
-            className="form-textarea"
-            style={{
-              width: '100%',
-              padding: '12px',
-              background: benefitServiceId ? '#121212' : '#1a1a1a',
-              border: '1px solid #333',
-              borderRadius: '8px',
-              color: benefitServiceId ? '#666' : '#fff',
-              fontSize: '0.95rem',
-              resize: 'vertical',
-            }}
-          />
-          <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '6px' }}>
-            Evite quebras de linha e espaços duplicados – eles serão removidos automaticamente.
-          </p>
-        </div>
-        <div className="modal-actions">
-          <Button type="button" onClick={closeBenefitModal}>
-            Cancelar
-          </Button>
-          <Button type="submit">{editingBenefit ? 'Atualizar' : 'Adicionar'}</Button>
-        </div>
-      </form>
-    </div>
-  </div>
-)}
+      )}
 
       {showPlanModal && (
         <div className="modal-overlay" onClick={closePlanModal}>

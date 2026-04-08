@@ -4,7 +4,7 @@ import { getSession, logout } from '../../services/authService';
 import { buscarAssinaturaAtiva } from '../../services/paymentService';
 import ManageSubscriptionModal from '../ui/ManageSubscriptionModal.jsx';
 import SubscriptionModal from '../ui/SubscriptionModal.jsx';
-import { FaCalendarAlt, FaShieldAlt, FaCreditCard, FaSignOutAlt, FaCamera, FaUser, FaEnvelope, FaEdit, FaCheck, FaTimes, FaArrowLeft, FaHome, FaStore, FaUsers, FaPlus, FaTrash, FaLock } from 'react-icons/fa';
+import { FaCalendarAlt, FaShieldAlt, FaCreditCard, FaSignOutAlt, FaCamera, FaUser, FaEnvelope, FaPhone, FaEdit, FaCheck, FaTimes, FaArrowLeft, FaHome, FaStore, FaUsers, FaPlus, FaTrash, FaLock } from 'react-icons/fa';
 import { BARBERSHOPS, getActiveBarbershop, setActiveBarbershop } from '../layout/Barbershops';
 import './ProfilePage.css';
 import Header from '../layout/Header.jsx';
@@ -26,6 +26,9 @@ export default function ProfilePage() {
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
   const [savingName, setSavingName] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({ name: '', email: '', phone: '' });
+  const [savingProfile, setSavingProfile] = useState(false);
   const [activeTab, setActiveTab] = useState('perfil');
   const [toast, setToast] = useState(null);
   const [activeBarbershop, setActiveBarbershopState] = useState(getActiveBarbershop);
@@ -50,6 +53,11 @@ export default function ProfilePage() {
 
     setCurrentUser(user);
     setNewName(user.name || '');
+    setProfileForm({
+      name: user.name || '',
+      email: user.email || '',
+      phone: user.phone || '',
+    });
     setProfilePhoto(user.photoUrl || user.photo || null);
     loadUserPhoto(user.id);
     // verificarAssinaturaAtiva(planId, user);
@@ -65,11 +73,18 @@ export default function ProfilePage() {
         if (!freshUser) return;
         const updatedUser = {
           ...user,
+          ...freshUser,
           permissions: freshUser.permissions ?? user.permissions,
           photoUrl: freshUser.photoUrl ?? user.photoUrl ?? user.photo ?? null,
         };
         setCurrentUser(updatedUser);
         localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+        setNewName(updatedUser.name || '');
+        setProfileForm({
+          name: updatedUser.name || '',
+          email: updatedUser.email || '',
+          phone: updatedUser.phone || '',
+        });
       })
       .catch(() => { });
   }, []);
@@ -109,6 +124,19 @@ export default function ProfilePage() {
       .replace(/(\d{3})(\d)/, '$1.$2')
       .replace(/(\d{3})(\d)/, '$1.$2')
       .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  };
+
+  const formatPhone = (value) => {
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 10) {
+      return digits
+        .replace(/^(\d{2})(\d)/, '($1) $2')
+        .replace(/(\d{4})(\d)/, '$1-$2');
+    }
+
+    return digits
+      .replace(/^(\d{2})(\d)/, '($1) $2')
+      .replace(/(\d{5})(\d)/, '$1-$2');
   };
 
   const handleDependentFormChange = (field, value) => {
@@ -427,6 +455,75 @@ export default function ProfilePage() {
     }
   };
 
+  const handleProfileFormChange = (field, value) => {
+    if (field === 'phone') value = formatPhone(value);
+    setProfileForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveProfile = async () => {
+    if (!currentUser) return;
+
+    const name = profileForm.name.trim();
+    const email = profileForm.email.trim().toLowerCase();
+    const phone = profileForm.phone.trim();
+
+    if (!name || !email) {
+      showToast('Preencha nome e e-mail.');
+      return;
+    }
+
+    setSavingProfile(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/users/${currentUser.id}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name,
+          email,
+          phone: phone || null,
+        }),
+      });
+
+      const responseBody = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        const message = Array.isArray(responseBody)
+          ? responseBody.join(', ')
+          : responseBody?.message || responseBody?.error || 'Erro ao salvar o perfil.';
+        showToast(message);
+        return;
+      }
+
+      const updatedUser = {
+        ...currentUser,
+        ...responseBody,
+        name,
+        email,
+        phone: phone || null,
+      };
+
+      setCurrentUser(updatedUser);
+      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+      setProfileForm({
+        name: updatedUser.name || '',
+        email: updatedUser.email || '',
+        phone: updatedUser.phone || '',
+      });
+      setEditingProfile(false);
+      setEditingName(false);
+      setNewName(updatedUser.name || '');
+      showToast('Perfil atualizado!');
+    } catch (error) {
+      console.error(error);
+      showToast('Erro ao salvar o perfil.');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
   const showToast = (message) => {
     setToast({ message });
     setTimeout(() => setToast(null), 2000);
@@ -596,30 +693,81 @@ export default function ProfilePage() {
                 <div className="profile-card">
                   <div className="profile-card__label">
                     <FaUser className="profile-card__icon" />
-                    Nome
+                    Dados do Perfil
                   </div>
-                  {editingName ? (
-                    <div className="profile-card__edit-row">
+                  {editingProfile ? (
+                    <div className="profile-card__edit-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '0.75rem' }}>
                       <input
                         className="profile-card__input"
-                        value={newName}
-                        onChange={(e) => setNewName(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
+                        placeholder="Nome"
+                        value={profileForm.name}
+                        onChange={(e) => handleProfileFormChange('name', e.target.value)}
                         autoFocus
                       />
-                      <div className="profile-card__edit-actions">
-                        <button className="btn btn--confirm btn--sm" onClick={handleSaveName} disabled={savingName}>
-                          {savingName ? <span className="spinner" /> : <FaCheck />}
+                      <input
+                        className="profile-card__input"
+                        placeholder="E-mail"
+                        type="email"
+                        value={profileForm.email}
+                        onChange={(e) => handleProfileFormChange('email', e.target.value)}
+                      />
+                      <input
+                        className="profile-card__input"
+                        placeholder="Telefone"
+                        value={profileForm.phone}
+                        onChange={(e) => handleProfileFormChange('phone', e.target.value)}
+                      />
+                      <div className="profile-card__edit-actions" style={{ justifyContent: 'flex-end' }}>
+                        <button className="btn btn--confirm btn--sm" onClick={handleSaveProfile} disabled={savingProfile}>
+                          {savingProfile ? <span className="spinner" /> : <FaCheck />}
                         </button>
-                        <button className="btn btn--cancel btn--sm" onClick={() => { setEditingName(false); setNewName(currentUser?.name || ''); }}>
+                        <button
+                          className="btn btn--cancel btn--sm"
+                          onClick={() => {
+                            setEditingProfile(false);
+                            setProfileForm({
+                              name: currentUser?.name || '',
+                              email: currentUser?.email || '',
+                              phone: currentUser?.phone || '',
+                            });
+                          }}
+                        >
                           <FaTimes />
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <div className="profile-card__value-row">
-                      <span className="profile-card__value">{currentUser?.name}</span>
-                      <button className="profile-card__edit-btn" onClick={() => setEditingName(true)}>
+                    <div style={{ display: 'grid', gap: '0.85rem' }}>
+                      <div className="profile-card__value-row">
+                        <span className="profile-card__label" style={{ border: 'none', padding: 0, margin: 0 }}>
+                          Nome
+                        </span>
+                        <span className="profile-card__value">{currentUser?.name}</span>
+                      </div>
+                      <div className="profile-card__value-row">
+                        <span className="profile-card__label" style={{ border: 'none', padding: 0, margin: 0 }}>
+                          E-mail
+                        </span>
+                        <span className="profile-card__value">{currentUser?.email}</span>
+                      </div>
+                      <div className="profile-card__value-row">
+                        <span className="profile-card__label" style={{ border: 'none', padding: 0, margin: 0 }}>
+                          Telefone
+                        </span>
+                        <span className="profile-card__value">{formatPhone(currentUser?.phone || '') || '-'}</span>
+                      </div>
+                      <button
+                        className="profile-card__edit-btn"
+                        onClick={() => {
+                          setProfileForm({
+                            name: currentUser?.name || '',
+                            email: currentUser?.email || '',
+                            phone: currentUser?.phone || '',
+                          });
+                          setEditingProfile(true);
+                        }}
+                        style={{ width: 'fit-content' }}
+                      >
                         <FaEdit /> Editar
                       </button>
                     </div>
@@ -629,11 +777,11 @@ export default function ProfilePage() {
 
                 <div className="profile-card">
                   <div className="profile-card__label">
-                    <FaEnvelope className="profile-card__icon" />
-                    E-mail
+                    <FaPhone className="profile-card__icon" />
+                    Telefone
                   </div>
                   <div className="profile-card__value-row">
-                    <span className="profile-card__value">{currentUser?.email}</span>
+                    <span className="profile-card__value">{formatPhone(currentUser?.phone || '') || 'Não informado'}</span>
                   </div>
                 </div>
 

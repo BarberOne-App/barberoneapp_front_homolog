@@ -2019,7 +2019,7 @@ export default function AppointmentsPage() {
             {productText}.
           </p>
         </div>
-        <button
+        {/* <button
           onClick={() => {
             setView('myAppointments');
             setTimeout(() => {
@@ -2038,7 +2038,7 @@ export default function AppointmentsPage() {
           }}
         >
           Ver detalhes →
-        </button>
+        </button> */}
       </div>
     );
   };

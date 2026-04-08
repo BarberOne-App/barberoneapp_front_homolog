@@ -46,11 +46,16 @@ export default function Home() {
     scheduleLine1: "",
     scheduleLine2: "",
     scheduleLine3: "",
+    whatsappNumber: "",
     locationTitle: "Localização",
     locationAddress: "",
     locationCity: ""
   });
 
+  const whatsappNumber = String(siteInfo.whatsappNumber || '').replace(/\D/g, '');
+  const whatsappHref = whatsappNumber
+    ? `https://wa.me/${whatsappNumber}`
+    : 'https://wa.me/5585999999999';
   const handleHeroButtonClick = (target) => {
   if (target.startsWith('#')) {
     const element = document.querySelector(target);
@@ -416,7 +421,7 @@ export default function Home() {
                 </p>
                 <p>{siteInfo.aboutText3 || 'Nosso ambiente proporciona conforto e uma experiência única.'}</p>
                 <a
-                  href="https://wa.me/5585999999999"
+                  href={whatsappHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="header__contato"
