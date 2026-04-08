@@ -775,7 +775,7 @@ export default function ProfilePage() {
                 </div>
 
 
-                <div className="profile-card">
+                {/* <div className="profile-card">
                   <div className="profile-card__label">
                     <FaPhone className="profile-card__icon" />
                     Telefone
@@ -783,7 +783,7 @@ export default function ProfilePage() {
                   <div className="profile-card__value-row">
                     <span className="profile-card__value">{formatPhone(currentUser?.phone || '') || 'Não informado'}</span>
                   </div>
-                </div>
+                </div> */}
 
 
                 <div className="profile-card">

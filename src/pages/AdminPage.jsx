@@ -5376,6 +5376,8 @@ export default function AdminPage() {
                       <thead>
                         <tr>
                           <th>Cliente</th>
+                          <th>Barbeiro</th>
+                          <th>Para</th>
                           <th>Data</th>
                           <th>Horário</th>
                           <th>Serviços</th>
@@ -5401,6 +5403,9 @@ export default function AdminPage() {
 
                           // Nome do cliente (pode estar em apt.client.name ou apt.clientName)
                           const clientName = apt.client?.name || apt.clientName || 'Cliente';
+                          const barberName =
+                            apt.barber?.displayName || apt.barberName || 'Sem barbeiro';
+                          const dependentLabel = apt.dependent?.name || apt.dependentName || '';
 
                           // Telefone do cliente
                           const clientPhone = apt.client?.phone || apt.clientPhone || '-';
@@ -5413,6 +5418,29 @@ export default function AdminPage() {
                           return (
                             <tr key={apt.id} className={`${isCompleted ? 'row-completed' : ''} ${isPast && !isCompleted ? 'row-past' : ''} ${isConfirmed ? 'row-confirmed' : ''}`}>
                               <td><strong>{clientName}</strong></td>
+                              <td>{barberName}</td>
+                              <td>
+                                {dependentLabel ? (
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      background: 'rgba(255,122,26,0.12)',
+                                      color: '#ff7a1a',
+                                      border: '1px solid rgba(255,122,26,0.35)',
+                                      borderRadius: '20px',
+                                      padding: '2px 9px',
+                                      fontSize: '0.75rem',
+                                      fontWeight: 700,
+                                    }}
+                                  >
+                                    👤 {dependentLabel}
+                                  </span>
+                                ) : (
+                                  <span style={{ color: '#555' }}>Você</span>
+                                )}
+                              </td>
                               <td>{formattedDate}</td>
                               <td><span className="appointment-time">{formattedTime}</span></td>
                               <td>
@@ -5440,11 +5468,9 @@ export default function AdminPage() {
                                 <div className="barber-table-actions">
                                   {!isCompleted && (
                                     <>
-                                      {!isConfirmed && (
                                         <button onClick={() => handleConfirmAppointment(apt.id)} className="action-btn-table btn-confirm-table">
                                           Confirmar
                                         </button>
-                                      )}
                                       <button onClick={() => sendWhatsApp(apt.id, 'confirm')} className="action-btn-table btn-whatsapp-table">
                                         💬 Mensagem
                                       </button>
