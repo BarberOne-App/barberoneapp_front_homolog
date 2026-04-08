@@ -74,6 +74,20 @@ export default function SubscriptionSection({ activeSubscription, onSubscribe })
     return { savings, savingsPercent };
   };
 
+  const buildSubscriptionCheckoutUrl = (baseUrl, userEmail) => {
+    const email = String(userEmail || '').trim();
+    if (!email) return baseUrl;
+
+    try {
+      const url = new URL(baseUrl);
+      url.searchParams.set('prefilled_email', email);
+      return url.toString();
+    } catch {
+      const separator = String(baseUrl).includes('?') ? '&' : '?';
+      return `${baseUrl}${separator}prefilled_email=${encodeURIComponent(email)}`;
+    }
+  };
+
   const handleSelectPlan = (plan) => {
     if (!currentUser) {
       showToast('Por favor, faça login para assinar um plano.', 'danger');
@@ -100,7 +114,8 @@ export default function SubscriptionSection({ activeSubscription, onSubscribe })
     localStorage.setItem('selectedPlan', JSON.stringify(planWithRecurring));
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
 
-    window.location.href = subscriptionUrl;
+    const checkoutUrl = buildSubscriptionCheckoutUrl(subscriptionUrl, currentUser?.email);
+    window.location.href = checkoutUrl;
   };
 
   return (
