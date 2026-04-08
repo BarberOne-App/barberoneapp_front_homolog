@@ -571,11 +571,17 @@ export const buscarTodosPagamentosAgendamentos = async () => {
 
 export const atualizarPagamentoAgendamento = async (paymentId, dados) => {
   try {
-    const response = await api.patch(`/appointmentPayments/${paymentId}`, {
+    const normalizedMethod =
+      dados?.method ?? dados?.paymentMethod ?? undefined;
+
+    const payload = {
       ...dados,
+      ...(normalizedMethod !== undefined ? { method: normalizedMethod } : {}),
       updatedAt: new Date().toISOString(),
       ...(dados.status === 'paid' && !dados.paidAt && { paidAt: new Date().toISOString() })
-    }, {
+    };
+
+    const response = await api.patch(`/appointmentPayments/${paymentId}`, payload, {
       headers: {
         Authorization: `Bearer ${token}`,
       },

@@ -33,7 +33,14 @@ import {
   deleteProduct,
   importProducts as importProductsBatch,
 } from '../services/productService';
-import { getPixKey, savePixKey, getHomeInfo, saveHomeInfo } from '../services/settingsService';
+import {
+  getPixKey,
+  savePixKey,
+  getHomeInfo,
+  saveHomeInfo,
+  getPaymentVisibilitySettings,
+  savePaymentVisibilitySettings,
+} from '../services/settingsService';
 import './AuthPages.css';
 
 import {
@@ -331,6 +338,8 @@ export default function AdminPage() {
   });
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
   const [userSearch, setUserSearch] = useState('');
+  const [hiddenBookingPaymentMethods, setHiddenBookingPaymentMethods] = useState([]);
+  const [savingPaymentVisibility, setSavingPaymentVisibility] = useState(false);
 
   const normalizedAppointmentPayments = Array.isArray(appointmentPayments)
     ? appointmentPayments
@@ -386,6 +395,7 @@ export default function AdminPage() {
     [currentUser?.role, currentUser?.isAdmin],
   );
   const isReceptionist = useMemo(() => currentUser?.role === 'receptionist', [currentUser?.role]);
+  const canAccessEarnings = useMemo(() => isBarber && !isAdmin, [isBarber, isAdmin]);
   const hasAdminVisibility = useMemo(
     () => isAdmin || isReceptionist || currentUser?.permissions?.viewAdmin,
     [isAdmin, isReceptionist, currentUser?.permissions?.viewAdmin],
@@ -780,6 +790,42 @@ export default function AdminPage() {
     setPaymentDateFilter('');
     setPaymentStartDate('');
     setPaymentEndDate('');
+  };
+
+  const loadPaymentVisibility = useCallback(async () => {
+    try {
+      const data = await getPaymentVisibilitySettings();
+      setHiddenBookingPaymentMethods(data.hiddenBookingPaymentMethods || []);
+    } catch (error) {
+      console.error('Erro ao carregar visibilidade de formas de pagamento:', error);
+      setHiddenBookingPaymentMethods([]);
+    }
+  }, []);
+
+  const handleToggleBookingPaymentVisibility = async (method) => {
+    if (!isAdmin) {
+      showToast('Apenas administradores podem alterar as formas de pagamento.', 'danger');
+      return;
+    }
+
+    const normalizedMethod = String(method || '').toLowerCase();
+    if (!['cartao', 'pix', 'local'].includes(normalizedMethod)) return;
+
+    const nextHidden = hiddenBookingPaymentMethods.includes(normalizedMethod)
+      ? hiddenBookingPaymentMethods.filter((item) => item !== normalizedMethod)
+      : [...hiddenBookingPaymentMethods, normalizedMethod];
+
+    try {
+      setSavingPaymentVisibility(true);
+      const saved = await savePaymentVisibilitySettings(nextHidden);
+      setHiddenBookingPaymentMethods(saved.hiddenBookingPaymentMethods || []);
+      showToast('Configuração de formas de pagamento atualizada com sucesso!', 'success');
+    } catch (error) {
+      console.error('Erro ao salvar visibilidade de formas de pagamento:', error);
+      showToast('Erro ao salvar configuração de formas de pagamento.', 'danger');
+    } finally {
+      setSavingPaymentVisibility(false);
+    }
   };
 
   const getFilteredSubscriptions = () => {
@@ -1513,10 +1559,16 @@ export default function AdminPage() {
   }, [activeTab, hasAdminVisibility, plans.length, loadPlans]);
 
   useEffect(() => {
-    if (isReceptionist && activeTab === 'earnings') {
+    if (!canAccessEarnings && activeTab === 'earnings') {
       setActiveTab('calendario');
     }
-  }, [isReceptionist, activeTab]);
+  }, [canAccessEarnings, activeTab]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      loadPaymentVisibility();
+    }
+  }, [isAdmin, loadPaymentVisibility]);
 
 
   const getAppointmentByPayment = (payment) => {
@@ -2336,9 +2388,11 @@ export default function AdminPage() {
 
   const handleMarkAsPaid = async (payment, method) => {
     try {
+      const normalizedMethod = String(method || '').toLowerCase();
       await atualizarPagamentoAgendamento(payment.id, {
         status: 'paid',
-        paymentMethod: method,
+        method: normalizedMethod,
+        paymentMethod: normalizedMethod,
         paidAt: new Date().toISOString(),
       });
       await loadData();
@@ -2355,8 +2409,10 @@ export default function AdminPage() {
 
   const handleConfirmCutDone = async (payment) => {
     try {
-      const alreadyHasMethod =
-        payment.paymentMethod && payment.paymentMethod !== '' && payment.paymentMethod !== 'local';
+      const currentMethod = String(payment.paymentMethod || payment.method || '')
+        .toLowerCase()
+        .trim();
+      const alreadyHasMethod = currentMethod !== '' && currentMethod !== 'local';
       const newStatus = alreadyHasMethod ? 'paid' : 'pending';
       await atualizarPagamentoAgendamento(payment.id, {
         status: newStatus,
@@ -2645,17 +2701,17 @@ export default function AdminPage() {
     const paidAppointmentPayments = paymentsToUse.filter((p) => p.status === 'paid');
     paidAppointmentPayments.forEach((payment) => {
       const amount = parseFloat(payment.amount || 0);
+      const method = String(payment.paymentMethod || payment.method || '').toLowerCase();
       const isPlanCovered =
         payment.status === 'plan_covered' ||
         payment.status === 'plancovered' ||
-        payment.paymentMethod === 'subscription';
+        method === 'subscription';
       if (isPlanCovered) {
         stats.count.planCovered++;
         return;
       }
       if (amount > 0) {
         stats.total += amount;
-        const method = payment.paymentMethod?.toLowerCase();
         if (method === 'pix') {
           stats.pix += amount;
           stats.count.pix++;
@@ -2941,7 +2997,7 @@ export default function AdminPage() {
       p.status === 'paid' ||
       p.status === 'plan_covered' ||
       p.status === 'plancovered' ||
-      p.paymentMethod === 'subscription',
+      String(p.paymentMethod || p.method || '').toLowerCase() === 'subscription',
   );
 
   const BENEFIT_SERVICE_PREFIX = 'SERVICO_INCLUSO::';
@@ -3806,6 +3862,27 @@ export default function AdminPage() {
     return 'Avulso';
   };
 
+  const getAppointmentPaymentMethodLabel = (appointmentId) => {
+    const payment = normalizedAppointmentPayments.find(
+      (item) => String(item.appointmentId ?? item.appointment?.id ?? '') === String(appointmentId),
+    );
+
+    if (!payment) return 'Não informado';
+
+    const method = getPaymentMethodValue(payment);
+    const isPlanCovered =
+      payment?.status === 'plan_covered' || payment?.status === 'plancovered' || method === 'subscription';
+
+    if (isPlanCovered) return 'Plano';
+    if (method === 'pix') return 'Online via PIX';
+    if (method === 'credito' || method === 'crédito' || method === 'debito' || method === 'débito' || method === 'cartao' || method === 'cartão') {
+      return 'Online via cartão';
+    }
+    if (method === 'local' || payment?.status === 'pendinglocal') return 'Pagamento local';
+    if (method === 'dinheiro') return 'Dinheiro';
+    return getPaymentTypeLabel(payment);
+  };
+
 
   return (
     <BaseLayout>
@@ -3840,7 +3917,7 @@ export default function AdminPage() {
             >
               Calendário
             </button>
-            {(isAdmin || isBarber) && (
+            {canAccessEarnings && (
               <button
                 onClick={() => setActiveTab('earnings')}
                 className={`tab-btn ${activeTab === 'earnings' ? 'tab-btn--active' : ''}`}
@@ -3941,7 +4018,7 @@ export default function AdminPage() {
                     onClick={() => setActiveTab('cancelPlanos')}
                     className={`tab-btn ${activeTab === 'cancelPlanos' ? 'tab-btn--active' : ''}`}
                   >
-                    Cancelamento de Planos
+                    Planos
                   </button>
                 )}
                 {isAdmin && (
@@ -4046,7 +4123,7 @@ export default function AdminPage() {
             </div>
           )}
 
-          {!isReceptionist && activeTab === 'earnings' && (
+          {canAccessEarnings && activeTab === 'earnings' && (
             <div className="earnings-section">
               <div className="earnings-filters">
                 <div className="appointments-tabs" style={{ marginBottom: '1rem', borderBottom: 'none' }}>
@@ -4144,6 +4221,7 @@ export default function AdminPage() {
                           const formattedTime = aptDate.toLocaleTimeString('pt-BR', {
                             hour: '2-digit',
                             minute: '2-digit',
+                            timeZone: 'UTC'
                           });
                           return (
                             <tr key={apt.id}>
@@ -4722,6 +4800,7 @@ export default function AdminPage() {
                                           {new Date(apt.startAt).toLocaleTimeString('pt-BR', {
                                             hour: '2-digit',
                                             minute: '2-digit',
+                                            timeZone: 'UTC'
                                           })}
                                         </td>
                                         <td>
@@ -5129,7 +5208,7 @@ export default function AdminPage() {
                       <select
                         value={extraPaymentForm.employeeId}
                         onChange={(e) => handleExtraPaymentFormChange('employeeId', e.target.value)}
-                        className="form-input"
+                        className="form-select"
                         required
                       >
                         <option value="">Selecione...</option>
@@ -5292,6 +5371,57 @@ export default function AdminPage() {
                 </div>
               </div>
 
+              {isAdmin && (
+                <div
+                  style={{
+                    background: '#1a1a1a',
+                    border: '1px solid #2a2a2a',
+                    borderRadius: '10px',
+                    padding: '1rem',
+                    marginBottom: '1.25rem',
+                  }}
+                >
+                  <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--gold)', fontSize: '1rem' }}>
+                    Formas de pagamento no agendamento
+                  </h3>
+                  <p style={{ margin: '0 0 0.9rem 0', color: '#a8a8a8', fontSize: '0.85rem' }}>
+                    Marque para ocultar no agendamento. Apenas administradores podem alterar.
+                  </p>
+
+                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
+                      <input
+                        type="checkbox"
+                        checked={hiddenBookingPaymentMethods.includes('cartao')}
+                        disabled={savingPaymentVisibility}
+                        onChange={() => handleToggleBookingPaymentVisibility('cartao')}
+                      />
+                      Ocultar Pagar no Cartão
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
+                      <input
+                        type="checkbox"
+                        checked={hiddenBookingPaymentMethods.includes('pix')}
+                        disabled={savingPaymentVisibility}
+                        onChange={() => handleToggleBookingPaymentVisibility('pix')}
+                      />
+                      Ocultar Pagar no Pix
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
+                      <input
+                        type="checkbox"
+                        checked={hiddenBookingPaymentMethods.includes('local')}
+                        disabled={savingPaymentVisibility}
+                        onChange={() => handleToggleBookingPaymentVisibility('local')}
+                      />
+                      Ocultar Pagar Localmente
+                    </label>
+                  </div>
+                </div>
+              )}
+
               <div className="filters-container">
                 <div className="filter-group">
                   <label>Data Específica:</label>
@@ -5382,6 +5512,7 @@ export default function AdminPage() {
                           <th>Horário</th>
                           <th>Serviços</th>
                           <th>Telefone</th>
+                          <th>Pagamento</th>
                           <th>Status</th>
                           <th>Ações</th>
                         </tr>
@@ -5409,6 +5540,7 @@ export default function AdminPage() {
 
                           // Telefone do cliente
                           const clientPhone = apt.client?.phone || apt.clientPhone || '-';
+                          const paymentLabel = getAppointmentPaymentMethodLabel(apt.id);
 
                           // Lista de serviços (cada serviço pode ter serviceName ou name)
                           const serviceNames = Array.isArray(apt.services)
@@ -5455,6 +5587,34 @@ export default function AdminPage() {
                                 </div>
                               </td>
                               <td><span className="client-phone">{clientPhone}</span></td>
+                              <td>
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    borderRadius: '20px',
+                                    padding: '2px 9px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 700,
+                                    color:
+                                      paymentLabel === 'Pagamento local'
+                                        ? '#e5b84a'
+                                        : paymentLabel === 'Online via PIX'
+                                          ? '#2ecc71'
+                                          : paymentLabel === 'Online via cartão'
+                                            ? '#4ea1ff'
+                                            : paymentLabel === 'Plano'
+                                              ? '#d4af37'
+                                              : '#888',
+                                    border: '1px solid currentColor',
+                                    background: 'rgba(255,255,255,0.03)',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {paymentLabel}
+                                </span>
+                              </td>
                               <td>
                                 {isCompleted ? (
                                   <span className="status-badge status-completed">Finalizado</span>
@@ -5976,7 +6136,7 @@ export default function AdminPage() {
           {activeTab === 'cancelPlanos' && hasPermission('managePayments') && (
             <div className="tab-content">
               <div className="section-header" style={{ marginBottom: '1.5rem' }}>
-                <h2>Cancelamento de Planos</h2>
+                <h2>Planos</h2>
                 <p style={{ color: 'var(--text-gray)', fontSize: '0.9rem', marginTop: '4px' }}>
                   Cancele planos ativos de clientes. O plano permanece ativo até o fim do período já
                   pago.
@@ -6917,19 +7077,24 @@ export default function AdminPage() {
                                     ),
                                   )
                                   .map((payment) => {
+                                    const paymentMethodValue = String(
+                                      payment.paymentMethod || payment.method || '',
+                                    )
+                                      .toLowerCase()
+                                      .trim();
                                     const isSubscriber =
                                       clientSubscriptionStatus[payment.userId] ||
                                       payment.status === 'plan_covered' ||
                                       payment.status === 'plancovered' ||
-                                      payment.paymentMethod === 'subscription' ||
+                                      paymentMethodValue === 'subscription' ||
                                       false;
                                     const isPlanCovered =
                                       payment.status === 'plan_covered' ||
                                       payment.status === 'plancovered' ||
-                                      payment.paymentMethod === 'subscription';
+                                      paymentMethodValue === 'subscription';
                                     const tipo = isPlanCovered
                                       ? 'plano'
-                                      : payment.paymentMethod === 'local' ||
+                                      : paymentMethodValue === 'local' ||
                                         payment.status === 'pendinglocal'
                                         ? 'local'
                                         : 'avulso';
@@ -7071,7 +7236,7 @@ export default function AdminPage() {
                                         </td>
                                         <td>
                                           <PaymentBadge
-                                            method={payment.paymentMethod || payment.method}
+                                            method={paymentMethodValue}
                                           />
                                         </td>
                                         <td>
@@ -8679,7 +8844,7 @@ export default function AdminPage() {
                 required
               />
 
-              <div style={{ marginBottom: '1rem' }}>
+              {/* <div style={{ marginBottom: '1rem' }}>
                 <label
                   style={{
                     display: 'flex',
@@ -8724,7 +8889,7 @@ export default function AdminPage() {
                   Quando marcado, usuários com plano ativo verão "Coberto pela assinatura" ao invés
                   do preço
                 </p>
-              </div>
+              </div> */}
 
               {!serviceForm.coveredByPlan && (
                 <div style={{ marginBottom: '1rem' }}>

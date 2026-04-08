@@ -24,7 +24,7 @@ export async function createStripeSubscriptionIntent(payload) {
   const token = getToken();
 
   const { data } = await axios.post(
-    `${API_URL}/subscriptions`,
+    `${API_URL}/stripe/subscriptions`,
     payload,
     {
       headers: {

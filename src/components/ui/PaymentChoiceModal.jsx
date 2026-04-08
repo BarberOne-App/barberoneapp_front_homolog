@@ -1,14 +1,25 @@
-import { X, CreditCard, Store } from 'lucide-react';
+import { X, CreditCard, Store, Banknote } from 'lucide-react';
 import Button from './Button.jsx';
 import './PaymentChoiceModal.css';
 
-export default function PaymentChoiceModal({ isOpen, onClose, onChoose, appointmentDetails, purchaseData }) {
+export default function PaymentChoiceModal({
+  isOpen,
+  onClose,
+  onChoose,
+  appointmentDetails,
+  purchaseData,
+  availablePaymentMethods = ['online', 'local'],
+}) {
   if (!isOpen) return null;
 
-  const handleChoice = (payNow) => {
-    onChoose(payNow);
+  const handleChoice = (method) => {
+    onChoose(method);
     onClose();
   };
+
+  const canPayCard = availablePaymentMethods.includes('cartao');
+  const canPayPix = availablePaymentMethods.includes('pix');
+  const canPayLocal = availablePaymentMethods.includes('local');
 
   const hasProducts = purchaseData?.products && purchaseData.products.length > 0;
   const isFreeForSubscriber =
@@ -42,7 +53,7 @@ export default function PaymentChoiceModal({ isOpen, onClose, onChoose, appointm
 
             <span className="included-badge">✓ Incluído no seu plano</span>
 
-            <button className="btn-confirm-free" onClick={() => handleChoice(false)}>
+            <button className="btn-confirm-free" onClick={() => handleChoice('free')}>
               Confirmar Agendamento
             </button>
           </div>
@@ -98,24 +109,45 @@ export default function PaymentChoiceModal({ isOpen, onClose, onChoose, appointm
             </div>
 
             <div className="payment-choices">
-              <div className="choice-card" onClick={() => handleChoice(true)}>
-                <div className="choice-icon">
-                  <CreditCard size={28} />
+              {canPayCard && (
+                <div className="choice-card" onClick={() => handleChoice('cartao')}>
+                  <div className="choice-icon">
+                    <CreditCard size={28} />
+                  </div>
+                  <h3>Pagar no Cartão</h3>
+                  <p>Finalize o pagamento com cartão de crédito ou débito</p>
+                  <button className="btn-choice">Cartão</button>
                 </div>
-                <h3>Pagar Online</h3>
-                <p>Finalize o pagamento online de forma rápida e segura</p>
-                <button className="btn-choice">Pagar Agora</button>
-              </div>
+              )}
 
-              <div className="choice-card" onClick={() => handleChoice(false)}>
-                <div className="choice-icon">
-                  <Store size={28} />
+              {canPayPix && (
+                <div className="choice-card" onClick={() => handleChoice('pix')}>
+                  <div className="choice-icon">
+                    <Banknote size={28} />
+                  </div>
+                  <h3>Pagar no Pix</h3>
+                  <p>Finalize o pagamento com Pix de forma rápida e segura</p>
+                  <button className="btn-choice">Pix</button>
                 </div>
-                <h3>Pagar no Local</h3>
-                <p>Realize o pagamento diretamente na barbearia</p>
-                <button className="btn-choice">Pagar no Local</button>
-              </div>
+              )}
+
+              {canPayLocal && (
+                <div className="choice-card" onClick={() => handleChoice('local')}>
+                  <div className="choice-icon">
+                    <Store size={28} />
+                  </div>
+                  <h3>Pagar Localmente</h3>
+                  <p>Realize o pagamento diretamente na barbearia</p>
+                  <button className="btn-choice">Localmente</button>
+                </div>
+              )}
             </div>
+
+            {!canPayCard && !canPayPix && !canPayLocal && (
+              <p style={{ color: '#ff7a1a', textAlign: 'center', marginTop: '1rem' }}>
+                Nenhuma forma de pagamento está disponível no momento.
+              </p>
+            )}
           </>
         )}
       </div>

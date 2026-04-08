@@ -3,6 +3,75 @@ import { getToken } from "./authService";
 const API_URL = 'https://barberone-backend.onrender.com';
 const token = getToken();
 
+function getAuthHeaders() {
+  return {
+    Authorization: `Bearer ${getToken() || token}`,
+  };
+}
+
+function normalizeHiddenBookingPaymentMethods(value) {
+  if (!Array.isArray(value)) return [];
+  const normalized = value
+    .map((item) => String(item || '').trim().toLowerCase())
+    .flatMap((item) => {
+      if (item === 'online') return ['cartao', 'pix'];
+      return item;
+    })
+    .filter((item) => item === 'cartao' || item === 'pix' || item === 'local');
+
+  return Array.from(new Set(normalized));
+}
+
+export async function getPaymentVisibilitySettings() {
+  try {
+    const response = await fetch(`${API_URL}/settings`, {
+      headers: getAuthHeaders(),
+    });
+
+    const settings = await response.json();
+
+    return {
+      hiddenBookingPaymentMethods: normalizeHiddenBookingPaymentMethods(
+        settings?.hiddenBookingPaymentMethods,
+      ),
+    };
+  } catch (error) {
+    console.error('Erro ao buscar configuração de visibilidade de pagamentos:', error);
+    return { hiddenBookingPaymentMethods: [] };
+  }
+}
+
+export async function savePaymentVisibilitySettings(hiddenBookingPaymentMethods) {
+  try {
+    const response = await fetch(`${API_URL}/settings`, {
+      method: 'PUT',
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        hiddenBookingPaymentMethods: normalizeHiddenBookingPaymentMethods(
+          hiddenBookingPaymentMethods,
+        ),
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erro ao salvar configuração: ${response.status}`);
+    }
+
+    const settings = await response.json();
+    return {
+      hiddenBookingPaymentMethods: normalizeHiddenBookingPaymentMethods(
+        settings?.hiddenBookingPaymentMethods,
+      ),
+    };
+  } catch (error) {
+    console.error('Erro ao salvar configuração de visibilidade de pagamentos:', error);
+    throw error;
+  }
+}
+
 export async function getPixKey() {
   try {
     const response = await fetch(`${API_URL}/settings`, {

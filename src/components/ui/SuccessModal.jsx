@@ -8,9 +8,9 @@ export default function SuccessModal({ isOpen, onClose, title, message, details 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="success-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="modal-close" onClick={onClose}>
+        {/* <button className="modal-close" onClick={onClose}>
           <X size={24} />
-        </button>
+        </button> */}
 
         <div className="success-modal__icon">
           <CheckCircle size={64} />

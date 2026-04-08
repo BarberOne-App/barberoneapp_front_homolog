@@ -19,7 +19,7 @@ import {
   createAppointment,
   deleteAppointment,
 } from '../services/appointmentService.js';
-import { getHomeInfo } from '../services/settingsService.js';
+import { getHomeInfo, getPaymentVisibilitySettings } from '../services/settingsService.js';
 import {
   criarPagamentoAgendamento,
   buscarPagamentoAgendamento,
@@ -55,6 +55,7 @@ export default function AppointmentsPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedAppointmentForPayment, setSelectedAppointmentForPayment] = useState(null);
   const [showPaymentChoiceModal, setShowPaymentChoiceModal] = useState(false);
+  const [hiddenBookingPaymentMethods, setHiddenBookingPaymentMethods] = useState([]);
   const [showProductsModal, setShowProductsModal] = useState(false);
   const [pendingBookingData, setPendingBookingData] = useState(null);
   const [purchaseData, setPurchaseData] = useState(null);
@@ -154,6 +155,15 @@ export default function AppointmentsPage() {
   const isReceptionist = currentUser?.role === 'receptionist';
   const canScheduleForOthers = isAdmin || isReceptionist || currentUser?.permissions?.scheduleForOthers === true;
   const dependentsForBooking = canScheduleForOthers ? selectedClientDependents : userDependents;
+
+  const availableBookingPaymentMethods = useMemo(() => {
+    const hiddenSet = new Set(
+      (Array.isArray(hiddenBookingPaymentMethods) ? hiddenBookingPaymentMethods : [])
+        .map((item) => String(item || '').toLowerCase()),
+    );
+
+    return ['cartao', 'pix', 'local'].filter((method) => !hiddenSet.has(method));
+  }, [hiddenBookingPaymentMethods]);
 
   const activeClient = bookingForDependent
     ? {
@@ -748,7 +758,14 @@ export default function AppointmentsPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [barbersData, servicesData, productsData, appointmentsData, homeInfoData] = await Promise.all([
+      const [
+        barbersData,
+        servicesData,
+        productsData,
+        appointmentsData,
+        homeInfoData,
+        paymentVisibilitySettings,
+      ] = await Promise.all([
         getBarbers(),
         getAllServices(),
         fetch('https://barberone-backend.onrender.com/products', {
@@ -758,6 +775,7 @@ export default function AppointmentsPage() {
         }).then((res) => res.json()),
         getAppointments(),
         getHomeInfo(),
+        getPaymentVisibilitySettings(),
       ]);
 
       const res = await fetch('https://barberone-backend.onrender.com/subscriptions', {
@@ -818,6 +836,7 @@ export default function AppointmentsPage() {
           ...normalizedHomeInfo,
         }));
       }
+      setHiddenBookingPaymentMethods(paymentVisibilitySettings?.hiddenBookingPaymentMethods || []);
       const normalizedSubscriptions = Array.isArray(subscription?.items)
         ? subscription.items
         : Array.isArray(subscription)
@@ -1492,9 +1511,14 @@ export default function AppointmentsPage() {
         return;
       }
 
+      if (!availableBookingPaymentMethods.length) {
+        showToast('Nenhuma forma de pagamento está disponível no momento. Fale com a barbearia.', 'danger');
+        return;
+      }
+
       setShowPaymentChoiceModal(true);
     },
-    [pendingBookingData],
+    [pendingBookingData, availableBookingPaymentMethods, showToast],
   );
 
   const handleBookWithMonthlyLockConfirm = useCallback(
@@ -1696,9 +1720,17 @@ export default function AppointmentsPage() {
   ]);
 
   const handlePaymentChoice = useCallback(
-    async (payNow) => {
+    async (selectedMethod) => {
       try {
         if (!pendingBookingData || !purchaseData) return;
+
+        if (selectedMethod === 'free') {
+          await handleDirectConfirmation();
+          setShowPaymentChoiceModal(false);
+          return;
+        }
+
+        const payNow = selectedMethod !== 'local';
 
         if (payNow) {
           const serviceNames = pendingBookingData.services.map((s) => s.name).join(', ');
@@ -3097,12 +3129,14 @@ export default function AppointmentsPage() {
                             </td>
                             <td>
                               <div className="appointment-actions">
-                                <button
-                                  onClick={() => handleDeleteClick(apt.id)}
-                                  className="btn-action cancel"
-                                >
-                                  Cancelar
-                                </button>
+                                {appointmentStatus !== 'completed' && (
+                                  <button
+                                    onClick={() => handleDeleteClick(apt.id)}
+                                    className="btn-action cancel"
+                                  >
+                                    Cancelar
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -3150,6 +3184,7 @@ export default function AppointmentsPage() {
             : null
         }
         purchaseData={purchaseData}
+        availablePaymentMethods={availableBookingPaymentMethods}
       />
 
       <SuccessModal
