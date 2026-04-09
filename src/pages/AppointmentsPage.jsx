@@ -260,16 +260,15 @@ export default function AppointmentsPage() {
   }, []);
 
   const getUpcomingReminders = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
     const depIds = userDependents.map((d) => d.id);
     const userAppointments = appointments.filter(
       (apt) => apt.clientId === currentUser?.id || depIds.includes(apt.clientId),
     );
     const future = userAppointments.filter((apt) => {
-      const aptDate = new Date(apt.startAt);
-      aptDate.setHours(0, 0, 0, 0);
-      return aptDate >= today;
+      const aptDateTime = new Date(apt.startAt || apt.endAt);
+      if (Number.isNaN(aptDateTime.getTime())) return false;
+      return aptDateTime >= now;
     });
     future.sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
     return future;
