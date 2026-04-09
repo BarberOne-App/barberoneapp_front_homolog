@@ -38,6 +38,7 @@ export default function Home() {
     heroTitle: "",
     heroSubtitle: "",
     heroImage: "",
+    heroImages: [],
     aboutTitle: "Barbearia Rodrigues",
     aboutText1: "",
     aboutText2: "",
@@ -68,6 +69,18 @@ export default function Home() {
 };
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const normalizedHeroImages = Array.isArray(siteInfo.heroImages)
+    ? siteInfo.heroImages.filter((image) => String(image || '').trim() !== '')
+    : [];
+
+  const effectiveHeroImages = normalizedHeroImages.length
+    ? normalizedHeroImages
+    : siteInfo.heroImage
+      ? [siteInfo.heroImage]
+      : [];
+
+  const currentHeroImage = effectiveHeroImages[currentImageIndex] || '';
 
   useEffect(() => {
     let user = null;
@@ -130,10 +143,14 @@ export default function Home() {
         setSiteInfo(homeInfoData);
       } */
      
-        if (homeInfoData) {
-  const homeData = Array.isArray(homeInfoData) ? homeInfoData[0] : homeInfoData;
-  setSiteInfo(homeData);
-}
+      if (homeInfoData) {
+        const homeData = Array.isArray(homeInfoData) ? homeInfoData[0] : homeInfoData;
+        setSiteInfo((prev) => ({
+          ...prev,
+          ...homeData,
+          heroImages: Array.isArray(homeData?.heroImages) ? homeData.heroImages : [],
+        }));
+      }
 
     } catch (error) {
       console.error('Erro ao carregar dados da Home:', error);
@@ -260,6 +277,25 @@ export default function Home() {
     navigate('/agendamentos', { state: { preSelectedService: service } });
   };
 
+  useEffect(() => {
+    if (effectiveHeroImages.length <= 1) {
+      setCurrentImageIndex(0);
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % effectiveHeroImages.length);
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [effectiveHeroImages.length]);
+
+  useEffect(() => {
+    if (currentImageIndex >= effectiveHeroImages.length) {
+      setCurrentImageIndex(0);
+    }
+  }, [currentImageIndex, effectiveHeroImages.length]);
+
   const parseCurrencyValue = (value) => {
     if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
 
@@ -320,15 +356,30 @@ export default function Home() {
     <div className="home">
       <section className="hero" id="inicio">
   <div className="hero__background">
-    {siteInfo.heroImage ? (
+    {currentHeroImage ? (
       <img
-        src={siteInfo.heroImage}
+        src={currentHeroImage}
         alt="Banner da Barbearia"
         className="hero__background-image"
       />
     ) : (
       <div className="hero__background-placeholder" style={{ background: '#111' }} />
     )}
+
+    {effectiveHeroImages.length > 1 && (
+      <div className="hero__indicators" aria-label="Indicadores do carrossel">
+        {effectiveHeroImages.map((_, index) => (
+          <button
+            key={index}
+            type="button"
+            className={`hero__indicator ${index === currentImageIndex ? 'hero__indicator--active' : ''}`}
+            onClick={() => setCurrentImageIndex(index)}
+            aria-label={`Ir para banner ${index + 1}`}
+          />
+        ))}
+      </div>
+    )}
+
     <div className="hero__overlay"></div>
   </div>
 

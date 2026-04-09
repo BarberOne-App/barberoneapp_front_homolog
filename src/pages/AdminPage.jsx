@@ -230,6 +230,7 @@ export default function AdminPage() {
     heroTitle: '',
     heroSubtitle: '',
     heroImage: '',
+    heroImages: [],
     aboutTitle: '',
     aboutText1: '',
     aboutText2: '',
@@ -328,7 +329,10 @@ export default function AdminPage() {
   const [serviceImageUploading, setServiceImageUploading] = useState(false);
   const [productImageUploading, setProductImageUploading] = useState(false);
   const [heroImageUploading, setHeroImageUploading] = useState(false);
+  const [heroCarouselUploading, setHeroCarouselUploading] = useState(false);
+  const [heroCarouselInput, setHeroCarouselInput] = useState('');
   const [galleryImageUploading, setGalleryImageUploading] = useState(false);
+  const HOME_INFO_LOCAL_KEY = 'barberone_home_info_local';
 
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [resetPasswordUser, setResetPasswordUser] = useState(null);
@@ -421,7 +425,11 @@ export default function AdminPage() {
       if (data) {
         // Se for array, pega o primeiro elemento
         const homeData = Array.isArray(data) ? data[0] : data;
-        setHomeInfo(homeData);
+        setHomeInfo((prev) => ({
+          ...prev,
+          ...homeData,
+          heroImages: Array.isArray(homeData?.heroImages) ? homeData.heroImages : [],
+        }));
       }
     } catch (error) {
       console.error('Erro ao carregar informações da home:', error);
@@ -670,7 +678,11 @@ export default function AdminPage() {
   const carregarHomeInfo = useCallback(async () => {
     try {
       const data = await getHomeInfo();
-      setHomeInfo(data);
+      setHomeInfo((prev) => ({
+        ...prev,
+        ...data,
+        heroImages: Array.isArray(data?.heroImages) ? data.heroImages : [],
+      }));
     } catch (error) {
       console.error('Erro ao carregar informações da home:', error);
     }
@@ -696,6 +708,77 @@ export default function AdminPage() {
       ...prev,
       [field]: value,
     }));
+  };
+
+  useEffect(() => {
+    try {
+      const heroImages = Array.isArray(homeInfo?.heroImages)
+        ? homeInfo.heroImages.map((item) => String(item || '').trim()).filter(Boolean)
+        : [];
+
+      const localPayload = {
+        heroTitle: String(homeInfo?.heroTitle || ''),
+        heroSubtitle: String(homeInfo?.heroSubtitle || ''),
+        heroImage: String(homeInfo?.heroImage || ''),
+        heroImages,
+      };
+
+      localStorage.setItem(HOME_INFO_LOCAL_KEY, JSON.stringify(localPayload));
+    } catch {
+      // sem bloqueio: cache local apenas para resiliência do formulário
+    }
+  }, [homeInfo?.heroTitle, homeInfo?.heroSubtitle, homeInfo?.heroImage, homeInfo?.heroImages]);
+
+  const addHeroImageToCarousel = (rawUrl) => {
+    const imageUrl = String(rawUrl || '').trim();
+    if (!imageUrl) return;
+
+    setHomeInfo((prev) => {
+      const current = Array.isArray(prev.heroImages) ? prev.heroImages : [];
+      if (current.includes(imageUrl)) return prev;
+
+      return {
+        ...prev,
+        heroImages: [...current, imageUrl],
+        heroImage: prev.heroImage || imageUrl,
+      };
+    });
+  };
+
+  const removeHeroImageFromCarousel = (indexToRemove) => {
+    setHomeInfo((prev) => {
+      const current = Array.isArray(prev.heroImages) ? prev.heroImages : [];
+      const nextImages = current.filter((_, index) => index !== indexToRemove);
+
+      let nextHeroImage = prev.heroImage || '';
+      if (!nextImages.includes(nextHeroImage)) {
+        nextHeroImage = nextImages[0] || '';
+      }
+
+      return {
+        ...prev,
+        heroImages: nextImages,
+        heroImage: nextHeroImage,
+      };
+    });
+  };
+
+  const handleHeroCarouselUpload = async (files) => {
+    const selectedFiles = Array.from(files || []);
+    if (!selectedFiles.length) return;
+
+    setHeroCarouselUploading(true);
+    try {
+      for (const file of selectedFiles) {
+        const url = await uploadImagem(file, 'banner');
+        addHeroImageToCarousel(url);
+      }
+      showToast('Imagens do carrossel enviadas com sucesso!', 'success');
+    } catch (err) {
+      showToast(err.message || 'Erro ao enviar imagens do carrossel.', 'danger');
+    } finally {
+      setHeroCarouselUploading(false);
+    }
   };
 
   const formatWhatsAppNumber = (value) => {
@@ -4316,7 +4399,7 @@ export default function AdminPage() {
                   />
 
                   <div style={{ marginBottom: '1rem' }}>
-                    <label className="form-label">Imagem de Fundo do Banner</label>
+                    <label className="form-label">Imagem principal do Banner</label>
                     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
                       {homeInfo.heroImage && (
                         <img
@@ -4370,6 +4453,7 @@ export default function AdminPage() {
                             try {
                               const url = await uploadImagem(file, 'banner');
                               handleHomeInfoChange('heroImage', url);
+                              addHeroImageToCarousel(url);
                               showToast('Imagem do banner enviada!', 'success');
                             } catch (err) {
                               showToast(err.message || 'Erro ao enviar imagem.', 'danger');
@@ -4386,7 +4470,7 @@ export default function AdminPage() {
                           type="text"
                           value={homeInfo.heroImage}
                           onChange={(e) => handleHomeInfoChange('heroImage', e.target.value)}
-                          placeholder="Ou cole a URL aqui (Ex: https://images.unsplash.com/...)"
+                          placeholder="URL da imagem principal"
                           style={{
                             marginTop: '0.5rem',
                             width: '100%',
@@ -4398,6 +4482,143 @@ export default function AdminPage() {
                             fontSize: '0.78rem',
                           }}
                         />
+
+                        <div style={{ marginTop: '0.9rem' }}>
+                          <label className="form-label" style={{ marginBottom: '0.4rem', display: 'block' }}>
+                            Imagens do carrossel
+                          </label>
+
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <input
+                              type="text"
+                              value={heroCarouselInput}
+                              onChange={(e) => setHeroCarouselInput(e.target.value)}
+                              placeholder="Cole uma URL e clique em adicionar"
+                              style={{
+                                width: '100%',
+                                padding: '6px 10px',
+                                background: '#1a1a1a',
+                                border: '1px solid #333',
+                                borderRadius: 6,
+                                color: '#aaa',
+                                fontSize: '0.78rem',
+                              }}
+                            />
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                addHeroImageToCarousel(heroCarouselInput);
+                                setHeroCarouselInput('');
+                              }}
+                              style={{
+                                background: '#ff7a1a',
+                                color: '#111',
+                                border: 'none',
+                                borderRadius: 6,
+                                padding: '6px 10px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Adicionar
+                            </button>
+                          </div>
+
+                          <div style={{ marginTop: '0.5rem' }}>
+                            <label
+                              htmlFor="hero-carousel-upload"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.4rem',
+                                background: 'transparent',
+                                border: '1px solid rgba(255,122,26,0.5)',
+                                color: '#ff7a1a',
+                                borderRadius: '6px',
+                                padding: '7px 12px',
+                                cursor: heroCarouselUploading ? 'not-allowed' : 'pointer',
+                                fontSize: '0.8rem',
+                                fontWeight: 600,
+                                opacity: heroCarouselUploading ? 0.6 : 1,
+                              }}
+                            >
+                              {heroCarouselUploading ? '⏳ Enviando...' : '📤 Enviar imagens para carrossel'}
+                            </label>
+                            <input
+                              id="hero-carousel-upload"
+                              type="file"
+                              multiple
+                              accept="image/jpeg,image/png,image/gif,image/webp"
+                              style={{ display: 'none' }}
+                              disabled={heroCarouselUploading}
+                              onChange={async (e) => {
+                                await handleHeroCarouselUpload(e.target.files);
+                                e.target.value = '';
+                              }}
+                            />
+                            <p style={{ color: '#555', fontSize: '0.72rem', marginTop: '0.35rem' }}>
+                              Selecione uma ou mais imagens (JPG, PNG, GIF, WebP).
+                            </p>
+                          </div>
+
+                          <div style={{ marginTop: '0.6rem', display: 'grid', gap: '0.45rem' }}>
+                            {(Array.isArray(homeInfo.heroImages) ? homeInfo.heroImages : []).map((imageUrl, index) => (
+                              <div
+                                key={`${imageUrl}-${index}`}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.5rem',
+                                  background: '#161616',
+                                  border: '1px solid #292929',
+                                  borderRadius: 8,
+                                  padding: '6px 8px',
+                                }}
+                              >
+                                <img
+                                  src={imageUrl}
+                                  alt={`Banner ${index + 1}`}
+                                  style={{
+                                    width: 42,
+                                    height: 32,
+                                    objectFit: 'cover',
+                                    borderRadius: 4,
+                                    flexShrink: 0,
+                                  }}
+                                />
+                                <span
+                                  style={{
+                                    color: '#9f9f9f',
+                                    fontSize: '0.73rem',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    flex: 1,
+                                  }}
+                                  title={imageUrl}
+                                >
+                                  {imageUrl}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => removeHeroImageFromCarousel(index)}
+                                  style={{
+                                    background: 'transparent',
+                                    color: '#ef4444',
+                                    border: '1px solid #ef444466',
+                                    borderRadius: 6,
+                                    padding: '4px 8px',
+                                    cursor: 'pointer',
+                                    fontSize: '0.75rem',
+                                  }}
+                                >
+                                  Remover
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -4831,7 +5052,7 @@ export default function AdminPage() {
                                           {new Date(apt.startAt).toLocaleTimeString('pt-BR', {
                                             hour: '2-digit',
                                             minute: '2-digit',
-                                            timeZone: 'UTC'
+                                            // timeZone: 'UTC'
                                           })}
                                         </td>
                                         <td>

@@ -2,6 +2,7 @@ import { getToken } from "./authService";
 
 const API_URL = 'https://barberone-backend.onrender.com';
 const token = getToken();
+const HOME_INFO_LOCAL_KEY = 'barberone_home_info_local';
 
 function getAuthHeaders() {
   return {
@@ -20,6 +21,48 @@ function normalizeHiddenBookingPaymentMethods(value) {
     .filter((item) => item === 'cartao' || item === 'pix' || item === 'local');
 
   return Array.from(new Set(normalized));
+}
+
+function normalizeHeroImages(value) {
+  if (!Array.isArray(value)) return [];
+
+  const sanitized = value
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+
+  return Array.from(new Set(sanitized));
+}
+
+function getLocalHomeInfo() {
+  try {
+    const raw = localStorage.getItem(HOME_INFO_LOCAL_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+
+    return {
+      heroTitle: String(parsed.heroTitle || ''),
+      heroSubtitle: String(parsed.heroSubtitle || ''),
+      heroImage: String(parsed.heroImage || ''),
+      heroImages: normalizeHeroImages(parsed.heroImages),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveLocalHomeInfo(homeInfo) {
+  try {
+    const dataToPersist = {
+      heroTitle: String(homeInfo?.heroTitle || ''),
+      heroSubtitle: String(homeInfo?.heroSubtitle || ''),
+      heroImage: String(homeInfo?.heroImage || ''),
+      heroImages: normalizeHeroImages(homeInfo?.heroImages),
+    };
+    localStorage.setItem(HOME_INFO_LOCAL_KEY, JSON.stringify(dataToPersist));
+  } catch {
+    // sem bloqueio: cache local é apenas fallback
+  }
 }
 
 export async function getPaymentVisibilitySettings() {
@@ -126,11 +169,13 @@ export async function savePixKey(pixKey) {
 
 
 export async function getHomeInfo() {
+  const localHomeInfo = getLocalHomeInfo();
+
   try {
     const response = await fetch(`${API_URL}/home-info`,
       {
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...getAuthHeaders(),
           'Content-Type': 'application/json',
         },
       }
@@ -143,10 +188,16 @@ export async function getHomeInfo() {
     const homeInfoData = await response.json();
 
     if (homeInfoData && typeof homeInfoData === 'object') {
-      return {
-        heroTitle: homeInfoData.hero_title ?? homeInfoData.heroTitle ?? "",
-        heroSubtitle: homeInfoData.hero_subtitle ?? homeInfoData.heroSubtitle ?? "",
-        heroImage: homeInfoData.hero_image ?? homeInfoData.heroImage ?? "",
+      const heroImages = normalizeHeroImages(homeInfoData.hero_images ?? homeInfoData.heroImages);
+      const remoteHeroImage = homeInfoData.hero_image ?? homeInfoData.heroImage ?? '';
+      const heroImage = remoteHeroImage || heroImages[0] || localHomeInfo?.heroImage || '';
+      const effectiveHeroImages = heroImages.length ? heroImages : normalizeHeroImages(localHomeInfo?.heroImages);
+
+      const mapped = {
+        heroTitle: homeInfoData.hero_title ?? homeInfoData.heroTitle ?? localHomeInfo?.heroTitle ?? "",
+        heroSubtitle: homeInfoData.hero_subtitle ?? homeInfoData.heroSubtitle ?? localHomeInfo?.heroSubtitle ?? "",
+        heroImage,
+        heroImages: effectiveHeroImages,
         aboutTitle: homeInfoData.about_title ?? homeInfoData.aboutTitle ?? "Barbearia Rodrigues",
         aboutText1: homeInfoData.about_text1 ?? homeInfoData.aboutText1 ?? "A Barbearia Rodrigues é referência em cortes masculinos há mais de 10 anos.",
         aboutText2: homeInfoData.about_text2 ?? homeInfoData.aboutText2 ?? "Combinamos técnicas tradicionais com tendências modernas para garantir o melhor atendimento.",
@@ -160,12 +211,16 @@ export async function getHomeInfo() {
         locationAddress: homeInfoData.location_address ?? homeInfoData.locationAddress ?? "Av. val paraíso,1396",
         locationCity: homeInfoData.location_city ?? homeInfoData.locationCity ?? "Jangurussu - Fortaleza/CE",
       };
+
+      saveLocalHomeInfo(mapped);
+      return mapped;
     }
 
     return {
-      heroTitle: "",
-      heroSubtitle: "",
-      heroImage: "",
+      heroTitle: localHomeInfo?.heroTitle ?? "",
+      heroSubtitle: localHomeInfo?.heroSubtitle ?? "",
+      heroImage: localHomeInfo?.heroImage ?? "",
+      heroImages: localHomeInfo?.heroImages ?? [],
       aboutTitle: "Barbearia Rodrigues",
       aboutText1: "A Barbearia Rodrigues é referência em cortes masculinos há mais de 10 anos.",
       aboutText2: "Combinamos técnicas tradicionais com tendências modernas para garantir o melhor atendimento.",
@@ -183,9 +238,10 @@ export async function getHomeInfo() {
     console.error('Erro ao buscar informações da home:', error);
 
     return {
-      heroTitle: "",
-      heroSubtitle: "",
-      heroImage: "",
+      heroTitle: localHomeInfo?.heroTitle ?? "",
+      heroSubtitle: localHomeInfo?.heroSubtitle ?? "",
+      heroImage: localHomeInfo?.heroImage ?? "",
+      heroImages: localHomeInfo?.heroImages ?? [],
       aboutTitle: "Barbearia Rodrigues",
       aboutText1: "A Barbearia Rodrigues é referência em cortes masculinos há mais de 10 anos.",
       aboutText2: "Combinamos técnicas tradicionais com tendências modernas para garantir o melhor atendimento.",
@@ -205,16 +261,26 @@ export async function getHomeInfo() {
 
 export async function saveHomeInfo(homeInfo) {
   try {
+    const heroImages = normalizeHeroImages(homeInfo.heroImages);
+    const nextHomeInfo = {
+      ...homeInfo,
+      heroImage: homeInfo.heroImage ?? heroImages[0] ?? '',
+      heroImages,
+    };
+
+    saveLocalHomeInfo(nextHomeInfo);
+
     const response = await fetch(`${API_URL}/home-info`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        ...getAuthHeaders(),
       },
       body: JSON.stringify({
         hero_title: homeInfo.heroTitle ?? null,
         hero_subtitle: homeInfo.heroSubtitle ?? null,
-        hero_image: homeInfo.heroImage ?? null,
+        hero_image: nextHomeInfo.heroImage ?? null,
+        hero_images: heroImages,
         about_title: homeInfo.aboutTitle ?? null,
         about_text1: homeInfo.aboutText1 ?? null,
         about_text2: homeInfo.aboutText2 ?? null,
