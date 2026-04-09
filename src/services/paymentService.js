@@ -91,6 +91,9 @@ export const buscarPlanoAssinatura = async (planId) => {
 };
 
 export const criarAssinatura = async (dadosAssinatura) => {
+
+  console.log(dadosAssinatura);
+
   try {
     const assinatura = {
       userId: dadosAssinatura.userId,
@@ -334,7 +337,7 @@ export const buscarAssinaturaAtiva = async (currentUser) => {
 
     if (!email) return null;
 
-    const [stripeResponse, plansResponse] = await Promise.all([
+    const [stripeResponse, plansResponse, allPlansResponse] = await Promise.all([
       api.get('/stripe/subscriptions/by-email', {
         params: {
           email,
@@ -348,6 +351,12 @@ export const buscarAssinaturaAtiva = async (currentUser) => {
           Authorization: `Bearer ${getToken()}`,
         },
       }),
+      api.get('/stripe/subscriptions', {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+      }),
+
     ]);
 
     const subscriptions = stripeResponse.data?.subscriptions || [];
@@ -466,7 +475,7 @@ export const buscarAssinaturaAtiva = async (currentUser) => {
 
 export const buscarTodasAssinaturas = async () => {
   try {
-    const response = await api.get('/subscriptions?_sort=createdAt&_order=desc', {
+    const response = await api.get('/stripe/subscriptions?all=true', {
       headers: {
         Authorization: `Bearer ${token}`,
       },

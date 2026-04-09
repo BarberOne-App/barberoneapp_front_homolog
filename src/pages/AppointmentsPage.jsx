@@ -118,6 +118,7 @@ export default function AppointmentsPage() {
         .then((r) => r.json())
         .then(async (data) => {
           if (data.status == 'authorized') {
+            console.log('Entrou no if de autorização da assinatura:', data.status);
             const subscription = await criarAssinatura({
               userId: currentUserPlan.id,
               userName: currentUserPlan.name,
@@ -1777,6 +1778,7 @@ export default function AppointmentsPage() {
           // ✅ Agendamento criado com sucesso, agora abrir pagamento
           setSelectedAppointmentForPayment({
             ...paymentPlan,
+            paymentMethod: selectedMethod,
             isAppointment: true,
             needsCreation: false,  // ✅ Não precisa criar, já foi criado
             appointmentId: createdAppointment.id,  // ✅ ID do agendamento já criado
@@ -2911,7 +2913,6 @@ export default function AppointmentsPage() {
                         const time = new Date(apt.startAt).toLocaleTimeString('pt-BR', {
                           hour: '2-digit',
                           minute: '2-digit',
-                          timeZone: 'UTC',
                         });
 
                         const servicesTotal = Array.isArray(apt.services)

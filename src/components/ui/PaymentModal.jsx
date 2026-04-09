@@ -1816,6 +1816,7 @@ import {
   criarPagamentoAgendamento,
   atualizarPagamentoAgendamento,
 } from '../../services/paymentService';
+import { processMercadoPagoPaymentPix, checkPixStatus } from '../../services/mercadoPagoService';
 import { deleteAppointment } from '../../services/appointmentService';
 import { getTermsDocument } from '../../services/termsService';
 import { createStripePaymentIntent } from '../../services/stripeService';
@@ -2355,6 +2356,248 @@ function StripePaymentForm({
   );
 }
 
+function MercadoPagoPixForm({
+  isOpen,
+  onClose,
+  selectedPlan,
+  currentUser,
+  onSuccess,
+  paymentId = null,
+}) {
+  const [processing, setProcessing] = useState(false);
+  const [pixGenerating, setPixGenerating] = useState(false);
+  const [showErrorToast, setShowErrorToast] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [pixQrCodeBase64, setPixQrCodeBase64] = useState('');
+  const [pixQrCode, setPixQrCode] = useState('');
+  const [pixPaymentId, setPixPaymentId] = useState(null);
+  const [pixQrCopied, setPixQrCopied] = useState(false);
+
+  const pixPollingRef = useRef(null);
+
+  const finalAmount = Number(selectedPlan?.price || selectedPlan?.paymentData?.amount || 0);
+
+  const clearPixPolling = () => {
+    if (pixPollingRef.current) {
+      clearInterval(pixPollingRef.current);
+      pixPollingRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      clearPixPolling();
+    };
+  }, []);
+
+  const handleCopyPixKey = () => {
+    if (!pixQrCode) return;
+    navigator.clipboard.writeText(pixQrCode);
+    setPixQrCopied(true);
+    setTimeout(() => setPixQrCopied(false), 2500);
+  };
+
+  const persistPixApprovedPayment = async (mercadoPagoId) => {
+    if (selectedPlan?.appointmentId) {
+      await criarPagamentoAgendamento({
+        ...selectedPlan.paymentData,
+        appointmentId: selectedPlan.appointmentId,
+        status: 'paid',
+        paymentMethod: 'pix',
+        paidAt: new Date().toISOString(),
+        amount: finalAmount,
+        paymentProvider: 'mercadopago',
+        mercadoPagoId,
+        mercadoPagoStatus: 'approved',
+      });
+      return;
+    }
+
+    if (paymentId) {
+      await atualizarPagamentoAgendamento(paymentId, {
+        status: 'paid',
+        paymentMethod: 'pix',
+        paidAt: new Date().toISOString(),
+        amount: finalAmount,
+        paymentProvider: 'mercadopago',
+        mercadoPagoId,
+        mercadoPagoStatus: 'approved',
+      });
+    }
+  };
+
+  const pollPixStatus = (mpPaymentId) => {
+    clearPixPolling();
+    pixPollingRef.current = setInterval(async () => {
+      try {
+        const status = String(await checkPixStatus(mpPaymentId)).toLowerCase();
+
+        if (status === 'approved') {
+          clearPixPolling();
+          setProcessing(true);
+          await persistPixApprovedPayment(mpPaymentId);
+          setProcessing(false);
+          onSuccess && onSuccess('pix');
+          onClose();
+          return;
+        }
+
+        if (status === 'cancelled' || status === 'rejected') {
+          clearPixPolling();
+          setErrorMessage('Pagamento PIX foi cancelado/recusado. Gere um novo QR Code para tentar novamente.');
+          setShowErrorToast(true);
+        }
+      } catch (error) {
+        console.error('Erro ao verificar status PIX Mercado Pago:', error);
+      }
+    }, 3000);
+  };
+
+  const handleGeneratePix = async () => {
+    if (!currentUser?.email) {
+      setErrorMessage('Não foi possível identificar o e-mail do pagador para gerar o PIX.');
+      setShowErrorToast(true);
+      return;
+    }
+
+    setPixGenerating(true);
+    setShowErrorToast(false);
+    setErrorMessage('');
+
+    try {
+      const payload = {
+        transaction_amount: finalAmount,
+        payment_method_id: 'pix',
+        payer: {
+          email: currentUser.email,
+        },
+        description: selectedPlan?.serviceName
+          ? `Pagamento - ${selectedPlan.serviceName}`
+          : `Pagamento - ${selectedPlan?.name || 'Agendamento'}`,
+      };
+
+      const result = await processMercadoPagoPaymentPix(payload);
+      const mpId = result?.id;
+
+      if (!mpId || !result?.qr_code) {
+        throw new Error('Não foi possível gerar o QR Code PIX.');
+      }
+
+      setPixPaymentId(mpId);
+      setPixQrCode(result.qr_code);
+      setPixQrCodeBase64(result.qr_code_base64 || '');
+      pollPixStatus(mpId);
+    } catch (error) {
+      setErrorMessage(error.message || 'Erro ao gerar PIX via Mercado Pago.');
+      setShowErrorToast(true);
+    } finally {
+      setPixGenerating(false);
+    }
+  };
+
+  const handleClose = () => {
+    clearPixPolling();
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <>
+      <div className="payment-modal-overlay" onClick={handleClose}>
+        <div className="payment-modal-content" onClick={(e) => e.stopPropagation()}>
+          <button className="payment-modal-close" onClick={handleClose}>×</button>
+
+          <div className="payment-modal-header">
+            <h2>Pagamento via Pix</h2>
+            <p className="payment-modal-subtitle">Pix Mercado Pago para concluir seu agendamento</p>
+          </div>
+
+          {showErrorToast && (
+            <div className="toast-notification">
+              <div className="toast-notification__content">
+                <span className="toast-notification__icon">⚠️</span>
+                <p>{errorMessage}</p>
+              </div>
+              <button
+                className="toast-notification__close"
+                onClick={() => setShowErrorToast(false)}
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          <div className="payment-modal-body">
+            <div className="payment-plan-summary">
+              <h3>{selectedPlan?.name || 'Agendamento'}</h3>
+              <p className="payment-plan-price">
+                R$ {finalAmount.toFixed(2).replace('.', ',')}
+              </p>
+            </div>
+
+            {!pixPaymentId && (
+              <div className="payment-modal-footer">
+                <button type="button" onClick={handleClose}>Cancelar</button>
+                <button type="button" onClick={handleGeneratePix} disabled={pixGenerating || processing}>
+                  {pixGenerating ? 'Gerando...' : 'Gerar QR Code Pix'}
+                </button>
+              </div>
+            )}
+
+            {pixPaymentId && (
+              <div style={{ marginTop: 16 }}>
+                {pixQrCodeBase64 ? (
+                  <div style={{ textAlign: 'center', marginBottom: 12 }}>
+                    <img
+                      src={`data:image/png;base64,${pixQrCodeBase64}`}
+                      alt="QR Code Pix"
+                      style={{ width: 220, maxWidth: '100%', borderRadius: 12 }}
+                    />
+                  </div>
+                ) : null}
+
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    value={pixQrCode}
+                    readOnly
+                    style={{ flex: 1, minWidth: 0 }}
+                  />
+                  <button type="button" onClick={handleCopyPixKey}>
+                    {pixQrCopied ? 'Copiado!' : 'Copiar'}
+                  </button>
+                </div>
+
+                <p style={{ marginTop: 12, fontSize: '0.9rem', color: '#b0b0b0' }}>
+                  Aguardando confirmação do pagamento. Esta tela fecha automaticamente após aprovação.
+                </p>
+
+                <div className="payment-modal-footer">
+                  <button type="button" onClick={handleClose}>Fechar</button>
+                  <button type="button" onClick={handleGeneratePix} disabled={pixGenerating || processing}>
+                    {pixGenerating ? 'Gerando...' : 'Gerar novo Pix'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {processing && (
+        <div className="processing-overlay">
+          <div className="processing-content">
+            <div className="processing-spinner-large"></div>
+            <h2>Confirmando pagamento</h2>
+            <p>Aguarde enquanto validamos o Pix no Mercado Pago</p>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function PaymentModal({
   isOpen,
   onClose,
@@ -2368,12 +2611,14 @@ export default function PaymentModal({
   const [loadingIntent, setLoadingIntent] = useState(false);
   const [intentError, setIntentError] = useState('');
   const stripePixEnabled = String(import.meta.env.VITE_STRIPE_PIX_ENABLED || '').toLowerCase() === 'true';
+  const preferredMethod = String(selectedPlan?.paymentMethod || selectedPlan?.method || '').toLowerCase();
+  const isMercadoPagoPixFlow = isAppointmentPayment && preferredMethod === 'pix';
 
   useEffect(() => {
     let cancelled = false;
 
     const createIntent = async () => {
-      if (!isOpen || !selectedPlan || !currentUser) return;
+      if (!isOpen || !selectedPlan || !currentUser || isMercadoPagoPixFlow) return;
 
       setLoadingIntent(true);
       setIntentError('');
@@ -2423,6 +2668,7 @@ export default function PaymentModal({
     currentUser?.email,
     isAppointmentPayment,
     paymentId,
+    isMercadoPagoPixFlow,
   ]);
 
   const elementsOptions = useMemo(() => {
@@ -2445,6 +2691,19 @@ export default function PaymentModal({
   }, [clientSecret]);
 
   if (!isOpen) return null;
+
+  if (isMercadoPagoPixFlow) {
+    return (
+      <MercadoPagoPixForm
+        isOpen={isOpen}
+        onClose={onClose}
+        selectedPlan={selectedPlan}
+        currentUser={currentUser}
+        onSuccess={onSuccess}
+        paymentId={paymentId}
+      />
+    );
+  }
 
   if (loadingIntent) {
     return (

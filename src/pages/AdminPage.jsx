@@ -2335,39 +2335,35 @@ export default function AdminPage() {
   const confirmCancelSubscription = async () => {
     const sub = confirmCancelSub;
     setConfirmCancelSub(null);
-    const expDate = sub.nextBillingDate
-      ? new Date(sub.nextBillingDate).toLocaleDateString('pt-BR')
+    const expDate = sub.currentCycle?.periodEnd || sub.nextBillingDate
+      ? new Date(sub.currentCycle?.periodEnd || sub.nextBillingDate).toLocaleDateString('pt-BR')
       : 'data não definida';
     try {
-      await fetch(`https://barberone-backend.onrender.com/subscriptions/${sub.id}`, {
+      await fetch(`https://barberone-backend.onrender.com/stripe/subscriptions/${sub.subscriptionId || sub.id}/cancel`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: 'cancel_pending',
-          autoRenewal: false,
-          cancelScheduledAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }),
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
 
-      const userRes = await fetch(`https://barberone-backend.onrender.com/users/${sub.userId}`);
-      if (userRes.ok) {
-        const userData = await userRes.json();
-        const phone = userData.phone?.replace(/\D/g, '');
+      const matchedUser = allUsers.find((user) => {
+        const userEmail = String(user.email || '').toLowerCase();
+        const subEmail = String(sub.user?.email || sub.customerEmail || '').toLowerCase();
+        return userEmail && userEmail === subEmail;
+      });
+
+      if (matchedUser?.phone) {
+        const phone = matchedUser.phone.replace(/\D/g, '');
         if (phone) {
           const msg = encodeURIComponent(
-            `Olá ${userData.name}, seu plano *${sub.planName}* na Barbearia Rodrigues foi cancelado.\n\nVocê mantém acesso aos benefícios até *${expDate}*. Após essa data o plano não será renovado.\n\nQualquer dúvida estamos à disposição!`,
+            `Olá ${matchedUser.name}, seu plano *${sub.planName || sub.plan?.name || 'Plano'}* na Barbearia Rodrigues foi cancelado.\n\nVocê mantém acesso aos benefícios até *${expDate}*. Após essa data o plano não será renovado.\n\nQualquer dúvida estamos à disposição!`,
           );
           window.open(`https://wa.me/55${phone}?text=${msg}`, '_blank');
         }
       }
 
-      setSubscriptions((prev) =>
-        prev.map((s) =>
-          s.id === sub.id ? { ...s, status: 'cancel_pending', autoRenewal: false } : s,
-        ),
-      );
-      showToast(`Plano de ${sub.userName} cancelado. Cliente notificado via WhatsApp.`, 'success');
+      await loadData();
+      showToast(`Plano de ${sub.user?.name || sub.userName || 'cliente'} cancelado.`, 'success');
     } catch (err) {
       console.error(err);
       showToast('Erro ao cancelar plano.', 'danger');
@@ -6426,8 +6422,8 @@ export default function AdminPage() {
                               R$ {parseFloat(sub.plan.price || 0).toFixed(2)}
                             </td>
                             <td style={{ color: 'var(--text-gray)', fontSize: '0.85rem' }}>
-                              {sub.currentCycle.periodEnd
-                                ? new Date(sub.currentCycle.periodEnd).toLocaleDateString('pt-BR')
+                              {(sub.currentCycle?.periodEnd || sub.nextBillingDate)
+                                ? new Date(sub.currentCycle?.periodEnd || sub.nextBillingDate).toLocaleDateString('pt-BR')
                                 : 'N/A'}
                             </td>
                             <td>
