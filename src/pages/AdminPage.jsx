@@ -5624,9 +5624,11 @@ export default function AdminPage() {
                                 <div className="barber-table-actions">
                                   {!isCompleted && (
                                     <>
+                                      {!isConfirmed && (
                                         <button onClick={() => handleConfirmAppointment(apt.id)} className="action-btn-table btn-confirm-table">
                                           Confirmar
                                         </button>
+                                      )}
                                       <button onClick={() => sendWhatsApp(apt.id, 'confirm')} className="action-btn-table btn-whatsapp-table">
                                         💬 Mensagem
                                       </button>
@@ -6134,7 +6136,7 @@ export default function AdminPage() {
               <div className="section-header" style={{ marginBottom: '1.5rem' }}>
                 <h2>Planos</h2>
                 <p style={{ color: 'var(--text-gray)', fontSize: '0.9rem', marginTop: '4px' }}>
-                  Cancele planos ativos de clientes. O plano permanece ativo até o fim do período já
+                  Veja os planos ativos de clientes. O plano permanece ativo até o fim do período já
                   pago.
                 </p>
               </div>
@@ -6334,7 +6336,7 @@ export default function AdminPage() {
                       <th>Valor/mês</th>
                       <th>Ativo até</th>
                       <th>Status</th>
-                      <th>Ação</th>
+                      {/* <th>Ação</th> */}
                     </tr>
                   </thead>
                   <tbody>
@@ -6459,7 +6461,7 @@ export default function AdminPage() {
                                 </span>
                               )}
                             </td>
-                            <td>
+                            {/* <td>
                               {sub.status === 'active' ? (
                                 <button
                                   onClick={() => handleScheduleCancelSubscription(sub)}
@@ -6473,7 +6475,7 @@ export default function AdminPage() {
                                   Aguardando expiração
                                 </span>
                               )}
-                            </td>
+                            </td> */}
                           </tr>
                         ))
                     )}

@@ -1817,7 +1817,7 @@ import {
   atualizarPagamentoAgendamento,
 } from '../../services/paymentService';
 import { processMercadoPagoPaymentPix, checkPixStatus } from '../../services/mercadoPagoService';
-import { deleteAppointment } from '../../services/appointmentService';
+import { createAppointment, deleteAppointment } from '../../services/appointmentService';
 import { getTermsDocument } from '../../services/termsService';
 import { createStripePaymentIntent } from '../../services/stripeService';
 import { getToken } from '../../services/authService';
@@ -2398,6 +2398,22 @@ function MercadoPagoPixForm({
   };
 
   const persistPixApprovedPayment = async (mercadoPagoId) => {
+    if (selectedPlan?.needsCreation && selectedPlan?.appointmentData && selectedPlan?.paymentData) {
+      const createdAppointment = await createAppointment(selectedPlan.appointmentData);
+      await criarPagamentoAgendamento({
+        ...selectedPlan.paymentData,
+        appointmentId: createdAppointment.id,
+        status: 'paid',
+        paymentMethod: 'pix',
+        paidAt: new Date().toISOString(),
+        amount: finalAmount,
+        paymentProvider: 'mercadopago',
+        mercadoPagoId,
+        mercadoPagoStatus: 'approved',
+      });
+      return;
+    }
+
     if (selectedPlan?.appointmentId) {
       await criarPagamentoAgendamento({
         ...selectedPlan.paymentData,

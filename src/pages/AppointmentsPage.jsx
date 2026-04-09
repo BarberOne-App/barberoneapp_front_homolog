@@ -71,6 +71,7 @@ export default function AppointmentsPage() {
   const [appointmentFilter, setAppointmentFilter] = useState('current');
   const [preSelectedService, setPreSelectedService] = useState(null);
   const [bookingInProgress, setBookingInProgress] = useState(false);
+  const [pixLoading, setPixLoading] = useState(false);
   const [observation, setObservation] = useState('');
   const [expandedObsId, setExpandedObsId] = useState(null);
   const [isBarberLocked, setIsBarberLocked] = useState(false);
@@ -1727,6 +1728,10 @@ export default function AppointmentsPage() {
       try {
         if (!pendingBookingData || !purchaseData) return;
 
+        if (selectedMethod === 'pix') {
+          setPixLoading(true);
+        }
+
         if (selectedMethod === 'free') {
           await handleDirectConfirmation();
           setShowPaymentChoiceModal(false);
@@ -1736,20 +1741,8 @@ export default function AppointmentsPage() {
         const payNow = selectedMethod !== 'local';
 
         if (payNow) {
-          const serviceNames = pendingBookingData.services.map((s) => s.name).join(', ');
-          const productNames = purchaseData.products
-            .map((p) => `${p.name} x${p.quantity}`)
-            .join(', ');
-          const fullDescription = productNames ? `${serviceNames}, ${productNames}` : serviceNames;
+          setBookingInProgress(true);
 
-          const paymentPlan = {
-            id: `temp-${Date.now()}`,
-            name: fullDescription,
-            price: purchaseData.finalTotal,
-          };
-
-        // 🔴 CRIAR AGENDAMENTO PRIMEIRO (antes do pagamento)
-        try {
           if (activeUserSubscription && !isAdmin) {
             await ensureMonthlyBarberLock(pendingBookingData.barberId, pendingBookingData.barberName);
           }
@@ -1762,6 +1755,22 @@ export default function AppointmentsPage() {
             ? (selectedDependent?.parent_id || selectedDependent?.parentId || null)
             : activeClient.id;
 
+          if (bookingForDependent && !responsibleId) {
+            throw new Error('Não foi possível localizar o responsável do dependente.');
+          }
+
+          const serviceNames = pendingBookingData.services.map((s) => s.name).join(', ');
+          const productNames = purchaseData.products
+            .map((p) => `${p.name} x${p.quantity}`)
+            .join(', ');
+          const fullDescription = productNames ? `${serviceNames}, ${productNames}` : serviceNames;
+
+          const paymentPlan = {
+            id: `temp-${Date.now()}`,
+            name: fullDescription,
+            price: purchaseData.finalTotal,
+          };
+
           const newAppointment = {
             barberId: pendingBookingData.barberId,
             barberName: pendingBookingData.barberName,
@@ -1770,20 +1779,22 @@ export default function AppointmentsPage() {
             time: pendingBookingData.time,
             client: activeClient.name,
             clientId: responsibleId,
-            ...(bookingForDependent ? { isDependent: true, dependentName: bookingForDependent.name, dependentId: bookingForDependent.id } : {}),
+            ...(bookingForDependent
+              ? {
+                  isDependent: true,
+                  dependentName: bookingForDependent.name,
+                  dependentId: bookingForDependent.id,
+                }
+              : {}),
             products: purchaseData.products,
             notes: pendingBookingData.observation || '',
           };
 
-          const createdAppointment = await createAppointment(newAppointment);
-
-          // ✅ Agendamento criado com sucesso, agora abrir pagamento
           setSelectedAppointmentForPayment({
             ...paymentPlan,
             paymentMethod: selectedMethod,
             isAppointment: true,
-            needsCreation: false,  // ✅ Não precisa criar, já foi criado
-            appointmentId: createdAppointment.id,  // ✅ ID do agendamento já criado
+            needsCreation: true,
             appointmentData: newAppointment,
             paymentData: {
               userId: responsibleId || currentUser.id,
@@ -1799,25 +1810,12 @@ export default function AppointmentsPage() {
             }
           });
 
-            pendingStockUpdate.current = purchaseData.products || [];
+          pendingStockUpdate.current = purchaseData.products || [];
 
-            setShowPaymentChoiceModal(false);
-            setPendingBookingData(null);
-            setPurchaseData(null);
-            setShowPaymentModal(true);
-        } catch (appointmentError) {
-          // ❌ Falhou ao criar agendamento - não abrir pagamento
-          console.error('Erro ao criar agendamento:', appointmentError);
-          
-          // Verificar se é erro de conflito de horário
-          if (appointmentError.response?.status === 400 || appointmentError.message?.includes('Conflito')) {
-            showToast('❌ Horário indisponível! Esse barbeiro já possui agendamento neste horário.', 'danger');
-          } else {
-            showToast(`❌ Erro ao criar agendamento: ${appointmentError.message || 'Tente novamente'}`, 'danger');
-          }
-          
-          return;
-        }
+          setShowPaymentChoiceModal(false);
+          setPendingBookingData(null);
+          setPurchaseData(null);
+          setShowPaymentModal(true);
         } else {
           setBookingInProgress(true);
 
@@ -1933,6 +1931,7 @@ export default function AppointmentsPage() {
         setSelectedDate(null);
       } finally {
         setBookingInProgress(false);
+        setPixLoading(false);
       }
     },
     [
@@ -3317,6 +3316,16 @@ export default function AppointmentsPage() {
             <div className="booking-spinner"></div>
             <h2>Processando Agendamento...</h2>
             <p>Aguarde enquanto confirmamos seu horário</p>
+          </div>
+        </div>
+      )}
+
+      {pixLoading && (
+        <div className="booking-overlay">
+          <div className="booking-overlay-content">
+            <div className="booking-spinner"></div>
+            <h2>Gerando QR Code PIX...</h2>
+            <p>Estamos preparando o pagamento, isso pode levar alguns segundos.</p>
           </div>
         </div>
       )}
