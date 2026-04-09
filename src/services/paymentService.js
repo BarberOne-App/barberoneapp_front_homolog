@@ -556,8 +556,28 @@ export const buscarPagamentoAgendamento = async (appointmentId) => {
         Authorization: `Bearer ${token}`,
       },
     });
-    const items = response.data.items;
-    return Array.isArray(items) ? items[0] || null : items || null;
+    const payload = response.data;
+    const items = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.items)
+        ? payload.items
+        : payload
+          ? [payload]
+          : [];
+
+    if (!items.length) return null;
+
+    const targetAppointmentId = normalizeId(appointmentId);
+    const matchingItems = items.filter((item) => normalizeId(item?.appointmentId) === targetAppointmentId);
+    const candidateItems = matchingItems.length ? matchingItems : items;
+
+    const sortedByNewest = [...candidateItems].sort((a, b) => {
+      const aTime = new Date(a?.updatedAt || a?.createdAt || 0).getTime();
+      const bTime = new Date(b?.updatedAt || b?.createdAt || 0).getTime();
+      return bTime - aTime;
+    });
+
+    return sortedByNewest[0] || null;
   } catch (error) {
     console.error('Erro ao buscar pagamento:', error);
     return null;

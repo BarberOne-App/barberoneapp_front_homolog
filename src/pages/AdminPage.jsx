@@ -5412,7 +5412,7 @@ export default function AdminPage() {
                         disabled={savingPaymentVisibility}
                         onChange={() => handleToggleBookingPaymentVisibility('local')}
                       />
-                      Ocultar Pagar Localmente
+                      Ocultar Pagar no Local
                     </label>
                   </div>
                 </div>

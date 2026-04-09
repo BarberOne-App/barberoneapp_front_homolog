@@ -136,9 +136,9 @@ export default function PaymentChoiceModal({
                   <div className="choice-icon">
                     <Store size={28} />
                   </div>
-                  <h3>Pagar Localmente</h3>
+                  <h3>Pagar no Local</h3>
                   <p>Realize o pagamento diretamente na barbearia</p>
-                  <button className="btn-choice">Localmente</button>
+                  <button className="btn-choice">LOCAL</button>
                 </div>
               )}
             </div>

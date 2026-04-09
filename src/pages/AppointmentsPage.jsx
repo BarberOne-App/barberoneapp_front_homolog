@@ -874,7 +874,10 @@ export default function AppointmentsPage() {
       for (const apt of userAppointments) {
         try {
           const payment = await buscarPagamentoAgendamento(apt.id);
-          if (payment) paymentsMap[apt.id] = Array.isArray(payment) ? payment[0] || null : payment;
+          const normalizedPayment = Array.isArray(payment) ? payment[0] || null : payment;
+          if (normalizedPayment && normalizeId(normalizedPayment.appointmentId) === normalizeId(apt.id)) {
+            paymentsMap[apt.id] = normalizedPayment;
+          }
         } catch (error) {
           console.error(`Erro ao buscar pagamento ${apt.id}`, error);
         }
