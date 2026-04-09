@@ -72,6 +72,7 @@ export default function AppointmentsPage() {
   const [preSelectedService, setPreSelectedService] = useState(null);
   const [bookingInProgress, setBookingInProgress] = useState(false);
   const [pixLoading, setPixLoading] = useState(false);
+  const [postPaymentLoading, setPostPaymentLoading] = useState(false);
   const [observation, setObservation] = useState('');
   const [expandedObsId, setExpandedObsId] = useState(null);
   const [isBarberLocked, setIsBarberLocked] = useState(false);
@@ -1951,11 +1952,16 @@ export default function AppointmentsPage() {
   );
 
   const handlePaymentSuccess = useCallback(async () => {
-    clearAllPaymentsCache();
-    await loadData();
-    setShowPaymentModal(false);
-    setSelectedAppointmentForPayment(null);
-    setView('myAppointments');
+    setPostPaymentLoading(true);
+    try {
+      clearAllPaymentsCache();
+      await loadData();
+      setShowPaymentModal(false);
+      setSelectedAppointmentForPayment(null);
+      setView('myAppointments');
+    } finally {
+      setPostPaymentLoading(false);
+    }
   }, [loadData, clearAllPaymentsCache]);
 
   const handleDeleteClick = useCallback((id) => {
@@ -3326,6 +3332,16 @@ export default function AppointmentsPage() {
             <div className="booking-spinner"></div>
             <h2>Gerando QR Code PIX...</h2>
             <p>Estamos preparando o pagamento, isso pode levar alguns segundos.</p>
+          </div>
+        </div>
+      )}
+
+      {postPaymentLoading && (
+        <div className="booking-overlay">
+          <div className="booking-overlay-content">
+            <div className="booking-spinner"></div>
+            <h2>Pagamento confirmado</h2>
+            <p>Atualizando seus agendamentos...</p>
           </div>
         </div>
       )}

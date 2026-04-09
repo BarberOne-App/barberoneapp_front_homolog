@@ -2564,28 +2564,92 @@ function MercadoPagoPixForm({
             {pixPaymentId && (
               <div style={{ marginTop: 16 }}>
                 {pixQrCodeBase64 ? (
-                  <div style={{ textAlign: 'center', marginBottom: 12 }}>
+                  <div style={{ textAlign: 'center', marginBottom: 14 }}>
                     <img
                       src={`data:image/png;base64,${pixQrCodeBase64}`}
                       alt="QR Code Pix"
-                      style={{ width: 220, maxWidth: '100%', borderRadius: 12 }}
+                      style={{
+                        width: 280,
+                        maxWidth: '100%',
+                        borderRadius: 14,
+                        background: '#fff',
+                        padding: 8,
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                      }}
                     />
                   </div>
                 ) : null}
 
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <p
+                  style={{
+                    margin: '0 0 6px 0',
+                    fontSize: '0.85rem',
+                    color: '#d0d0d0',
+                    fontWeight: 600,
+                  }}
+                >
+                  Pix copia e cola
+                </p>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 8,
+                    alignItems: 'center',
+                    background: '#121212',
+                    border: '1px solid #343434',
+                    borderRadius: 10,
+                    padding: 8,
+                  }}
+                >
                   <input
                     type="text"
                     value={pixQrCode}
                     readOnly
-                    style={{ flex: 1, minWidth: 0 }}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      height: 40,
+                      borderRadius: 8,
+                      border: '1px solid #3f3f3f',
+                      background: '#1b1b1b',
+                      color: '#f2f2f2',
+                      padding: '0 10px',
+                      fontSize: '0.88rem',
+                    }}
                   />
-                  <button type="button" onClick={handleCopyPixKey}>
+                  <button
+                    type="button"
+                    onClick={handleCopyPixKey}
+                    style={{
+                      height: 40,
+                      minWidth: 92,
+                      padding: '0 14px',
+                      borderRadius: 8,
+                      border: '1px solid #4a4a4a',
+                      background: '#232323',
+                      color: '#fff',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
                     {pixQrCopied ? 'Copiado!' : 'Copiar'}
                   </button>
                 </div>
 
-                <p style={{ marginTop: 12, fontSize: '0.9rem', color: '#b0b0b0' }}>
+                <p
+                  style={{
+                    marginTop: 14,
+                    fontSize: '1.02rem',
+                    color: '#f3f3f3',
+                    fontWeight: 600,
+                    lineHeight: 1.45,
+                    background: 'rgba(255, 122, 26, 0.1)',
+                    border: '1px solid rgba(255, 122, 26, 0.35)',
+                    borderRadius: 10,
+                    padding: '10px 12px',
+                  }}
+                >
                   Aguardando confirmação do pagamento. Esta tela fecha automaticamente após aprovação.
                 </p>
 
