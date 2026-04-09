@@ -3279,7 +3279,7 @@ const barberNames = useMemo(() => {
                 display: hasPermission('manageSettings') ? 'block' : 'none'
               }}
             >
-              Informações do Site
+              Configurações
             </button>
 { 
             <button
@@ -3607,7 +3607,7 @@ const barberNames = useMemo(() => {
           {activeTab === 'homeInfo' && (
             <div className="tab-content">
               <div className="section-header">
-                <h2>🏠 Informações do Site</h2>
+                <h2>🏠 Configurações</h2>
                 <p>Edite os textos que aparecem na página inicial</p>
               </div>
 

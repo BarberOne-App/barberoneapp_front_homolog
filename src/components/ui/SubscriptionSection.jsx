@@ -64,7 +64,61 @@ export default function SubscriptionSection({ activeSubscription, onSubscribe })
     setToast({ show: false, message: '', type: 'success' });
   };
 
-  if (activeSubscription) return null;
+  const activePlanName =
+    activeSubscription?.planDetails?.name ||
+    activeSubscription?.planName ||
+    activeSubscription?.name ||
+    'plano ativo';
+
+  const activePlanNextBillingDate = activeSubscription?.nextBillingDate
+    ? new Date(activeSubscription.nextBillingDate).toLocaleDateString('pt-BR')
+    : null;
+
+  if (activeSubscription) {
+    return (
+      <section className="subscription-section subscription-section--active" id="planos">
+        <div className="subscription-section__container">
+          <div className="subscription-section__header">
+            <h2 className="subscription-section__title">Assinatura Ativa</h2>
+            <p className="subscription-section__subtitle">
+              Você já possui um plano ativo e continua com todos os benefícios liberados.
+            </p>
+          </div>
+
+          <div className="subscription-section__active-card">
+            <div className="subscription-section__active-badge">Plano vigente</div>
+            <h3 className="subscription-section__active-title">{activePlanName}</h3>
+            <p className="subscription-section__active-text">
+              Seu plano já está ativo. Você não precisa assinar novamente.
+            </p>
+
+            {activePlanNextBillingDate && (
+              <p className="subscription-section__active-note">
+                Próxima renovação em {activePlanNextBillingDate}
+              </p>
+            )}
+
+            {onSubscribe && (
+              <Button
+                onClick={onSubscribe}
+                className="subscription-section__active-button"
+              >
+                Gerenciar assinatura
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {toast.show && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={closeToast}
+          />
+        )}
+      </section>
+    );
+  }
 
   const calculateSavings = (price, cutsPerMonth) => {
     const regularPrice = 50;

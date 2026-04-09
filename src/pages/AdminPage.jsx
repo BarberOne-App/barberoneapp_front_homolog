@@ -707,6 +707,27 @@ export default function AdminPage() {
     return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7)}`;
   };
 
+  const formatCpfDisplay = (value) => {
+    const digits = String(value || '').replace(/\D/g, '').slice(0, 11);
+    if (digits.length !== 11) return value || '—';
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+  };
+
+  const formatPhoneDisplay = (value) => {
+    const digits = String(value || '').replace(/\D/g, '');
+    if (!digits) return '—';
+
+    const local = digits.startsWith('55') ? digits.slice(2) : digits;
+    if (local.length === 11) {
+      return `(${local.slice(0, 2)}) ${local.slice(2, 7)}-${local.slice(7)}`;
+    }
+    if (local.length === 10) {
+      return `(${local.slice(0, 2)}) ${local.slice(2, 6)}-${local.slice(6)}`;
+    }
+
+    return value || '—';
+  };
+
   const getFilteredAppointmentPayments = () => {
     const payments = Array.isArray(appointmentPayments)
       ? appointmentPayments
@@ -978,25 +999,39 @@ export default function AdminPage() {
     setImportingUsers(true);
     try {
       const rows = await readExcelRows(file);
-      const mappedRows = rows
-        .map((row) => {
+      const preparedRows = rows
+        .map((row, index) => {
           const email = String(getMappedValue(row, ['email', 'mail']))
             .trim()
             .toLowerCase();
+          const phone = String(getMappedValue(row, ['telefone', 'phone', 'celular']))
+            .trim();
+          const cpf = String(getMappedValue(row, ['cpf'])).replace(/\D/g, '');
 
           return {
+            rowNumber: index + 2,
             name: String(getMappedValue(row, ['nome', 'name', 'usuario'])).trim(),
             email,
-            phone: String(getMappedValue(row, ['telefone', 'phone', 'celular'])).trim(),
-            cpf: String(getMappedValue(row, ['cpf'])).replace(/\D/g, ''),
+            phone,
+            cpf,
             role: 'client',
             isAdmin: false,
           };
-        })
-        .filter((row) => row.name && row.email);
+        });
+
+      const mappedRows = preparedRows.filter((row) => {
+        const hasPhone = String(row.phone || '').replace(/\D/g, '').length > 0;
+        const hasCpf = String(row.cpf || '').replace(/\D/g, '').length > 0;
+        return row.name && row.email && hasPhone && hasCpf;
+      });
+
+      const missingRequiredCount = preparedRows.length - mappedRows.length;
 
       if (!mappedRows.length) {
-        showToast('Nenhuma linha válida encontrada no Excel de clientes.', 'danger');
+        showToast(
+          'Nenhuma linha válida encontrada. Nome, email, CPF e telefone são obrigatórios.',
+          'danger',
+        );
         return;
       }
 
@@ -1008,7 +1043,7 @@ export default function AdminPage() {
 
       await loadData();
 
-      const message = `Clientes importados: ${result.createdCount}. Ignorados: ${result.skippedCount || 0}. Erros: ${result.failedCount}. Senha padrão: 123456`;
+      const message = `Clientes importados: ${result.createdCount}. Ignorados: ${(result.skippedCount || 0) + missingRequiredCount}. Erros: ${result.failedCount}. Senha padrão: 123456${missingRequiredCount > 0 ? `. Linhas sem nome/email/cpf/telefone: ${missingRequiredCount}` : ''}`;
       showToast(message, result.failedCount > 0 ? 'danger' : 'success');
     } catch (error) {
       console.error('Erro ao importar usuários por Excel:', error);
@@ -3952,7 +3987,7 @@ export default function AdminPage() {
                     className={`tab-btn ${activeTab === 'homeInfo' ? 'tab-btn--active' : ''}`}
                     onClick={() => setActiveTab('homeInfo')}
                   >
-                    Informações do Site
+                    Configurações
                   </button>
                 )}
                 <button
@@ -4258,7 +4293,7 @@ export default function AdminPage() {
           {activeTab === 'homeInfo' && (
             <div className="tab-content">
               <div className="section-header">
-                <h2>🏠 Informações do Site</h2>
+                <h2>🏠 Configurações</h2>
                 <p>Edite os textos que aparecem na página inicial</p>
               </div>
 
@@ -4979,15 +5014,32 @@ export default function AdminPage() {
                             <tr className={`payroll-row${isExp ? ' payroll-row--expanded' : ''}`}>
                               <td className="payroll-td">
                                 <div className="payroll-employee-cell">
-                                  <img
-                                    src={
-                                      barberData?.photo ||
-                                      emp.photo ||
-                                      `https://i.pravatar.cc/40?img=${emp.id}`
-                                    }
-                                    alt={emp.name}
+                                  {barberData?.photo || emp.photo ? (
+                                    <img
+                                      src={barberData?.photo || emp.photo}
+                                      alt={emp.name}
+                                      className="payroll-employee-photo"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                        e.currentTarget.nextSibling.style.display = 'flex';
+                                      }}
+                                    />
+                                  ) : null}
+                                  <div
                                     className="payroll-employee-photo"
-                                  />
+                                    style={{
+                                      display: barberData?.photo || emp.photo ? 'none' : 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      background: '#2a2a2a',
+                                      border: '1px solid #d4af37',
+                                      color: '#d4af37',
+                                      fontWeight: 700,
+                                      fontSize: '0.95rem',
+                                    }}
+                                  >
+                                    {String(emp.name || '?').trim().charAt(0).toUpperCase()}
+                                  </div>
                                   <div>
                                     <div className="payroll-employee-name">{emp.name}</div>
                                     <div className="payroll-employee-role">{emp.role}</div>
@@ -7080,16 +7132,12 @@ export default function AdminPage() {
                                     )
                                       .toLowerCase()
                                       .trim();
-                                    const isSubscriber =
-                                      clientSubscriptionStatus[payment.userId] ||
-                                      payment.status === 'plan_covered' ||
-                                      payment.status === 'plancovered' ||
-                                      paymentMethodValue === 'subscription' ||
-                                      false;
                                     const isPlanCovered =
                                       payment.status === 'plan_covered' ||
                                       payment.status === 'plancovered' ||
                                       paymentMethodValue === 'subscription';
+                                    const isSubscriber =
+                                      clientSubscriptionStatus[payment.userId] || isPlanCovered;
                                     const tipo = isPlanCovered
                                       ? 'plano'
                                       : paymentMethodValue === 'local' ||
@@ -7126,8 +7174,8 @@ export default function AdminPage() {
                                       return s + price * (prod.quantity || 1);
                                     }, 0);
                                     const serviceVal = parseFloat(payment.amount || 0);
-                                    const totalVal = isSubscriber ? productsTotal : serviceVal;
-                                    const planOnly = isSubscriber && !hasProducts;
+                                    const totalVal = isPlanCovered ? productsTotal : serviceVal;
+                                    const planOnly = isPlanCovered && !hasProducts;
                                     const rowComm = isPlanCovered
                                       ? 0
                                       : (serviceVal * commissionPercent) / 100;
@@ -7208,7 +7256,7 @@ export default function AdminPage() {
                                           ) : (
                                             <strong>R$ {totalVal.toFixed(2)}</strong>
                                           )}
-                                          {isSubscriber && hasProducts && (
+                                          {isPlanCovered && hasProducts && (
                                             <div
                                               style={{
                                                 fontSize: '0.78rem',
@@ -7596,7 +7644,7 @@ export default function AdminPage() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid #2a2a2a' }}>
-                      {['Nome', 'E-mail', 'Aniversário', 'Função', 'Ações'].map((h) => (
+                      {['Nome', 'E-mail', 'CPF', 'Telefone', 'Aniversário', 'Função', 'Ações'].map((h) => (
                         <th
                           key={h}
                           style={{
@@ -7674,6 +7722,18 @@ export default function AdminPage() {
                             {user.email || '—'}
                           </td>
                           <td
+                            data-label="CPF"
+                            style={{ padding: '12px 12px', color: '#a8a8a8', whiteSpace: 'nowrap' }}
+                          >
+                            {formatCpfDisplay(user.cpf)}
+                          </td>
+                          <td
+                            data-label="Telefone"
+                            style={{ padding: '12px 12px', color: '#a8a8a8', whiteSpace: 'nowrap' }}
+                          >
+                            {formatPhoneDisplay(user.phone)}
+                          </td>
+                          <td
                             data-label="Aniversário"
                             style={{ padding: '12px 12px', color: '#a8a8a8' }}
                           >
@@ -7745,7 +7805,7 @@ export default function AdminPage() {
                     }).length === 0 && (
                         <tr>
                           <td
-                            colSpan={5}
+                            colSpan={7}
                             style={{ padding: '2rem', textAlign: 'center', color: '#555' }}
                           >
                             Nenhum usuário encontrado.

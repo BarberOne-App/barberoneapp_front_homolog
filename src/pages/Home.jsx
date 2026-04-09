@@ -144,7 +144,7 @@ export default function Home() {
 
    async function verificarAssinaturaAtiva() {
     try {
-      const assinatura = await buscarAssinaturaAtiva(currentUser.id);
+      const assinatura = await buscarAssinaturaAtiva(currentUser);
       setActiveSubscription(assinatura);
     } catch (error) {
       console.error('Erro ao verificar assinatura:', error);
@@ -260,6 +260,52 @@ export default function Home() {
     navigate('/agendamentos', { state: { preSelectedService: service } });
   };
 
+  const parseCurrencyValue = (value) => {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+
+    let raw = String(value ?? '').replace(/R\$/gi, '').trim();
+    if (!raw) return 0;
+
+    raw = raw.replace(/\s/g, '');
+    if (raw.includes(',')) {
+      raw = raw.replace(/\./g, '').replace(',', '.');
+    }
+
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  const formatCurrency = (value) => {
+    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  };
+
+  const getServiceBasePriceValue = (service) => {
+    return parseCurrencyValue(service?.basePrice ?? service?.price);
+  };
+
+  const getServicePromotionalPriceValue = (service) => {
+    return parseCurrencyValue(service?.promotionalPrice);
+  };
+
+  const isServiceCoveredByPlan = (service) => {
+    return Boolean(service?.coveredByPlan ?? service?.covered_by_plan);
+  };
+
+  const hasValidPromotionalPrice = (service) => {
+    const promotionalPrice = getServicePromotionalPriceValue(service);
+    const basePrice = getServiceBasePriceValue(service);
+
+    if (promotionalPrice <= 0) return false;
+    if (basePrice <= 0) return true;
+
+    return promotionalPrice < basePrice;
+  };
+
+  const getServiceDisplayPrice = (service) => {
+    const basePrice = getServiceBasePriceValue(service);
+    return basePrice > 0 ? formatCurrency(basePrice) : 'Consulte valor';
+  };
+
   if (loading) {
     return (
       <BaseLayout>
@@ -322,18 +368,15 @@ export default function Home() {
                   </div>
                   <h3 className="service-card__name">{service.name}</h3>
                   <p
-                    className={`service-card__price ${activeSubscription && service.coveredByPlan
+                    className={`service-card__price ${activeSubscription && isServiceCoveredByPlan(service)
                         ? 'service-card__price--covered'
                         : ''
                       }`}
                   >
 
-                    {activeSubscription && service.coveredByPlan ? (
+                    {activeSubscription && isServiceCoveredByPlan(service) ? (
                       'Coberto pela assinatura'
-                    ) : activeSubscription &&
-                      service.promotionalPrice &&
-                      service.promotionalPrice.trim() !== '' &&
-                      service.promotionalPrice !== 'R$ 0,00' ? (
+                    ) : activeSubscription && hasValidPromotionalPrice(service) ? (
                       <span
                         style={{
                           display: 'flex',
@@ -350,7 +393,7 @@ export default function Home() {
                             color: '#999',
                           }}
                         >
-                          {service.price}
+                          {getServiceDisplayPrice(service)}
                         </span>
                         <span
                           style={{
@@ -359,11 +402,11 @@ export default function Home() {
                             fontSize: '1.1em',
                           }}
                         >
-                          {service.promotionalPrice}
+                          {formatCurrency(getServicePromotionalPriceValue(service))}
                         </span>
                       </span>
                     ) : (
-                      service.price
+                      getServiceDisplayPrice(service)
                     )}
                   </p>
                 </div>
@@ -390,7 +433,10 @@ export default function Home() {
           onBuyProduct={handleBuyProduct}
         />
 
-        <SubscriptionSection activeSubscription={activeSubscription} />
+        <SubscriptionSection
+          activeSubscription={activeSubscription}
+          onSubscribe={abrirModalGerenciar}
+        />
 
         <section className="gallery" id="fotos">
           <div className="container">
