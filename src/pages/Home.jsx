@@ -395,7 +395,7 @@ export default function Home() {
     <div className="hero__overlay"></div>
   </div>
 
-  <div className="hero__content">
+  {/* <div className="hero__content">
     <h1 className="hero__title">{siteInfo.heroTitle || "Estilo e Tradição"}</h1>
     <p className="hero__subtitle">{siteInfo.heroSubtitle || "Cuidando do seu visual"}</p>
 
@@ -406,7 +406,7 @@ export default function Home() {
         if (element) element.scrollIntoView({ behavior: "smooth" });
       }}>Conheça os Serviços</Button>
     </div>
-  </div>
+  </div> */}
 </section>
 
         <section className="services" id="servicos">

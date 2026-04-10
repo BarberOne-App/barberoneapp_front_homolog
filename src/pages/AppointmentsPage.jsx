@@ -30,6 +30,7 @@ import './AuthPages.css';
 import { getToken } from '../services/authService.js';
 
 export default function AppointmentsPage() {
+  const SAO_PAULO_TIME_ZONE = 'America/Sao_Paulo';
   const selectedPlan = JSON.parse(localStorage.getItem('selectedPlan'));
   const currentUserPlan = JSON.parse(localStorage.getItem('currentUser'));
   
@@ -1213,7 +1214,7 @@ export default function AppointmentsPage() {
           const startTime = new Date(apt.startAt).toLocaleTimeString('pt-BR', {
             hour: '2-digit',
             minute: '2-digit',
-            timeZone: 'UTC',
+            timeZone: SAO_PAULO_TIME_ZONE,
           });
 
           return generateSlotsForDuration(startTime, totalDuration);
@@ -2029,7 +2030,7 @@ export default function AppointmentsPage() {
     const time = appointmentDate.toLocaleTimeString('pt-BR', {
       hour: '2-digit',
       minute: '2-digit',
-      timeZone: 'UTC',
+      timeZone: SAO_PAULO_TIME_ZONE,
     });
     const services = next.services?.map((s) => s.serviceName).join(', ') || 'serviço';
     const barberName = next.barber?.displayName || 'barbeiro';

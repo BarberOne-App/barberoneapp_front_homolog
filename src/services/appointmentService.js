@@ -7,12 +7,32 @@ const API_URL = 'https://barberone-backend.onrender.com';
 export const getAppointments = async () => {
   const token = getToken();
   try {
-    const response = await axios.get(`${API_URL}/appointments?allAppointments=true`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    return response.data.items;
+    const limit = 100;
+    let page = 1;
+    let allItems = [];
+
+    while (true) {
+      const response = await axios.get(
+        `${API_URL}/appointments?allAppointments=true&page=${page}&limit=${limit}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      const items = Array.isArray(response.data?.items) ? response.data.items : [];
+      allItems = allItems.concat(items);
+
+      const total = Number(response.data?.total ?? allItems.length);
+      if (items.length < limit || allItems.length >= total) {
+        break;
+      }
+
+      page += 1;
+    }
+
+    return allItems;
   } catch (error) {
     console.error('Erro ao buscar agendamentos:', error);
     throw error;
