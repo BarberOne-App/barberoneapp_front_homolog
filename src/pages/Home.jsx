@@ -58,16 +58,6 @@ export default function Home() {
   const whatsappHref = whatsappNumber
     ? `https://wa.me/${whatsappNumber}`
     : 'https://wa.me/5585999999999';
-  const handleHeroButtonClick = (target) => {
-  if (target.startsWith('#')) {
-    const element = document.querySelector(target);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
-  } else {
-    navigate(target);
-  }
-};
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -285,6 +275,27 @@ export default function Home() {
     }
   };
 
+  const handleHeroSlideClick = () => {
+    if (!currentHeroImage) return;
+
+    if (currentImageIndex === 0) {
+      scrollToPlans();
+      return;
+    }
+
+    if (currentImageIndex === 1) {
+      const servicesSection = document.querySelector('#servicos');
+      if (servicesSection) {
+        servicesSection.scrollIntoView({ behavior: 'smooth' });
+      }
+      return;
+    }
+
+    if (currentImageIndex === 2) {
+      navigate('/agendamentos');
+    }
+  };
+
   const handleServiceClick = (service) => {
     navigate('/agendamentos', { state: { preSelectedService: service } });
   };
@@ -367,7 +378,7 @@ export default function Home() {
     <BaseLayout>
     <div className="home">
       <section className="hero" id="inicio">
-  <div className="hero__background">
+  <div className="hero__background hero__background--clickable" onClick={handleHeroSlideClick}>
     {currentHeroImage ? (
       <img
         src={currentHeroImage}
@@ -385,7 +396,10 @@ export default function Home() {
             key={index}
             type="button"
             className={`hero__indicator ${index === currentImageIndex ? 'hero__indicator--active' : ''}`}
-            onClick={() => setCurrentImageIndex(index)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setCurrentImageIndex(index);
+            }}
             aria-label={`Ir para banner ${index + 1}`}
           />
         ))}
