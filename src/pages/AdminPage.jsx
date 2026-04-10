@@ -710,6 +710,16 @@ export default function AdminPage() {
     }));
   };
 
+  const persistHomeInfo = async (nextHomeInfo) => {
+    try {
+      await saveHomeInfo(nextHomeInfo);
+    } catch (error) {
+      console.error('Erro ao salvar informações da home:', error);
+      showToast('Erro ao salvar informações da home', 'danger');
+      throw error;
+    }
+  };
+
   useEffect(() => {
     try {
       const heroImages = Array.isArray(homeInfo?.heroImages)
@@ -729,38 +739,40 @@ export default function AdminPage() {
     }
   }, [homeInfo?.heroTitle, homeInfo?.heroSubtitle, homeInfo?.heroImage, homeInfo?.heroImages]);
 
-  const addHeroImageToCarousel = (rawUrl) => {
+  const addHeroImageToCarousel = async (rawUrl) => {
     const imageUrl = String(rawUrl || '').trim();
     if (!imageUrl) return;
 
-    setHomeInfo((prev) => {
-      const current = Array.isArray(prev.heroImages) ? prev.heroImages : [];
-      if (current.includes(imageUrl)) return prev;
+    const current = Array.isArray(homeInfo?.heroImages) ? homeInfo.heroImages : [];
+    if (current.includes(imageUrl)) return;
 
-      return {
-        ...prev,
-        heroImages: [...current, imageUrl],
-        heroImage: prev.heroImage || imageUrl,
-      };
-    });
+    const nextHomeInfo = {
+      ...homeInfo,
+      heroImages: [...current, imageUrl],
+      heroImage: homeInfo?.heroImage || imageUrl,
+    };
+
+    setHomeInfo(nextHomeInfo);
+    await persistHomeInfo(nextHomeInfo);
   };
 
-  const removeHeroImageFromCarousel = (indexToRemove) => {
-    setHomeInfo((prev) => {
-      const current = Array.isArray(prev.heroImages) ? prev.heroImages : [];
-      const nextImages = current.filter((_, index) => index !== indexToRemove);
+  const removeHeroImageFromCarousel = async (indexToRemove) => {
+    const current = Array.isArray(homeInfo?.heroImages) ? homeInfo.heroImages : [];
+    const nextImages = current.filter((_, index) => index !== indexToRemove);
 
-      let nextHeroImage = prev.heroImage || '';
-      if (!nextImages.includes(nextHeroImage)) {
-        nextHeroImage = nextImages[0] || '';
-      }
+    let nextHeroImage = homeInfo?.heroImage || '';
+    if (!nextImages.includes(nextHeroImage)) {
+      nextHeroImage = nextImages[0] || '';
+    }
 
-      return {
-        ...prev,
-        heroImages: nextImages,
-        heroImage: nextHeroImage,
-      };
-    });
+    const nextHomeInfo = {
+      ...homeInfo,
+      heroImages: nextImages,
+      heroImage: nextHeroImage,
+    };
+
+    setHomeInfo(nextHomeInfo);
+    await persistHomeInfo(nextHomeInfo);
   };
 
   const handleHeroCarouselUpload = async (files) => {
@@ -771,7 +783,7 @@ export default function AdminPage() {
     try {
       for (const file of selectedFiles) {
         const url = await uploadImagem(file, 'banner');
-        addHeroImageToCarousel(url);
+        await addHeroImageToCarousel(url);
       }
       showToast('Imagens do carrossel enviadas com sucesso!', 'success');
     } catch (err) {
@@ -4452,8 +4464,18 @@ export default function AdminPage() {
                             setHeroImageUploading(true);
                             try {
                               const url = await uploadImagem(file, 'banner');
-                              handleHomeInfoChange('heroImage', url);
-                              addHeroImageToCarousel(url);
+                              const nextHeroImages = Array.isArray(homeInfo?.heroImages)
+                                ? homeInfo.heroImages
+                                : [];
+                              const nextHomeInfo = {
+                                ...homeInfo,
+                                heroImage: url,
+                                heroImages: nextHeroImages.includes(url)
+                                  ? nextHeroImages
+                                  : [...nextHeroImages, url],
+                              };
+                              setHomeInfo(nextHomeInfo);
+                              await persistHomeInfo(nextHomeInfo);
                               showToast('Imagem do banner enviada!', 'success');
                             } catch (err) {
                               showToast(err.message || 'Erro ao enviar imagem.', 'danger');
@@ -4507,9 +4529,13 @@ export default function AdminPage() {
 
                             <button
                               type="button"
-                              onClick={() => {
-                                addHeroImageToCarousel(heroCarouselInput);
-                                setHeroCarouselInput('');
+                              onClick={async () => {
+                                try {
+                                  await addHeroImageToCarousel(heroCarouselInput);
+                                  setHeroCarouselInput('');
+                                } catch {
+                                  // erro já tratado em persistHomeInfo
+                                }
                               }}
                               style={{
                                 background: '#ff7a1a',
@@ -4602,7 +4628,13 @@ export default function AdminPage() {
                                 </span>
                                 <button
                                   type="button"
-                                  onClick={() => removeHeroImageFromCarousel(index)}
+                                  onClick={async () => {
+                                    try {
+                                      await removeHeroImageFromCarousel(index);
+                                    } catch {
+                                      // erro já tratado em persistHomeInfo
+                                    }
+                                  }}
                                   style={{
                                     background: 'transparent',
                                     color: '#ef4444',

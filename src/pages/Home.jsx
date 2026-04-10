@@ -19,6 +19,7 @@ import './Home.css';
 
 export default function Home() {
   const navigate = useNavigate();
+  const HOME_INFO_LOCAL_KEY = 'barberone_home_info_local';
   const [services, setServices] = useState([]);
   const [gallery, setGallery] = useState([]);
   const [products, setProducts] = useState([]);
@@ -110,6 +111,17 @@ export default function Home() {
       setTimeout(() => showToast('Pagamento recusado. Tente novamente.', 'danger'), 500);
     }
 
+  }, []);
+
+  useEffect(() => {
+    const handleStorageChange = (event) => {
+      if (event.key === HOME_INFO_LOCAL_KEY) {
+        carregarDados();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   useEffect(() => {
