@@ -25,7 +25,7 @@ function normalizeId(value) {
 
 function isActiveStripeSubscriptionStatus(status) {
   const normalizedStatus = String(status ?? '').toLowerCase();
-  return ['active', 'trialing', 'past_due', 'unpaid'].includes(normalizedStatus);
+  return ['active', 'trialing'].includes(normalizedStatus);
 }
 
 function calcularDiasAtraso(nextBillingDate) {
@@ -513,7 +513,7 @@ export const criarPagamentoAgendamento = async (dadosPagamento) => {
 
   try {
     const rawMethod = String(dadosPagamento.method || dadosPagamento.paymentMethod || 'local').toLowerCase();
-    const normalizedMethod = rawMethod === 'online' ? 'credito' : rawMethod;
+    const normalizedMethod = rawMethod === 'card' ? 'credito' : rawMethod;
     const normalizedStatus = String(dadosPagamento.status || 'pending').toLowerCase();
 
     const pagamento = {

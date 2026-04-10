@@ -43,7 +43,25 @@ export const getAppointments = async () => {
 export const createAppointment = async (appointmentData) => {
   const token = getToken();
   try {
-    const response = await axios.post(`${API_URL}/appointments`, appointmentData, {
+    const normalizedServices = Array.isArray(appointmentData?.services)
+      ? appointmentData.services.map((service) => {
+          const duration = Number(
+            service?.duration ?? service?.durationMinutes ?? service?.duration_minutes ?? 30,
+          );
+
+          return {
+            ...service,
+            duration: Number.isFinite(duration) && duration > 0 ? duration : 30,
+          };
+        })
+      : [];
+
+    const payload = {
+      ...appointmentData,
+      services: normalizedServices,
+    };
+
+    const response = await axios.post(`${API_URL}/appointments`, payload, {
       headers: {
         Authorization: `Bearer ${token}`,
       },

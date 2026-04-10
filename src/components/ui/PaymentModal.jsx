@@ -2267,13 +2267,13 @@ function StripePaymentForm({
                 </div>
 
                 <div className="payment-methods">
-                  <button
+                  {/* <button
                     type="button"
                     className={`payment-method-btn ${selectedStripeMethod === 'card' ? 'active' : ''}`}
                   >
                     Cartão
-                  </button>
-                  {stripePixEnabled ? (
+                  </button> */}
+                  {/* {stripePixEnabled ? (
                     <button
                       type="button"
                       className={`payment-method-btn ${selectedStripeMethod === 'pix' ? 'active' : ''}`}
@@ -2282,7 +2282,7 @@ function StripePaymentForm({
                     </button>
                   ) : (
                     <span className="payment-method-hint">Pix indisponível nesta conta Stripe</span>
-                  )}
+                  )} */}
                 </div>
 
                 <div style={{ marginTop: 16 }}>

@@ -1537,11 +1537,13 @@ export default function AdminPage() {
       );
 
       const subscriptionStatusMap = {};
-      subscriptionsData.items.forEach((sub) => {
-        if (sub.status === 'active') {
-          subscriptionStatusMap[sub.userId] = true;
-        }
-      });
+      if (subscriptionsData.items) {
+        subscriptionsData.items.forEach((sub) => {
+          if (sub.status === 'active') {
+            subscriptionStatusMap[sub.userId] = true;
+          }
+        });
+      }
 
       setBarbers(barbersData);
       setEmployees(allEmployees);
@@ -3568,8 +3570,17 @@ export default function AdminPage() {
     }
     showConfirm('Tem certeza que deseja excluir este serviço?', async () => {
       try {
-        await deleteService(serviceId);
-        showToast('Serviço excluído com sucesso!', 'success');
+        const response = await deleteService(serviceId);
+        showToast(response?.reason || 'Serviço excluído com sucesso!', 'success');
+
+        if (response?.deletedHard === false) {
+          setServices((prev) =>
+            prev.map((service) =>
+              service.id === serviceId ? { ...service, active: false } : service,
+            ),
+          );
+        }
+
         await loadServices();
       } catch (error) {
         console.error('Erro ao excluir serviço:', error);
@@ -3647,6 +3658,21 @@ export default function AdminPage() {
     return employeeVales.filter(
       (v) => String(v.employeeId) === String(employeeId) && v.data >= start && v.data <= end,
     );
+  };
+
+  const getExtraPaymentsInPeriod = (employeeId, start, end) => {
+    if (!start || !end || !Array.isArray(employeePayments)) return [];
+
+    return employeePayments.filter((payment) => {
+      if (!isExtraPayment(payment)) return false;
+      if (String(payment.employeeId) !== String(employeeId)) return false;
+
+      const dateRef = payment.paidAt || payment.periodStart;
+      if (!dateRef) return false;
+
+      const dateStr = String(dateRef).slice(0, 10);
+      return dateStr >= start && dateStr <= end;
+    });
   };
 
   const handleSaveVale = async (e) => {
@@ -3833,9 +3859,13 @@ export default function AdminPage() {
     const barberId = barberData?.id;
     const commission = barberId ? getBarberCommissionInPeriod(barberId, start, end) : 0;
     const vales = getValesInPeriod(employee.id, start, end);
+    const totalExtraPayments = getExtraPaymentsInPeriod(employee.id, start, end).reduce(
+      (sum, payment) => sum + Number(payment.liquido || 0),
+      0,
+    );
     const totalVales = vales.reduce((s, v) => s + v.valor, 0);
     const salarioFixo = parseFloat(barberData?.salarioFixo ?? employee.salarioFixo ?? 0) || 0;
-    const liquido = salarioFixo + commission - totalVales;
+    const liquido = salarioFixo + commission + totalExtraPayments - totalVales;
 
     const existingPayment = checkAlreadyPaidInPeriod(employee.id, period, payrollMonthFilter);
     const periodLabel =
@@ -4347,7 +4377,7 @@ export default function AdminPage() {
                           const formattedTime = aptDate.toLocaleTimeString('pt-BR', {
                             hour: '2-digit',
                             minute: '2-digit',
-                            timeZone: 'UTC'
+                            // timeZone: 'UTC'
                           });
                           return (
                             <tr key={apt.id}>
@@ -5129,26 +5159,12 @@ export default function AdminPage() {
                           : 0;
                         const vales = getValesInPeriod(emp.id, start, end);
                         const totalVales = vales.reduce((s, v) => s + v.valor, 0);
-                        const totalExtraPayments = employeePayments
-                          .filter((payment) => {
-                            if (!isExtraPayment(payment)) return false;
-                            if (String(payment.employeeId) !== String(emp.id)) return false;
-                            if (!payrollMonthFilter) return true;
-
-                            const dateRef = payment.paidAt || payment.periodStart;
-                            if (!dateRef) return false;
-
-                            const date = new Date(dateRef);
-                            if (Number.isNaN(date.getTime())) return false;
-
-                            const [year, month] = payrollMonthFilter.split('-').map(Number);
-                            return date.getFullYear() === year && date.getMonth() + 1 === month;
-                          })
+                        const totalExtraPayments = getExtraPaymentsInPeriod(emp.id, start, end)
                           .reduce((sum, payment) => sum + Number(payment.liquido || 0), 0);
 
                         const salarioFixo =
                           parseFloat(barberData?.salarioFixo ?? emp.salarioFixo ?? 0) || 0;
-                        const liquido = salarioFixo + commission - totalVales;
+                        const liquido = salarioFixo + commission + totalExtraPayments - totalVales;
                         const isExp = payrollExpandedId === emp.id;
 
                         const alreadyPaid = !!checkAlreadyPaidInPeriod(
@@ -5725,7 +5741,7 @@ export default function AdminPage() {
                           const formattedTime = appointmentDate.toLocaleTimeString('pt-BR', {
                             hour: '2-digit',
                             minute: '2-digit',
-                            timeZone: 'UTC',
+                            // timeZone: 'UTC',
                           });
 
                           // Nome do cliente (pode estar em apt.client.name ou apt.clientName)

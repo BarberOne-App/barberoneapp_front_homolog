@@ -144,7 +144,7 @@ export default function Home() {
       /* if (homeInfoData) {
         setSiteInfo(homeInfoData);
       } */
-     
+
       if (homeInfoData) {
         const homeData = Array.isArray(homeInfoData) ? homeInfoData[0] : homeInfoData;
         setSiteInfo((prev) => ({
@@ -161,14 +161,14 @@ export default function Home() {
     }
   }
 
-   async function verificarAssinaturaAtiva() {
+  async function verificarAssinaturaAtiva() {
     try {
       const assinatura = await buscarAssinaturaAtiva(currentUser);
       setActiveSubscription(assinatura);
     } catch (error) {
       console.error('Erro ao verificar assinatura:', error);
     }
-  } 
+  }
 
   const handleUpdateStock = async (productId, quantity) => {
     try {
@@ -376,52 +376,57 @@ export default function Home() {
   }
   return (
     <BaseLayout>
-    <div className="home">
-      <section className="hero" id="inicio">
-  <div className="hero__background hero__background--clickable" onClick={handleHeroSlideClick}>
-    {currentHeroImage ? (
-      <img
-        src={currentHeroImage}
-        alt="Banner da Barbearia"
-        className="hero__background-image"
-      />
-    ) : (
-      <div className="hero__background-placeholder" style={{ background: '#111' }} />
-    )}
+      <div className="home">
+        <section className="hero" id="inicio">
+          <div className="hero__background hero__background--clickable" onClick={handleHeroSlideClick}>
+            {currentHeroImage ? (
+              <img
+                src={currentHeroImage}
+                alt="Banner da Barbearia"
+                className="hero__background-image"
+              />
+            ) : (
+              <div className="hero__background-placeholder" style={{ background: '#111' }} />
+            )}
 
-    {effectiveHeroImages.length > 1 && (
-      <div className="hero__indicators" aria-label="Indicadores do carrossel">
-        {effectiveHeroImages.map((_, index) => (
-          <button
-            key={index}
-            type="button"
-            className={`hero__indicator ${index === currentImageIndex ? 'hero__indicator--active' : ''}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              setCurrentImageIndex(index);
-            }}
-            aria-label={`Ir para banner ${index + 1}`}
-          />
-        ))}
-      </div>
-    )}
+            {effectiveHeroImages.length > 1 && (
+              <div className="hero__indicators" aria-label="Indicadores do carrossel">
+                {effectiveHeroImages.map((_, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    className={`hero__indicator ${index === currentImageIndex ? 'hero__indicator--active' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCurrentImageIndex(index);
+                    }}
+                    aria-label={`Ir para banner ${index + 1}`}
+                  />
+                ))}
+              </div>
+            )}
 
-    <div className="hero__overlay"></div>
-  </div>
+            <div className="hero__overlay"></div>
+          </div>
 
-  {/* <div className="hero__content">
-    <h1 className="hero__title">{siteInfo.heroTitle || "Estilo e Tradição"}</h1>
-    <p className="hero__subtitle">{siteInfo.heroSubtitle || "Cuidando do seu visual"}</p>
+          {/* <div className="hero__content">
+          <h1 className="hero__title">{siteInfo.heroTitle || "Estilo e Tradição"}</h1>
+          <p className="hero__subtitle">{siteInfo.heroSubtitle || "Cuidando do seu visual"}</p>
 
-    <div className="hero__buttons">
-      <Button onClick={() => navigate("/agendamentos")}>Agendar Agora</Button>
-      <Button variant="outline" onClick={() => {
-        const element = document.querySelector("#servicos");
-        if (element) element.scrollIntoView({ behavior: "smooth" });
-      }}>Conheça os Serviços</Button>
-    </div>
-  </div> */}
-</section>
+          <div className="hero__buttons">
+            <Button onClick={() => navigate("/agendamentos")}>Agendar Agora</Button>
+            <Button variant="outline" onClick={() => {
+              const element = document.querySelector("#servicos");
+              if (element) element.scrollIntoView({ behavior: "smooth" });
+            }}>Conheça os Serviços</Button>
+          </div>
+        </div> */}
+        </section>
+
+        <SubscriptionSection
+          activeSubscription={activeSubscription}
+          onSubscribe={abrirModalGerenciar}
+        />
 
         <section className="services" id="servicos">
           <div className="container">
@@ -446,8 +451,8 @@ export default function Home() {
                   <h3 className="service-card__name">{service.name}</h3>
                   <p
                     className={`service-card__price ${activeSubscription && isServiceCoveredByPlan(service)
-                        ? 'service-card__price--covered'
-                        : ''
+                      ? 'service-card__price--covered'
+                      : ''
                       }`}
                   >
 
@@ -510,10 +515,10 @@ export default function Home() {
           onBuyProduct={handleBuyProduct}
         />
 
-        <SubscriptionSection
+        {/* <SubscriptionSection
           activeSubscription={activeSubscription}
           onSubscribe={abrirModalGerenciar}
-        />
+        /> */}
 
         <section className="gallery" id="fotos">
           <div className="container">
@@ -588,10 +593,10 @@ export default function Home() {
         <footer className="home__footer">
           <div className="container">
             <div className="home__footer-content">
-             <div className="home__footer-logo" onClick={() => { navigate('/'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} style={{ cursor: 'pointer' }}>
-  <h3>BARBER<span>ONE</span></h3>
-  <p>Gestão completa, corte perfeito.</p>
-</div>
+              <div className="home__footer-logo" onClick={() => { navigate('/'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} style={{ cursor: 'pointer' }}>
+                <h3>BARBER<span>ONE</span></h3>
+                <p>Gestão completa, corte perfeito.</p>
+              </div>
               <div className="home__footer-links">
                 <a href="https://www.barberoneapp.com" target="_blank" rel="noopener noreferrer">
                   www.barberoneapp.com

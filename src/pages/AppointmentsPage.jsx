@@ -1182,12 +1182,18 @@ export default function AppointmentsPage() {
     return times;
   }, []);
 
+  const getServiceDurationMinutes = useCallback((service) => {
+    const raw = service?.durationMinutes ?? service?.duration ?? service?.duration_minutes;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 30;
+  }, []);
+
   const calculateTotalDuration = useCallback((services) => {
     if (!Array.isArray(services) || services.length === 0) return 30;
     return services.reduce((total, service) => {
-      return total + (service.duration || 30);
+      return total + getServiceDurationMinutes(service);
     }, 0);
-  }, []);
+  }, [getServiceDurationMinutes]);
 
   const getBookedSlots = useCallback(
     (barberId, date) => {
