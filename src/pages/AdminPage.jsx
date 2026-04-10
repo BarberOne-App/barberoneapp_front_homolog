@@ -4395,263 +4395,158 @@ export default function AdminPage() {
               <form onSubmit={handleSaveHomeInfo} className="home-info-form">
                 <div className="form-section">
                   <h3 className="section-subtitle">Banner de Início</h3>
+                  <div style={{ marginTop: '0.9rem' }}>
+                    <label className="form-label" style={{ marginBottom: '0.4rem', display: 'block' }}>
+                      Imagens do carrossel
+                    </label>
 
-                  <Input
-                    label="Título do Banner"
-                    value={homeInfo.heroTitle}
-                    onChange={(e) => handleHomeInfoChange('heroTitle', e.target.value)}
-                    placeholder="Ex: Estilo e Tradição em um só lugar"
-                  />
+                    <p style={{ color: '#777', fontSize: '0.78rem', marginBottom: '0.55rem' }}>
+                      A ordem define o clique do banner na Home: 1a imagem = Planos, 2a = Servicos, 3a = Agendamentos.
+                    </p>
 
-                  <Input
-                    label="Subtítulo do Banner"
-                    value={homeInfo.heroSubtitle}
-                    onChange={(e) => handleHomeInfoChange('heroSubtitle', e.target.value)}
-                    placeholder="Ex: Há mais de 10 anos cuidando do seu visual..."
-                  />
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <input
+                        type="text"
+                        value={heroCarouselInput}
+                        onChange={(e) => setHeroCarouselInput(e.target.value)}
+                        placeholder="Cole uma URL e clique em adicionar"
+                        style={{
+                          width: '100%',
+                          padding: '6px 10px',
+                          background: '#1a1a1a',
+                          border: '1px solid #333',
+                          borderRadius: 6,
+                          color: '#aaa',
+                          fontSize: '0.78rem',
+                        }}
+                      />
 
-                  <div style={{ marginBottom: '1rem' }}>
-                    <label className="form-label">Imagem principal do Banner</label>
-                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-                      {homeInfo.heroImage && (
-                        <img
-                          src={homeInfo.heroImage}
-                          alt="Preview do banner"
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await addHeroImageToCarousel(heroCarouselInput);
+                            setHeroCarouselInput('');
+                          } catch {
+                            // erro ja tratado em persistHomeInfo
+                          }
+                        }}
+                        style={{
+                          background: '#ff7a1a',
+                          color: '#111',
+                          border: 'none',
+                          borderRadius: 6,
+                          padding: '6px 10px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Adicionar
+                      </button>
+                    </div>
+
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <label
+                        htmlFor="hero-carousel-upload"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                          background: 'transparent',
+                          border: '1px solid rgba(255,122,26,0.5)',
+                          color: '#ff7a1a',
+                          borderRadius: '6px',
+                          padding: '7px 12px',
+                          cursor: heroCarouselUploading ? 'not-allowed' : 'pointer',
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          opacity: heroCarouselUploading ? 0.6 : 1,
+                        }}
+                      >
+                        {heroCarouselUploading ? '⏳ Enviando...' : '📤 Enviar imagens para carrossel'}
+                      </label>
+                      <input
+                        id="hero-carousel-upload"
+                        type="file"
+                        multiple
+                        accept="image/jpeg,image/png,image/gif,image/webp"
+                        style={{ display: 'none' }}
+                        disabled={heroCarouselUploading}
+                        onChange={async (e) => {
+                          await handleHeroCarouselUpload(e.target.files);
+                          e.target.value = '';
+                        }}
+                      />
+                      <p style={{ color: '#555', fontSize: '0.72rem', marginTop: '0.35rem' }}>
+                        Selecione uma ou mais imagens (JPG, PNG, GIF, WebP).
+                      </p>
+                    </div>
+
+                    <div style={{ marginTop: '0.6rem', display: 'grid', gap: '0.45rem' }}>
+                      {(Array.isArray(homeInfo.heroImages) ? homeInfo.heroImages : []).map((imageUrl, index) => (
+                        <div
+                          key={`${imageUrl}-${index}`}
                           style={{
-                            width: 80,
-                            height: 60,
-                            objectFit: 'cover',
-                            borderRadius: 8,
-                            border: '1px solid #2a2a2a',
-                            flexShrink: 0,
-                          }}
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                          }}
-                        />
-                      )}
-                      <div style={{ flex: 1 }}>
-                        <label
-                          htmlFor="hero-image-upload"
-                          style={{
-                            display: 'inline-flex',
+                            display: 'flex',
                             alignItems: 'center',
-                            gap: '0.4rem',
-                            background: 'transparent',
-                            border: '1px solid rgba(255,122,26,0.5)',
-                            color: '#ff7a1a',
-                            borderRadius: '6px',
-                            padding: '7px 14px',
-                            cursor: heroImageUploading ? 'not-allowed' : 'pointer',
-                            fontSize: '0.85rem',
-                            fontWeight: 600,
-                            opacity: heroImageUploading ? 0.6 : 1,
+                            gap: '0.5rem',
+                            background: '#161616',
+                            border: '1px solid #292929',
+                            borderRadius: 8,
+                            padding: '6px 8px',
+                            width: '100%',
+                            minWidth: 0,
                           }}
                         >
-                          {heroImageUploading
-                            ? '⏳ Enviando...'
-                            : '🖼️ ' + (homeInfo.heroImage ? 'Alterar imagem' : 'Enviar imagem')}
-                        </label>
-                        <input
-                          id="hero-image-upload"
-                          type="file"
-                          accept="image/jpeg,image/png,image/gif,image/webp"
-                          style={{ display: 'none' }}
-                          disabled={heroImageUploading}
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            setHeroImageUploading(true);
-                            try {
-                              const url = await uploadImagem(file, 'banner');
-                              const nextHeroImages = Array.isArray(homeInfo?.heroImages)
-                                ? homeInfo.heroImages
-                                : [];
-                              const nextHomeInfo = {
-                                ...homeInfo,
-                                heroImage: url,
-                                heroImages: nextHeroImages.includes(url)
-                                  ? nextHeroImages
-                                  : [...nextHeroImages, url],
-                              };
-                              setHomeInfo(nextHomeInfo);
-                              await persistHomeInfo(nextHomeInfo);
-                              showToast('Imagem do banner enviada!', 'success');
-                            } catch (err) {
-                              showToast(err.message || 'Erro ao enviar imagem.', 'danger');
-                            } finally {
-                              setHeroImageUploading(false);
-                              e.target.value = '';
-                            }
-                          }}
-                        />
-                        <p style={{ color: '#555', fontSize: '0.72rem', marginTop: '0.4rem' }}>
-                          JPG, PNG, GIF, WebP • Máx. 5MB
-                        </p>
-                        <input
-                          type="text"
-                          value={homeInfo.heroImage}
-                          onChange={(e) => handleHomeInfoChange('heroImage', e.target.value)}
-                          placeholder="URL da imagem principal"
-                          style={{
-                            marginTop: '0.5rem',
-                            width: '100%',
-                            padding: '6px 10px',
-                            background: '#1a1a1a',
-                            border: '1px solid #333',
-                            borderRadius: 6,
-                            color: '#aaa',
-                            fontSize: '0.78rem',
-                          }}
-                        />
-
-                        <div style={{ marginTop: '0.9rem' }}>
-                          <label className="form-label" style={{ marginBottom: '0.4rem', display: 'block' }}>
-                            Imagens do carrossel
-                          </label>
-
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <input
-                              type="text"
-                              value={heroCarouselInput}
-                              onChange={(e) => setHeroCarouselInput(e.target.value)}
-                              placeholder="Cole uma URL e clique em adicionar"
-                              style={{
-                                width: '100%',
-                                padding: '6px 10px',
-                                background: '#1a1a1a',
-                                border: '1px solid #333',
-                                borderRadius: 6,
-                                color: '#aaa',
-                                fontSize: '0.78rem',
-                              }}
-                            />
-
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                try {
-                                  await addHeroImageToCarousel(heroCarouselInput);
-                                  setHeroCarouselInput('');
-                                } catch {
-                                  // erro já tratado em persistHomeInfo
-                                }
-                              }}
-                              style={{
-                                background: '#ff7a1a',
-                                color: '#111',
-                                border: 'none',
-                                borderRadius: 6,
-                                padding: '6px 10px',
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                              }}
-                            >
-                              Adicionar
-                            </button>
-                          </div>
-
-                          <div style={{ marginTop: '0.5rem' }}>
-                            <label
-                              htmlFor="hero-carousel-upload"
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.4rem',
-                                background: 'transparent',
-                                border: '1px solid rgba(255,122,26,0.5)',
-                                color: '#ff7a1a',
-                                borderRadius: '6px',
-                                padding: '7px 12px',
-                                cursor: heroCarouselUploading ? 'not-allowed' : 'pointer',
-                                fontSize: '0.8rem',
-                                fontWeight: 600,
-                                opacity: heroCarouselUploading ? 0.6 : 1,
-                              }}
-                            >
-                              {heroCarouselUploading ? '⏳ Enviando...' : '📤 Enviar imagens para carrossel'}
-                            </label>
-                            <input
-                              id="hero-carousel-upload"
-                              type="file"
-                              multiple
-                              accept="image/jpeg,image/png,image/gif,image/webp"
-                              style={{ display: 'none' }}
-                              disabled={heroCarouselUploading}
-                              onChange={async (e) => {
-                                await handleHeroCarouselUpload(e.target.files);
-                                e.target.value = '';
-                              }}
-                            />
-                            <p style={{ color: '#555', fontSize: '0.72rem', marginTop: '0.35rem' }}>
-                              Selecione uma ou mais imagens (JPG, PNG, GIF, WebP).
-                            </p>
-                          </div>
-
-                          <div style={{ marginTop: '0.6rem', display: 'grid', gap: '0.45rem' }}>
-                            {(Array.isArray(homeInfo.heroImages) ? homeInfo.heroImages : []).map((imageUrl, index) => (
-                              <div
-                                key={`${imageUrl}-${index}`}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '0.5rem',
-                                  background: '#161616',
-                                  border: '1px solid #292929',
-                                  borderRadius: 8,
-                                  padding: '6px 8px',
-                                }}
-                              >
-                                <img
-                                  src={imageUrl}
-                                  alt={`Banner ${index + 1}`}
-                                  style={{
-                                    width: 42,
-                                    height: 32,
-                                    objectFit: 'cover',
-                                    borderRadius: 4,
-                                    flexShrink: 0,
-                                  }}
-                                />
-                                <span
-                                  style={{
-                                    color: '#9f9f9f',
-                                    fontSize: '0.73rem',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    flex: 1,
-                                  }}
-                                  title={imageUrl}
-                                >
-                                  {imageUrl}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    try {
-                                      await removeHeroImageFromCarousel(index);
-                                    } catch {
-                                      // erro já tratado em persistHomeInfo
-                                    }
-                                  }}
-                                  style={{
-                                    background: 'transparent',
-                                    color: '#ef4444',
-                                    border: '1px solid #ef444466',
-                                    borderRadius: 6,
-                                    padding: '4px 8px',
-                                    cursor: 'pointer',
-                                    fontSize: '0.75rem',
-                                  }}
-                                >
-                                  Remover
-                                </button>
-                              </div>
-                            ))}
-                          </div>
+                          <img
+                            src={imageUrl}
+                            alt={`Banner ${index + 1}`}
+                            style={{
+                              width: 42,
+                              height: 32,
+                              objectFit: 'cover',
+                              borderRadius: 4,
+                              flexShrink: 0,
+                            }}
+                          />
+                          <span
+                            style={{
+                              color: '#9f9f9f',
+                              fontSize: '0.73rem',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              flex: 1,
+                              minWidth: 0,
+                            }}
+                            title={imageUrl}
+                          >
+                            {imageUrl}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await removeHeroImageFromCarousel(index);
+                              } catch {
+                                // erro ja tratado em persistHomeInfo
+                              }
+                            }}
+                            style={{
+                              background: 'transparent',
+                              color: '#ef4444',
+                              border: '1px solid #ef444466',
+                              borderRadius: 6,
+                              padding: '4px 8px',
+                              cursor: 'pointer',
+                              fontSize: '0.75rem',
+                              flexShrink: 0,
+                            }}
+                          >
+                            Remover
+                          </button>
                         </div>
-                      </div>
+                      ))}
                     </div>
                   </div>
                 </div>
