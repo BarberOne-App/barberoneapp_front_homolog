@@ -14,6 +14,7 @@ import { getToken } from '../../services/authService';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
+  const [initialPageLoading, setInitialPageLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [activeSubscription, setActiveSubscription] = useState(null);
   const [showManageModal, setShowManageModal] = useState(false);
@@ -42,6 +43,14 @@ export default function ProfilePage() {
   const [savingDependent, setSavingDependent] = useState(false);
   const [deletingDependentId, setDeletingDependentId] = useState(null);
   const MAX_DEPENDENTS = 5;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setInitialPageLoading(false);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const user = getSession();
@@ -560,6 +569,31 @@ export default function ProfilePage() {
   const roleBadge = getRoleBadge();
   const displayPhoto = photoPreview || profilePhoto;
   const initials = currentUser?.name?.charAt(0).toUpperCase() || '?';
+
+  if (initialPageLoading) {
+    return (
+      <div className="profile-page">
+        <Header />
+        <div className="profile-page__bg" />
+        <div
+          style={{
+            minHeight: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative',
+            zIndex: 2,
+            flexDirection: 'column',
+            gap: '0.8rem',
+            color: '#fff',
+          }}
+        >
+          <span className="spinner" style={{ width: 36, height: 36, borderWidth: 3 }} />
+          <p style={{ margin: 0, color: '#a8a8a8', fontSize: '0.92rem' }}>Carregando perfil...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="profile-page">
