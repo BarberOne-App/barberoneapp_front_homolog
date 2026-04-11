@@ -250,7 +250,15 @@ export default function AppointmentsPage() {
           ? new Date(apt.endAt)
           : new Date(
               aptStart.getTime() +
-                calculateTotalDuration(Array.isArray(apt?.services) ? apt.services : []) * 60_000,
+                (Array.isArray(apt?.services)
+                  ? apt.services.reduce((total, service) => {
+                      const raw =
+                        service?.durationMinutes ?? service?.duration ?? service?.duration_minutes;
+                      const parsed = Number(raw);
+                      return total + (Number.isFinite(parsed) && parsed > 0 ? parsed : 30);
+                    }, 0)
+                  : 30) *
+                  60_000,
             );
 
         if (Number.isNaN(aptEnd.getTime())) return false;
@@ -258,7 +266,33 @@ export default function AppointmentsPage() {
         return newStart < aptEnd && newEnd > aptStart;
       });
     },
-    [appointments, bookingForDependent?.id, activeClient?.id, calculateTotalDuration],
+    [appointments, bookingForDependent?.id, activeClient?.id],
+  );
+
+  const getClientOrDependentAppointmentOnDate = useCallback(
+    (date) => {
+      if (!date || !Array.isArray(appointments)) return null;
+
+      const selectedDateStr = normalizeDateStr(date);
+      const targetDependentId = bookingForDependent?.id ? String(bookingForDependent.id) : null;
+      const targetClientId = String(activeClient?.id || '');
+      if (!targetClientId && !targetDependentId) return null;
+
+      return appointments.find((apt) => {
+        const aptStatus = String(apt?.status || '').toLowerCase();
+        if (aptStatus === 'cancelled' || aptStatus === 'no_show') return false;
+
+        const aptDependentId = apt?.dependentId || apt?.dependent?.id || null;
+        const sameOwner = targetDependentId
+          ? String(aptDependentId || '') === targetDependentId
+          : String(apt?.clientId || '') === targetClientId && !aptDependentId;
+
+        if (!sameOwner) return false;
+
+        return normalizeDateStr(apt?.date || apt?.endAt || apt?.startAt) === selectedDateStr;
+      });
+    },
+    [appointments, bookingForDependent?.id, activeClient?.id],
   );
 
   const hasActiveSubscription = useMemo(() => {
@@ -1180,6 +1214,34 @@ export default function AppointmentsPage() {
 
     if (blockedInfo) {
       showToast(`📅 Data bloqueada: ${blockedInfo.reason}`, 'warning');
+    }
+
+    const appointmentOnDate = getClientOrDependentAppointmentOnDate(date);
+
+    if (appointmentOnDate) {
+      const matchedBarber = barbers.find(
+        (barber) => normalizeId(barber.id) === normalizeId(appointmentOnDate.barberId),
+      );
+      const fallbackTime = appointmentOnDate.startAt
+        ? new Date(appointmentOnDate.startAt).toLocaleTimeString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: SAO_PAULO_TIME_ZONE,
+          })
+        : '';
+
+      setExistingAppointment({
+        ...appointmentOnDate,
+        barber:
+          appointmentOnDate.barber ||
+          matchedBarber || {
+            displayName: appointmentOnDate.barberName || 'Barbeiro',
+          },
+        time: appointmentOnDate.time || fallbackTime,
+      });
+      setSelectedDate(date);
+      setShowConflictModal(true);
+      return;
     }
 
     setSelectedDate(date);
