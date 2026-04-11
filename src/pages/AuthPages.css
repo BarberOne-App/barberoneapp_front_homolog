@@ -1189,7 +1189,7 @@
 .appointments-table-container {
   background: #1a1a1a;
   border-radius: 12px;
-  overflow: visible;
+  overflow: hidden;
   border: 1px solid #333;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   width: 100%;
@@ -1198,19 +1198,44 @@
 
 .appointments-table {
   width: 100%;
+  min-width: 0;
+  table-layout: fixed;
   border-collapse: collapse;
 }
+
+.appointments-table thead th:nth-child(1),
+.appointments-table tbody td:nth-child(1) { width: 11%; }
+.appointments-table thead th:nth-child(2),
+.appointments-table tbody td:nth-child(2) { width: 8%; }
+.appointments-table thead th:nth-child(3),
+.appointments-table tbody td:nth-child(3) { width: 9%; }
+.appointments-table thead th:nth-child(4),
+.appointments-table tbody td:nth-child(4) { width: 8%; }
+.appointments-table thead th:nth-child(5),
+.appointments-table tbody td:nth-child(5) { width: 12%; }
+.appointments-table thead th:nth-child(6),
+.appointments-table tbody td:nth-child(6) { width: 6%; }
+.appointments-table thead th:nth-child(7),
+.appointments-table tbody td:nth-child(7) { width: 8%; }
+.appointments-table thead th:nth-child(8),
+.appointments-table tbody td:nth-child(8) { width: 8%; }
+.appointments-table thead th:nth-child(9),
+.appointments-table tbody td:nth-child(9) { width: 10%; }
+.appointments-table thead th:nth-child(10),
+.appointments-table tbody td:nth-child(10) { width: 10%; }
+.appointments-table thead th:nth-child(11),
+.appointments-table tbody td:nth-child(11) { width: 10%; }
 
 .appointments-table thead {
   background: linear-gradient(135deg, #d4af37, #f4d03f);
 }
 
 .appointments-table thead th {
-  padding: 0.8rem 0.6rem;
+  padding: 0.75rem 0.45rem;
   text-align: left;
   color: #1a1a1a;
   font-weight: 700;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
@@ -1229,10 +1254,21 @@
 }
 
 .appointments-table tbody td {
-  padding: 0.9rem 0.6rem;
+  padding: 0.8rem 0.45rem;
   color: #ccc;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   vertical-align: middle;
+  overflow: hidden;
+}
+
+.appointments-table thead th:last-child,
+.appointments-table tbody td.appointment-actions-cell {
+  min-width: 0;
+  text-align: center;
+}
+
+.appointments-table tbody td.appointment-actions-cell {
+  overflow: visible;
 }
 
 
@@ -1339,7 +1375,7 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   white-space: nowrap;
-  width: 110px;
+  width: 92px;
   text-align: center;
 }
 
@@ -1392,21 +1428,23 @@
   align-items: center;
   justify-content: center;
   flex-direction: column;
+  width: 100%;
 }
 
 .btn-action {
-  padding: 0.5rem 0.7rem;
+  padding: 0.45rem 0.5rem;
   border: none;
   border-radius: 6px;
   font-weight: 700;
-  font-size: 0.7rem;
+  font-size: 0.66rem;
   cursor: pointer;
   transition: all 0.2s;
   text-transform: uppercase;
   letter-spacing: 0.3px;
   white-space: nowrap;
   width: 100%;
-  min-width: 70px;
+  min-width: 0;
+  max-width: none;
 }
 
 .btn-action.pay {
@@ -1423,6 +1461,8 @@
   background: transparent;
   border: 2px solid #e74c3c;
   color: #e74c3c;
+  width: 92px;
+  max-width: 92px;
 }
 
 .btn-action.cancel:hover {
@@ -1520,6 +1560,11 @@
     padding-top: 0.6rem;
     margin-top: 0.25rem;
     border-top: 1px solid #2a2a2a;
+  }
+
+  .appointments-table tbody td.appointment-actions-cell {
+    min-width: 0;
+    width: auto;
   }
 
   .appointments-table tbody td.appointment-status-cell {

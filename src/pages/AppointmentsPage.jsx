@@ -217,19 +217,48 @@ export default function AppointmentsPage() {
     fetchDependentsForSelectedClient();
   }, [token, canScheduleForOthers, bookingForUser?.id, currentUser?.id]);
 
-  const checkExistingAppointmentOnDate = useCallback(
-    (date) => {
-      if (!date || !activeClient?.id) return null;
-      const dateStr = date.toLocaleDateString('en-CA');
-      // const existingApt = appointments.find(
-      //   (apt) => apt.clientId === activeClient.id && apt.endAt === dateStr
-      // );
-      const existingApt = appointments.find(
-        (apt) => apt.clientId === activeClient.id && apt.endAt?.split('T')[0] === dateStr,
-      );
-      return existingApt || null;
+  const hasClientOrDependentTimeConflict = useCallback(
+    ({ date, time, durationMinutes }) => {
+      if (!date || !time || !Array.isArray(appointments)) return false;
+
+      const targetDependentId = bookingForDependent?.id ? String(bookingForDependent.id) : null;
+      const targetClientId = String(activeClient?.id || '');
+      if (!targetClientId && !targetDependentId) return false;
+
+      const newStart = new Date(`${date}T${time}:00`);
+      if (Number.isNaN(newStart.getTime())) return false;
+      const newEnd = new Date(newStart.getTime() + (Number(durationMinutes) || 30) * 60_000);
+
+      return appointments.some((apt) => {
+        const aptStatus = String(apt?.status || '').toLowerCase();
+        if (aptStatus === 'cancelled' || aptStatus === 'no_show') return false;
+
+        const aptDependentId = apt?.dependentId || apt?.dependent?.id || null;
+        const sameOwner = targetDependentId
+          ? String(aptDependentId || '') === targetDependentId
+          : String(apt?.clientId || '') === targetClientId && !aptDependentId;
+
+        if (!sameOwner) return false;
+
+        const aptStart = apt?.startAt
+          ? new Date(apt.startAt)
+          : new Date(`${normalizeDateStr(apt?.date || apt?.endAt)}T${apt?.time || '00:00'}:00`);
+
+        if (Number.isNaN(aptStart.getTime())) return false;
+
+        const aptEnd = apt?.endAt
+          ? new Date(apt.endAt)
+          : new Date(
+              aptStart.getTime() +
+                calculateTotalDuration(Array.isArray(apt?.services) ? apt.services : []) * 60_000,
+            );
+
+        if (Number.isNaN(aptEnd.getTime())) return false;
+
+        return newStart < aptEnd && newEnd > aptStart;
+      });
     },
-    [appointments, activeClient?.id],
+    [appointments, bookingForDependent?.id, activeClient?.id, calculateTotalDuration],
   );
 
   const hasActiveSubscription = useMemo(() => {
@@ -1153,13 +1182,7 @@ export default function AppointmentsPage() {
       showToast(`📅 Data bloqueada: ${blockedInfo.reason}`, 'warning');
     }
 
-    const existing = checkExistingAppointmentOnDate(date);
     setSelectedDate(date);
-
-    if (existing && !isRescheduling) {
-      setExistingAppointment(existing);
-      setShowConflictModal(true);
-    }
   };
 
   const generateTimes = useCallback((intervalMinutes = 30) => {
@@ -1402,13 +1425,14 @@ export default function AppointmentsPage() {
           return;
         }
 
-        const existingAptOnDate = appointments.find(
-          (apt) => apt.clientId === activeClient.id && apt.date === dateStr,
-        );
+        const serviceDuration = calculateTotalDuration(bookingData.services);
 
-        if (existingAptOnDate && !isRescheduling) {
-          setExistingAppointment(existingAptOnDate);
-          setShowConflictModal(true);
+        if (!isRescheduling && hasClientOrDependentTimeConflict({
+          date: dateStr,
+          time: bookingData.time,
+          durationMinutes: serviceDuration,
+        })) {
+          showToast('Você já possui agendamento nesse mesmo horário com outro barbeiro.', 'danger');
           return;
         }
 
@@ -1440,7 +1464,6 @@ export default function AppointmentsPage() {
           );
         }
 
-        const serviceDuration = calculateTotalDuration(bookingData.services);
         const availableTimes = getAvailableTimes(
           bookingData.barberId,
           selectedDate,
@@ -1501,6 +1524,7 @@ export default function AppointmentsPage() {
       effectiveLockedBarberId,
       effectiveLockedBarberName,
       calculateTotalDuration,
+      hasClientOrDependentTimeConflict,
       isDateBlocked,
       isDateBlockedForAll,
     ],
@@ -3142,7 +3166,7 @@ export default function AppointmentsPage() {
                                 {paymentStatusText}
                               </span>
                             </td>
-                            <td>
+                            <td data-label="Ações" className="appointment-actions-cell">
                               <div className="appointment-actions">
                                 {appointmentStatus !== 'completed' && (
                                   <button
