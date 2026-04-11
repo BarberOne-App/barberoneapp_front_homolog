@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getSession } from '../../services/authService';
+import { getHomeInfo } from '../../services/settingsService.js';
 import logoImg from '../../assets/barbearia-rodrigues.png';
 import { FaWhatsapp } from 'react-icons/fa';
 import './Header.css';
@@ -8,6 +9,7 @@ import './Header.css';
 const navItems = [
   { label: 'Início', href: '#inicio' },
   { label: 'Planos', href: '#planos'},
+  { label: 'Agendamentos', href: 'agendamentos' },
   { label: 'Serviços', href: '#servicos' },
   { label: 'Fotos', href: '#fotos' },
   { label: 'Sobre', href: '#sobre' },
@@ -17,10 +19,40 @@ export default function Header() {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [whatsappHref, setWhatsappHref] = useState('https://wa.me/5585999999999');
 
   useEffect(() => {
     const user = getSession();
     setCurrentUser(user);
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadWhatsappNumber = async () => {
+      try {
+        const homeInfo = await getHomeInfo();
+        const whatsappNumber = String(homeInfo?.whatsappNumber || '').replace(/\D/g, '');
+
+        if (!isMounted) return;
+
+        if (whatsappNumber) {
+          setWhatsappHref(`https://wa.me/${whatsappNumber}`);
+          return;
+        }
+
+        setWhatsappHref('https://wa.me/5585999999999');
+      } catch {
+        if (!isMounted) return;
+        setWhatsappHref('https://wa.me/5585999999999');
+      }
+    };
+
+    loadWhatsappNumber();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleLogoClick = (e) => {
@@ -99,7 +131,7 @@ export default function Header() {
         ))}
 
         <a
-          href="https://wa.me/5585999999999"
+          href={whatsappHref}
           target="_blank"
           rel="noopener noreferrer"
           className="header__contato"
