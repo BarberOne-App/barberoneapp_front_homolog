@@ -256,10 +256,46 @@ export default function Home() {
     }
   };
 
-  const abrirModalGerenciar = () => {
+  const buildSubscriptionCheckoutUrl = (baseUrl, userEmail) => {
+    const email = String(userEmail || '').trim();
+    if (!email) return baseUrl;
+
+    try {
+      const url = new URL(baseUrl);
+      url.searchParams.set('prefilled_email', email);
+      return url.toString();
+    } catch {
+      const separator = String(baseUrl).includes('?') ? '&' : '?';
+      return `${baseUrl}${separator}prefilled_email=${encodeURIComponent(email)}`;
+    }
+  };
+
+  const abrirModalGerenciar = (selectedPlan = null) => {
     if (!currentUser) {
       showToast('Faça login para gerenciar sua assinatura', 'danger');
       navigate('/login');
+      return;
+    }
+
+    if (selectedPlan && !activeSubscription) {
+      const subscriptionUrl = selectedPlan?.mpSubscriptionUrl || selectedPlan?.subscriptionUrl;
+
+      if (!subscriptionUrl) {
+        showToast('Link de assinatura não configurado para esse plano.', 'danger');
+        return;
+      }
+
+      const planWithRecurring = {
+        ...selectedPlan,
+        isRecurring: true,
+        autoRenewal: true,
+      };
+
+      localStorage.setItem('selectedPlan', JSON.stringify(planWithRecurring));
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+
+      const checkoutUrl = buildSubscriptionCheckoutUrl(subscriptionUrl, currentUser?.email);
+      window.location.href = checkoutUrl;
       return;
     }
 
