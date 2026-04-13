@@ -1,6 +1,6 @@
 import { getToken } from "./authService";
 
-const API_URL = 'https://barberone-backend.onrender.com';
+const API_URL = 'https://barberoneapp-back-homolog.onrender.com';
 const token = getToken();
 const HOME_INFO_LOCAL_KEY = 'barberone_home_info_local';
 

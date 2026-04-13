@@ -1264,7 +1264,7 @@ export default function AdminPage() {
   const fetchBlockedDates = async () => {
     try {
       setLoadingBlockedDates(true);
-      const response = await fetch('https://barberone-backend.onrender.com/blocked-dates', {
+      const response = await fetch('https://barberoneapp-back-homolog.onrender.com/blocked-dates', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -1329,7 +1329,7 @@ export default function AdminPage() {
         createdBy: currentUser?.id,
         createdAt: new Date().toISOString(),
       };
-      const response = await fetch('https://barberone-backend.onrender.com/blocked-dates', {
+      const response = await fetch('https://barberoneapp-back-homolog.onrender.com/blocked-dates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(blockData),
@@ -1358,7 +1358,7 @@ export default function AdminPage() {
   const handleRemoveBlockedDate = (id) => {
     showConfirm('Deseja realmente desbloquear esta data?', async () => {
       try {
-        const response = await fetch(`https://barberone-backend.onrender.com/blocked-dates/${id}`, {
+        const response = await fetch(`https://barberoneapp-back-homolog.onrender.com/blocked-dates/${id}`, {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -1524,7 +1524,7 @@ export default function AdminPage() {
         buscarTodasVendasProdutos(),
       ]);
 
-      // const usersResponse = await fetch('https://barberone-backend.onrender.com/users', {
+      // const usersResponse = await fetch('https://barberoneapp-back-homolog.onrender.com/users', {
       //   headers: {
       //     Authorization: `Bearer ${token}`,
       //   },
@@ -1555,7 +1555,7 @@ export default function AdminPage() {
           s.status === 'cancel_pending' && s.nextBillingDate && new Date(s.nextBillingDate) < today,
       );
       for (const s of toExpire) {
-        await fetch(`https://barberone-backend.onrender.com/subscriptions/${s.id}`, {
+        await fetch(`https://barberoneapp-back-homolog.onrender.com/subscriptions/${s.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'cancelled', updatedAt: new Date().toISOString() }),
@@ -1581,12 +1581,12 @@ export default function AdminPage() {
       setAllUsers(allUsers);
       setClientSubscriptionStatus(subscriptionStatusMap);
       try {
-        const valesRes = await fetch('https://barberone-backend.onrender.com/employeeVales', {
+        const valesRes = await fetch('https://barberoneapp-back-homolog.onrender.com/employeeVales', {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-        const paymentsRes = await fetch('https://barberone-backend.onrender.com/employeePayments', {
+        const paymentsRes = await fetch('https://barberoneapp-back-homolog.onrender.com/employeePayments', {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -1812,7 +1812,7 @@ export default function AdminPage() {
     }
     setResetPasswordLoading(true);
     try {
-      await fetch(`https://barberone-backend.onrender.com/users/${resetPasswordUser.id}`, {
+      await fetch(`https://barberoneapp-back-homolog.onrender.com/users/${resetPasswordUser.id}`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1839,7 +1839,7 @@ export default function AdminPage() {
     }
     try {
       await fetch(
-        `https://barberone-backend.onrender.com/users/${selectedUserPermissions.id}/permissions`,
+        `https://barberoneapp-back-homolog.onrender.com/users/${selectedUserPermissions.id}/permissions`,
         {
           method: 'PATCH',
           headers: {
@@ -1946,7 +1946,7 @@ export default function AdminPage() {
           salarioFixo: parseFloat(barberForm.salarioFixo) || 0,
           paymentFrequency: barberForm.paymentFrequency || 'mensal',
         };
-        await fetch(`https://barberone-backend.onrender.com/users/${editingBarber.userId}`, {
+        await fetch(`https://barberoneapp-back-homolog.onrender.com/users/${editingBarber.userId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(userData),
@@ -1961,7 +1961,7 @@ export default function AdminPage() {
           showToast('Email e senha são obrigatórios para criar conta de acesso.', 'danger');
           return;
         }
-        // const checkEmailResponse = await fetch('https://barberone-backend.onrender.com/users', {
+        // const checkEmailResponse = await fetch('https://barberoneapp-back-homolog.onrender.com/users', {
         //   headers: {
         //     Authorization: `Bearer ${token}`,
         //   },
@@ -1984,7 +1984,7 @@ export default function AdminPage() {
           isAdmin: barberForm.userRole === 'admin',
           createdAt: new Date().toISOString(),
         };
-        const userResponse = await fetch('https://barberone-backend.onrender.com/users', {
+        const userResponse = await fetch('https://barberoneapp-back-homolog.onrender.com/users', {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2012,7 +2012,7 @@ export default function AdminPage() {
         if (editingBarber && !editingBarber.isUserOnly) {
           await updateBarber(editingBarber.id, barberData);
           if (editingBarber.userId) {
-            await fetch(`https://barberone-backend.onrender.com/users/${editingBarber.userId}`, {
+            await fetch(`https://barberoneapp-back-homolog.onrender.com/users/${editingBarber.userId}`, {
               method: 'PATCH',
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -2055,7 +2055,7 @@ export default function AdminPage() {
     showConfirm('Deseja realmente excluir este funcionário?', async () => {
       try {
         if (isUserOnly) {
-          await fetch(`https://barberone-backend.onrender.com/users/${id}`, {
+          await fetch(`https://barberoneapp-back-homolog.onrender.com/users/${id}`, {
             method: 'DELETE',
             headers: {
               Authorization: `Bearer ${token}`,
@@ -2066,7 +2066,7 @@ export default function AdminPage() {
           await deleteBarber(id);
           const barber = barbers.find((b) => b.id === id);
           if (barber?.userId) {
-            await fetch(`https://barberone-backend.onrender.com/users/${barber.userId}`, {
+            await fetch(`https://barberoneapp-back-homolog.onrender.com/users/${barber.userId}`, {
               method: 'DELETE',
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -2471,7 +2471,7 @@ export default function AdminPage() {
       ? new Date(sub.currentCycle?.periodEnd || sub.nextBillingDate).toLocaleDateString('pt-BR')
       : 'data não definida';
     try {
-      await fetch(`https://barberone-backend.onrender.com/stripe/subscriptions/${sub.subscriptionId || sub.id}/cancel`, {
+      await fetch(`https://barberoneapp-back-homolog.onrender.com/stripe/subscriptions/${sub.subscriptionId || sub.id}/cancel`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -3688,7 +3688,7 @@ export default function AdminPage() {
         createdAt: new Date().toISOString(),
         createdBy: currentUser?.id,
       };
-      await fetch('https://barberone-backend.onrender.com/employeeVales', {
+      await fetch('https://barberoneapp-back-homolog.onrender.com/employeeVales', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -3696,7 +3696,7 @@ export default function AdminPage() {
         },
         body: JSON.stringify(vale),
       });
-      const res = await fetch('https://barberone-backend.onrender.com/employeeVales', {
+      const res = await fetch('https://barberoneapp-back-homolog.onrender.com/employeeVales', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -3717,7 +3717,7 @@ export default function AdminPage() {
 
   const handleDeleteVale = (id) => {
     showConfirm('Deseja excluir este vale?', async () => {
-      await fetch(`https://barberone-backend.onrender.com/employeeVales/${id}`, {
+      await fetch(`https://barberoneapp-back-homolog.onrender.com/employeeVales/${id}`, {
         method: 'DELETE',
       });
       setEmployeeVales((prev) => prev.filter((v) => v.id !== id));
@@ -3811,7 +3811,7 @@ export default function AdminPage() {
         liquido: amount,
       };
 
-      const response = await fetch('https://barberone-backend.onrender.com/employeePayments', {
+      const response = await fetch('https://barberoneapp-back-homolog.onrender.com/employeePayments', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -3889,7 +3889,7 @@ export default function AdminPage() {
           paidAt: new Date().toISOString(),
           paidBy: currentUser?.id,
         };
-        await fetch('https://barberone-backend.onrender.com/employeePayments', {
+        await fetch('https://barberoneapp-back-homolog.onrender.com/employeePayments', {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3898,7 +3898,7 @@ export default function AdminPage() {
           body: JSON.stringify(paymentRecord),
         });
         for (const v of vales)
-          await fetch(`https://barberone-backend.onrender.com/employeeVales/${v.id}`, {
+          await fetch(`https://barberoneapp-back-homolog.onrender.com/employeeVales/${v.id}`, {
             method: 'DELETE',
             headers: {
               Authorization: `Bearer ${token}`,
@@ -3920,7 +3920,7 @@ export default function AdminPage() {
           });
           await Promise.all(
             toMark.map((p) =>
-              fetch(`https://barberone-backend.onrender.com/appointmentPayments/${p.id}`, {
+              fetch(`https://barberoneapp-back-homolog.onrender.com/appointmentPayments/${p.id}`, {
                 method: 'PATCH',
                 headers: {
                   Authorization: `Bearer ${token}`,
@@ -3933,9 +3933,9 @@ export default function AdminPage() {
         }
 
         const [valesRes, paymentsRes, aptsRes] = await Promise.all([
-          fetch('https://barberone-backend.onrender.com/employeeVales'),
-          fetch('https://barberone-backend.onrender.com/employeePayments'),
-          fetch('https://barberone-backend.onrender.com/appointmentPayments', {
+          fetch('https://barberoneapp-back-homolog.onrender.com/employeeVales'),
+          fetch('https://barberoneapp-back-homolog.onrender.com/employeePayments'),
+          fetch('https://barberoneapp-back-homolog.onrender.com/appointmentPayments', {
             headers: {
               Authorization: `Bearer ${token}`,
               'Content-Type': 'application/json',

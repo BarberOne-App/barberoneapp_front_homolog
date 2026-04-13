@@ -118,7 +118,7 @@ export default function ManageSubscriptionModal({ isOpen, onClose, subscription,
       setLoading(true);
       try {
         const { data } = await axios.get(
-          `https://barberone-backend.onrender.com/subscription-plans/${subscription.planId}`,
+          `https://barberoneapp-back-homolog.onrender.com/subscription-plans/${subscription.planId}`,
           {
             headers: {
               Authorization: `Bearer ${getToken()}`,

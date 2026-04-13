@@ -16,7 +16,7 @@
 //   // useEffect(() => {
 //   //   const loadPlans = async () => {
 //   //     try {
-//   //       const response = await fetch('https://barberone-backend.onrender.com/subscription-plans', {
+//   //       const response = await fetch('https://barberoneapp-back-homolog.onrender.com/subscription-plans', {
 //   //         headers: {
 //   //           Authorization: `Bearer ${token}`
 //   //         }

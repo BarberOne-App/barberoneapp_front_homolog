@@ -1,7 +1,7 @@
 import api from "./api.js";
 import { getToken } from "./authService.js";
 
-const BASE = "https://barberone-backend.onrender.com/services";
+const BASE = "https://barberoneapp-back-homolog.onrender.com/services";
 const token = getToken();
 
 export async function getAllServices() {

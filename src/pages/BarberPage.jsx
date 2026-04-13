@@ -31,7 +31,7 @@ export default function BarberPage() {
       const [appointmentsData, barbersData, employeePaymentsResponse] = await Promise.all([
         getAppointments(),
         getBarbers(),
-        fetch('https://barberone-backend.onrender.com/employeePayments', {
+        fetch('https://barberoneapp-back-homolog.onrender.com/employeePayments', {
           headers: {
             Authorization: `Bearer ${token}`,
           },
