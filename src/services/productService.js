@@ -3,6 +3,7 @@ import { getToken } from './authService';
 
 const API_URL = 'https://barberone-backend.onrender.com';
 const token = getToken();
+console.log("Token:", token);
 
 const normalizeProduct = (product) => {
   if (!product || typeof product !== 'object') return product;

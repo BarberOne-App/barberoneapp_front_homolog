@@ -929,8 +929,8 @@ export const criarVendaProduto = async (dados) => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    const response = await api.post('/productSales', venda);
-    return response.data;
+    // const response = await api.post('/productSales', venda);
+    return '';
   } catch (error) {
     console.error('Erro ao criar venda de produto:', error);
     throw new Error('Não foi possível registrar a venda');
@@ -939,12 +939,12 @@ export const criarVendaProduto = async (dados) => {
 
 export const buscarTodasVendasProdutos = async () => {
   try {
-    const response = await api.get('/productSales', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    },);
-    return response.data;
+    // const response = await api.get('/productSales', {
+    //   headers: {
+    //     Authorization: `Bearer ${token}`,
+    //   },
+    // },);
+    return [];
   } catch (error) {
     console.error('Erro ao buscar vendas de produtos:', error);
     return [];
