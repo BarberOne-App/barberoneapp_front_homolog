@@ -5714,6 +5714,7 @@ export default function AdminPage() {
                   </p>
                 ) : (
                   <div className="fluig-table-parent" style={{ marginTop: '1.5rem' }}>
+                    <div className="agendamentos-table-scroll">
                     <table className="fluig-table-children">
                       <thead>
                         <tr>
@@ -5865,6 +5866,7 @@ export default function AdminPage() {
                         })}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 )}
               </div>
