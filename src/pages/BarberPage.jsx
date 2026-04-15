@@ -57,6 +57,10 @@ export default function BarberPage() {
 
   const isExtraPayment = (payment) => {
     if (!payment) return false;
+    const paymentType = String(payment.paymentType || '').toLowerCase();
+    if (paymentType === 'extra') return true;
+    if (paymentType === 'payroll') return false;
+
     const start = payment.periodStart;
     const end = payment.periodEnd;
     const salarioFixo = Number(payment.salarioFixo || 0);
@@ -75,12 +79,19 @@ export default function BarberPage() {
     );
   };
 
-  const getFilteredExtraPaymentsByPeriod = () => {
-    if (!Array.isArray(employeePayments)) return [];
+  const isPayrollPayment = (payment) => {
+    if (!payment) return false;
+    const paymentType = String(payment.paymentType || '').toLowerCase();
+    if (paymentType === 'payroll') return true;
+    if (paymentType === 'extra') return false;
+    return !isExtraPayment(payment);
+  };
 
-    const base = employeePayments
-      .filter(isExtraPayment)
-      .filter((payment) => String(payment.employeeId) === String(currentUser?.id));
+  const isDateWithinSelectedPeriod = (dateRef) => {
+    if (!dateRef) return false;
+
+    const date = new Date(dateRef);
+    if (Number.isNaN(date.getTime())) return false;
 
     const now = new Date();
 
@@ -94,37 +105,41 @@ export default function BarberPage() {
       weekEnd.setDate(weekStart.getDate() + 6);
       weekEnd.setHours(23, 59, 59, 999);
 
-      return base.filter((payment) => {
-        const ref = payment.paidAt || payment.periodStart;
-        if (!ref) return false;
-        const d = new Date(ref);
-        return !Number.isNaN(d.getTime()) && d >= weekStart && d <= weekEnd;
-      });
+      return date >= weekStart && date <= weekEnd;
     }
 
     if (earningsFilter === 'month') {
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-      return base.filter((payment) => {
-        const ref = payment.paidAt || payment.periodStart;
-        if (!ref) return false;
-        const d = new Date(ref);
-        return !Number.isNaN(d.getTime()) && d >= monthStart && d <= monthEnd;
-      });
+      return date >= monthStart && date <= monthEnd;
     }
 
     if (earningsFilter === 'custom' && customStartDate && customEndDate) {
       const start = new Date(`${customStartDate}T00:00:00`);
       const end = new Date(`${customEndDate}T23:59:59`);
-      return base.filter((payment) => {
-        const ref = payment.paidAt || payment.periodStart;
-        if (!ref) return false;
-        const d = new Date(ref);
-        return !Number.isNaN(d.getTime()) && d >= start && d <= end;
-      });
+      return date >= start && date <= end;
     }
 
-    return base;
+    return true;
+  };
+
+  const getFilteredExtraPaymentsByPeriod = () => {
+    if (!Array.isArray(employeePayments)) return [];
+
+    const base = employeePayments
+      .filter(isExtraPayment)
+      .filter((payment) => String(payment.employeeId) === String(currentUser?.id));
+
+    return base.filter((payment) => isDateWithinSelectedPeriod(payment.paidAt || payment.periodStart));
+  };
+
+  const getFilteredPayrollPaymentsByPeriod = () => {
+    if (!Array.isArray(employeePayments)) return [];
+
+    return employeePayments
+      .filter(isPayrollPayment)
+      .filter((payment) => String(payment.employeeId) === String(currentUser?.id))
+      .filter((payment) => isDateWithinSelectedPeriod(payment.paidAt || payment.periodEnd || payment.periodStart));
   };
 
   useEffect(() => {
@@ -366,6 +381,7 @@ export default function BarberPage() {
   const calculateBarberStats = () => {
     const filtered = getFilteredAppointmentsByPeriod();
     const filteredExtraPayments = getFilteredExtraPaymentsByPeriod();
+    const filteredPayrollPayments = getFilteredPayrollPaymentsByPeriod();
     let totalRevenue = 0;
     let totalServices = 0;
 
@@ -379,6 +395,7 @@ export default function BarberPage() {
     const barberEarnings = (totalRevenue * commissionPercent) / 100;
     const shopEarnings = totalRevenue - barberEarnings;
     const extraPaymentsTotal = filteredExtraPayments.reduce((sum, p) => sum + Number(p.liquido || 0), 0);
+    const payrollPaymentsTotal = filteredPayrollPayments.reduce((sum, p) => sum + Number(p.liquido || 0), 0);
 
     return {
       totalRevenue,
@@ -389,8 +406,11 @@ export default function BarberPage() {
       shopEarnings,
       filteredAppointments: filtered,
       filteredExtraPayments,
+      filteredPayrollPayments,
       extraPaymentsTotal,
+      payrollPaymentsTotal,
       totalWithExtras: barberEarnings + extraPaymentsTotal,
+      totalReceivedPayments: payrollPaymentsTotal + extraPaymentsTotal,
     };
   };
 
@@ -602,12 +622,16 @@ export default function BarberPage() {
                       <span className="stat-value stat-value-success">R$ {stats.extraPaymentsTotal.toFixed(2)}</span>
                     </div>
                     <div className="stat-item">
+                      <span className="stat-label">Folha recebida</span>
+                      <span className="stat-value stat-value-success">R$ {stats.payrollPaymentsTotal.toFixed(2)}</span>
+                    </div>
+                    <div className="stat-item">
                       <span className="stat-label">Barbearia</span>
                       <span className="stat-value">R$ {stats.shopEarnings.toFixed(2)}</span>
                     </div>
                     <div className="stat-item">
-                      <span className="stat-label">Total c/ extras</span>
-                      <span className="stat-value stat-value-highlight">R$ {stats.totalWithExtras.toFixed(2)}</span>
+                      <span className="stat-label">Total recebido</span>
+                      <span className="stat-value stat-value-highlight">R$ {stats.totalReceivedPayments.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
@@ -691,6 +715,45 @@ export default function BarberPage() {
                               </tr>
                             );
                           })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {stats.filteredPayrollPayments.length > 0 && (
+                    <div style={{ marginTop: '1.25rem' }}>
+                      <h4 style={{ color: 'var(--gold)', marginBottom: '0.75rem' }}>Pagamentos de folha do período</h4>
+                      <table className="fluig-table-children">
+                        <thead>
+                          <tr>
+                            <th>Data Pgto.</th>
+                            <th>Período</th>
+                            <th>Salário</th>
+                            <th>Comissão</th>
+                            <th>Vales</th>
+                            <th>Líquido</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {stats.filteredPayrollPayments
+                            .sort((a, b) => new Date(b.paidAt || 0) - new Date(a.paidAt || 0))
+                            .map((payment) => (
+                              <tr key={payment.id}>
+                                <td>
+                                  {payment.paidAt
+                                    ? new Date(payment.paidAt).toLocaleDateString('pt-BR')
+                                    : '-'}
+                                </td>
+                                <td>
+                                  {payment.periodStart?.split('-').reverse().join('/')} →{' '}
+                                  {payment.periodEnd?.split('-').reverse().join('/')}
+                                </td>
+                                <td>R$ {Number(payment.salarioFixo || 0).toFixed(2)}</td>
+                                <td>R$ {Number(payment.commission || 0).toFixed(2)}</td>
+                                <td>- R$ {Number(payment.totalVales || 0).toFixed(2)}</td>
+                                <td className="barber-earning">R$ {Number(payment.liquido || 0).toFixed(2)}</td>
+                              </tr>
+                            ))}
                         </tbody>
                       </table>
                     </div>

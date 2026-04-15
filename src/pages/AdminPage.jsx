@@ -603,16 +603,16 @@ export default function AdminPage() {
     }
   }, [activeTab, canManageGallery, canManageAgendamentos]);
 
-  const toDateStr = (val) => {
+  function toDateStr(val) {
     if (!val) return '';
     const s = String(val);
 
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
 
     return s.slice(0, 10);
-  };
+  }
 
-  const isDateInRange = (dateStr, startDate, endDate) => {
+  function isDateInRange(dateStr, startDate, endDate) {
     if (!startDate && !endDate) return true;
     const d = toDateStr(dateStr);
     const s = toDateStr(startDate);
@@ -621,7 +621,7 @@ export default function AdminPage() {
     if (s) return d >= s;
     if (e) return d <= e;
     return true;
-  };
+  }
 
   const getFilteredAppointments = () => {
     let filtered = [...appointments];
@@ -3726,6 +3726,10 @@ export default function AdminPage() {
   };
 
   function isExtraPayment(payment) {
+    const paymentType = String(payment?.paymentType || '').toLowerCase();
+    if (paymentType === 'extra') return true;
+    if (paymentType === 'payroll') return false;
+
     const start = payment?.periodStart;
     const end = payment?.periodEnd;
     const salarioFixo = Number(payment?.salarioFixo || 0);
@@ -3802,6 +3806,7 @@ export default function AdminPage() {
       const payload = {
         employeeId: employee.id,
         employeeName: employee.name,
+        paymentType: 'extra',
         period: 'mensal',
         periodStart: paymentDate,
         periodEnd: paymentDate,
@@ -3879,11 +3884,13 @@ export default function AdminPage() {
         const paymentRecord = {
           employeeId: employee.id,
           employeeName: employee.name,
+          paymentType: 'payroll',
           period,
           periodStart: start,
           periodEnd: end,
           salarioFixo,
           commission,
+          totalExtraPayments,
           totalVales,
           liquido,
           paidAt: new Date().toISOString(),
