@@ -23,16 +23,22 @@ const normalizeProduct = (product) => {
   };
 };
 
-export const getProducts = async () => {
+const getProductsParams = (includeInactive = false) => (
+  includeInactive ? { includeInactive: 'true' } : {}
+);
+
+export const getProducts = async (includeInactive = false) => {
   try {
     const response = await axios.get(`${API_URL}/products`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
+      params: getProductsParams(includeInactive),
     });
-    return Array.isArray(response.data)
-      ? response.data.map(normalizeProduct)
-      : normalizeProduct(response.data);
+    const data = response.data.items || response.data;
+    return Array.isArray(data)
+      ? data.map(normalizeProduct)
+      : normalizeProduct(data);
   } catch (error) {
     throw error;
   }
@@ -84,6 +90,19 @@ export const updateProduct = async (id, productData) => {
 export const deleteProduct = async (id) => {
   try {
     const response = await axios.delete(`${API_URL}/products/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const reactivateProduct = async (id) => {
+  try {
+    const response = await axios.patch(`${API_URL}/products/${id}/reactivate`, null, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
