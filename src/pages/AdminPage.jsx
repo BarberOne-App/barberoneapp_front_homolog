@@ -31,6 +31,7 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  reactivateProduct,
   importProducts as importProductsBatch,
 } from '../services/productService';
 import {
@@ -48,6 +49,7 @@ import {
   createService,
   updateService,
   deleteService,
+  reactivateService,
   importServices as importServicesBatch,
 } from '../services/serviceServices';
 
@@ -1185,7 +1187,7 @@ export default function AdminPage() {
       }
 
       const result = await importProductsBatch({ rows: mappedRows });
-      await loadData();
+      await loadProducts();
       showToast(
         `Produtos importados: ${result.createdCount}. Erros: ${result.failedCount}.`,
         result.failedCount > 0 ? 'danger' : 'success',
@@ -1519,8 +1521,8 @@ export default function AdminPage() {
         getAppointments(),
         buscarTodasAssinaturas(),
         buscarTodosPagamentosAgendamentos(),
-        getProducts(),
-        getAllServices(),
+        getProducts(true),
+        getAllServices(true),
         buscarTodasVendasProdutos(),
       ]);
 
@@ -1575,7 +1577,7 @@ export default function AdminPage() {
 
       setSubscriptions(subsWithCpf);
       setAppointmentPayments(paymentsData);
-      setProducts(productsData);
+      setProducts(Array.isArray(productsData) ? productsData : []);
       setServices(servicesData);
       setProductSales(productSalesData);
       setAllUsers(allUsers);
@@ -1600,6 +1602,16 @@ export default function AdminPage() {
       console.error('Erro ao carregar dados', error);
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const loadProducts = useCallback(async () => {
+    try {
+      const data = await getProducts(true);
+      setProducts(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Erro ao carregar produtos:', error);
+      showToast('Erro ao carregar produtos', 'danger');
     }
   }, []);
 
@@ -1689,6 +1701,13 @@ export default function AdminPage() {
       loadPlans();
     }
   }, [activeTab, hasAdminVisibility, plans.length, loadPlans]);
+
+  useEffect(() => {
+    if (activeTab === 'products' && products.length === 0) {
+      console.log('🔄 Carregando produtos pela primeira vez...');
+      loadProducts();
+    }
+  }, [activeTab, products.length, loadProducts]);
 
   useEffect(() => {
     if (!canAccessEarnings && activeTab === 'earnings') {
@@ -2205,25 +2224,38 @@ export default function AdminPage() {
         await createProduct(productData);
         showToast('Produto adicionado com sucesso!', 'success');
       }
-      await loadData();
+      await loadProducts();
       closeProductModal();
     } catch (error) {
       showToast('Erro ao salvar produto. Tente novamente.', 'danger');
     }
   };
 
-  const handleDeleteProduct = (id) => {
+  const handleDeleteProduct = (product) => {
     if (!hasPermission('editProducts')) {
       showToast('Você não tem permissão para excluir produtos.', 'danger');
       return;
     }
-    showConfirm('Deseja realmente excluir este produto?', async () => {
+
+    const isActive = product.active !== false;
+    const confirmMessage = isActive
+      ? 'Tem certeza que deseja desativar este produto?'
+      : 'Tem certeza que deseja ativar novamente este produto?';
+
+    showConfirm(confirmMessage, async () => {
       try {
-        await deleteProduct(id);
-        await loadData();
-        showToast('Produto excluído com sucesso!', 'success');
+        if (isActive) {
+          const response = await deleteProduct(product.id);
+          await loadProducts();
+          showToast(response?.reason || 'Produto desativado com sucesso!', 'success');
+        } else {
+          const response = await reactivateProduct(product.id);
+          await loadProducts();
+          showToast(response?.reason || 'Produto reativado com sucesso!', 'success');
+        }
       } catch (error) {
-        showToast('Erro ao excluir produto.', 'danger');
+        console.error('Erro ao alterar status do produto:', error);
+        showToast('Erro ao alterar o status do produto', 'danger');
       }
     });
   };
@@ -2898,8 +2930,8 @@ export default function AdminPage() {
           }),
         );
 
-        const updatedProducts = await getProducts();
-        setProducts(updatedProducts);
+        const updatedProducts = await getProducts(true);
+        setProducts(Array.isArray(updatedProducts) ? updatedProducts : []);
       }
 
       setProductSales((prev) =>
@@ -3437,7 +3469,7 @@ export default function AdminPage() {
 
   const loadServices = useCallback(async () => {
     try {
-      const data = await getAllServices();
+      const data = await getAllServices(true);
       setServices(data);
     } catch (error) {
       console.error('Erro ao carregar serviços:', error);
@@ -3563,28 +3595,33 @@ export default function AdminPage() {
     }
   };
 
-  const handleDeleteService = (serviceId) => {
+  const handleDeleteService = (service) => {
     if (!hasPermission('editServices')) {
       showToast('Você não tem permissão para excluir serviços.', 'danger');
       return;
     }
-    showConfirm('Tem certeza que deseja excluir este serviço?', async () => {
+
+    const isActive = service.active !== false;
+    const confirmMessage = isActive
+      ? 'Tem certeza que deseja desativar este serviço?'
+      : 'Tem certeza que deseja ativar novamente este serviço?';
+
+    showConfirm(confirmMessage, async () => {
       try {
-        const response = await deleteService(serviceId);
-        showToast(response?.reason || 'Serviço excluído com sucesso!', 'success');
-
-        if (response?.deletedHard === false) {
-          setServices((prev) =>
-            prev.map((service) =>
-              service.id === serviceId ? { ...service, active: false } : service,
-            ),
-          );
+        if (isActive) {
+          const response = await deleteService(service.id);
+          const updatedService = { ...service, active: false };
+          setServices((prev) => prev.map((item) => (item.id === service.id ? updatedService : item)));
+          showToast(response?.reason || 'Serviço desativado com sucesso!', 'success');
+        } else {
+          const response = await reactivateService(service.id);
+          const updatedService = { ...service, active: true };
+          setServices((prev) => prev.map((item) => (item.id === service.id ? updatedService : item)));
+          showToast(response?.reason || 'Serviço reativado com sucesso!', 'success');
         }
-
-        await loadServices();
       } catch (error) {
-        console.error('Erro ao excluir serviço:', error);
-        showToast('Erro ao excluir serviço', 'danger');
+        console.error('Erro ao alterar status do serviço:', error);
+        showToast('Erro ao alterar o status do serviço', 'danger');
       }
     });
   };
@@ -5916,37 +5953,111 @@ export default function AdminPage() {
 
               <div className="products-grid">
                 {products.map((product) => (
-                  <div key={product.id} className="product-card">
-                    {product.image && (
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="product-image"
-                        onError={(e) => (e.target.style.display = 'none')}
-                      />
-                    )}
-                    <h3>{product.name}</h3>
-                    <p className="product-category">{product.category}</p>
-                    <p className="product-price">{product.price}</p>
-                    <p className="product-stock">Estoque: {product.stock}</p>
-                    {hasPermission('editProducts') && (
-                      <div className="product-actions">
-                        <Button
-                          onClick={() => openProductModal(product)}
-                          size="small"
-                          className="fluig-btn fluig-btn-edit"
-                        >
-                          Editar
-                        </Button>
-                        <Button
-                          onClick={() => handleDeleteProduct(product.id)}
-                          size="small"
-                          className="fluig-btn fluig-btn-delete"
-                        >
-                          Excluir
-                        </Button>
+                  <div
+                    key={product.id}
+                    style={{
+                      background: '#1a1a1a',
+                      border: '1px solid #333',
+                      borderRadius: '12px',
+                      overflow: 'hidden',
+                      transition: 'all 0.2s ease',
+                      opacity: product.active === false ? 0.6 : 1,
+                      position: 'relative',
+                    }}
+                  >
+                    {product.active === false && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '10px',
+                          right: '10px',
+                          background: '#ff4444',
+                          color: '#fff',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold',
+                          zIndex: 1,
+                        }}
+                      >
+                        Desativado
                       </div>
                     )}
+                    {product.image && (
+                      <div style={{ width: '100%', height: '180px', overflow: 'hidden' }}>
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            filter: product.active === false ? 'grayscale(100%)' : 'none',
+                          }}
+                          onError={(e) => {
+                            e.target.src =
+                              'https://images.unsplash.com/photo-1596728325488-58c87691e9af';
+                          }}
+                        />
+                      </div>
+                    )}
+                    <div style={{ padding: '20px' }}>
+                      <h3
+                        style={{
+                          margin: '0 0 8px 0',
+                          fontSize: '1.25rem',
+                          color: '#fff',
+                        }}
+                      >
+                        {product.name}
+                      </h3>
+                      <p
+                        style={{
+                          margin: '0 0 8px 0',
+                          fontSize: '0.9rem',
+                          color: '#999',
+                        }}
+                      >
+                        {product.category}
+                      </p>
+                      <p
+                        style={{
+                          margin: '0 0 8px 0',
+                          fontSize: '1.5rem',
+                          fontWeight: 'bold',
+                          color: '#ff7a1a',
+                        }}
+                      >
+                        {product.price}
+                      </p>
+                      <p
+                        style={{
+                          margin: '0 0 16px 0',
+                          fontSize: '0.9rem',
+                          color: '#999',
+                        }}
+                      >
+                        Estoque: {product.stock}
+                      </p>
+                      {hasPermission('editProducts') && (
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <Button
+                            onClick={() => openProductModal(product)}
+                            size="small"
+                            className="fluig-btn fluig-btn-edit"
+                          >
+                            Editar
+                          </Button>
+                          <Button
+                            onClick={() => handleDeleteProduct(product)}
+                            size="small"
+                            className="fluig-btn fluig-btn-delete"
+                          >
+                            {product.active !== false ? 'Desativar' : 'Ativar'}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -6002,8 +6113,28 @@ export default function AdminPage() {
                       borderRadius: '12px',
                       overflow: 'hidden',
                       transition: 'all 0.2s ease',
+                      opacity: service.active === false ? 0.6 : 1,
+                      position: 'relative',
                     }}
                   >
+                    {service.active === false && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '10px',
+                          right: '10px',
+                          background: '#ff4444',
+                          color: '#fff',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold',
+                          zIndex: 1,
+                        }}
+                      >
+                        Desativado
+                      </div>
+                    )}
                     {service.image && (
                       <div style={{ width: '100%', height: '180px', overflow: 'hidden' }}>
                         <img
@@ -6013,6 +6144,7 @@ export default function AdminPage() {
                             width: '100%',
                             height: '100%',
                             objectFit: 'cover',
+                            filter: service.active === false ? 'grayscale(100%)' : 'none',
                           }}
                           onError={(e) => {
                             e.target.src =
@@ -6060,11 +6192,11 @@ export default function AdminPage() {
                             Editar
                           </Button>
                           <Button
-                            onClick={() => handleDeleteService(service.id)}
+                            onClick={() => handleDeleteService(service)}
                             size="small"
                             className="fluig-btn fluig-btn-delete"
                           >
-                            Excluir
+                            {service.active !== false ? 'Desativar' : 'Ativar'}
                           </Button>
                         </div>
                       )}
