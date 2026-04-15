@@ -48,6 +48,7 @@ import {
   createService,
   updateService,
   deleteService,
+  reactivateService,
   importServices as importServicesBatch,
 } from '../services/serviceServices';
 
@@ -1520,7 +1521,7 @@ export default function AdminPage() {
         buscarTodasAssinaturas(),
         buscarTodosPagamentosAgendamentos(),
         getProducts(),
-        getAllServices(),
+        getAllServices(true),
         buscarTodasVendasProdutos(),
       ]);
 
@@ -3437,7 +3438,7 @@ export default function AdminPage() {
 
   const loadServices = useCallback(async () => {
     try {
-      const data = await getAllServices();
+      const data = await getAllServices(true);
       setServices(data);
     } catch (error) {
       console.error('Erro ao carregar serviços:', error);
@@ -3563,28 +3564,33 @@ export default function AdminPage() {
     }
   };
 
-  const handleDeleteService = (serviceId) => {
+  const handleDeleteService = (service) => {
     if (!hasPermission('editServices')) {
       showToast('Você não tem permissão para excluir serviços.', 'danger');
       return;
     }
-    showConfirm('Tem certeza que deseja excluir este serviço?', async () => {
+
+    const isActive = service.active !== false;
+    const confirmMessage = isActive
+      ? 'Tem certeza que deseja desativar este serviço?'
+      : 'Tem certeza que deseja ativar novamente este serviço?';
+
+    showConfirm(confirmMessage, async () => {
       try {
-        const response = await deleteService(serviceId);
-        showToast(response?.reason || 'Serviço excluído com sucesso!', 'success');
-
-        if (response?.deletedHard === false) {
-          setServices((prev) =>
-            prev.map((service) =>
-              service.id === serviceId ? { ...service, active: false } : service,
-            ),
-          );
+        if (isActive) {
+          const response = await deleteService(service.id);
+          const updatedService = { ...service, active: false };
+          setServices((prev) => prev.map((item) => (item.id === service.id ? updatedService : item)));
+          showToast(response?.reason || 'Serviço desativado com sucesso!', 'success');
+        } else {
+          const response = await reactivateService(service.id);
+          const updatedService = { ...service, active: true };
+          setServices((prev) => prev.map((item) => (item.id === service.id ? updatedService : item)));
+          showToast(response?.reason || 'Serviço reativado com sucesso!', 'success');
         }
-
-        await loadServices();
       } catch (error) {
-        console.error('Erro ao excluir serviço:', error);
-        showToast('Erro ao excluir serviço', 'danger');
+        console.error('Erro ao alterar status do serviço:', error);
+        showToast('Erro ao alterar o status do serviço', 'danger');
       }
     });
   };
@@ -5995,8 +6001,28 @@ export default function AdminPage() {
                       borderRadius: '12px',
                       overflow: 'hidden',
                       transition: 'all 0.2s ease',
+                      opacity: service.active === false ? 0.6 : 1,
+                      position: 'relative',
                     }}
                   >
+                    {service.active === false && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '10px',
+                          right: '10px',
+                          background: '#ff4444',
+                          color: '#fff',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold',
+                          zIndex: 1,
+                        }}
+                      >
+                        Desativado
+                      </div>
+                    )}
                     {service.image && (
                       <div style={{ width: '100%', height: '180px', overflow: 'hidden' }}>
                         <img
@@ -6006,6 +6032,7 @@ export default function AdminPage() {
                             width: '100%',
                             height: '100%',
                             objectFit: 'cover',
+                            filter: service.active === false ? 'grayscale(100%)' : 'none',
                           }}
                           onError={(e) => {
                             e.target.src =
@@ -6053,11 +6080,11 @@ export default function AdminPage() {
                             Editar
                           </Button>
                           <Button
-                            onClick={() => handleDeleteService(service.id)}
+                            onClick={() => handleDeleteService(service)}
                             size="small"
                             className="fluig-btn fluig-btn-delete"
                           >
-                            Excluir
+                            {service.active !== false ? 'Desativar' : 'Ativar'}
                           </Button>
                         </div>
                       )}
