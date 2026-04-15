@@ -88,6 +88,7 @@ export default function AppointmentsPage() {
   const [showUserSelector, setShowUserSelector] = useState(false);
   const [userSearch, setUserSearch] = useState('');
   const [barberAvatarErrors, setBarberAvatarErrors] = useState({});
+  const [selectedBarberId, setSelectedBarberId] = useState(null);
 
   const token = getToken();
 
@@ -2855,6 +2856,8 @@ export default function AppointmentsPage() {
                               getAvailableTimes={getAvailableTimes}
                               calculateTotalDuration={calculateTotalDuration}
                               onBook={handleBookWithMonthlyLockConfirm}
+                              onSelectBarber={() => setSelectedBarberId(barber.id)}
+                              isActive={selectedBarberId === barber.id}
                               showToast={showToast}
                               preSelectedService={preSelectedService}
                               hasActiveSubscription={hasActiveSubscription}

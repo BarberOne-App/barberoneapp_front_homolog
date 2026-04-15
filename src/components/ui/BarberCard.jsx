@@ -206,6 +206,8 @@ export default function BarberCard({
   preSelectedService,
   hasActiveSubscription = false,
   isServiceCoveredByPlan = () => false,
+  isActive = false,
+  onSelectBarber = () => {},
 }) {
   const [selectedServices, setSelectedServices] = useState([]);
   const [selectedTime, setSelectedTime] = useState('');
@@ -234,6 +236,7 @@ export default function BarberCard({
   }, [selectedDate]);
 
   const toggleService = (service) => {
+    onSelectBarber?.();
     setSelectedServices((prev) => {
       const exists = prev.find((s) => s.id === service.id);
       if (exists) {
@@ -244,6 +247,14 @@ export default function BarberCard({
 
     setSelectedTime('');
   };
+
+  useEffect(() => {
+    if (!isActive && (selectedServices.length > 0 || selectedTime)) {
+      setSelectedServices([]);
+      setSelectedTime('');
+      hasPreSelected.current = false;
+    }
+  }, [isActive, selectedServices.length, selectedTime]);
 
   const getTotalDuration = () => {
     if (selectedServices.length === 0) return 0;
