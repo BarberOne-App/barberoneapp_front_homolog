@@ -1885,6 +1885,8 @@
 .action-btn-table.btn-whatsapp-table:hover { background: linear-gradient(135deg, #128c7e, #075e54); box-shadow: 0 4px 12px rgba(37, 211, 102, 0.5); }
 .action-btn-table.btn-reminder-table { background: linear-gradient(135deg, #ffc107, #ffb300); color: #1a1a1a; border: 1px solid #ffc107; font-weight: 700; }
 .action-btn-table.btn-reminder-table:hover { background: linear-gradient(135deg, #ffb300, #ffa000); box-shadow: 0 4px 12px rgba(255, 193, 7, 0.5); }
+.action-btn-table.btn-cancel-table { background: linear-gradient(135deg, #f44336, #d32f2f); color: white; border: 1px solid #f44336; }
+.action-btn-table.btn-cancel-table:hover { background: linear-gradient(135deg, #d32f2f, #b71c1c); box-shadow: 0 4px 12px rgba(244, 67, 54, 0.5); }
 .action-btn-table.btn-complete-table { background: linear-gradient(135deg, #2196f3, #1976d2); color: white; border: 1px solid #2196f3; }
 .action-btn-table.btn-complete-table:hover { background: linear-gradient(135deg, #1976d2, #1565c0); box-shadow: 0 4px 12px rgba(33, 150, 243, 0.5); }
 

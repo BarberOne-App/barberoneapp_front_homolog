@@ -6172,6 +6172,9 @@ export default function AdminPage() {
                                       <button onClick={() => sendWhatsApp(apt.id, 'confirm')} className="action-btn-table btn-whatsapp-table">
                                         💬 Mensagem
                                       </button>
+                                      <button onClick={() => handleDeleteAppointment(apt.id)} className="action-btn-table btn-cancel-table">
+                                        Cancelar
+                                      </button>
                                       {isConfirmed && canComplete && (
                                         <button onClick={() => handleCompleteAppointment(apt.id)} className="action-btn-table btn-complete-table">
                                           ✅ Finalizar
