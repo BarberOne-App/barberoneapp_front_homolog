@@ -2075,16 +2075,16 @@ export default function AppointmentsPage() {
     }
   }, [appointmentToDelete, loadData, showToast, clearPaymentCache]);
 
-  const myAppointments = useMemo(() => {
+  const myAppointmentsBase = useMemo(() => {
     const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
     const depClientIds = userDependents.map((d) => d.id);
     return appointments.filter((apt) => {
       const isOwn = apt.clientId === currentUser?.id;
       const isDep = depClientIds.includes(apt.clientId);
       if (!isOwn && !isDep) return false;
+
+      const appointmentStatus = String(apt.status || '').toLowerCase();
+      if (['completed', 'cancelled', 'no_show'].includes(appointmentStatus)) return false;
 
       const appointmentDateTime = new Date(apt.startAt || apt.endAt);
       if (Number.isNaN(appointmentDateTime.getTime())) return false;
@@ -2092,6 +2092,17 @@ export default function AppointmentsPage() {
       // Remove agendamentos que já passaram considerando data e hora atual.
       if (appointmentDateTime < now) return false;
 
+      return true;
+    });
+  }, [appointments, currentUser?.id, userDependents]);
+
+  const myAppointments = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    return myAppointmentsBase.filter((apt) => {
+      const appointmentDateTime = new Date(apt.startAt || apt.endAt);
       const aptMonth = appointmentDateTime.getMonth();
       const aptYear = appointmentDateTime.getFullYear();
 
@@ -2105,7 +2116,30 @@ export default function AppointmentsPage() {
         return true;
       }
     });
-  }, [appointments, currentUser?.id, appointmentFilter, userDependents]);
+  }, [appointmentFilter, myAppointmentsBase]);
+
+  const currentMonthAppointmentsCount = useMemo(() => {
+    const now = new Date();
+    return myAppointmentsBase.filter((apt) => {
+      const appointmentDateTime = new Date(apt.startAt || apt.endAt);
+      return (
+        appointmentDateTime.getMonth() === now.getMonth() &&
+        appointmentDateTime.getFullYear() === now.getFullYear()
+      );
+    }).length;
+  }, [myAppointmentsBase]);
+
+  const upcomingAppointmentsCount = useMemo(() => {
+    const now = new Date();
+    return myAppointmentsBase.filter((apt) => {
+      const appointmentDateTime = new Date(apt.startAt || apt.endAt);
+      return (
+        appointmentDateTime.getFullYear() > now.getFullYear() ||
+        (appointmentDateTime.getFullYear() === now.getFullYear() &&
+          appointmentDateTime.getMonth() > now.getMonth())
+      );
+    }).length;
+  }, [myAppointmentsBase]);
 
   const renderReminder = () => {
     if (getUpcomingReminders.length === 0) return null;
@@ -2889,66 +2923,19 @@ export default function AppointmentsPage() {
                   onClick={() => setAppointmentFilter('current')}
                   className={`tab-btn ${appointmentFilter === 'current' ? 'tab-btn--active' : ''}`}
                 >
-                  Este Mês (
-                  {
-                    appointments.filter((apt) => {
-                      const aptDate = new Date(apt.endAt);
-                    aptDate.setHours(0, 0, 0, 0);
-                      const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                      const dIds1 = userDependents.map((d) => `dep_${d.id}`); 
-                   
-                      return (
-                        (apt.clientId === currentUser?.id || dIds1.includes(apt.clientId)) &&
-                        aptDate.getMonth() === today.getMonth() &&
-                        aptDate.getFullYear() === today.getFullYear() && aptDate >= today
-                      );
-                    }).length
-                  }
-                  )
+                  Este Mês ({currentMonthAppointmentsCount})
                 </button>
                 <button
                   onClick={() => setAppointmentFilter('upcoming')}
                   className={`tab-btn ${appointmentFilter === 'upcoming' ? 'tab-btn--active' : ''}`}
                 >
-                  Próximos (
-                  {
-                    appointments.filter((apt) => {
-                      const aptDate = new Date(apt.endAt);
-                    aptDate.setHours(0, 0, 0, 0);
-                      const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                      const dIds2 = userDependents.map((d) => `dep_${d.id}`); 
-                   
-                      return (
-                        (apt.clientId === currentUser?.id || dIds2.includes(apt.clientId)) &&
-                        ((aptDate.getFullYear() > today.getFullYear()) ||
-                          (aptDate.getFullYear() === today.getFullYear() &&
-                            aptDate.getMonth() > today.getMonth())) && aptDate >= today
-                      );
-                    }).length
-                  }
-                  )
+                  Próximos ({upcomingAppointmentsCount})
                 </button>
                 <button
                   onClick={() => setAppointmentFilter('all')}
                   className={`tab-btn ${appointmentFilter === 'all' ? 'tab-btn--active' : ''}`}
                 >
-                  Todos (
-                  {
-                    appointments.filter((apt) => {
-                      
-                    const aptDate = new Date(apt.endAt);
-                    aptDate.setHours(0, 0, 0, 0);
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    const dIds3 = userDependents.map((d) => `dep_${d.id}`); 
-                   
-                      return (apt.clientId === currentUser?.id || dIds3.includes(apt.clientId)) && aptDate >= today;
-                 
-                    }).length
-                  }
-                  )
+                  Todos ({myAppointmentsBase.length})
                 </button>
               </div>
 
