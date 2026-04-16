@@ -6230,114 +6230,127 @@ export default function AdminPage() {
               </div>
 
               <div className="products-grid">
-                {products.map((product) => (
-                  <div
-                    key={product.id}
-                    style={{
-                      background: '#1a1a1a',
-                      border: '1px solid #333',
-                      borderRadius: '12px',
-                      overflow: 'hidden',
-                      transition: 'all 0.2s ease',
-                      opacity: product.active === false ? 0.6 : 1,
-                      position: 'relative',
-                    }}
-                  >
-                    {product.active === false && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          top: '10px',
-                          right: '10px',
-                          background: '#ff4444',
-                          color: '#fff',
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          fontSize: '0.75rem',
-                          fontWeight: 'bold',
-                          zIndex: 1,
-                        }}
-                      >
-                        Desativado
-                      </div>
-                    )}
-                    {product.image && (
-                      <div style={{ width: '100%', height: '180px', overflow: 'hidden' }}>
-                        <img
-                          src={product.image}
-                          alt={product.name}
+                {products.map((product) => {
+                  const productImageUrl = String(
+                    product.imageUrl || product.image || product.image_url || '',
+                  ).trim();
+
+                  return (
+                    <div
+                      key={product.id}
+                      style={{
+                        background: '#1a1a1a',
+                        border: '1px solid #333',
+                        borderRadius: '12px',
+                        overflow: 'hidden',
+                        transition: 'all 0.2s ease',
+                        opacity: product.active === false ? 0.6 : 1,
+                        position: 'relative',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        minHeight: productImageUrl ? 'auto' : '238px',
+                      }}
+                    >
+                      {product.active === false && (
+                        <div
                           style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            filter: product.active === false ? 'grayscale(100%)' : 'none',
+                            position: 'absolute',
+                            top: '10px',
+                            right: '10px',
+                            background: '#ff4444',
+                            color: '#fff',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '0.75rem',
+                            fontWeight: 'bold',
+                            zIndex: 1,
                           }}
-                          onError={(e) => {
-                            e.target.src =
-                              'https://images.unsplash.com/photo-1596728325488-58c87691e9af';
-                          }}
-                        />
-                      </div>
-                    )}
-                    <div style={{ padding: '20px' }}>
-                      <h3
-                        style={{
-                          margin: '0 0 8px 0',
-                          fontSize: '1.25rem',
-                          color: '#fff',
-                        }}
-                      >
-                        {product.name}
-                      </h3>
-                      <p
-                        style={{
-                          margin: '0 0 8px 0',
-                          fontSize: '0.9rem',
-                          color: '#999',
-                        }}
-                      >
-                        {product.category}
-                      </p>
-                      <p
-                        style={{
-                          margin: '0 0 8px 0',
-                          fontSize: '1.5rem',
-                          fontWeight: 'bold',
-                          color: '#ff7a1a',
-                        }}
-                      >
-                        {product.price}
-                      </p>
-                      <p
-                        style={{
-                          margin: '0 0 16px 0',
-                          fontSize: '0.9rem',
-                          color: '#999',
-                        }}
-                      >
-                        Estoque: {product.stock}
-                      </p>
-                      {hasPermission('editProducts') && (
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <Button
-                            onClick={() => openProductModal(product)}
-                            size="small"
-                            className="fluig-btn fluig-btn-edit"
-                          >
-                            Editar
-                          </Button>
-                          <Button
-                            onClick={() => handleDeleteProduct(product)}
-                            size="small"
-                            className="fluig-btn fluig-btn-delete"
-                          >
-                            {product.active !== false ? 'Desativar' : 'Ativar'}
-                          </Button>
+                        >
+                          Desativado
                         </div>
                       )}
+                      {productImageUrl && (
+                        <div style={{ width: '100%', height: '180px', overflow: 'hidden' }}>
+                          <img
+                            src={productImageUrl}
+                            alt={product.name}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                              filter: product.active === false ? 'grayscale(100%)' : 'none',
+                            }}
+                          />
+                        </div>
+                      )}
+                      <div
+                        style={{
+                          padding: productImageUrl ? '20px' : '16px 20px 20px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          flex: 1,
+                        }}
+                      >
+                        <h3
+                          style={{
+                            margin: '0 0 8px 0',
+                            fontSize: '1.25rem',
+                            color: '#fff',
+                          }}
+                        >
+                          {product.name}
+                        </h3>
+                        <p
+                          style={{
+                            margin: '0 0 8px 0',
+                            fontSize: '0.9rem',
+                            color: '#999',
+                          }}
+                        >
+                          {product.category}
+                        </p>
+                        <p
+                          style={{
+                            margin: '0 0 8px 0',
+                            fontSize: '1.5rem',
+                            fontWeight: 'bold',
+                            color: '#ff7a1a',
+                          }}
+                        >
+                          {product.price}
+                        </p>
+                        <p
+                          style={{
+                            margin: '0 0 16px 0',
+                            fontSize: '0.9rem',
+                            color: '#999',
+                          }}
+                        >
+                          Estoque: {product.stock}
+                        </p>
+                        <div style={{ flex: 1 }} />
+                        {hasPermission('editProducts') && (
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <Button
+                              onClick={() => openProductModal(product)}
+                              size="small"
+                              className="fluig-btn fluig-btn-edit"
+                            >
+                              Editar
+                            </Button>
+                            <Button
+                              onClick={() => handleDeleteProduct(product)}
+                              size="small"
+                              className="fluig-btn fluig-btn-delete"
+                            >
+                              {product.active !== false ? 'Desativar' : 'Ativar'}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
