@@ -1988,11 +1988,10 @@ export default function AdminPage() {
   }, [canAccessEarnings, activeTab]);
 
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin && activeTab === 'homeInfo') {
       loadPaymentVisibility();
     }
-  }, [isAdmin, loadPaymentVisibility]);
-
+  }, [isAdmin, activeTab, loadPaymentVisibility]);
 
   const getAppointmentByPayment = (payment) => {
     const appointmentId = payment.appointmentId || payment.appointment?.id;
@@ -4740,6 +4739,57 @@ export default function AdminPage() {
                 <p>Edite os textos que aparecem na página inicial</p>
               </div>
 
+              {isAdmin && (
+                <div
+                  style={{
+                    background: '#1a1a1a',
+                    border: '1px solid #2a2a2a',
+                    borderRadius: '10px',
+                    padding: '1rem',
+                    marginBottom: '1.25rem',
+                  }}
+                >
+                  <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--gold)', fontSize: '1rem' }}>
+                    Formas de pagamento no agendamento
+                  </h3>
+                  <p style={{ margin: '0 0 0.9rem 0', color: '#a8a8a8', fontSize: '0.85rem' }}>
+                    Marque para ocultar no agendamento. Apenas administradores podem alterar.
+                  </p>
+
+                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
+                      <input
+                        type="checkbox"
+                        checked={hiddenBookingPaymentMethods.includes('cartao')}
+                        disabled={savingPaymentVisibility}
+                        onChange={() => handleToggleBookingPaymentVisibility('cartao')}
+                      />
+                      Ocultar Pagar no Cartão
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
+                      <input
+                        type="checkbox"
+                        checked={hiddenBookingPaymentMethods.includes('pix')}
+                        disabled={savingPaymentVisibility}
+                        onChange={() => handleToggleBookingPaymentVisibility('pix')}
+                      />
+                      Ocultar Pagar no Pix
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
+                      <input
+                        type="checkbox"
+                        checked={hiddenBookingPaymentMethods.includes('local')}
+                        disabled={savingPaymentVisibility}
+                        onChange={() => handleToggleBookingPaymentVisibility('local')}
+                      />
+                      Ocultar Pagar no Local
+                    </label>
+                  </div>
+                </div>
+              )}
+
               <form onSubmit={handleSaveHomeInfo} className="home-info-form">
                 <div className="form-section">
                   <h3 className="section-subtitle">Banner de Início</h3>
@@ -5900,57 +5950,6 @@ export default function AdminPage() {
                   </select>
                 </div>
               </div>
-
-              {isAdmin && (
-                <div
-                  style={{
-                    background: '#1a1a1a',
-                    border: '1px solid #2a2a2a',
-                    borderRadius: '10px',
-                    padding: '1rem',
-                    marginBottom: '1.25rem',
-                  }}
-                >
-                  <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--gold)', fontSize: '1rem' }}>
-                    Formas de pagamento no agendamento
-                  </h3>
-                  <p style={{ margin: '0 0 0.9rem 0', color: '#a8a8a8', fontSize: '0.85rem' }}>
-                    Marque para ocultar no agendamento. Apenas administradores podem alterar.
-                  </p>
-
-                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
-                      <input
-                        type="checkbox"
-                        checked={hiddenBookingPaymentMethods.includes('cartao')}
-                        disabled={savingPaymentVisibility}
-                        onChange={() => handleToggleBookingPaymentVisibility('cartao')}
-                      />
-                      Ocultar Pagar no Cartão
-                    </label>
-
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
-                      <input
-                        type="checkbox"
-                        checked={hiddenBookingPaymentMethods.includes('pix')}
-                        disabled={savingPaymentVisibility}
-                        onChange={() => handleToggleBookingPaymentVisibility('pix')}
-                      />
-                      Ocultar Pagar no Pix
-                    </label>
-
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
-                      <input
-                        type="checkbox"
-                        checked={hiddenBookingPaymentMethods.includes('local')}
-                        disabled={savingPaymentVisibility}
-                        onChange={() => handleToggleBookingPaymentVisibility('local')}
-                      />
-                      Ocultar Pagar no Local
-                    </label>
-                  </div>
-                </div>
-              )}
 
               <div className="filters-container">
                 <div className="filter-group">
