@@ -1651,6 +1651,26 @@ export default function AdminPage() {
       : `\n👤 Atendimento para: ${dependentInfo.dependentName}`;
   };
 
+  const getAppointmentStartDate = (appointment) => {
+    const rawStartAt = appointment?.startAt || appointment?.start_at;
+    if (rawStartAt) {
+      const parsedStartAt = new Date(rawStartAt);
+      if (!Number.isNaN(parsedStartAt.getTime())) return parsedStartAt;
+    }
+
+    if (appointment?.date && appointment?.time) {
+      const parsedDateTime = new Date(`${appointment.date}T${appointment.time}:00`);
+      if (!Number.isNaN(parsedDateTime.getTime())) return parsedDateTime;
+    }
+
+    return null;
+  };
+
+  const canCompleteAppointment = (appointment) => {
+    const appointmentStartDate = getAppointmentStartDate(appointment);
+    return Boolean(appointmentStartDate && appointmentStartDate <= new Date());
+  };
+
   const sendWhatsApp = async (appointmentId, type) => {
     try {
       const appointment = appointments.find((apt) => apt.id === appointmentId);
@@ -2550,6 +2570,20 @@ export default function AdminPage() {
         showToast('Agendamento não encontrado.', 'danger');
         return;
       }
+
+      if (appointment.status !== 'confirmed') {
+        showToast('É necessário confirmar o agendamento antes de finalizá-lo.', 'danger');
+        return;
+      }
+
+      if (!canCompleteAppointment(appointment)) {
+        showToast(
+          'Só é possível finalizar no horário ou após o horário do atendimento.',
+          'danger',
+        );
+        return;
+      }
+
       await updateAppointment(appointmentId, { ...appointment, status: 'completed' });
       await loadData();
       showToast('Atendimento finalizado com sucesso!', 'success');
@@ -6016,18 +6050,23 @@ export default function AdminPage() {
                       </thead>
                       <tbody>
                         {filteredAppointmentsAdmin.map((apt) => {
-                          const appointmentDate = new Date(apt.startAt);
-                          const isPast = appointmentDate < new Date();
+                          const appointmentDate = getAppointmentStartDate(apt);
+                          const canComplete = canCompleteAppointment(apt);
+                          const isPast = canComplete;
                           const isCompleted = apt.status === 'completed';
                           const isConfirmed = apt.status === 'confirmed';
 
                           // Formatação da data e hora
-                          const formattedDate = appointmentDate.toLocaleDateString('pt-BR');
-                          const formattedTime = appointmentDate.toLocaleTimeString('pt-BR', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            // timeZone: 'UTC',
-                          });
+                          const formattedDate = appointmentDate
+                            ? appointmentDate.toLocaleDateString('pt-BR')
+                            : 'Data não informada';
+                          const formattedTime = appointmentDate
+                            ? appointmentDate.toLocaleTimeString('pt-BR', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              // timeZone: 'UTC',
+                            })
+                            : 'Horário não informado';
 
                           // Nome do cliente (pode estar em apt.client.name ou apt.clientName)
                           const clientName = apt.client?.name || apt.clientName || 'Cliente';
@@ -6133,7 +6172,7 @@ export default function AdminPage() {
                                       <button onClick={() => sendWhatsApp(apt.id, 'confirm')} className="action-btn-table btn-whatsapp-table">
                                         💬 Mensagem
                                       </button>
-                                      {!isPast && (
+                                      {isConfirmed && canComplete && (
                                         <button onClick={() => handleCompleteAppointment(apt.id)} className="action-btn-table btn-complete-table">
                                           ✅ Finalizar
                                         </button>

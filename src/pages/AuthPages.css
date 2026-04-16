@@ -1858,17 +1858,24 @@
 .barber-table-actions { display: flex; gap: 0.5rem; align-items: center; justify-content: center; flex-wrap: wrap; }
 
 .action-btn-table {
-  padding: 0.5rem 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 108px;
+  height: 34px;
+  padding: 0 0.65rem;
   border: none;
   border-radius: 6px;
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   font-weight: 600;
+  line-height: 1;
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  min-width: 90px;
+  box-sizing: border-box;
+  text-align: center;
 }
 
 .action-btn-table:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
@@ -1908,12 +1915,12 @@
 
 @media (max-width: 1200px) {
   .barber-table-actions { flex-direction: column; gap: 0.4rem; }
-  .action-btn-table { width: 100%; min-width: 120px; }
+  .action-btn-table { width: 100%; min-width: 108px; }
   .fluig-table-children thead th:last-child, .fluig-table-children tbody td:last-child { min-width: 150px; width: auto; }
 }
 
 @media (max-width: 768px) {
-  .action-btn-table { padding: 0.4rem 0.6rem; font-size: 0.75rem; min-width: 100px; }
+  .action-btn-table { height: 32px; padding: 0 0.55rem; font-size: 0.7rem; min-width: 96px; }
 }
 
 
