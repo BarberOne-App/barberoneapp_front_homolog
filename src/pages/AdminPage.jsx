@@ -1289,6 +1289,28 @@ export default function AdminPage() {
       return;
     }
 
+    const [year, month, day] = newBlockedDate.date.split('-').map(Number);
+    const selectedDate = new Date(year, month - 1, day);
+    const isInvalidDate =
+      !year ||
+      !month ||
+      !day ||
+      selectedDate.getFullYear() !== year ||
+      selectedDate.getMonth() !== month - 1 ||
+      selectedDate.getDate() !== day;
+
+    if (isInvalidDate) {
+      showToast('Informe uma data válida para o bloqueio', 'danger');
+      return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (selectedDate < today) {
+      showToast('Não é possível bloquear uma data passada', 'danger');
+      return;
+    }
+
     const isTimeBlock = newBlockedDate.blockType === 'time';
 
     if (isTimeBlock) {
@@ -1336,6 +1358,30 @@ export default function AdminPage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(blockData),
       });
+      const responseText = await response.text();
+      let responseBody = null;
+      try {
+        responseBody = responseText ? JSON.parse(responseText) : null;
+      } catch {
+        responseBody = responseText;
+      }
+
+      if (!response.ok) {
+        const apiMessage =
+          typeof responseBody === 'string'
+            ? responseBody
+            : responseBody?.message || responseBody?.error || responseBody?.errors?.[0]?.message;
+        const conflictMessage = isTimeBlock
+          ? 'Já existe um bloqueio para esse horário.'
+          : 'Já existe um bloqueio para essa data.';
+
+        showToast(
+          response.status === 409 ? conflictMessage : apiMessage || 'Erro ao bloquear data',
+          'danger',
+        );
+        return;
+      }
+
       if (response.ok) {
         showToast(
           isTimeBlock ? 'Horário bloqueado com sucesso!' : 'Data bloqueada com sucesso!',
