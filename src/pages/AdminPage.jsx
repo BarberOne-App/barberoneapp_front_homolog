@@ -292,6 +292,163 @@ export default function AdminPage() {
     notes: '',
   });
 
+  const normalizeText = (value) =>
+    String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+
+  const parseTimeValue = (value) => {
+    const match = String(value || '').match(/(\d{1,2})(?:[:h](\d{2}))?/i);
+    if (!match) return null;
+
+    const hours = Number(match[1]);
+    const minutes = Number(match[2] || 0);
+
+    if (
+      Number.isNaN(hours) ||
+      Number.isNaN(minutes) ||
+      hours < 0 ||
+      hours > 23 ||
+      minutes < 0 ||
+      minutes > 59
+    ) {
+      return null;
+    }
+
+    return hours * 60 + minutes;
+  };
+
+  const parseDaysFromScheduleLine = (line, fallbackIndex = 0) => {
+    const text = normalizeText(line);
+
+    if (text.includes('domingo') || text.includes('dom')) return [0];
+    if (text.includes('seg') || text.includes('segunda')) {
+      if (text.includes('a sab')) return [1, 2, 3, 4, 5, 6];
+      if (text.includes('a sex')) return [1, 2, 3, 4, 5];
+      return [1];
+    }
+    if (text.includes('ter') || text.includes('terca')) {
+      if (text.includes('a sab')) return [2, 3, 4, 5, 6];
+      if (text.includes('a sex')) return [2, 3, 4, 5];
+      return [2];
+    }
+    if (text.includes('qua') || text.includes('quarta')) return [3];
+    if (text.includes('qui') || text.includes('quinta')) return [4];
+    if (text.includes('sex') || text.includes('sexta')) return [5];
+    if (text.includes('sab') || text.includes('sabado')) return [6];
+
+    return fallbackIndex === 0 ? [1] : fallbackIndex === 1 ? [2, 3, 4, 5, 6] : [0];
+  };
+
+  const workingHoursByDay = useMemo(() => {
+    const defaultConfig = {
+      0: null,
+      1: { open: 14 * 60, close: 20 * 60 },
+      2: { open: 9 * 60, close: 20 * 60 },
+      3: { open: 9 * 60, close: 20 * 60 },
+      4: { open: 9 * 60, close: 20 * 60 },
+      5: { open: 9 * 60, close: 20 * 60 },
+      6: { open: 9 * 60, close: 20 * 60 },
+    };
+
+    const config = { ...defaultConfig };
+    const lines = [homeInfo?.scheduleLine1, homeInfo?.scheduleLine2, homeInfo?.scheduleLine3]
+      .map((line, index) => ({ line, index }))
+      .filter(({ line }) => Boolean(String(line || '').trim()));
+
+    lines.forEach(({ line, index }) => {
+      const text = normalizeText(line);
+      const days = parseDaysFromScheduleLine(line, index);
+
+      if (text.includes('fechado')) {
+        days.forEach((day) => {
+          config[day] = null;
+        });
+        return;
+      }
+
+      const times = Array.from(String(line || '').matchAll(/(\d{1,2})(?:[:h](\d{2}))?/g))
+        .map((match) => parseTimeValue(`${match[1]}:${match[2] || '00'}`))
+        .filter((value) => value != null);
+
+      const open = times[0];
+      const close = times[1];
+
+      if (open == null || close == null || close <= open) return;
+
+      days.forEach((day) => {
+        config[day] = { open, close };
+      });
+    });
+
+    return config;
+  }, [homeInfo?.scheduleLine1, homeInfo?.scheduleLine2, homeInfo?.scheduleLine3]);
+
+  const parseDateOnly = (dateStr) => {
+    const [year, month, day] = String(dateStr || '')
+      .split('-')
+      .map(Number);
+    if (!year || !month || !day) return null;
+
+    const date = new Date(year, month - 1, day);
+    if (
+      date.getFullYear() !== year ||
+      date.getMonth() !== month - 1 ||
+      date.getDate() !== day
+    ) {
+      return null;
+    }
+
+    return date;
+  };
+
+  const getWorkingHoursForDate = useCallback(
+    (date) => {
+      if (!date) return null;
+
+      const config = workingHoursByDay[date.getDay()];
+      if (config === null) return null;
+      if (config?.open != null && config?.close != null) return config;
+
+      return { open: 9 * 60, close: 20 * 60 };
+    },
+    [workingHoursByDay],
+  );
+
+  const formatMinutesAsTime = (minutes) => {
+    const hours = String(Math.floor(minutes / 60)).padStart(2, '0');
+    const mins = String(minutes % 60).padStart(2, '0');
+    return `${hours}:${mins}`;
+  };
+
+  const getOffScheduleTimeOptions = useCallback(
+    (dateStr) => {
+      const selectedDate = parseDateOnly(dateStr);
+      if (!selectedDate) return [];
+
+      const workingHours = getWorkingHoursForDate(selectedDate);
+      const options = [];
+
+      for (let current = 0; current < 24 * 60; current += 30) {
+        const isOutsideWorkingHours =
+          !workingHours || current < workingHours.open || current >= workingHours.close;
+
+        if (isOutsideWorkingHours) {
+          options.push(formatMinutesAsTime(current));
+        }
+      }
+
+      return options;
+    },
+    [getWorkingHoursForDate],
+  );
+
+  const offScheduleTimeOptions = useMemo(
+    () => getOffScheduleTimeOptions(offScheduleForm.date),
+    [getOffScheduleTimeOptions, offScheduleForm.date],
+  );
+
   const [plans, setPlans] = useState([]);
   const [plansLoading, setPlansLoading] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
@@ -1431,16 +1588,74 @@ export default function AdminPage() {
     }
   };
 
+  const getAppointmentDependentInfo = (appointment) => {
+    const clientIdRaw = appointment?.clientId || appointment?.client?.id;
+    const dependentIdFromClient = clientIdRaw?.toString().startsWith('dep_')
+      ? clientIdRaw.toString().replace('dep_', '')
+      : null;
+    const dependentId =
+      appointment?.dependentId ||
+      appointment?.dependent?.id ||
+      dependentIdFromClient ||
+      null;
+    const dependent =
+      appointment?.dependent ||
+      allDependents.find((dep) => dependentId && dep.id?.toString() === dependentId.toString()) ||
+      null;
+    const dependentName = appointment?.dependentName || dependent?.name || '';
+    const isDependent =
+      Boolean(appointment?.isDependent) ||
+      Boolean(appointment?.dependent) ||
+      Boolean(appointment?.dependentName) ||
+      Boolean(dependentIdFromClient);
+
+    return {
+      isDependent,
+      dependent,
+      dependentId,
+      dependentName,
+    };
+  };
+
+  const getAppointmentResponsibleUser = async (appointment, dependentInfo) => {
+    const clientIdRaw = appointment?.clientId || appointment?.client?.id;
+    const parentId =
+      dependentInfo?.dependent?.parentId ||
+      dependentInfo?.dependent?.parent_id ||
+      appointment?.dependent?.parentId ||
+      appointment?.dependent?.parent_id ||
+      null;
+
+    if (dependentInfo?.isDependent && parentId) {
+      const localParent = allUsers.find((user) => user.id?.toString() === parentId.toString());
+      return localParent || getUserById(parentId);
+    }
+
+    if (appointment?.client?.phone) return appointment.client;
+    if (clientIdRaw && !clientIdRaw.toString().startsWith('dep_')) return getUserById(clientIdRaw);
+
+    return null;
+  };
+
+  const getAppointmentClientName = (appointment, responsibleUser) =>
+    responsibleUser?.name ||
+    (typeof appointment?.client === 'string' ? appointment.client : appointment?.client?.name) ||
+    appointment?.clientName ||
+    'cliente';
+
+  const getAppointmentTargetLine = (dependentInfo, responsibleName) => {
+    if (!dependentInfo?.isDependent || !dependentInfo?.dependentName) return '';
+
+    return responsibleName && responsibleName !== 'cliente'
+      ? `\n👤 Atendimento para: ${dependentInfo.dependentName}, dependente de ${responsibleName}`
+      : `\n👤 Atendimento para: ${dependentInfo.dependentName}`;
+  };
+
   const sendWhatsApp = async (appointmentId, type) => {
     try {
       const appointment = appointments.find((apt) => apt.id === appointmentId);
       if (!appointment) return;
 
-      const clientIdRaw = appointment.clientId || appointment.client?.id;
-      const appointmentClientName =
-        (typeof appointment.client === 'string' ? appointment.client : appointment.client?.name) ||
-        appointment.clientName ||
-        'cliente';
       const appointmentBarberName =
         appointment.barberName || appointment.barber?.displayName || 'barbeiro';
 
@@ -1466,33 +1681,24 @@ export default function AdminPage() {
             .join(', ')
           : appointment.serviceName || 'Serviço';
 
-      let userData = null;
-      if (clientIdRaw?.toString().startsWith('dep_')) {
-        const depId = clientIdRaw.replace('dep_', '');
-        const dep = allDependents.find((d) => d.id?.toString() === depId);
-        if (dep)
-          userData = allUsers.find((u) => u.id?.toString() === dep.parentId?.toString()) || null;
-      } else {
-        if (appointment.client?.phone) {
-          userData = appointment.client;
-        } else if (clientIdRaw) {
-          userData = await getUserById(clientIdRaw);
-        }
-      }
+      const dependentInfo = getAppointmentDependentInfo(appointment);
+      const userData = await getAppointmentResponsibleUser(appointment, dependentInfo);
       if (!userData || !userData.phone) {
         showToast('Cliente não possui telefone cadastrado.', 'danger');
         return;
       }
       let phone = userData.phone.replace(/\D/g, '');
       if (!phone.startsWith('55')) phone = `55${phone}`;
+      const appointmentClientName = getAppointmentClientName(appointment, userData);
+      const appointmentTargetLine = getAppointmentTargetLine(dependentInfo, appointmentClientName);
 
       let message;
       if (type === 'confirm') {
-        message = `Olá ${appointmentClientName}!\n\nEstamos entrando em contato para CONFIRMAR seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}\n👨‍🦰 Barbeiro: ${appointmentBarberName}\n\nPor favor, responda esta mensagem para confirmar sua presença.`;
+        message = `Olá ${appointmentClientName}!\n\nEstamos entrando em contato para CONFIRMAR seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}\n👨‍🦰 Barbeiro: ${appointmentBarberName}${appointmentTargetLine}\n\nPor favor, responda esta mensagem para confirmar sua presença.`;
       } else if (type === 'cancel') {
-        message = `Olá ${appointmentClientName}!\n\nInformamos que precisaremos realizar o CANCELAMENTO do seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}\n\nNossas desculpas pelo transtorno. Entre em contato conosco para reagendar.`;
+        message = `Olá ${appointmentClientName}!\n\nInformamos que precisaremos realizar o CANCELAMENTO do seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}${appointmentTargetLine}\n\nNossas desculpas pelo transtorno. Entre em contato conosco para reagendar.`;
       } else if (type === 'noshow') {
-        message = `Olá ${appointmentClientName}!\n\nNotamos que você não compareceu ao seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}\n\nSentimos pela ausência. Entre em contato conosco para reagendar quando quiser.`;
+        message = `Olá ${appointmentClientName}!\n\nNotamos que você não compareceu ao seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}${appointmentTargetLine}\n\nSentimos pela ausência. Entre em contato conosco para reagendar quando quiser.`;
       }
       const encodedMessage = encodeURIComponent(message);
       const whatsappUrl = `https://wa.me/${phone}?text=${encodedMessage}`;
@@ -2315,31 +2521,17 @@ export default function AdminPage() {
       showToast('Agendamento confirmado!', 'success');
 
       try {
-        const clientIdRaw = appointment.clientId || appointment.client?.id;
-        const appointmentClientName =
-          (typeof appointment.client === 'string'
-            ? appointment.client
-            : appointment.client?.name) ||
-          appointment.clientName ||
-          'cliente';
-
-        let userData = null;
-        if (clientIdRaw?.toString().startsWith('dep_')) {
-          const depId = clientIdRaw.replace('dep_', '');
-          const dep = allDependents.find((d) => d.id?.toString() === depId);
-          if (dep)
-            userData = allUsers.find((u) => u.id?.toString() === dep.parentId?.toString()) || null;
-        } else {
-          if (appointment.client?.phone) {
-            userData = appointment.client;
-          } else if (clientIdRaw) {
-            userData = await getUserById(clientIdRaw);
-          }
-        }
+        const dependentInfo = getAppointmentDependentInfo(appointment);
+        const userData = await getAppointmentResponsibleUser(appointment, dependentInfo);
         if (userData?.phone) {
           let phone = userData.phone.replace(/\D/g, '');
           if (!phone.startsWith('55')) phone = `55${phone}`;
-          const message = `Olá ${appointmentClientName}! Seu agendamento foi confirmado. Obrigado pela preferência e confiança em nosso serviço! 😊✂️`;
+          const appointmentClientName = getAppointmentClientName(appointment, userData);
+          const appointmentTargetText =
+            dependentInfo.isDependent && dependentInfo.dependentName
+              ? ` Atendimento para ${dependentInfo.dependentName}, dependente de ${appointmentClientName}.`
+              : '';
+          const message = `Olá ${appointmentClientName}! Seu agendamento foi confirmado.${appointmentTargetText} Obrigado pela preferência e confiança em nosso serviço! 😊✂️`;
           const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
           window.open(whatsappUrl, '_blank');
         }
@@ -2406,7 +2598,11 @@ export default function AdminPage() {
   };
 
   const handleOffScheduleFormChange = (field, value) => {
-    setOffScheduleForm((prev) => ({ ...prev, [field]: value }));
+    setOffScheduleForm((prev) => ({
+      ...prev,
+      [field]: value,
+      ...(field === 'date' ? { time: '' } : {}),
+    }));
   };
 
   const handleSubmitOffScheduleAppointment = async (e) => {
@@ -2429,6 +2625,11 @@ export default function AdminPage() {
 
     if (!offScheduleForm.serviceIds.length) {
       showToast('Selecione pelo menos um serviço.', 'danger');
+      return;
+    }
+
+    if (!offScheduleTimeOptions.includes(offScheduleForm.time)) {
+      showToast('Selecione um horário fora do expediente da barbearia.', 'danger');
       return;
     }
 
@@ -5932,9 +6133,6 @@ export default function AdminPage() {
                                       <button onClick={() => sendWhatsApp(apt.id, 'confirm')} className="action-btn-table btn-whatsapp-table">
                                         💬 Mensagem
                                       </button>
-                                      <button onClick={() => sendWhatsApp(apt.id, 'reminder')} className="action-btn-table btn-reminder-table">
-                                        🔔 Lembrete
-                                      </button>
                                       {!isPast && (
                                         <button onClick={() => handleCompleteAppointment(apt.id)} className="action-btn-table btn-complete-table">
                                           ✅ Finalizar
@@ -8797,13 +8995,22 @@ export default function AdminPage() {
                 required
               />
 
-              <Input
-                label="Horário"
-                type="time"
-                value={offScheduleForm.time}
-                onChange={(e) => handleOffScheduleFormChange('time', e.target.value)}
-                required
-              />
+              <div>
+                <label className="form-label">Horário</label>
+                <select
+                  className="form-select"
+                  value={offScheduleForm.time}
+                  onChange={(e) => handleOffScheduleFormChange('time', e.target.value)}
+                  required
+                >
+                  <option value="">Selecione um horário fora do expediente</option>
+                  {offScheduleTimeOptions.map((time) => (
+                    <option key={time} value={time}>
+                      {time}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               <div>
                 <label className="form-label">Serviços</label>
