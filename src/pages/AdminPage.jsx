@@ -6106,7 +6106,7 @@ export default function AdminPage() {
                                     👤 {dependentLabel}
                                   </span>
                                 ) : (
-                                  <span style={{ color: '#555' }}>Você</span>
+                                  <span style={{ color: '#ddd', fontWeight: 600 }}>{clientName}</span>
                                 )}
                               </td>
                               <td>{formattedDate}</td>
