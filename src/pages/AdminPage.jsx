@@ -6177,7 +6177,7 @@ export default function AdminPage() {
                                       </button>
                                       {isConfirmed && canComplete && (
                                         <button onClick={() => handleCompleteAppointment(apt.id)} className="action-btn-table btn-complete-table">
-                                          ✅ Finalizar
+                                          ✅ Concluir
                                         </button>
                                       )}
                                     </>
