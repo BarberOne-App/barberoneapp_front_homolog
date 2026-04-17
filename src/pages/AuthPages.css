@@ -310,6 +310,20 @@
   border-bottom: 2px solid var(--border-dark);
 }
 
+.employee-admin-row {
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.employee-admin-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 18px;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
 .fluig-row-parent:hover {
   background: linear-gradient(135deg, #2d2d2d, #272727);
 }
@@ -329,6 +343,11 @@
   gap: 12px;
   flex: 1;
   min-width: 180px;
+}
+
+.employee-admin-row .fluig-barber-info {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .fluig-barber-photo,
@@ -361,6 +380,22 @@
   gap: 14px;
   flex: 2;
   padding: 0 14px;
+}
+
+.employee-admin-stats {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 140px;
+  min-width: 140px;
+  padding: 0;
+}
+
+.employee-admin-stats .stat-item {
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .stat-item {
@@ -399,6 +434,12 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.employee-admin-actions {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  margin-left: 0;
 }
 
 
@@ -1102,6 +1143,30 @@
   .fluig-row-parent {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .employee-admin-row {
+    gap: 12px;
+  }
+
+  .employee-admin-right {
+    width: 100%;
+    justify-content: flex-start;
+    align-items: flex-start;
+    gap: 12px;
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
+
+  .employee-admin-stats {
+    flex-basis: 120px;
+    min-width: 0;
+  }
+
+  .employee-admin-actions {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
   }
 
   .fluig-barber-stats {

@@ -5202,14 +5202,10 @@ export default function AdminPage() {
                     return (
                       <div key={employee.id} className="fluig-table-parent">
                         <div
-                          className="fluig-row-parent"
+                          className="fluig-row-parent employee-admin-row"
                           onClick={() => (barberData ? toggleBarberExpansion(barberData.id) : null)}
                           style={{ cursor: barberData ? 'pointer' : 'default' }}
                         >
-                          {barberData && (
-                            <div className="fluig-expand-icon">{isExpanded ? '▼' : '▶'}</div>
-                          )}
-
                           <div className="fluig-barber-info">
                             {barberData?.photo ? (
                               <img
@@ -5255,8 +5251,9 @@ export default function AdminPage() {
                             </div>
                           </div>
 
+                          <div className="employee-admin-right">
                           {barberData && (
-                            <div className="fluig-barber-stats">
+                            <div className="fluig-barber-stats employee-admin-stats">
                               <div className="stat-item">
                                 <span className="stat-label">Atendimentos</span>
                                 <span className="stat-value">{stats.appointmentsCount}</span>
@@ -5265,7 +5262,7 @@ export default function AdminPage() {
                           )}
 
                           {isAdmin && (
-                            <div className="fluig-parent-actions">
+                            <div className="fluig-parent-actions employee-admin-actions">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -5303,6 +5300,7 @@ export default function AdminPage() {
                               </button>
                             </div>
                           )}
+                          </div>
                         </div>
 
                         {isExpanded && barberData && (
