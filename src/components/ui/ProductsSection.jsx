@@ -1,20 +1,50 @@
 import { useState, useEffect } from 'react';
 import { Package } from 'lucide-react';
 import SubscriptionModal from './SubscriptionModal.jsx';
+import { getProducts } from '../../services/productService.js';
 import './ProductsSection.css';
 
-export default function ProductsSection({ activeSubscription, onBuyProduct }) {
-  const [products, setProducts] = useState([]);
+const isProductActive = (product) => {
+  const active = product?.active;
+  return active !== false && active !== 'false' && active !== 0 && active !== '0';
+};
+
+const normalizeProduct = (product) => {
+  if (!product || typeof product !== 'object') return null;
+
+  const imageUrl = product.imageUrl || product.image_url || product.image || '';
+
+  return {
+    ...product,
+    name: product.name || '',
+    description: product.description || '',
+    category: product.category || 'Sem categoria',
+    price: product.price ?? 0,
+    stock: Number(product.stock ?? 0),
+    active: product.active ?? true,
+    subscriberDiscount:
+      product.subscriberDiscount ?? product.subscriber_discount ?? product.subscriberdiscount ?? 0,
+    imageUrl,
+    image: product.image || imageUrl,
+    image_url: product.image_url || imageUrl,
+  };
+};
+
+export default function ProductsSection({ products: productsProp = [], activeSubscription, onBuyProduct }) {
+  const [fetchedProducts, setFetchedProducts] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
-    fetch('https://barberoneapp-back-homolog.onrender.com/products')
-      .then(res => res.json())
-      .then(data => setProducts(data))
-      .catch(error => console.error('Erro ao carregar produtos:', error));
+    if (productsProp.length > 0) return;
 
+    getProducts()
+      .then((data) => setFetchedProducts(Array.isArray(data) ? data : []))
+      .catch((error) => console.error('Erro ao carregar produtos:', error));
+  }, [productsProp.length]);
+
+  useEffect(() => {
     const user = localStorage.getItem('currentUser');
     if (user) {
       try {
@@ -24,6 +54,10 @@ export default function ProductsSection({ activeSubscription, onBuyProduct }) {
       }
     }
   }, []);
+
+  const products = (productsProp.length > 0 ? productsProp : fetchedProducts)
+    .map(normalizeProduct)
+    .filter((product) => product && isProductActive(product));
 
   const categories = [
     { id: 'all', label: 'Todos' },
@@ -88,9 +122,9 @@ export default function ProductsSection({ activeSubscription, onBuyProduct }) {
     };
   };
 
-  const filteredProducts = products.filter(product => {
-    return selectedCategory === 'all' || product.category === selectedCategory;
-  });
+  const filteredProducts = products.filter(product =>
+    selectedCategory === 'all' || product.category === selectedCategory
+  );
 
   return (
     <section className="products-section">
@@ -145,8 +179,8 @@ export default function ProductsSection({ activeSubscription, onBuyProduct }) {
                 )}
 
                 <div className="product-card__image">
-                  {product.image_url ? (
-                    <img src={product.image_url} alt={product.name} />
+                  {product.imageUrl ? (
+                    <img src={product.imageUrl} alt={product.name} />
                   ) : (
                     <div className="product-card__no-image">
                       <Package />

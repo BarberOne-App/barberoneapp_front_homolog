@@ -292,6 +292,163 @@ export default function AdminPage() {
     notes: '',
   });
 
+  const normalizeText = (value) =>
+    String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+
+  const parseTimeValue = (value) => {
+    const match = String(value || '').match(/(\d{1,2})(?:[:h](\d{2}))?/i);
+    if (!match) return null;
+
+    const hours = Number(match[1]);
+    const minutes = Number(match[2] || 0);
+
+    if (
+      Number.isNaN(hours) ||
+      Number.isNaN(minutes) ||
+      hours < 0 ||
+      hours > 23 ||
+      minutes < 0 ||
+      minutes > 59
+    ) {
+      return null;
+    }
+
+    return hours * 60 + minutes;
+  };
+
+  const parseDaysFromScheduleLine = (line, fallbackIndex = 0) => {
+    const text = normalizeText(line);
+
+    if (text.includes('domingo') || text.includes('dom')) return [0];
+    if (text.includes('seg') || text.includes('segunda')) {
+      if (text.includes('a sab')) return [1, 2, 3, 4, 5, 6];
+      if (text.includes('a sex')) return [1, 2, 3, 4, 5];
+      return [1];
+    }
+    if (text.includes('ter') || text.includes('terca')) {
+      if (text.includes('a sab')) return [2, 3, 4, 5, 6];
+      if (text.includes('a sex')) return [2, 3, 4, 5];
+      return [2];
+    }
+    if (text.includes('qua') || text.includes('quarta')) return [3];
+    if (text.includes('qui') || text.includes('quinta')) return [4];
+    if (text.includes('sex') || text.includes('sexta')) return [5];
+    if (text.includes('sab') || text.includes('sabado')) return [6];
+
+    return fallbackIndex === 0 ? [1] : fallbackIndex === 1 ? [2, 3, 4, 5, 6] : [0];
+  };
+
+  const workingHoursByDay = useMemo(() => {
+    const defaultConfig = {
+      0: null,
+      1: { open: 14 * 60, close: 20 * 60 },
+      2: { open: 9 * 60, close: 20 * 60 },
+      3: { open: 9 * 60, close: 20 * 60 },
+      4: { open: 9 * 60, close: 20 * 60 },
+      5: { open: 9 * 60, close: 20 * 60 },
+      6: { open: 9 * 60, close: 20 * 60 },
+    };
+
+    const config = { ...defaultConfig };
+    const lines = [homeInfo?.scheduleLine1, homeInfo?.scheduleLine2, homeInfo?.scheduleLine3]
+      .map((line, index) => ({ line, index }))
+      .filter(({ line }) => Boolean(String(line || '').trim()));
+
+    lines.forEach(({ line, index }) => {
+      const text = normalizeText(line);
+      const days = parseDaysFromScheduleLine(line, index);
+
+      if (text.includes('fechado')) {
+        days.forEach((day) => {
+          config[day] = null;
+        });
+        return;
+      }
+
+      const times = Array.from(String(line || '').matchAll(/(\d{1,2})(?:[:h](\d{2}))?/g))
+        .map((match) => parseTimeValue(`${match[1]}:${match[2] || '00'}`))
+        .filter((value) => value != null);
+
+      const open = times[0];
+      const close = times[1];
+
+      if (open == null || close == null || close <= open) return;
+
+      days.forEach((day) => {
+        config[day] = { open, close };
+      });
+    });
+
+    return config;
+  }, [homeInfo?.scheduleLine1, homeInfo?.scheduleLine2, homeInfo?.scheduleLine3]);
+
+  const parseDateOnly = (dateStr) => {
+    const [year, month, day] = String(dateStr || '')
+      .split('-')
+      .map(Number);
+    if (!year || !month || !day) return null;
+
+    const date = new Date(year, month - 1, day);
+    if (
+      date.getFullYear() !== year ||
+      date.getMonth() !== month - 1 ||
+      date.getDate() !== day
+    ) {
+      return null;
+    }
+
+    return date;
+  };
+
+  const getWorkingHoursForDate = useCallback(
+    (date) => {
+      if (!date) return null;
+
+      const config = workingHoursByDay[date.getDay()];
+      if (config === null) return null;
+      if (config?.open != null && config?.close != null) return config;
+
+      return { open: 9 * 60, close: 20 * 60 };
+    },
+    [workingHoursByDay],
+  );
+
+  const formatMinutesAsTime = (minutes) => {
+    const hours = String(Math.floor(minutes / 60)).padStart(2, '0');
+    const mins = String(minutes % 60).padStart(2, '0');
+    return `${hours}:${mins}`;
+  };
+
+  const getOffScheduleTimeOptions = useCallback(
+    (dateStr) => {
+      const selectedDate = parseDateOnly(dateStr);
+      if (!selectedDate) return [];
+
+      const workingHours = getWorkingHoursForDate(selectedDate);
+      const options = [];
+
+      for (let current = 0; current < 24 * 60; current += 30) {
+        const isOutsideWorkingHours =
+          !workingHours || current < workingHours.open || current >= workingHours.close;
+
+        if (isOutsideWorkingHours) {
+          options.push(formatMinutesAsTime(current));
+        }
+      }
+
+      return options;
+    },
+    [getWorkingHoursForDate],
+  );
+
+  const offScheduleTimeOptions = useMemo(
+    () => getOffScheduleTimeOptions(offScheduleForm.date),
+    [getOffScheduleTimeOptions, offScheduleForm.date],
+  );
+
   const [plans, setPlans] = useState([]);
   const [plansLoading, setPlansLoading] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
@@ -1431,16 +1588,94 @@ export default function AdminPage() {
     }
   };
 
+  const getAppointmentDependentInfo = (appointment) => {
+    const clientIdRaw = appointment?.clientId || appointment?.client?.id;
+    const dependentIdFromClient = clientIdRaw?.toString().startsWith('dep_')
+      ? clientIdRaw.toString().replace('dep_', '')
+      : null;
+    const dependentId =
+      appointment?.dependentId ||
+      appointment?.dependent?.id ||
+      dependentIdFromClient ||
+      null;
+    const dependent =
+      appointment?.dependent ||
+      allDependents.find((dep) => dependentId && dep.id?.toString() === dependentId.toString()) ||
+      null;
+    const dependentName = appointment?.dependentName || dependent?.name || '';
+    const isDependent =
+      Boolean(appointment?.isDependent) ||
+      Boolean(appointment?.dependent) ||
+      Boolean(appointment?.dependentName) ||
+      Boolean(dependentIdFromClient);
+
+    return {
+      isDependent,
+      dependent,
+      dependentId,
+      dependentName,
+    };
+  };
+
+  const getAppointmentResponsibleUser = async (appointment, dependentInfo) => {
+    const clientIdRaw = appointment?.clientId || appointment?.client?.id;
+    const parentId =
+      dependentInfo?.dependent?.parentId ||
+      dependentInfo?.dependent?.parent_id ||
+      appointment?.dependent?.parentId ||
+      appointment?.dependent?.parent_id ||
+      null;
+
+    if (dependentInfo?.isDependent && parentId) {
+      const localParent = allUsers.find((user) => user.id?.toString() === parentId.toString());
+      return localParent || getUserById(parentId);
+    }
+
+    if (appointment?.client?.phone) return appointment.client;
+    if (clientIdRaw && !clientIdRaw.toString().startsWith('dep_')) return getUserById(clientIdRaw);
+
+    return null;
+  };
+
+  const getAppointmentClientName = (appointment, responsibleUser) =>
+    responsibleUser?.name ||
+    (typeof appointment?.client === 'string' ? appointment.client : appointment?.client?.name) ||
+    appointment?.clientName ||
+    'cliente';
+
+  const getAppointmentTargetLine = (dependentInfo, responsibleName) => {
+    if (!dependentInfo?.isDependent || !dependentInfo?.dependentName) return '';
+
+    return responsibleName && responsibleName !== 'cliente'
+      ? `\n👤 Atendimento para: ${dependentInfo.dependentName}, dependente de ${responsibleName}`
+      : `\n👤 Atendimento para: ${dependentInfo.dependentName}`;
+  };
+
+  const getAppointmentStartDate = (appointment) => {
+    const rawStartAt = appointment?.startAt || appointment?.start_at;
+    if (rawStartAt) {
+      const parsedStartAt = new Date(rawStartAt);
+      if (!Number.isNaN(parsedStartAt.getTime())) return parsedStartAt;
+    }
+
+    if (appointment?.date && appointment?.time) {
+      const parsedDateTime = new Date(`${appointment.date}T${appointment.time}:00`);
+      if (!Number.isNaN(parsedDateTime.getTime())) return parsedDateTime;
+    }
+
+    return null;
+  };
+
+  const canCompleteAppointment = (appointment) => {
+    const appointmentStartDate = getAppointmentStartDate(appointment);
+    return Boolean(appointmentStartDate && appointmentStartDate <= new Date());
+  };
+
   const sendWhatsApp = async (appointmentId, type) => {
     try {
       const appointment = appointments.find((apt) => apt.id === appointmentId);
       if (!appointment) return;
 
-      const clientIdRaw = appointment.clientId || appointment.client?.id;
-      const appointmentClientName =
-        (typeof appointment.client === 'string' ? appointment.client : appointment.client?.name) ||
-        appointment.clientName ||
-        'cliente';
       const appointmentBarberName =
         appointment.barberName || appointment.barber?.displayName || 'barbeiro';
 
@@ -1466,33 +1701,24 @@ export default function AdminPage() {
             .join(', ')
           : appointment.serviceName || 'Serviço';
 
-      let userData = null;
-      if (clientIdRaw?.toString().startsWith('dep_')) {
-        const depId = clientIdRaw.replace('dep_', '');
-        const dep = allDependents.find((d) => d.id?.toString() === depId);
-        if (dep)
-          userData = allUsers.find((u) => u.id?.toString() === dep.parentId?.toString()) || null;
-      } else {
-        if (appointment.client?.phone) {
-          userData = appointment.client;
-        } else if (clientIdRaw) {
-          userData = await getUserById(clientIdRaw);
-        }
-      }
+      const dependentInfo = getAppointmentDependentInfo(appointment);
+      const userData = await getAppointmentResponsibleUser(appointment, dependentInfo);
       if (!userData || !userData.phone) {
         showToast('Cliente não possui telefone cadastrado.', 'danger');
         return;
       }
       let phone = userData.phone.replace(/\D/g, '');
       if (!phone.startsWith('55')) phone = `55${phone}`;
+      const appointmentClientName = getAppointmentClientName(appointment, userData);
+      const appointmentTargetLine = getAppointmentTargetLine(dependentInfo, appointmentClientName);
 
       let message;
       if (type === 'confirm') {
-        message = `Olá ${appointmentClientName}!\n\nEstamos entrando em contato para CONFIRMAR seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}\n👨‍🦰 Barbeiro: ${appointmentBarberName}\n\nPor favor, responda esta mensagem para confirmar sua presença.`;
+        message = `Olá ${appointmentClientName}!\n\nEstamos entrando em contato para CONFIRMAR seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}\n👨‍🦰 Barbeiro: ${appointmentBarberName}${appointmentTargetLine}\n\nPor favor, responda esta mensagem para confirmar sua presença.`;
       } else if (type === 'cancel') {
-        message = `Olá ${appointmentClientName}!\n\nInformamos que precisaremos realizar o CANCELAMENTO do seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}\n\nNossas desculpas pelo transtorno. Entre em contato conosco para reagendar.`;
+        message = `Olá ${appointmentClientName}!\n\nInformamos que precisaremos realizar o CANCELAMENTO do seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}${appointmentTargetLine}\n\nNossas desculpas pelo transtorno. Entre em contato conosco para reagendar.`;
       } else if (type === 'noshow') {
-        message = `Olá ${appointmentClientName}!\n\nNotamos que você não compareceu ao seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}\n\nSentimos pela ausência. Entre em contato conosco para reagendar quando quiser.`;
+        message = `Olá ${appointmentClientName}!\n\nNotamos que você não compareceu ao seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}${appointmentTargetLine}\n\nSentimos pela ausência. Entre em contato conosco para reagendar quando quiser.`;
       }
       const encodedMessage = encodeURIComponent(message);
       const whatsappUrl = `https://wa.me/${phone}?text=${encodedMessage}`;
@@ -1762,11 +1988,10 @@ export default function AdminPage() {
   }, [canAccessEarnings, activeTab]);
 
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin && activeTab === 'homeInfo') {
       loadPaymentVisibility();
     }
-  }, [isAdmin, loadPaymentVisibility]);
-
+  }, [isAdmin, activeTab, loadPaymentVisibility]);
 
   const getAppointmentByPayment = (payment) => {
     const appointmentId = payment.appointmentId || payment.appointment?.id;
@@ -2315,31 +2540,17 @@ export default function AdminPage() {
       showToast('Agendamento confirmado!', 'success');
 
       try {
-        const clientIdRaw = appointment.clientId || appointment.client?.id;
-        const appointmentClientName =
-          (typeof appointment.client === 'string'
-            ? appointment.client
-            : appointment.client?.name) ||
-          appointment.clientName ||
-          'cliente';
-
-        let userData = null;
-        if (clientIdRaw?.toString().startsWith('dep_')) {
-          const depId = clientIdRaw.replace('dep_', '');
-          const dep = allDependents.find((d) => d.id?.toString() === depId);
-          if (dep)
-            userData = allUsers.find((u) => u.id?.toString() === dep.parentId?.toString()) || null;
-        } else {
-          if (appointment.client?.phone) {
-            userData = appointment.client;
-          } else if (clientIdRaw) {
-            userData = await getUserById(clientIdRaw);
-          }
-        }
+        const dependentInfo = getAppointmentDependentInfo(appointment);
+        const userData = await getAppointmentResponsibleUser(appointment, dependentInfo);
         if (userData?.phone) {
           let phone = userData.phone.replace(/\D/g, '');
           if (!phone.startsWith('55')) phone = `55${phone}`;
-          const message = `Olá ${appointmentClientName}! Seu agendamento foi confirmado. Obrigado pela preferência e confiança em nosso serviço! 😊✂️`;
+          const appointmentClientName = getAppointmentClientName(appointment, userData);
+          const appointmentTargetText =
+            dependentInfo.isDependent && dependentInfo.dependentName
+              ? ` Atendimento para ${dependentInfo.dependentName}, dependente de ${appointmentClientName}.`
+              : '';
+          const message = `Olá ${appointmentClientName}! Seu agendamento foi confirmado.${appointmentTargetText} Obrigado pela preferência e confiança em nosso serviço! 😊✂️`;
           const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
           window.open(whatsappUrl, '_blank');
         }
@@ -2358,6 +2569,20 @@ export default function AdminPage() {
         showToast('Agendamento não encontrado.', 'danger');
         return;
       }
+
+      if (appointment.status !== 'confirmed') {
+        showToast('É necessário confirmar o agendamento antes de finalizá-lo.', 'danger');
+        return;
+      }
+
+      if (!canCompleteAppointment(appointment)) {
+        showToast(
+          'Só é possível finalizar no horário ou após o horário do atendimento.',
+          'danger',
+        );
+        return;
+      }
+
       await updateAppointment(appointmentId, { ...appointment, status: 'completed' });
       await loadData();
       showToast('Atendimento finalizado com sucesso!', 'success');
@@ -2406,7 +2631,11 @@ export default function AdminPage() {
   };
 
   const handleOffScheduleFormChange = (field, value) => {
-    setOffScheduleForm((prev) => ({ ...prev, [field]: value }));
+    setOffScheduleForm((prev) => ({
+      ...prev,
+      [field]: value,
+      ...(field === 'date' ? { time: '' } : {}),
+    }));
   };
 
   const handleSubmitOffScheduleAppointment = async (e) => {
@@ -2429,6 +2658,11 @@ export default function AdminPage() {
 
     if (!offScheduleForm.serviceIds.length) {
       showToast('Selecione pelo menos um serviço.', 'danger');
+      return;
+    }
+
+    if (!offScheduleTimeOptions.includes(offScheduleForm.time)) {
+      showToast('Selecione um horário fora do expediente da barbearia.', 'danger');
       return;
     }
 
@@ -4512,6 +4746,57 @@ export default function AdminPage() {
                 <p>Edite os textos que aparecem na página inicial</p>
               </div>
 
+              {isAdmin && (
+                <div
+                  style={{
+                    background: '#1a1a1a',
+                    border: '1px solid #2a2a2a',
+                    borderRadius: '10px',
+                    padding: '1rem',
+                    marginBottom: '1.25rem',
+                  }}
+                >
+                  <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--gold)', fontSize: '1rem' }}>
+                    Formas de pagamento no agendamento
+                  </h3>
+                  <p style={{ margin: '0 0 0.9rem 0', color: '#a8a8a8', fontSize: '0.85rem' }}>
+                    Marque para ocultar no agendamento. Apenas administradores podem alterar.
+                  </p>
+
+                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
+                      <input
+                        type="checkbox"
+                        checked={hiddenBookingPaymentMethods.includes('cartao')}
+                        disabled={savingPaymentVisibility}
+                        onChange={() => handleToggleBookingPaymentVisibility('cartao')}
+                      />
+                      Ocultar Pagar no Cartão
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
+                      <input
+                        type="checkbox"
+                        checked={hiddenBookingPaymentMethods.includes('pix')}
+                        disabled={savingPaymentVisibility}
+                        onChange={() => handleToggleBookingPaymentVisibility('pix')}
+                      />
+                      Ocultar Pagar no Pix
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
+                      <input
+                        type="checkbox"
+                        checked={hiddenBookingPaymentMethods.includes('local')}
+                        disabled={savingPaymentVisibility}
+                        onChange={() => handleToggleBookingPaymentVisibility('local')}
+                      />
+                      Ocultar Pagar no Local
+                    </label>
+                  </div>
+                </div>
+              )}
+
               <form onSubmit={handleSaveHomeInfo} className="home-info-form">
                 <div className="form-section">
                   <h3 className="section-subtitle">Banner de Início</h3>
@@ -4924,14 +5209,10 @@ export default function AdminPage() {
                     return (
                       <div key={employee.id} className="fluig-table-parent">
                         <div
-                          className="fluig-row-parent"
+                          className="fluig-row-parent employee-admin-row"
                           onClick={() => (barberData ? toggleBarberExpansion(barberData.id) : null)}
                           style={{ cursor: barberData ? 'pointer' : 'default' }}
                         >
-                          {barberData && (
-                            <div className="fluig-expand-icon">{isExpanded ? '▼' : '▶'}</div>
-                          )}
-
                           <div className="fluig-barber-info">
                             {barberData?.photo ? (
                               <img
@@ -4977,8 +5258,9 @@ export default function AdminPage() {
                             </div>
                           </div>
 
+                          <div className="employee-admin-right">
                           {barberData && (
-                            <div className="fluig-barber-stats">
+                            <div className="fluig-barber-stats employee-admin-stats">
                               <div className="stat-item">
                                 <span className="stat-label">Atendimentos</span>
                                 <span className="stat-value">{stats.appointmentsCount}</span>
@@ -4987,7 +5269,7 @@ export default function AdminPage() {
                           )}
 
                           {isAdmin && (
-                            <div className="fluig-parent-actions">
+                            <div className="fluig-parent-actions employee-admin-actions">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -5025,6 +5307,7 @@ export default function AdminPage() {
                               </button>
                             </div>
                           )}
+                          </div>
                         </div>
 
                         {isExpanded && barberData && (
@@ -5673,57 +5956,6 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {isAdmin && (
-                <div
-                  style={{
-                    background: '#1a1a1a',
-                    border: '1px solid #2a2a2a',
-                    borderRadius: '10px',
-                    padding: '1rem',
-                    marginBottom: '1.25rem',
-                  }}
-                >
-                  <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--gold)', fontSize: '1rem' }}>
-                    Formas de pagamento no agendamento
-                  </h3>
-                  <p style={{ margin: '0 0 0.9rem 0', color: '#a8a8a8', fontSize: '0.85rem' }}>
-                    Marque para ocultar no agendamento. Apenas administradores podem alterar.
-                  </p>
-
-                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
-                      <input
-                        type="checkbox"
-                        checked={hiddenBookingPaymentMethods.includes('cartao')}
-                        disabled={savingPaymentVisibility}
-                        onChange={() => handleToggleBookingPaymentVisibility('cartao')}
-                      />
-                      Ocultar Pagar no Cartão
-                    </label>
-
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
-                      <input
-                        type="checkbox"
-                        checked={hiddenBookingPaymentMethods.includes('pix')}
-                        disabled={savingPaymentVisibility}
-                        onChange={() => handleToggleBookingPaymentVisibility('pix')}
-                      />
-                      Ocultar Pagar no Pix
-                    </label>
-
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
-                      <input
-                        type="checkbox"
-                        checked={hiddenBookingPaymentMethods.includes('local')}
-                        disabled={savingPaymentVisibility}
-                        onChange={() => handleToggleBookingPaymentVisibility('local')}
-                      />
-                      Ocultar Pagar no Local
-                    </label>
-                  </div>
-                </div>
-              )}
-
               <div className="filters-container">
                 <div className="filter-group">
                   <label>Data Específica:</label>
@@ -5822,18 +6054,23 @@ export default function AdminPage() {
                       </thead>
                       <tbody>
                         {filteredAppointmentsAdmin.map((apt) => {
-                          const appointmentDate = new Date(apt.startAt);
-                          const isPast = appointmentDate < new Date();
+                          const appointmentDate = getAppointmentStartDate(apt);
+                          const canComplete = canCompleteAppointment(apt);
+                          const isPast = canComplete;
                           const isCompleted = apt.status === 'completed';
                           const isConfirmed = apt.status === 'confirmed';
 
                           // Formatação da data e hora
-                          const formattedDate = appointmentDate.toLocaleDateString('pt-BR');
-                          const formattedTime = appointmentDate.toLocaleTimeString('pt-BR', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            // timeZone: 'UTC',
-                          });
+                          const formattedDate = appointmentDate
+                            ? appointmentDate.toLocaleDateString('pt-BR')
+                            : 'Data não informada';
+                          const formattedTime = appointmentDate
+                            ? appointmentDate.toLocaleTimeString('pt-BR', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              // timeZone: 'UTC',
+                            })
+                            : 'Horário não informado';
 
                           // Nome do cliente (pode estar em apt.client.name ou apt.clientName)
                           const clientName = apt.client?.name || apt.clientName || 'Cliente';
@@ -5873,7 +6110,7 @@ export default function AdminPage() {
                                     👤 {dependentLabel}
                                   </span>
                                 ) : (
-                                  <span style={{ color: '#555' }}>Você</span>
+                                  <span style={{ color: '#ddd', fontWeight: 600 }}>{clientName}</span>
                                 )}
                               </td>
                               <td>{formattedDate}</td>
@@ -5939,12 +6176,12 @@ export default function AdminPage() {
                                       <button onClick={() => sendWhatsApp(apt.id, 'confirm')} className="action-btn-table btn-whatsapp-table">
                                         💬 Mensagem
                                       </button>
-                                      <button onClick={() => sendWhatsApp(apt.id, 'reminder')} className="action-btn-table btn-reminder-table">
-                                        🔔 Lembrete
+                                      <button onClick={() => handleDeleteAppointment(apt.id)} className="action-btn-table btn-cancel-table">
+                                        Cancelar
                                       </button>
-                                      {!isPast && (
+                                      {isConfirmed && canComplete && (
                                         <button onClick={() => handleCompleteAppointment(apt.id)} className="action-btn-table btn-complete-table">
-                                          ✅ Finalizar
+                                          ✅ Concluir
                                         </button>
                                       )}
                                     </>
@@ -5998,114 +6235,127 @@ export default function AdminPage() {
               </div>
 
               <div className="products-grid">
-                {products.map((product) => (
-                  <div
-                    key={product.id}
-                    style={{
-                      background: '#1a1a1a',
-                      border: '1px solid #333',
-                      borderRadius: '12px',
-                      overflow: 'hidden',
-                      transition: 'all 0.2s ease',
-                      opacity: product.active === false ? 0.6 : 1,
-                      position: 'relative',
-                    }}
-                  >
-                    {product.active === false && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          top: '10px',
-                          right: '10px',
-                          background: '#ff4444',
-                          color: '#fff',
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          fontSize: '0.75rem',
-                          fontWeight: 'bold',
-                          zIndex: 1,
-                        }}
-                      >
-                        Desativado
-                      </div>
-                    )}
-                    {product.image && (
-                      <div style={{ width: '100%', height: '180px', overflow: 'hidden' }}>
-                        <img
-                          src={product.image}
-                          alt={product.name}
+                {products.map((product) => {
+                  const productImageUrl = String(
+                    product.imageUrl || product.image || product.image_url || '',
+                  ).trim();
+
+                  return (
+                    <div
+                      key={product.id}
+                      style={{
+                        background: '#1a1a1a',
+                        border: '1px solid #333',
+                        borderRadius: '12px',
+                        overflow: 'hidden',
+                        transition: 'all 0.2s ease',
+                        opacity: product.active === false ? 0.6 : 1,
+                        position: 'relative',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        minHeight: productImageUrl ? 'auto' : '238px',
+                      }}
+                    >
+                      {product.active === false && (
+                        <div
                           style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            filter: product.active === false ? 'grayscale(100%)' : 'none',
+                            position: 'absolute',
+                            top: '10px',
+                            right: '10px',
+                            background: '#ff4444',
+                            color: '#fff',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '0.75rem',
+                            fontWeight: 'bold',
+                            zIndex: 1,
                           }}
-                          onError={(e) => {
-                            e.target.src =
-                              'https://images.unsplash.com/photo-1596728325488-58c87691e9af';
-                          }}
-                        />
-                      </div>
-                    )}
-                    <div style={{ padding: '20px' }}>
-                      <h3
-                        style={{
-                          margin: '0 0 8px 0',
-                          fontSize: '1.25rem',
-                          color: '#fff',
-                        }}
-                      >
-                        {product.name}
-                      </h3>
-                      <p
-                        style={{
-                          margin: '0 0 8px 0',
-                          fontSize: '0.9rem',
-                          color: '#999',
-                        }}
-                      >
-                        {product.category}
-                      </p>
-                      <p
-                        style={{
-                          margin: '0 0 8px 0',
-                          fontSize: '1.5rem',
-                          fontWeight: 'bold',
-                          color: '#ff7a1a',
-                        }}
-                      >
-                        {product.price}
-                      </p>
-                      <p
-                        style={{
-                          margin: '0 0 16px 0',
-                          fontSize: '0.9rem',
-                          color: '#999',
-                        }}
-                      >
-                        Estoque: {product.stock}
-                      </p>
-                      {hasPermission('editProducts') && (
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <Button
-                            onClick={() => openProductModal(product)}
-                            size="small"
-                            className="fluig-btn fluig-btn-edit"
-                          >
-                            Editar
-                          </Button>
-                          <Button
-                            onClick={() => handleDeleteProduct(product)}
-                            size="small"
-                            className="fluig-btn fluig-btn-delete"
-                          >
-                            {product.active !== false ? 'Desativar' : 'Ativar'}
-                          </Button>
+                        >
+                          Desativado
                         </div>
                       )}
+                      {productImageUrl && (
+                        <div style={{ width: '100%', height: '180px', overflow: 'hidden' }}>
+                          <img
+                            src={productImageUrl}
+                            alt={product.name}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                              filter: product.active === false ? 'grayscale(100%)' : 'none',
+                            }}
+                          />
+                        </div>
+                      )}
+                      <div
+                        style={{
+                          padding: productImageUrl ? '20px' : '16px 20px 20px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          flex: 1,
+                        }}
+                      >
+                        <h3
+                          style={{
+                            margin: '0 0 8px 0',
+                            fontSize: '1.25rem',
+                            color: '#fff',
+                          }}
+                        >
+                          {product.name}
+                        </h3>
+                        <p
+                          style={{
+                            margin: '0 0 8px 0',
+                            fontSize: '0.9rem',
+                            color: '#999',
+                          }}
+                        >
+                          {product.category}
+                        </p>
+                        <p
+                          style={{
+                            margin: '0 0 8px 0',
+                            fontSize: '1.5rem',
+                            fontWeight: 'bold',
+                            color: '#ff7a1a',
+                          }}
+                        >
+                          {product.price}
+                        </p>
+                        <p
+                          style={{
+                            margin: '0 0 16px 0',
+                            fontSize: '0.9rem',
+                            color: '#999',
+                          }}
+                        >
+                          Estoque: {product.stock}
+                        </p>
+                        <div style={{ flex: 1 }} />
+                        {hasPermission('editProducts') && (
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <Button
+                              onClick={() => openProductModal(product)}
+                              size="small"
+                              className="fluig-btn fluig-btn-edit"
+                            >
+                              Editar
+                            </Button>
+                            <Button
+                              onClick={() => handleDeleteProduct(product)}
+                              size="small"
+                              className="fluig-btn fluig-btn-delete"
+                            >
+                              {product.active !== false ? 'Desativar' : 'Ativar'}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -8804,13 +9054,22 @@ export default function AdminPage() {
                 required
               />
 
-              <Input
-                label="Horário"
-                type="time"
-                value={offScheduleForm.time}
-                onChange={(e) => handleOffScheduleFormChange('time', e.target.value)}
-                required
-              />
+              <div>
+                <label className="form-label">Horário</label>
+                <select
+                  className="form-select"
+                  value={offScheduleForm.time}
+                  onChange={(e) => handleOffScheduleFormChange('time', e.target.value)}
+                  required
+                >
+                  <option value="">Selecione um horário fora do expediente</option>
+                  {offScheduleTimeOptions.map((time) => (
+                    <option key={time} value={time}>
+                      {time}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               <div>
                 <label className="form-label">Serviços</label>
