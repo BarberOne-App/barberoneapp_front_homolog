@@ -208,6 +208,8 @@ export default function BarberCard({
   isServiceCoveredByPlan = () => false,
   isActive = false,
   onSelectBarber = () => {},
+  disabled = false,
+  disabledReason = '',
 }) {
   const [selectedServices, setSelectedServices] = useState([]);
   const [selectedTime, setSelectedTime] = useState('');
@@ -236,6 +238,11 @@ export default function BarberCard({
   }, [selectedDate]);
 
   const toggleService = (service) => {
+    if (disabled) {
+      if (disabledReason && showToast) showToast(disabledReason, 'warning');
+      return;
+    }
+
     onSelectBarber?.();
     setSelectedServices((prev) => {
       const exists = prev.find((s) => s.id === service.id);
@@ -294,6 +301,11 @@ export default function BarberCard({
   };
 
   const handleConfirm = () => {
+    if (disabled) {
+      if (disabledReason && showToast) showToast(disabledReason, 'warning');
+      return;
+    }
+
     if (selectedServices.length === 0) {
       showToast
         ? showToast('Selecione pelo menos um serviço.', 'danger')
@@ -341,7 +353,10 @@ export default function BarberCard({
   ).length;
 
   return (
-    <div className="barber-card">
+    <div
+      className={`barber-card ${isActive ? 'barber-card--active' : ''} ${disabled ? 'barber-card--disabled' : ''}`}
+      aria-disabled={disabled}
+    >
       <div className="barber-card__header">
         {barber?.photo && !avatarError ? (
           <img
@@ -356,6 +371,9 @@ export default function BarberCard({
         <div className="barber-card__info">
           <h3 className="barber-card__name">{barberName}</h3>
           <p className="barber-card__specialty">{barber.specialty}</p>
+          {disabled && disabledReason && (
+            <p className="barber-card__disabled-reason">{disabledReason}</p>
+          )}
         </div>
       </div>
 
@@ -378,7 +396,8 @@ export default function BarberCard({
                 key={service.id}
                 className={`service-box ${isSelected ? 'service-box--selected' : ''}`}
                 onClick={() => toggleService(service)}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: disabled ? 'not-allowed' : 'pointer' }}
+                aria-disabled={disabled}
               >
                 <div className="service-box__name">{service.name}</div>
                 <div className="service-box__price">
@@ -448,11 +467,17 @@ export default function BarberCard({
                 <button
                   key={time}
                   className={`time-box ${selectedTime === time ? 'time-box--selected' : ''}`}
-                  onClick={() => isAvailable && setSelectedTime(time)}
-                  disabled={!isAvailable}
+                  onClick={() => {
+                    if (disabled) {
+                      if (disabledReason && showToast) showToast(disabledReason, 'warning');
+                      return;
+                    }
+                    if (isAvailable) setSelectedTime(time);
+                  }}
+                  disabled={disabled || !isAvailable}
                   style={{
-                    opacity: isAvailable ? 1 : 0.5,
-                    cursor: isAvailable ? 'pointer' : 'not-allowed',
+                    opacity: !disabled && isAvailable ? 1 : 0.5,
+                    cursor: !disabled && isAvailable ? 'pointer' : 'not-allowed',
                   }}
                 >
                   {time}
@@ -464,7 +489,11 @@ export default function BarberCard({
       </div>
 
       {selectedServices.length > 0 && selectedTime && (
-        <Button onClick={handleConfirm} style={{ width: '100%', marginTop: '1rem' }}>
+        <Button
+          onClick={handleConfirm}
+          disabled={disabled}
+          style={{ width: '100%', marginTop: '1rem' }}
+        >
           Confirmar Agendamento
         </Button>
       )}

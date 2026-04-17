@@ -3,6 +3,59 @@ import { getToken } from './authService';
 
 const API_URL = 'https://barberoneapp-back-homolog.onrender.com';
 
+const extractApiErrorMessage = (error, fallbackMessage) => {
+  const data = error?.response?.data;
+
+  if (typeof data === 'string' && data.trim()) {
+    return data;
+  }
+
+  if (Array.isArray(data?.message)) {
+    return data.message.join(' ');
+  }
+
+  return (
+    data?.message ||
+    data?.error ||
+    data?.detail ||
+    data?.details ||
+    error?.message ||
+    fallbackMessage
+  );
+};
+
+const normalizeAppointmentError = (error, fallbackMessage) => {
+  const message = extractApiErrorMessage(error, fallbackMessage);
+  const normalizedMessage = String(message || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  const isBarberChangeRuleError =
+    normalizedMessage.includes('barbeiro') &&
+    (
+      normalizedMessage.includes('30') ||
+      normalizedMessage.includes('renov') ||
+      normalizedMessage.includes('troca') ||
+      normalizedMessage.includes('alterar') ||
+      normalizedMessage.includes('outro barbeiro') ||
+      normalizedMessage.includes('barbeiro fixo')
+    );
+
+  const appointmentError = new Error(
+    isBarberChangeRuleError
+      ? 'Você só pode escolher outro barbeiro após 30 dias do plano ou após a renovação da assinatura.'
+      : message,
+  );
+
+  appointmentError.response = error?.response;
+  appointmentError.status = error?.response?.status;
+  appointmentError.code = isBarberChangeRuleError ? 'BARBER_CHANGE_LOCKED' : error?.code;
+  appointmentError.originalMessage = message;
+
+  return appointmentError;
+};
+
 
 export const getAppointments = async () => {
   const token = getToken();
@@ -69,7 +122,7 @@ export const createAppointment = async (appointmentData) => {
     return response.data;
   } catch (error) {
     console.error('Erro ao criar agendamento:', error);
-    throw error;
+    throw normalizeAppointmentError(error, 'Não foi possível criar o agendamento.');
   }
 };
 
@@ -85,7 +138,7 @@ export const updateAppointment = async (id, updatedData) => {
     return response.data;
   } catch (error) {
     console.error('Erro ao atualizar agendamento:', error);
-    throw error;
+    throw normalizeAppointmentError(error, 'Não foi possível atualizar o agendamento.');
   }
 };
 

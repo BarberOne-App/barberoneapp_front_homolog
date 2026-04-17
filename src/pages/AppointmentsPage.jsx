@@ -29,6 +29,107 @@ import {
 import './AuthPages.css';
 import { getToken } from '../services/authService.js';
 
+const extractAppointmentErrorMessage = (error) => {
+  const data = error?.response?.data;
+
+  if (typeof data === 'string' && data.trim()) {
+    return data;
+  }
+
+  if (Array.isArray(data?.message)) {
+    return data.message.join(' ');
+  }
+
+  const message =
+    data?.message ||
+    data?.error ||
+    data?.detail ||
+    data?.details ||
+    error?.message ||
+    'Não foi possível concluir o agendamento. Tente novamente.';
+
+  const normalizedMessage = String(message)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  const isBarberChangeRuleError =
+    error?.code === 'BARBER_CHANGE_LOCKED' ||
+    (
+      normalizedMessage.includes('barbeiro') &&
+      (
+        normalizedMessage.includes('30') ||
+        normalizedMessage.includes('renov') ||
+        normalizedMessage.includes('troca') ||
+        normalizedMessage.includes('alterar') ||
+        normalizedMessage.includes('outro barbeiro') ||
+        normalizedMessage.includes('barbeiro fixo')
+      )
+    );
+
+  return isBarberChangeRuleError
+    ? 'Seu plano já possui um barbeiro fixo vinculado. Agendamentos do plano devem ser feitos com esse barbeiro.'
+    : message;
+};
+
+const getSubscriptionValue = (subscription, keys) => {
+  for (const key of keys) {
+    const value = subscription?.[key];
+    if (value !== undefined && value !== null && value !== '') {
+      return value;
+    }
+  }
+
+  return null;
+};
+
+const getSubscriptionMonthlyBarberId = (subscription) =>
+  getSubscriptionValue(subscription, ['monthly_barber_id', 'monthlyBarberId']);
+
+const getSubscriptionMonthlyBarberName = (subscription) =>
+  getSubscriptionValue(subscription, [
+    'monthly_barber_name',
+    'monthlyBarberName',
+  ]) ||
+  subscription?.monthly_barber?.displayName ||
+  subscription?.monthly_barber?.display_name ||
+  subscription?.monthlyBarber?.displayName ||
+  subscription?.monthlyBarber?.display_name ||
+  subscription?.monthlyBarber?.name ||
+  null;
+
+const getSubscriptionMonthlyBarberSetAt = (subscription) =>
+  getSubscriptionValue(subscription, [
+    'monthly_barber_set_at',
+    'monthlyBarberSetAt',
+  ]);
+
+const MONTHLY_BARBER_LOCK_DAYS = 30;
+const MONTHLY_BARBER_LOCK_MS = MONTHLY_BARBER_LOCK_DAYS * 24 * 60 * 60 * 1000;
+
+const getMonthlyBarberLockInfo = (subscription, now = new Date()) => {
+  const monthlyBarberId = getSubscriptionMonthlyBarberId(subscription);
+  const setAt = getSubscriptionMonthlyBarberSetAt(subscription);
+  const setAtDate = new Date(setAt);
+  const hasValidSetAt = !!setAt && !Number.isNaN(setAtDate.getTime());
+  const lockAgeMs = hasValidSetAt ? now.getTime() - setAtDate.getTime() : null;
+  const lockAgeDays = lockAgeMs == null ? null : lockAgeMs / (24 * 60 * 60 * 1000);
+  const isActive =
+    !!monthlyBarberId &&
+    hasValidSetAt &&
+    lockAgeMs >= 0 &&
+    lockAgeMs < MONTHLY_BARBER_LOCK_MS;
+
+  return {
+    monthlyBarberId,
+    monthlyBarberSetAt: setAt,
+    parsedMonthlyBarberSetAt: hasValidSetAt ? setAtDate.toISOString() : null,
+    lockAgeMs,
+    lockAgeDays,
+    isActive,
+  };
+};
+
 export default function AppointmentsPage() {
   const SAO_PAULO_TIME_ZONE = 'America/Sao_Paulo';
   const selectedPlan = JSON.parse(localStorage.getItem('selectedPlan'));
@@ -310,7 +411,7 @@ export default function AppointmentsPage() {
     const hasStripeSubscription = stripeStatus === 'active' || stripeStatus === 'trialing';
 
     return hasBackendSubscription || hasStripeSubscription;
-  }, [userSubscriptions, currentUser?.id, bookingForDependent, bookingForUser]);
+  }, [userSubscriptions, stripeActiveSubscription?.status, currentUser?.id, bookingForDependent, bookingForUser]);
 
   const fetchBlockedDates = useCallback(async () => {
     try {
@@ -582,6 +683,34 @@ export default function AppointmentsPage() {
     return activeUserSubscription || stripeActiveSubscription || null;
   }, [activeUserSubscription, stripeActiveSubscription]);
 
+  const activeSubscriptionForBarberLock = activeUserSubscription;
+  const hasLocalActiveSubscription = !!activeSubscriptionForBarberLock;
+  const localMonthlyBarberId = getSubscriptionMonthlyBarberId(activeSubscriptionForBarberLock);
+  const localMonthlyBarber = useMemo(() => {
+    if (!localMonthlyBarberId) return null;
+
+    return (
+      barbers.find((barber) => normalizeId(barber.id) === normalizeId(localMonthlyBarberId)) ||
+      null
+    );
+  }, [barbers, localMonthlyBarberId]);
+  const localMonthlyBarberName =
+    localMonthlyBarber?.displayName ||
+    localMonthlyBarber?.name ||
+    getSubscriptionMonthlyBarberName(activeSubscriptionForBarberLock);
+  const monthlyBarberLockInfo = useMemo(
+    () => getMonthlyBarberLockInfo(activeSubscriptionForBarberLock),
+    [activeSubscriptionForBarberLock],
+  );
+  const isMonthlyBarberLockCurrent =
+    hasLocalActiveSubscription && monthlyBarberLockInfo.isActive;
+  const currentLockedBarberId = isMonthlyBarberLockCurrent
+    ? localMonthlyBarber?.id || localMonthlyBarberId
+    : null;
+  const currentLockedBarberName = isMonthlyBarberLockCurrent
+    ? localMonthlyBarberName || null
+    : null;
+
   useEffect(() => {
     let cancelled = false;
 
@@ -676,109 +805,108 @@ export default function AppointmentsPage() {
     [hasActiveSubscription, coveredPlanServices],
   );
   useEffect(() => {
-    if (!activeUserSubscription) {
+    if (!activeSubscriptionForBarberLock) {
       setIsBarberLocked(false);
       setLockedBarberId(null);
       setLockedBarberName(null);
       return;
     }
 
-    const monthlyBarberId = activeUserSubscription.monthlyBarberId;
-    const monthlyBarberSetAt =
-      activeUserSubscription.monthlyBarberSetAt || activeUserSubscription.monthlyBarberSetDate;
-
-    if (!monthlyBarberId || !monthlyBarberSetAt) {
+    if (!isMonthlyBarberLockCurrent) {
       setIsBarberLocked(false);
       setLockedBarberId(null);
       setLockedBarberName(null);
-      return;
-    }
-
-    const setDate = new Date(monthlyBarberSetAt);
-    const currentDate = new Date();
-    const isSameMonth =
-      setDate.getMonth() === currentDate.getMonth() &&
-      setDate.getFullYear() === currentDate.getFullYear();
-
-    if (isSameMonth) {
-      setIsBarberLocked(true);
-      setLockedBarberId(monthlyBarberId);
-      setLockedBarberName(
-        activeUserSubscription.monthlyBarber?.displayName ||
-          activeUserSubscription.monthlyBarberName ||
-          null,
+      setSelectedBarberId((current) =>
+        normalizeId(current) === normalizeId(localMonthlyBarberId) ? null : current,
       );
-    } else {
-      setIsBarberLocked(false);
-      setLockedBarberId(null);
-      setLockedBarberName(null);
-    }
-  }, [activeUserSubscription]);
-
-  const derivedMonthlyLockedBarber = useMemo(() => {
-    if (!hasActiveSubscription || !currentUser?.id || !Array.isArray(appointments)) {
-      return null;
+      return;
     }
 
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    const startRefRaw =
-      activeSubscriptionForCoverage?.startedAt ||
-      activeSubscriptionForCoverage?.startDate ||
-      activeSubscriptionForCoverage?.createdAt ||
-      null;
-    const startRef = startRefRaw ? new Date(startRefRaw) : null;
-    const hasValidStartRef = !!startRef && !Number.isNaN(startRef.getTime());
-
-    const ownAppointmentsThisMonth = appointments
-      .filter((apt) => {
-        const sameClient = normalizeId(apt.clientId) === normalizeId(currentUser.id);
-        if (!sameClient) return false;
-
-        const aptDate = new Date(apt.startAt || apt.endAt);
-        if (Number.isNaN(aptDate.getTime())) return false;
-
-        const inCurrentMonth =
-          aptDate.getMonth() === currentMonth && aptDate.getFullYear() === currentYear;
-        if (!inCurrentMonth) return false;
-
-        if (hasValidStartRef && aptDate < startRef) return false;
-
-        return true;
-      })
-      .sort((a, b) => new Date(a.startAt || a.endAt) - new Date(b.startAt || b.endAt));
-
-    const firstAppointment = ownAppointmentsThisMonth[0];
-    if (!firstAppointment?.barberId) return null;
-
-    const barberFromList = barbers.find(
-      (barber) => normalizeId(barber.id) === normalizeId(firstAppointment.barberId),
-    );
-
-    return {
-      barberId: firstAppointment.barberId,
-      barberName:
-        firstAppointment?.barber?.displayName ||
-        firstAppointment?.barberName ||
-        barberFromList?.displayName ||
-        barberFromList?.name ||
-        null,
-    };
+    setIsBarberLocked(true);
+    setLockedBarberId(currentLockedBarberId);
+    setLockedBarberName(currentLockedBarberName);
   }, [
-    hasActiveSubscription,
-    currentUser?.id,
-    appointments,
-    activeSubscriptionForCoverage,
-    barbers,
+    activeSubscriptionForBarberLock,
+    isMonthlyBarberLockCurrent,
+    currentLockedBarberId,
+    currentLockedBarberName,
+    localMonthlyBarberId,
   ]);
 
-  const effectiveLockedBarberId = lockedBarberId || derivedMonthlyLockedBarber?.barberId || null;
-  const effectiveLockedBarberName =
-    lockedBarberName || derivedMonthlyLockedBarber?.barberName || null;
-  const effectiveIsBarberLocked =
-    !!hasActiveSubscription && !!effectiveLockedBarberId && !bookingForDependent && !bookingForUser;
+  const shouldApplyMonthlyBarberLock =
+    !isAdmin &&
+    isMonthlyBarberLockCurrent &&
+    !!currentLockedBarberId &&
+    !bookingForDependent &&
+    !bookingForUser;
+  const effectiveLockedBarberName = shouldApplyMonthlyBarberLock
+    ? lockedBarberName || currentLockedBarberName
+    : null;
+  const visibleLockedBarberId = shouldApplyMonthlyBarberLock ? currentLockedBarberId : null;
+
+  useEffect(() => {
+    if (shouldApplyMonthlyBarberLock && visibleLockedBarberId) {
+      setSelectedBarberId(visibleLockedBarberId);
+    }
+  }, [shouldApplyMonthlyBarberLock, visibleLockedBarberId]);
+
+  const visibleBarbers = useMemo(() => {
+    if (!shouldApplyMonthlyBarberLock || !visibleLockedBarberId) {
+      return barbers;
+    }
+
+    return barbers.filter(
+      (barber) => normalizeId(barber.id) === normalizeId(visibleLockedBarberId),
+    );
+  }, [barbers, shouldApplyMonthlyBarberLock, visibleLockedBarberId]);
+
+  useEffect(() => {
+    console.log('[AppointmentsPage] Monthly barber lock debug:', {
+      activeSubscriptionForBarberLock: activeSubscriptionForBarberLock
+        ? {
+            id: activeSubscriptionForBarberLock.id,
+            userId: activeSubscriptionForBarberLock.userId,
+            status: activeSubscriptionForBarberLock.status,
+            monthly_barber_id: activeSubscriptionForBarberLock.monthly_barber_id,
+            monthlyBarberId: activeSubscriptionForBarberLock.monthlyBarberId,
+            monthly_barber_set_at: activeSubscriptionForBarberLock.monthly_barber_set_at,
+            monthlyBarberSetAt: activeSubscriptionForBarberLock.monthlyBarberSetAt,
+            monthlyBarberSetDate: activeSubscriptionForBarberLock.monthlyBarberSetDate,
+          }
+        : null,
+      monthlyBarberLockInfo,
+      hasLocalActiveSubscription,
+      isMonthlyBarberLockCurrent,
+      currentLockedBarberId,
+      currentLockedBarberName,
+      shouldApplyMonthlyBarberLock,
+      visibleLockedBarberId,
+      effectiveLockedBarberName,
+      isAdmin,
+      bookingForDependentId: bookingForDependent?.id || null,
+      bookingForUserId: bookingForUser?.id || null,
+      totalBarbers: barbers.length,
+      visibleBarbers: visibleBarbers.map((barber) => ({
+        id: barber.id,
+        displayName: barber.displayName || barber.name,
+      })),
+    });
+  }, [
+    activeSubscriptionForBarberLock,
+    monthlyBarberLockInfo,
+    hasLocalActiveSubscription,
+    isMonthlyBarberLockCurrent,
+    currentLockedBarberId,
+    currentLockedBarberName,
+    shouldApplyMonthlyBarberLock,
+    visibleLockedBarberId,
+    effectiveLockedBarberName,
+    isAdmin,
+    bookingForDependent?.id,
+    bookingForUser?.id,
+    barbers,
+    visibleBarbers,
+  ]);
 
   const setMonthlyBarber = useCallback(
     async (barberId, barberName) => {
@@ -795,14 +923,14 @@ export default function AppointmentsPage() {
 
         setToast({
           show: true,
-          message: `${barberName} é seu barbeiro fixo este mês!`,
+          message: `${barberName} é seu barbeiro fixo no plano!`,
           type: 'success',
         });
         return true;
       } catch (error) {
         setToast({
           show: true,
-          message: 'Erro ao definir barbeiro fixo',
+          message: extractAppointmentErrorMessage(error),
           type: 'danger',
         });
         return false;
@@ -813,14 +941,14 @@ export default function AppointmentsPage() {
 
   const ensureMonthlyBarberLock = useCallback(
     async (barberId, barberName) => {
-      if (isAdmin || !activeUserSubscription || effectiveIsBarberLocked) return;
+      if (isAdmin || !activeUserSubscription || shouldApplyMonthlyBarberLock) return;
 
       const locked = await setMonthlyBarber(barberId, barberName);
       if (!locked) {
-        throw new Error('Não foi possível vincular o barbeiro à assinatura para este mês.');
+        throw new Error('Não foi possível vincular o barbeiro fixo ao plano.');
       }
     },
-    [isAdmin, activeUserSubscription, effectiveIsBarberLocked, setMonthlyBarber],
+    [isAdmin, activeUserSubscription, shouldApplyMonthlyBarberLock, setMonthlyBarber],
   );
 
   const loadData = useCallback(async () => {
@@ -909,6 +1037,23 @@ export default function AppointmentsPage() {
         : Array.isArray(subscription)
           ? subscription
           : [];
+      console.log('[AppointmentsPage] Subscriptions API response:', {
+        currentUserId: currentUser?.id,
+        rawResponse: subscription,
+        normalizedSubscriptions: normalizedSubscriptions.map((sub) => ({
+          id: sub?.id,
+          userId: sub?.userId,
+          user: sub?.user,
+          status: sub?.status,
+          monthly_barber_id: sub?.monthly_barber_id,
+          monthlyBarberId: sub?.monthlyBarberId,
+          monthly_barber_set_at: sub?.monthly_barber_set_at,
+          monthlyBarberSetAt: sub?.monthlyBarberSetAt,
+          monthlyBarberSetDate: sub?.monthlyBarberSetDate,
+          monthly_barber: sub?.monthly_barber,
+          monthlyBarber: sub?.monthlyBarber,
+        })),
+      });
       setUserSubscriptions(normalizedSubscriptions);
       setAllUsers(allUsersArray);
 
@@ -1500,13 +1645,11 @@ export default function AppointmentsPage() {
         }
 
         if (
-          !isAdmin &&
-          hasActiveSubscription &&
-          effectiveIsBarberLocked &&
-          normalizeId(bookingData.barberId) !== normalizeId(effectiveLockedBarberId)
+          shouldApplyMonthlyBarberLock &&
+          normalizeId(bookingData.barberId) !== normalizeId(visibleLockedBarberId)
         ) {
           showToast(
-            `Você já selecionou ${effectiveLockedBarberName || 'seu barbeiro fixo'} no início deste mês. O barbeiro só pode ser alterado no próximo mês.`,
+            `Seu plano já possui ${effectiveLockedBarberName || 'um barbeiro fixo'} vinculado. Agendamentos do plano devem ser feitos com esse barbeiro.`,
             'warning',
           );
           return;
@@ -1514,15 +1657,15 @@ export default function AppointmentsPage() {
 
         if (
           !isAdmin &&
-          hasActiveSubscription &&
-          !effectiveIsBarberLocked &&
+          hasLocalActiveSubscription &&
+          !shouldApplyMonthlyBarberLock &&
           !bookingForDependent &&
           !bookingForUser &&
           !hasShownMonthlyBarberNotice.current
         ) {
           hasShownMonthlyBarberNotice.current = true;
           showToast(
-            `Atenção: ao confirmar este agendamento, ${bookingData.barberName} ficará vinculado à sua assinatura durante todo este mês.`,
+            `Atenção: ao confirmar este agendamento, ${bookingData.barberName} ficará vinculado ao seu plano como barbeiro fixo.`,
             'warning',
           );
         }
@@ -1583,8 +1726,9 @@ export default function AppointmentsPage() {
       isServiceCoveredByPlan,
       isAdmin,
       hasActiveSubscription,
-      effectiveIsBarberLocked,
-      effectiveLockedBarberId,
+      hasLocalActiveSubscription,
+      shouldApplyMonthlyBarberLock,
+      visibleLockedBarberId,
       effectiveLockedBarberName,
       calculateTotalDuration,
       hasClientOrDependentTimeConflict,
@@ -1624,8 +1768,8 @@ export default function AppointmentsPage() {
     (bookingData) => {
       const requiresMonthlyLockConfirm =
         !isAdmin &&
-        hasActiveSubscription &&
-        !effectiveIsBarberLocked &&
+        hasLocalActiveSubscription &&
+        !shouldApplyMonthlyBarberLock &&
         !bookingForDependent &&
         !bookingForUser;
 
@@ -1639,8 +1783,8 @@ export default function AppointmentsPage() {
     },
     [
       isAdmin,
-      hasActiveSubscription,
-      effectiveIsBarberLocked,
+      hasLocalActiveSubscription,
+      shouldApplyMonthlyBarberLock,
       bookingForDependent,
       bookingForUser,
       handleBook,
@@ -1796,10 +1940,7 @@ export default function AppointmentsPage() {
       setView('myAppointments');
     } catch (error) {
       console.error('Erro:', error);
-      showToast(error.response?.data?.message || error.message, 'danger');
-      setExistingAppointment(null);
-      setIsRescheduling(false);
-      setSelectedDate(null);
+      showToast(extractAppointmentErrorMessage(error), 'danger');
     } finally {
       setBookingInProgress(false);
     }
@@ -2020,10 +2161,7 @@ export default function AppointmentsPage() {
         }
       } catch (error) {
         console.error('Erro:', error);
-        showToast(error.response?.data?.message || error.message, 'danger');
-        setExistingAppointment(null);
-        setIsRescheduling(false);
-        setSelectedDate(null);
+        showToast(extractAppointmentErrorMessage(error), 'danger');
       } finally {
         setBookingInProgress(false);
         setPixLoading(false);
@@ -2780,23 +2918,7 @@ export default function AppointmentsPage() {
                   return (
                     <div className="appointments__barbers">
                       <h2>Barbeiros disponíveis em {selectedDate.toLocaleDateString('pt-BR')}</h2>
-                      {!isAdmin && hasActiveSubscription && !effectiveIsBarberLocked && !bookingForDependent && !bookingForUser && (
-                        <div
-                          style={{
-                            margin: '0.6rem 0 1rem',
-                            padding: '0.7rem 0.9rem',
-                            borderRadius: '8px',
-                            border: '1px solid rgba(212, 175, 55, 0.5)',
-                            background: 'rgba(212, 175, 55, 0.12)',
-                            color: '#d4af37',
-                            fontSize: '0.85rem',
-                            fontWeight: 600,
-                          }}
-                        >
-                          Seu primeiro agendamento do mês define seu barbeiro fixo por 1 mês de assinatura. A troca só ficará disponível no próximo mês.
-                        </div>
-                      )}
-                      {!isAdmin && hasActiveSubscription && effectiveIsBarberLocked && !bookingForDependent && !bookingForUser && (
+                      {shouldApplyMonthlyBarberLock && (
                         <div
                           style={{
                             margin: '0.6rem 0 1rem',
@@ -2809,8 +2931,8 @@ export default function AppointmentsPage() {
                             fontWeight: 600,
                           }}
                         >
-                          Barbeiro fixo da assinatura este mês: {effectiveLockedBarberName || 'selecionado'}.
-                          Apenas ele ficará disponível para novos agendamentos até o próximo mês.
+                          Seu plano já está vinculado a {effectiveLockedBarberName || 'um barbeiro fixo'}.
+                          Apenas esse barbeiro está disponível para agendamentos do plano.
                         </div>
                       )}
                       <div style={{ marginBottom: '1.5rem' }}>
@@ -2845,10 +2967,10 @@ export default function AppointmentsPage() {
                           }}
                         />
                       </div>
-                      {barbers.length === 0 ? (
+                      {visibleBarbers.length === 0 ? (
                         <p>Nenhum barbeiro disponível.</p>
                       ) : (
-                        barbers.map((barber) => {
+                        visibleBarbers.map((barber) => {
                           const barberWithPhoto = {
                             ...barber,
                             photo:
@@ -2866,14 +2988,6 @@ export default function AppointmentsPage() {
                             return null;
                           }
 
-                          const shouldHideBarber =
-                            !isAdmin &&
-                            hasActiveSubscription &&
-                            effectiveIsBarberLocked &&
-                            normalizeId(barber.id) !== normalizeId(effectiveLockedBarberId);
-
-                          if (shouldHideBarber) return null;
-
                           return (
                             <BarberCard
                               key={barber.id}
@@ -2890,8 +3004,16 @@ export default function AppointmentsPage() {
                               getAvailableTimes={getAvailableTimes}
                               calculateTotalDuration={calculateTotalDuration}
                               onBook={handleBookWithMonthlyLockConfirm}
-                              onSelectBarber={() => setSelectedBarberId(barber.id)}
-                              isActive={selectedBarberId === barber.id}
+                              onSelectBarber={() => {
+                                setSelectedBarberId(barber.id);
+                              }}
+                              isActive={
+                                normalizeId(selectedBarberId) === normalizeId(barber.id) ||
+                                (
+                                  shouldApplyMonthlyBarberLock &&
+                                  normalizeId(visibleLockedBarberId) === normalizeId(barber.id)
+                                )
+                              }
                               showToast={showToast}
                               preSelectedService={preSelectedService}
                               hasActiveSubscription={hasActiveSubscription}
@@ -3293,8 +3415,8 @@ export default function AppointmentsPage() {
           setPendingMonthlyLockBookingData(null);
         }}
         onConfirm={handleMonthlyLockConfirm}
-        title="Regra do Barbeiro da Assinatura"
-        message={`Ao confirmar este agendamento com ${pendingMonthlyLockBookingData?.barberName || 'este barbeiro'}, você ficará vinculado a ele durante 1 mês da assinatura ativa. Nesse período, não poderá ser atendido por outro barbeiro e a troca só será liberada no próximo mês.`}
+        title="Atenção"
+        message={`Ao confirmar este agendamento com ${pendingMonthlyLockBookingData?.barberName || 'este barbeiro'}, ele ficará vinculado ao seu plano como barbeiro fixo. Enquanto esse vínculo estiver ativo, apenas esse barbeiro ficará disponível para novos agendamentos do plano.`}
         confirmText="Entendi e confirmar"
         cancelText="Cancelar"
         variant="warning"

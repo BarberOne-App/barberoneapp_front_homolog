@@ -1820,7 +1820,6 @@ import { processMercadoPagoPaymentPix, checkPixStatus } from '../../services/mer
 import { createAppointment, deleteAppointment } from '../../services/appointmentService';
 import { getTermsDocument } from '../../services/termsService';
 import { createStripePaymentIntent } from '../../services/stripeService';
-import { getToken } from '../../services/authService';
 import './PaymentModal.css';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
@@ -1837,7 +1836,6 @@ function StripePaymentForm({
 }) {
   const stripe = useStripe();
   const elements = useElements();
-  const token = getToken();
 
   const [processing, setProcessing] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState(null);
@@ -1968,24 +1966,7 @@ function StripePaymentForm({
         });
       } else if (selectedPlan?.needsCreation && selectedPlan?.appointmentData && selectedPlan?.paymentData) {
         // Fallback para código antigo (if necessário)
-        const appointmentResponse = await fetch(
-          `${import.meta.env.VITE_API_URL}/appointments`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(selectedPlan.appointmentData),
-          }
-        );
-
-        if (!appointmentResponse.ok) {
-          throw new Error('Erro ao criar agendamento');
-        }
-
-        const createdAppointment = await appointmentResponse.json();
-
+        const createdAppointment = await createAppointment(selectedPlan.appointmentData);
         await criarPagamentoAgendamento({
           ...selectedPlan.paymentData,
           appointmentId: createdAppointment.id,
@@ -2465,6 +2446,10 @@ function MercadoPagoPixForm({
         }
       } catch (error) {
         console.error('Erro ao verificar status PIX Mercado Pago:', error);
+        clearPixPolling();
+        setProcessing(false);
+        setErrorMessage(error.message || 'Erro ao finalizar agendamento. Tente novamente.');
+        setShowErrorToast(true);
       }
     }, 3000);
   };
