@@ -298,6 +298,25 @@ export default function AdminPage() {
       .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase();
 
+  const formatBrazilianCurrencyInput = (value) => {
+    const cents = String(value || '').replace(/\D/g, '');
+    const amount = Number(cents || 0) / 100;
+
+    return amount.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    });
+  };
+
+  const parseBrazilianCurrency = (value) => {
+    const normalizedValue = String(value || '')
+      .replace(/[^\d,.-]/g, '')
+      .replace(/\./g, '')
+      .replace(',', '.');
+
+    return parseFloat(normalizedValue);
+  };
+
   const parseTimeValue = (value) => {
     const match = String(value || '').match(/(\d{1,2})(?:[:h](\d{2}))?/i);
     if (!match) return null;
@@ -620,7 +639,7 @@ export default function AdminPage() {
     },
     manageOffScheduleAppointments: { label: 'Agendar Fora do Horário', category: 'Agendamentos', icon: '⏰' },
     manageBenefits: {
-      label: 'Gerenciar Benefícios dos Planos',
+      label: 'Gerenciamento de Planos',
       category: 'Configurações',
       icon: '🎁',
     },
@@ -3497,7 +3516,7 @@ export default function AdminPage() {
       setEditingPlan(plan);
       setPlanForm({
         name: plan.name || '',
-        price: Number(plan.price || 0),
+        price: formatBrazilianCurrencyInput(String(Math.round(Number(plan.price || 0) * 100))),
         mpPreapprovalPlanId: plan.mpPreapprovalPlanId || '',
         mpSubscriptionUrl: plan.mpSubscriptionUrl || '',
       });
@@ -3528,7 +3547,7 @@ export default function AdminPage() {
     }
 
     const planName = planForm.name?.trim();
-    const planPrice = Number(planForm.price);
+    const planPrice = parseBrazilianCurrency(planForm.price);
     const planMpPreapprovalId = planForm.mpPreapprovalPlanId?.trim() || null;
     const planSubscriptionUrl = planForm.mpSubscriptionUrl?.trim() || null;
 
@@ -4475,7 +4494,7 @@ export default function AdminPage() {
                     onClick={() => setActiveTab('benefits')}
                     className={`tab-btn ${activeTab === 'benefits' ? 'tab-btn--active' : ''}`}
                   >
-                    Benefícios dos Planos
+                    Gerenciamento de Planos
                   </button>
                 )}
                 {isAdmin && hasPermission('managePayments') && (
@@ -9431,12 +9450,13 @@ export default function AdminPage() {
 
               <Input
                 label="Preço (R$)"
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
+                inputMode="numeric"
                 value={planForm.price}
-                onChange={(e) => handlePlanFormChange('price', e.target.value)}
-                placeholder="Ex: 99.90"
+                onChange={(e) =>
+                  handlePlanFormChange('price', formatBrazilianCurrencyInput(e.target.value))
+                }
+                placeholder="R$ 0,00"
                 required
               />
 
