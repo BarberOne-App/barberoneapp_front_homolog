@@ -3789,6 +3789,9 @@ export default function AdminPage() {
     if (service) {
       setEditingService(service);
 
+      const currentServiceImage = String(
+        service.image || service.imageUrl || service.image_url || '',
+      ).trim();
       const priceValue = formatBrazilianCurrencyInput(
         String(Math.round(Number(service.basePrice || 0) * 100)),
       );
@@ -3806,7 +3809,7 @@ export default function AdminPage() {
         promotionalPrice: promotionalPriceValue,
         commissionPercent: service.commissionPercent ?? service.commission_percent ?? 0,
         coveredByPlan: service.covered_by_plan || false,
-        image: service.image || '',
+        image: currentServiceImage,
         duration: service.durationMinutes || 30,
       });
     } else {
@@ -3857,6 +3860,13 @@ export default function AdminPage() {
         ? parseBrazilianCurrency(serviceForm.promotionalPrice)
         : 0;
       const parsedCommissionPercent = Number(serviceForm.commissionPercent);
+      const currentServiceImage = String(
+        serviceForm.image ||
+        editingService?.image ||
+        editingService?.imageUrl ||
+        editingService?.image_url ||
+        '',
+      ).trim();
 
       if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
         showToast('Informe um preÃ§o vÃ¡lido.', 'danger');
@@ -3892,7 +3902,7 @@ export default function AdminPage() {
         comissionPercent: parsedCommissionPercent,
         covered_by_plan: serviceForm.coveredByPlan,
         imageUrl:
-          serviceForm.image || 'https://images.unsplash.com/photo-1596728325488-58c87691e9af',
+          currentServiceImage || 'https://images.unsplash.com/photo-1596728325488-58c87691e9af',
         durationMinutes: parseInt(serviceForm.duration),
       };
 
