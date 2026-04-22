@@ -280,6 +280,12 @@ export default function AppointmentsPage() {
       }
     : bookingForUser || currentUser;
 
+  const calculateBlockedDurationMinutes = useCallback((durationMinutes = 30) => {
+    const parsed = Number(durationMinutes);
+    const realDuration = Number.isFinite(parsed) && parsed > 0 ? parsed : 30;
+    return Math.max(30, Math.ceil(realDuration / 30) * 30);
+  }, []);
+
   useEffect(() => {
     const fetchDependentsForSelectedClient = async () => {
       if (!token) return;
@@ -329,7 +335,9 @@ export default function AppointmentsPage() {
 
       const newStart = new Date(`${date}T${time}:00`);
       if (Number.isNaN(newStart.getTime())) return false;
-      const newEnd = new Date(newStart.getTime() + (Number(durationMinutes) || 30) * 60_000);
+      const newEnd = new Date(
+        newStart.getTime() + calculateBlockedDurationMinutes(durationMinutes) * 60_000,
+      );
 
       return appointments.some((apt) => {
         const aptStatus = String(apt?.status || '').toLowerCase();
@@ -352,14 +360,16 @@ export default function AppointmentsPage() {
           ? new Date(apt.endAt)
           : new Date(
               aptStart.getTime() +
-                (Array.isArray(apt?.services)
-                  ? apt.services.reduce((total, service) => {
-                      const raw =
-                        service?.durationMinutes ?? service?.duration ?? service?.duration_minutes;
-                      const parsed = Number(raw);
-                      return total + (Number.isFinite(parsed) && parsed > 0 ? parsed : 30);
-                    }, 0)
-                  : 30) *
+                calculateBlockedDurationMinutes(
+                  Array.isArray(apt?.services)
+                    ? apt.services.reduce((total, service) => {
+                        const raw =
+                          service?.durationMinutes ?? service?.duration ?? service?.duration_minutes;
+                        const parsed = Number(raw);
+                        return total + (Number.isFinite(parsed) && parsed > 0 ? parsed : 30);
+                      }, 0)
+                    : 30,
+                ) *
                   60_000,
             );
 
@@ -368,7 +378,7 @@ export default function AppointmentsPage() {
         return newStart < aptEnd && newEnd > aptStart;
       });
     },
-    [appointments, bookingForDependent?.id, activeClient?.id],
+    [appointments, bookingForDependent?.id, activeClient?.id, calculateBlockedDurationMinutes],
   );
 
   const getClientOrDependentAppointmentOnDate = useCallback(
@@ -555,7 +565,7 @@ export default function AppointmentsPage() {
 
   const generateSlotsForDuration = (startTime, durationMinutes = 30) => {
     const slots = [];
-    const totalSlots = Math.ceil((Number(durationMinutes) || 30) / 30);
+    const totalSlots = calculateBlockedDurationMinutes(durationMinutes) / 30;
     let current = timeToMinutes(startTime);
 
     for (let i = 0; i < totalSlots; i++) {
@@ -1426,6 +1436,27 @@ export default function AppointmentsPage() {
     }, 0);
   }, [getServiceDurationMinutes]);
 
+  const getAppointmentBlockedDurationMinutes = useCallback((appointment) => {
+    const start = appointment?.startAt ? new Date(appointment.startAt) : null;
+    const end = appointment?.endAt ? new Date(appointment.endAt) : null;
+
+    if (
+      start &&
+      end &&
+      !Number.isNaN(start.getTime()) &&
+      !Number.isNaN(end.getTime()) &&
+      end > start
+    ) {
+      return calculateBlockedDurationMinutes((end.getTime() - start.getTime()) / 60_000);
+    }
+
+    if (Array.isArray(appointment?.services) && appointment.services.length > 0) {
+      return calculateBlockedDurationMinutes(calculateTotalDuration(appointment.services));
+    }
+
+    return 30;
+  }, [calculateTotalDuration, calculateBlockedDurationMinutes]);
+
   const getBookedSlots = useCallback(
     (barberId, date) => {
       if (!date) return [];
@@ -1440,24 +1471,16 @@ export default function AppointmentsPage() {
           return sameBarber && sameDate;
         })
         .flatMap((apt) => {
-          let totalDuration = 30;
-
-          if (Array.isArray(apt.services) && apt.services.length > 0) {
-            totalDuration = apt.services.reduce((sum, s) => {
-              return sum + (s.durationMinutes || s.duration || 30);
-            }, 0);
-          }
-
           const startTime = new Date(apt.startAt).toLocaleTimeString('pt-BR', {
             hour: '2-digit',
             minute: '2-digit',
             timeZone: SAO_PAULO_TIME_ZONE,
           });
 
-          return generateSlotsForDuration(startTime, totalDuration);
+          return generateSlotsForDuration(startTime, getAppointmentBlockedDurationMinutes(apt));
         });
     },
-    [appointments],
+    [appointments, getAppointmentBlockedDurationMinutes],
   );
 
   // const getBookedSlots = useCallback((barberId, date) => {
@@ -1542,6 +1565,7 @@ export default function AppointmentsPage() {
       if (!date) return [];
 
       const dateStr = normalizeDateStr(date);
+      const blockedDurationMinutes = calculateBlockedDurationMinutes(durationMinutes);
       const bookedTimes = getBookedSlots(barberId, date);
       const blockedSlots = getBlockedTimeSlots(dateStr, barberId);
       const workingHours = getWorkingHoursForDate(date);
@@ -1553,7 +1577,7 @@ export default function AppointmentsPage() {
 
       const startBoundary = Math.max(workingHours.open, 0);
       const endBoundary = Math.max(
-        workingHours.close - (Number(durationMinutes) || 30),
+        workingHours.close - blockedDurationMinutes,
         startBoundary,
       );
 
@@ -1566,7 +1590,7 @@ export default function AppointmentsPage() {
 
       return allTimes.filter((time) => {
         const startMinutes = timeToMinutes(time);
-        const endMinutes = startMinutes + (Number(durationMinutes) || 30);
+        const endMinutes = startMinutes + blockedDurationMinutes;
 
         // impede horários passados no dia atual
         if (isToday) {
@@ -1575,7 +1599,7 @@ export default function AppointmentsPage() {
         }
 
         // verifica conflito com agendamentos já existentes
-        const neededSlots = generateSlotsForDuration(time, durationMinutes);
+        const neededSlots = generateSlotsForDuration(time, blockedDurationMinutes);
         const conflictsWithAppointments = neededSlots.some((slot) => bookedTimes.includes(slot));
         if (conflictsWithAppointments) return false;
 
@@ -1592,7 +1616,7 @@ export default function AppointmentsPage() {
         return true;
       });
     },
-    [getBookedSlots, blockedDates, getWorkingHoursForDate],
+    [getBookedSlots, blockedDates, getWorkingHoursForDate, calculateBlockedDurationMinutes],
   );
 
   const showToast = useCallback((message, type = 'success') => {
