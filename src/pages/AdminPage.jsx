@@ -3789,7 +3789,12 @@ export default function AdminPage() {
     if (service) {
       setEditingService(service);
 
-      const priceValue = service.basePrice;
+      const priceValue = formatBrazilianCurrencyInput(
+        String(Math.round(Number(service.basePrice || 0) * 100)),
+      );
+      const promotionalPriceValue = service.promotionalPrice
+        ? formatBrazilianCurrencyInput(String(Math.round(Number(service.promotionalPrice) * 100)))
+        : '';
       //.replace(/,/g, '.').replace(/R\$/g, '').trim();
       // const promotionalPriceValue = service.promotionalPrice
       //   ? service.promotionalPrice.replace(/,/g, '.').replace(/R\$/g, '').trim()
@@ -3798,7 +3803,7 @@ export default function AdminPage() {
       setServiceForm({
         name: service.name,
         price: priceValue,
-        promotionalPrice: service.promotionalPrice || 0,
+        promotionalPrice: promotionalPriceValue,
         commissionPercent: service.commissionPercent ?? service.commission_percent ?? 0,
         coveredByPlan: service.covered_by_plan || false,
         image: service.image || '',
@@ -3847,8 +3852,21 @@ export default function AdminPage() {
     }
 
     try {
-      const formattedPrice = `R$ ${parseFloat(serviceForm.price).toFixed(2).replace('.', ',')}`;
+      const parsedPrice = parseBrazilianCurrency(serviceForm.price);
+      const parsedPromotionalPrice = serviceForm.promotionalPrice
+        ? parseBrazilianCurrency(serviceForm.promotionalPrice)
+        : 0;
       const parsedCommissionPercent = Number(serviceForm.commissionPercent);
+
+      if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+        showToast('Informe um preÃ§o vÃ¡lido.', 'danger');
+        return;
+      }
+
+      if (Number.isNaN(parsedPromotionalPrice) || parsedPromotionalPrice < 0) {
+        showToast('Informe um preÃ§o promocional vÃ¡lido.', 'danger');
+        return;
+      }
 
       if (
         Number.isNaN(parsedCommissionPercent) ||
@@ -3869,8 +3887,8 @@ export default function AdminPage() {
 
       const serviceData = {
         name: serviceForm.name,
-        basePrice: Number(serviceForm.price),
-        promotionalPrice: Number(serviceForm.promotionalPrice) || 0,
+        basePrice: parsedPrice,
+        promotionalPrice: parsedPromotionalPrice || 0,
         comissionPercent: parsedCommissionPercent,
         covered_by_plan: serviceForm.coveredByPlan,
         imageUrl:
@@ -9504,12 +9522,13 @@ export default function AdminPage() {
 
               <Input
                 label="Preço"
-                type="number"
-                step="0.01"
-                min="0"
+                type="text"
+                inputMode="numeric"
                 value={serviceForm.price}
-                onChange={(e) => handleServiceFormChange('price', e.target.value)}
-                placeholder="40.00"
+                onChange={(e) =>
+                  handleServiceFormChange('price', formatBrazilianCurrencyInput(e.target.value))
+                }
+                placeholder="R$ 0,00"
                 required
               />
 
@@ -9576,12 +9595,16 @@ export default function AdminPage() {
                 <div style={{ marginBottom: '1rem' }}>
                   <Input
                     label="Preço Promocional (opcional)"
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
+                    inputMode="numeric"
                     value={serviceForm.promotionalPrice}
-                    onChange={(e) => handleServiceFormChange('promotionalPrice', e.target.value)}
-                    placeholder="30.00"
+                    onChange={(e) =>
+                      handleServiceFormChange(
+                        'promotionalPrice',
+                        formatBrazilianCurrencyInput(e.target.value),
+                      )
+                    }
+                    placeholder="R$ 0,00"
                   />
                   <p
                     style={{
