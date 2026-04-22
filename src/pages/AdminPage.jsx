@@ -1265,6 +1265,30 @@ export default function AdminPage() {
     }
   };
 
+  const formatImportUserErrors = (errors) => {
+    if (!Array.isArray(errors) || errors.length === 0) return '';
+
+    const details = errors
+      .map((item) => {
+        const line = item?.rowNumber ?? item?.row ?? item?.line ?? item?.linha;
+        const errorMessage =
+          item?.message || item?.error || item?.detail || item?.details || String(item);
+        return line ? `linha ${line}: ${errorMessage}` : errorMessage;
+      })
+      .join('; ');
+
+    return ` Detalhes: ${details}`;
+  };
+
+  const getImportUsersToastType = (status, success) => {
+    if (status === 201) return 'success';
+    if (status === 200) return 'warning';
+    if (status === 422) return 'danger';
+    if (success === true) return 'success';
+    if (success === false) return 'danger';
+    return 'warning';
+  };
+
   const handleImportUsersExcel = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -1292,35 +1316,43 @@ export default function AdminPage() {
           };
         });
 
-      const mappedRows = preparedRows.filter((row) => {
-        const hasPhone = String(row.phone || '').replace(/\D/g, '').length > 0;
-        const hasCpf = String(row.cpf || '').replace(/\D/g, '').length > 0;
-        return row.name && row.email && hasPhone && hasCpf;
-      });
-
-      const missingRequiredCount = preparedRows.length - mappedRows.length;
+      const mappedRows = preparedRows;
 
       if (!mappedRows.length) {
         showToast(
-          'Nenhuma linha válida encontrada. Nome, email, CPF e telefone são obrigatórios.',
+          'Nenhuma linha encontrada no Excel para importar.',
           'danger',
         );
         return;
       }
 
-      const result = await importUsersBatch({
+      const response = await importUsersBatch({
         defaultPassword: '123456',
         skipExisting: true,
         rows: mappedRows,
       });
+      console.log(response.data);
+      console.log(response.data?.errors);
 
       await loadData();
 
-      const message = `Clientes importados: ${result.createdCount}. Ignorados: ${(result.skippedCount || 0) + missingRequiredCount}. Erros: ${result.failedCount}. Senha padrão: 123456${missingRequiredCount > 0 ? `. Linhas sem nome/email/cpf/telefone: ${missingRequiredCount}` : ''}`;
-      showToast(message, result.failedCount > 0 ? 'danger' : 'success');
+      const responseData = response.data || {};
+      const errorDetails = formatImportUserErrors(responseData.errors);
+      const toastType = getImportUsersToastType(response.status, responseData.success);
+      showToast(`${responseData.message || 'Importação processada.'}${errorDetails}`, toastType);
     } catch (error) {
       console.error('Erro ao importar usuários por Excel:', error);
-      showToast('Erro ao importar clientes por Excel.', 'danger');
+      const apiError = error?.response?.data;
+      const apiStatus = error?.response?.status;
+      const errorMessage =
+        typeof apiError === 'string'
+          ? apiError
+          : apiError?.message || apiError?.error || error?.message || 'Erro ao importar clientes por Excel.';
+      const errorDetails = typeof apiError === 'string' ? '' : formatImportUserErrors(apiError?.errors);
+      showToast(
+        `${errorMessage}${errorDetails}`,
+        getImportUsersToastType(apiStatus, apiError?.success),
+      );
     } finally {
       setImportingUsers(false);
       clearFileInput(usersImportInputRef);

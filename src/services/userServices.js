@@ -23,12 +23,11 @@ export async function createUser(data) {
 }
 
 export async function importUsers(data) {
-  const res = await api.post(`${BASE}/import`, data, {
+  return api.post(`${BASE}/import`, data, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
   });
-  return res.data;
 }
 
 export async function userExists(email) {
