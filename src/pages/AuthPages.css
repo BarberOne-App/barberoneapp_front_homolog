@@ -1920,15 +1920,57 @@
 .services-list-compact { display: flex; flex-direction: column; gap: 0.3rem; }
 .service-item-compact { color: #ccc; font-size: 0.85rem; line-height: 1.3; }
 .client-phone { color: #d4af37; font-weight: 600; font-size: 0.85rem; }
-.barber-table-actions { display: flex; gap: 0.5rem; align-items: center; justify-content: center; flex-wrap: wrap; }
+.barber-table-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.fluig-table-children th.actions-column-header,
+.fluig-table-children td.actions-cell,
+.fluig-table-children th.status-column-header,
+.fluig-table-children td.status-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.fluig-table-children th.actions-column-header {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+.fluig-table-children th.status-column-header,
+.fluig-table-children td.status-cell {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+.fluig-table-children td.actions-cell {
+  white-space: normal;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+.status-cell-content {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.status-cell-content {
+  justify-content: center;
+}
 
 .action-btn-table {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 108px;
-  height: 34px;
-  padding: 0 0.65rem;
+  min-width: 112px;
+  height: 36px;
+  padding: 0 0.75rem;
   border: none;
   border-radius: 6px;
   font-size: 0.74rem;
@@ -1941,6 +1983,7 @@
   letter-spacing: 0.3px;
   box-sizing: border-box;
   text-align: center;
+  flex: 0 0 auto;
 }
 
 .action-btn-table:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
@@ -1978,16 +2021,17 @@
   white-space: nowrap;
 }
 
-.fluig-table-children thead th:last-child, .fluig-table-children tbody td:last-child { min-width: 450px; width: 450px; }
+.fluig-table-children thead th:last-child, .fluig-table-children tbody td:last-child { min-width: 420px; width: 420px; }
 
 @media (max-width: 1200px) {
-  .barber-table-actions { flex-direction: column; gap: 0.4rem; }
-  .action-btn-table { width: 100%; min-width: 108px; }
+  .barber-table-actions { justify-content: flex-start; }
+  .action-btn-table { min-width: 104px; }
   .fluig-table-children thead th:last-child, .fluig-table-children tbody td:last-child { min-width: 150px; width: auto; }
 }
 
 @media (max-width: 768px) {
-  .action-btn-table { height: 32px; padding: 0 0.55rem; font-size: 0.7rem; min-width: 96px; }
+  .barber-table-actions { gap: 0.4rem; }
+  .action-btn-table { min-width: 96px; height: 32px; padding: 0 0.55rem; font-size: 0.7rem; }
 }
 
 

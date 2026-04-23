@@ -4,9 +4,10 @@ import { getToken } from "./authService.js";
 const BASE = "https://barberoneapp-back-homolog.onrender.com/users";
 const token = getToken();
 
-export async function getUsers() {
+export async function getUsers(params = {}) {
   const res = await api.get(BASE, {
-     headers: {
+    params,
+    headers: {
       Authorization: `Bearer ${token}`,
     },
   });

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BaseLayout from '../components/layout/BaseLayout';
 import Toast from '../components/ui/Toast';
@@ -25,6 +25,146 @@ export default function BarberPage() {
 
   const token = getToken();
   const isBarber = currentUser?.role === 'barber';
+
+  const parseDateOnly = (dateStr) => {
+    const [year, month, day] = String(dateStr || '')
+      .split('-')
+      .map(Number);
+
+    if (!year || !month || !day) return null;
+
+    const date = new Date(year, month - 1, day);
+    if (
+      date.getFullYear() !== year ||
+      date.getMonth() !== month - 1 ||
+      date.getDate() !== day
+    ) {
+      return null;
+    }
+
+    return date;
+  };
+
+  const normalizeTimeValue = (value) => {
+    const match = String(value || '').match(/(\d{1,2}):(\d{2})/);
+    if (!match) return '';
+
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    if (
+      Number.isNaN(hours) ||
+      Number.isNaN(minutes) ||
+      hours < 0 ||
+      hours > 23 ||
+      minutes < 0 ||
+      minutes > 59
+    ) {
+      return '';
+    }
+
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  };
+
+  const getAppointmentStartDate = (appointment) => {
+    const rawStartAt = appointment?.startAt || appointment?.start_at;
+    if (rawStartAt) {
+      const parsedStartAt = new Date(rawStartAt);
+      if (!Number.isNaN(parsedStartAt.getTime())) return parsedStartAt;
+    }
+
+    const rawDate = appointment?.date || appointment?.appointmentDate;
+    const rawTime = normalizeTimeValue(appointment?.time || appointment?.appointmentTime);
+
+    if (rawDate && rawTime) {
+      const parsedDateTime = new Date(`${rawDate}T${rawTime}:00`);
+      if (!Number.isNaN(parsedDateTime.getTime())) return parsedDateTime;
+    }
+
+    if (rawDate) {
+      const parsedDateOnly = parseDateOnly(rawDate);
+      if (parsedDateOnly) return parsedDateOnly;
+    }
+
+    return null;
+  };
+
+  const formatDateKey = (date) => {
+    if (!date || Number.isNaN(date.getTime())) return '';
+
+    return [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0'),
+    ].join('-');
+  };
+
+  const getAppointmentDateKey = (appointment) => formatDateKey(getAppointmentStartDate(appointment));
+
+  const getAppointmentTime = (appointment) => {
+    const startDate = getAppointmentStartDate(appointment);
+    if (startDate && !Number.isNaN(startDate.getTime())) {
+      return startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    return normalizeTimeValue(appointment?.time || appointment?.appointmentTime);
+  };
+
+  const getAppointmentPhone = (appointment, userData = null) =>
+    userData?.phone ||
+    appointment?.client?.phone ||
+    appointment?.clientPhone ||
+    appointment?.client_phone ||
+    appointment?.phone ||
+    '';
+
+  const getAppointmentClientName = (appointment) =>
+    (typeof appointment?.client === 'string' ? appointment.client : appointment?.client?.name) ||
+    appointment?.clientName ||
+    'Cliente';
+
+  const getServiceDisplayName = (service) => {
+    if (!service) return '';
+    if (typeof service === 'string') return service.trim();
+
+    return (
+      service?.serviceName ||
+      service?.name ||
+      service?.service?.name ||
+      service?.service?.serviceName ||
+      service?.appointmentService?.name ||
+      service?.appointmentService?.serviceName ||
+      service?.title ||
+      ''
+    );
+  };
+
+  const getAppointmentServiceNames = (appointment) => {
+    const rawServices = appointment?.services;
+
+    if (Array.isArray(rawServices)) {
+      return rawServices.map((service) => getServiceDisplayName(service)).filter(Boolean);
+    }
+
+    if (rawServices && typeof rawServices === 'object') {
+      const nestedItems = rawServices.items || rawServices.data || rawServices.services;
+      if (Array.isArray(nestedItems)) {
+        return nestedItems.map((service) => getServiceDisplayName(service)).filter(Boolean);
+      }
+
+      const singleServiceName = getServiceDisplayName(rawServices);
+      if (singleServiceName) return [singleServiceName];
+    }
+
+    const fallbackNames = [
+      appointment?.serviceName,
+      appointment?.service?.name,
+      appointment?.service?.serviceName,
+    ].filter(Boolean);
+
+    return fallbackNames;
+  };
+
+  const getAppointmentServicesLabel = (appointment) => getAppointmentServiceNames(appointment).join(', ');
 
   async function loadData() {
     try {
@@ -137,15 +277,15 @@ export default function BarberPage() {
   useEffect(() => {
     const checkUpcomingAppointments = () => {
       const now = new Date();
-      getFilteredAppointments().forEach(apt => {
-        const [hours, minutes] = apt.time.split(':').map(Number);
-        const appointmentDate = new Date(apt.date + 'T00:00:00');
-        appointmentDate.setHours(hours, minutes, 0, 0);
+      getFilteredAppointments().forEach((apt) => {
+        const appointmentDate = getAppointmentStartDate(apt);
+        if (!appointmentDate || Number.isNaN(appointmentDate.getTime())) return;
+
         const diffMinutes = (appointmentDate - now) / (1000 * 60);
 
         if (diffMinutes <= 15 && diffMinutes >= 14 && !notificationSent.has(apt.id)) {
           sendBarberNotification(apt);
-          setNotificationSent(prev => new Set([...prev, apt.id]));
+          setNotificationSent((prev) => new Set([...prev, apt.id]));
         }
       });
     };
@@ -159,28 +299,18 @@ export default function BarberPage() {
     try {
       const clientIdRaw = appointment.clientId || appointment.client?.id;
       const userData = clientIdRaw ? await getUserById(clientIdRaw) : null;
-      const clientName =
-        userData?.name ||
-        (typeof appointment.client === 'string' ? appointment.client : appointment.client?.name) ||
-        appointment.clientName ||
-        'Cliente';
-      const clientPhone = userData?.phone || appointment.clientPhone || 'Não cadastrado';
+      const clientName = userData?.name || getAppointmentClientName(appointment);
+      const clientPhone = getAppointmentPhone(appointment, userData) || 'Não cadastrado';
 
-      const startDate = appointment.startAt
-        ? new Date(appointment.startAt)
-        : appointment.date
-          ? new Date(`${appointment.date}T${appointment.time || '00:00:00'}`)
-          : null;
+      const startDate = getAppointmentStartDate(appointment);
       const time = startDate && !Number.isNaN(startDate.getTime())
         ? startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-        : (appointment.time || 'Horário não informado');
+        : (getAppointmentTime(appointment) || 'Horário não informado');
 
-      const serviceName = Array.isArray(appointment.services)
-        ? appointment.services.map(s => s?.serviceName || s?.name).filter(Boolean).join(', ')
-        : 'Serviço';
+      const serviceName = getAppointmentServicesLabel(appointment) || 'Serviço';
 
       const message = `🔔 PRÓXIMO CLIENTE EM 15 MINUTOS!\n\nCliente: ${clientName}\nHorário: ${time}\nServiço: ${serviceName || 'Serviço'}\nTelefone: ${clientPhone}`;
-      
+
       if (currentUser?.phone) {
         let barberPhone = currentUser.phone.replace(/\D/g, '');
         if (!barberPhone.startsWith('55')) barberPhone = `55${barberPhone}`;
@@ -195,22 +325,18 @@ export default function BarberPage() {
 
   const sendWhatsAppToClient = async (appointmentId, type = 'confirm') => {
     try {
-      const appointment = appointments.find(apt => apt.id === appointmentId);
+      const appointment = appointments.find((apt) => apt.id === appointmentId);
       if (!appointment) return;
 
       const clientIdRaw = appointment.clientId || appointment.client?.id;
       const userData = clientIdRaw ? await getUserById(clientIdRaw) : null;
-      const rawPhone = userData?.phone || appointment.clientPhone || appointment.client?.phone;
+      const rawPhone = getAppointmentPhone(appointment, userData);
       if (!rawPhone) return showToast('Cliente não possui telefone cadastrado.', 'danger');
 
       let phone = rawPhone.replace(/\D/g, '');
       if (!phone.startsWith('55')) phone = `55${phone}`;
 
-      const clientName =
-        userData?.name ||
-        (typeof appointment.client === 'string' ? appointment.client : appointment.client?.name) ||
-        appointment.clientName ||
-        'cliente';
+      const clientName = (userData?.name || getAppointmentClientName(appointment)).toLowerCase();
 
       const barberName =
         appointment.barberName ||
@@ -219,25 +345,19 @@ export default function BarberPage() {
         currentUser?.name ||
         'barbeiro';
 
-      const startDate = appointment.startAt
-        ? new Date(appointment.startAt)
-        : appointment.date
-          ? new Date(`${appointment.date}T${appointment.time || '00:00:00'}`)
-          : null;
+      const startDate = getAppointmentStartDate(appointment);
       const date = startDate && !Number.isNaN(startDate.getTime())
         ? startDate.toLocaleDateString('pt-BR')
         : 'data não informada';
       const time = startDate && !Number.isNaN(startDate.getTime())
         ? startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-        : (appointment.time || 'horário não informado');
+        : (getAppointmentTime(appointment) || 'horário não informado');
 
-      const serviceName = Array.isArray(appointment.services) 
-        ? appointment.services.map(s => s?.serviceName || s?.name).filter(Boolean).join(', ') 
-        : (appointment.serviceName || 'Serviço');
+      const serviceName = getAppointmentServicesLabel(appointment) || 'Serviço';
 
       const messages = {
         confirm: `Olá ${clientName}!\n\nGostaria de CONFIRMAR seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}\n👨‍🦰 Barbeiro: ${barberName}\n\nPor favor, responda esta mensagem para confirmar sua presença.\n\n✨ ADDEV Barbearia`,
-        reminder: `Olá ${clientName}!\n\n⏰ LEMBRETE do seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}\n👨‍🦰 Barbeiro: ${barberName}\n\nTe esperamos!\n\n✨ ADDEV Barbearia`
+        reminder: `Olá ${clientName}!\n\n⏰ LEMBRETE do seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}\n👨‍🦰 Barbeiro: ${barberName}\n\nTe esperamos!\n\n✨ ADDEV Barbearia`,
       };
 
       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(messages[type])}`, '_blank');
@@ -273,16 +393,25 @@ export default function BarberPage() {
 
   const getFilteredAppointments = () => {
     const now = new Date();
-    const today = now.toLocaleDateString('en-CA');
+    const today = formatDateKey(now);
 
     let filtered = [...appointments].sort((a, b) => {
-      const dateA = new Date(`${a.date}T${a.time}`);
-      const dateB = new Date(`${b.date}T${b.time}`);
-      return dateA - dateB;
+      const dateA = getAppointmentStartDate(a);
+      const dateB = getAppointmentStartDate(b);
+      const timeA = dateA && !Number.isNaN(dateA.getTime()) ? dateA.getTime() : 0;
+      const timeB = dateB && !Number.isNaN(dateB.getTime()) ? dateB.getTime() : 0;
+      return timeA - timeB;
     });
 
-    if (filter === 'today') filtered = filtered.filter(apt => apt.date === today);
-    if (filter === 'upcoming') filtered = filtered.filter(apt => new Date(`${apt.date}T${apt.time}`) >= now);
+    if (filter === 'today') {
+      filtered = filtered.filter((apt) => getAppointmentDateKey(apt) === today);
+    }
+    if (filter === 'upcoming') {
+      filtered = filtered.filter((apt) => {
+        const appointmentDate = getAppointmentStartDate(apt);
+        return appointmentDate && !Number.isNaN(appointmentDate.getTime()) && appointmentDate >= now;
+      });
+    }
 
     return filtered;
   };
@@ -300,18 +429,18 @@ export default function BarberPage() {
       weekEnd.setDate(weekStart.getDate() + 6);
       weekEnd.setHours(23, 59, 59, 999);
 
-      return appointments.filter(apt => {
-        const aptDate = new Date(apt.date + 'T00:00:00');
-        return aptDate >= weekStart && aptDate <= weekEnd;
+      return appointments.filter((apt) => {
+        const aptDate = getAppointmentStartDate(apt);
+        return aptDate && !Number.isNaN(aptDate.getTime()) && aptDate >= weekStart && aptDate <= weekEnd;
       });
     }
 
     if (earningsFilter === 'month') {
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-      return appointments.filter(apt => {
-        const aptDate = new Date(apt.date + 'T00:00:00');
-        return aptDate >= monthStart && aptDate <= monthEnd;
+      return appointments.filter((apt) => {
+        const aptDate = getAppointmentStartDate(apt);
+        return aptDate && !Number.isNaN(aptDate.getTime()) && aptDate >= monthStart && aptDate <= monthEnd;
       });
     }
 
@@ -320,9 +449,9 @@ export default function BarberPage() {
       start.setHours(0, 0, 0, 0);
       const end = new Date(customEndDate + 'T00:00:00');
       end.setHours(23, 59, 59, 999);
-      return appointments.filter(apt => {
-        const aptDate = new Date(apt.date + 'T00:00:00');
-        return aptDate >= start && aptDate <= end;
+      return appointments.filter((apt) => {
+        const aptDate = getAppointmentStartDate(apt);
+        return aptDate && !Number.isNaN(aptDate.getTime()) && aptDate >= start && aptDate <= end;
       });
     }
 
@@ -400,7 +529,7 @@ export default function BarberPage() {
   const handleLogout = () => { logout(); navigate('/login'); };
 
   const filteredAppointments = getFilteredAppointments();
-  const todayAppointments = appointments.filter(apt => apt.date === new Date().toLocaleDateString('en-CA'));
+  const todayAppointments = appointments.filter((apt) => getAppointmentDateKey(apt) === formatDateKey(new Date()));
   const stats = calculateBarberStats();
 
 
@@ -470,40 +599,47 @@ export default function BarberPage() {
                           <th>Horário</th>
                           <th>Serviços</th>
                           <th>Telefone</th>
-                          <th>Status</th>
-                          <th>Ações</th>
+                          <th className="status-column-header">Status</th>
+                          <th className="actions-column-header">Ações</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredAppointments.map(apt => {
-                          const appointmentDateTime = new Date(`${apt.date}T${apt.time}`);
-                          const isPast = appointmentDateTime < new Date();
+                          const appointmentDateTime = getAppointmentStartDate(apt);
+                          const isPast = appointmentDateTime && !Number.isNaN(appointmentDateTime.getTime()) ? appointmentDateTime < new Date() : false;
                           const isCompleted = apt.status === 'completed';
                           const isConfirmed = apt.status === 'confirmed';
+                          const serviceNames = getAppointmentServiceNames(apt);
 
                           return (
                             <tr key={apt.id} className={`${isCompleted ? 'row-completed' : ''} ${isPast && !isCompleted ? 'row-past' : ''} ${isConfirmed ? 'row-confirmed' : ''}`}>
-                              <td><strong>{apt.client.name}</strong></td>
-                              <td>{new Date(apt.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
-                              <td><span className="appointment-time">{apt.time}</span></td>
+                              <td><strong>{getAppointmentClientName(apt)}</strong></td>
+                              <td>{appointmentDateTime && !Number.isNaN(appointmentDateTime.getTime()) ? appointmentDateTime.toLocaleDateString('pt-BR') : '-'}</td>
+                              <td><span className="appointment-time">{getAppointmentTime(apt) || '-'}</span></td>
                               <td>
                                 <div className="services-list-compact">
-                                  {apt.services.map((service, idx) => (
-                                    <div key={idx} className="service-item-compact">{service.name}</div>
-                                  ))}
+                                  {serviceNames.length > 0 ? (
+                                    serviceNames.map((serviceName, idx) => (
+                                      <div key={idx} className="service-item-compact">{serviceName}</div>
+                                    ))
+                                  ) : (
+                                    <div className="service-item-compact">-</div>
+                                  )}
                                 </div>
                               </td>
-                              <td><span className="client-phone">{apt.clientPhone || '-'}</span></td>
-                              <td>
-                                {isCompleted ? (
-                                  <span className="status-badge status-completed">Finalizado</span>
-                                ) : isConfirmed ? (
-                                  <span className="status-badge status-confirmed">Confirmado</span>
-                                ) : (
-                                  <span className="status-badge status-pending">Pendente</span>
-                                )}
+                              <td><span className="client-phone">{getAppointmentPhone(apt) || '-'}</span></td>
+                              <td className="status-cell">
+                                <div className="status-cell-content">
+                                  {isCompleted ? (
+                                    <span className="status-badge status-completed">Finalizado</span>
+                                  ) : isConfirmed ? (
+                                    <span className="status-badge status-confirmed">Confirmado</span>
+                                  ) : (
+                                    <span className="status-badge status-pending">Pendente</span>
+                                  )}
+                                </div>
                               </td>
-                              <td>
+                              <td className="actions-cell">
                                 <div className="barber-table-actions">
                                   {!isCompleted && (
                                     <>
@@ -513,14 +649,11 @@ export default function BarberPage() {
                                         </button>
                                       )}
                                       <button onClick={() => sendWhatsAppToClient(apt.id, 'confirm')} className="action-btn-table btn-whatsapp-table">
-                                        💬 Enviar Mensagem
-                                      </button>
-                                      <button onClick={() => sendWhatsAppToClient(apt.id, 'reminder')} className="action-btn-table btn-reminder-table">
-                                        🔔 Lembrete
+                                        Mensagem
                                       </button>
                                       {!isPast && (
                                         <button onClick={() => handleCompleteAppointment(apt.id)} className="action-btn-table btn-complete-table">
-                                          ✅ Finalizar
+                                          Finalizar
                                         </button>
                                       )}
                                     </>
@@ -629,9 +762,12 @@ export default function BarberPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {stats.filteredAppointments.sort((a, b) => new Date(`${b.date}T${b.time}`) - new Date(`${a.date}T${a.time}`)).map(apt => {
+                        {stats.filteredAppointments.sort((a, b) => { const dateA = getAppointmentStartDate(a); const dateB = getAppointmentStartDate(b); const timeA = dateA && !Number.isNaN(dateA.getTime()) ? dateA.getTime() : 0; const timeB = dateB && !Number.isNaN(dateB.getTime()) ? dateB.getTime() : 0; return timeB - timeA; }).map(apt => {
                           const aptTotal = calculateTotal(apt.services);
                           const barberEarning = (aptTotal * stats.commissionPercent) / 100;
+
+                          const appointmentDateTime = getAppointmentStartDate(apt);
+                          const serviceNames = getAppointmentServiceNames(apt);
 
                           return (
                             <tr key={apt.id} className={apt.status === 'confirmed' ? 'row-confirmed' : ''}>
@@ -644,14 +780,18 @@ export default function BarberPage() {
                                   <span className="status-badge status-pending">Pendente</span>
                                 )}
                               </td>
-                              <td><strong>{apt.client.name}</strong></td>
-                              <td>{new Date(apt.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
-                              <td>{apt.time}</td>
+                              <td><strong>{getAppointmentClientName(apt)}</strong></td>
+                              <td>{appointmentDateTime && !Number.isNaN(appointmentDateTime.getTime()) ? appointmentDateTime.toLocaleDateString('pt-BR') : '-'}</td>
+                              <td>{getAppointmentTime(apt) || '-'}</td>
                               <td>
                                 <div className="services-list">
-                                  {apt.services.map((service, idx) => (
-                                    <span key={idx} className="service-pill">{service.name}</span>
-                                  ))}
+                                  {serviceNames.length > 0 ? (
+                                    serviceNames.map((serviceName, idx) => (
+                                      <span key={idx} className="service-pill">{serviceName}</span>
+                                    ))
+                                  ) : (
+                                    <span className="service-pill">-</span>
+                                  )}
                                 </div>
                               </td>
                               <td className="total-price">R$ {aptTotal.toFixed(2)}</td>
@@ -706,3 +846,8 @@ export default function BarberPage() {
     </BaseLayout>
   );
 }
+
+
+
+
+

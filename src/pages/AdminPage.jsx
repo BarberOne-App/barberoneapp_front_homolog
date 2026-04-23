@@ -520,6 +520,11 @@ export default function AdminPage() {
   });
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
   const [userSearch, setUserSearch] = useState('');
+  const USERS_PAGE_LIMIT = 50;
+  const [usersPage, setUsersPage] = useState(1);
+  const [usersLimit, setUsersLimit] = useState(USERS_PAGE_LIMIT);
+  const [usersTotal, setUsersTotal] = useState(0);
+  const [usersLoadingPage, setUsersLoadingPage] = useState(false);
   const [hiddenBookingPaymentMethods, setHiddenBookingPaymentMethods] = useState([]);
   const [savingPaymentVisibility, setSavingPaymentVisibility] = useState(false);
 
@@ -613,6 +618,36 @@ export default function AdminPage() {
       console.error('Erro ao carregar informações da home:', error);
     }
   }, []);
+
+  const loadUsersPage = useCallback(
+    async (page = usersPage) => {
+      setUsersLoadingPage(true);
+      try {
+        const response = await getUsers({ page, limit: usersLimit });
+        const items = Array.isArray(response?.items) ? response.items : [];
+        setAllUsers(items);
+        setUsersPage(Number(response?.page) || page);
+        setUsersLimit(Number(response?.limit) || usersLimit);
+        setUsersTotal(Number(response?.total) || items.length);
+      } catch (error) {
+        console.error('Erro ao carregar usuários:', error);
+        showToast('Erro ao carregar usuários.', 'danger');
+      } finally {
+        setUsersLoadingPage(false);
+      }
+    },
+    [usersPage, usersLimit],
+  );
+
+  const handleUsersPageChange = useCallback(
+    async (nextPage) => {
+      const totalPages = Math.max(1, Math.ceil(usersTotal / usersLimit));
+      const page = Math.min(Math.max(1, nextPage), totalPages);
+      if (page === usersPage || usersLoadingPage) return;
+      await loadUsersPage(page);
+    },
+    [usersPage, usersLimit, usersTotal, usersLoadingPage, loadUsersPage],
+  );
   const permissionsConfig = {
     viewAdmin: { label: 'Acessar Painel Admin', category: 'Acesso Básico', icon: '🔓' },
     manageEmployees: { label: 'Gerenciar Funcionários', category: 'Gestão de Pessoas', icon: '👥' },
@@ -1855,8 +1890,11 @@ export default function AdminPage() {
       //   },
       // });
 
-      const usersResponse = await getUsers();
-      const allUsers = usersResponse.items;
+      const usersResponse = await getUsers({ page: usersPage, limit: usersLimit });
+      const allUsers = Array.isArray(usersResponse?.items) ? usersResponse.items : [];
+      setUsersPage(Number(usersResponse?.page) || usersPage);
+      setUsersLimit(Number(usersResponse?.limit) || usersLimit);
+      setUsersTotal(Number(usersResponse?.total) || allUsers.length);
       const allEmployees = allUsers.filter(
         (user) => user.role === 'barber' || user.role === 'receptionist' || user.role === 'admin',
       );
@@ -1926,7 +1964,7 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [usersPage, usersLimit]);
 
   const loadProducts = useCallback(async () => {
     try {
@@ -2308,8 +2346,8 @@ export default function AdminPage() {
         //   },
         // });
 
-        const checkEmailResponse = await getUsers();
-        const allUsers = checkEmailResponse.items;
+        const checkEmailResponse = await getUsers({ page: 1, limit: 10000 });
+        const allUsers = Array.isArray(checkEmailResponse?.items) ? checkEmailResponse.items : [];
         const emailExists = allUsers.some((u) => u.email === barberForm.userEmail);
         if (emailExists) {
           showToast('Este email já está cadastrado.', 'danger');
@@ -4435,6 +4473,17 @@ export default function AdminPage() {
     return getPaymentTypeLabel(payment);
   };
 
+  const usersTotalPages = Math.max(1, Math.ceil(usersTotal / usersLimit));
+  const filteredAdminUsers = allUsers
+    .filter((u) => {
+      if (!userSearch.trim()) return true;
+      const q = userSearch.toLowerCase();
+      return (
+        (u.name || '').toLowerCase().includes(q) ||
+        (u.email || '').toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
   return (
     <BaseLayout>
@@ -8334,17 +8383,7 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {allUsers
-                      .filter((u) => {
-                        if (!userSearch.trim()) return true;
-                        const q = userSearch.toLowerCase();
-                        return (
-                          (u.name || '').toLowerCase().includes(q) ||
-                          (u.email || '').toLowerCase().includes(q)
-                        );
-                      })
-                      .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-                      .map((user) => (
+                    {filteredAdminUsers.map((user) => (
                         <tr
                           key={user.id}
                           style={{
@@ -8468,14 +8507,7 @@ export default function AdminPage() {
                           </td>
                         </tr>
                       ))}
-                    {allUsers.filter((u) => {
-                      if (!userSearch.trim()) return true;
-                      const q = userSearch.toLowerCase();
-                      return (
-                        (u.name || '').toLowerCase().includes(q) ||
-                        (u.email || '').toLowerCase().includes(q)
-                      );
-                    }).length === 0 && (
+                    {filteredAdminUsers.length === 0 && (
                         <tr>
                           <td
                             colSpan={7}
@@ -8488,8 +8520,62 @@ export default function AdminPage() {
                   </tbody>
                 </table>
               </div>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '1rem',
+                  flexWrap: 'wrap',
+                  marginTop: '1rem',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => handleUsersPageChange(usersPage - 1)}
+                  disabled={usersLoadingPage || usersPage <= 1}
+                  style={{
+                    background: usersPage <= 1 ? '#1a1a1a' : 'rgba(255,122,26,0.12)',
+                    border: '1px solid rgba(255,122,26,0.3)',
+                    color: usersPage <= 1 ? '#555' : '#ff7a1a',
+                    borderRadius: '7px',
+                    padding: '8px 14px',
+                    cursor: usersLoadingPage || usersPage <= 1 ? 'not-allowed' : 'pointer',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  Anterior
+                </button>
+                <span style={{ color: '#a8a8a8', fontSize: '0.84rem', fontWeight: 600 }}>
+                  {usersLoadingPage
+                    ? 'Carregando usuários...'
+                    : `Página ${usersPage} de ${usersTotalPages}`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleUsersPageChange(usersPage + 1)}
+                  disabled={usersLoadingPage || usersPage >= usersTotalPages}
+                  style={{
+                    background:
+                      usersPage >= usersTotalPages ? '#1a1a1a' : 'rgba(255,122,26,0.12)',
+                    border: '1px solid rgba(255,122,26,0.3)',
+                    color: usersPage >= usersTotalPages ? '#555' : '#ff7a1a',
+                    borderRadius: '7px',
+                    padding: '8px 14px',
+                    cursor:
+                      usersLoadingPage || usersPage >= usersTotalPages
+                        ? 'not-allowed'
+                        : 'pointer',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  Próxima
+                </button>
+              </div>
               <p style={{ color: '#444', fontSize: '0.78rem', marginTop: '1rem' }}>
-                Total: {allUsers.length} usuários cadastrados
+                Total: {usersTotal} usuários cadastrados
               </p>
             </div>
           )}
