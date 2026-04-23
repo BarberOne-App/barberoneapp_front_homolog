@@ -7543,7 +7543,7 @@ export default function AdminPage() {
                                 {new Date(payment.appointment.startAt).toLocaleTimeString('pt-BR', {
                                   hour: '2-digit',
                                   minute: '2-digit',
-                                  timeZone: 'UTC',
+                                  timeZone: 'America/Sao_Paulo',
                                 })}
                               </td>
                               <td>
