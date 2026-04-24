@@ -303,6 +303,25 @@ export default function AdminPage() {
       .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase();
 
+  const formatBrazilianCurrencyInput = (value) => {
+    const cents = String(value || '').replace(/\D/g, '');
+    const amount = Number(cents || 0) / 100;
+
+    return amount.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    });
+  };
+
+  const parseBrazilianCurrency = (value) => {
+    const normalizedValue = String(value || '')
+      .replace(/[^\d,.-]/g, '')
+      .replace(/\./g, '')
+      .replace(',', '.');
+
+    return parseFloat(normalizedValue);
+  };
+
   const parseTimeValue = (value) => {
     const match = String(value || '').match(/(\d{1,2})(?:[:h](\d{2}))?/i);
     if (!match) return null;
@@ -505,6 +524,11 @@ export default function AdminPage() {
   });
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
   const [userSearch, setUserSearch] = useState('');
+  const USERS_PAGE_LIMIT = 50;
+  const [usersPage, setUsersPage] = useState(1);
+  const [usersLimit, setUsersLimit] = useState(USERS_PAGE_LIMIT);
+  const [usersTotal, setUsersTotal] = useState(0);
+  const [usersLoadingPage, setUsersLoadingPage] = useState(false);
   const [hiddenBookingPaymentMethods, setHiddenBookingPaymentMethods] = useState([]);
   const [savingPaymentVisibility, setSavingPaymentVisibility] = useState(false);
   const [stripeConnectStatus, setStripeConnectStatus] = useState(null);
@@ -605,6 +629,36 @@ export default function AdminPage() {
       console.error('Erro ao carregar informações da home:', error);
     }
   }, []);
+
+  const loadUsersPage = useCallback(
+    async (page = usersPage) => {
+      setUsersLoadingPage(true);
+      try {
+        const response = await getUsers({ page, limit: usersLimit });
+        const items = Array.isArray(response?.items) ? response.items : [];
+        setAllUsers(items);
+        setUsersPage(Number(response?.page) || page);
+        setUsersLimit(Number(response?.limit) || usersLimit);
+        setUsersTotal(Number(response?.total) || items.length);
+      } catch (error) {
+        console.error('Erro ao carregar usuários:', error);
+        showToast('Erro ao carregar usuários.', 'danger');
+      } finally {
+        setUsersLoadingPage(false);
+      }
+    },
+    [usersPage, usersLimit],
+  );
+
+  const handleUsersPageChange = useCallback(
+    async (nextPage) => {
+      const totalPages = Math.max(1, Math.ceil(usersTotal / usersLimit));
+      const page = Math.min(Math.max(1, nextPage), totalPages);
+      if (page === usersPage || usersLoadingPage) return;
+      await loadUsersPage(page);
+    },
+    [usersPage, usersLimit, usersTotal, usersLoadingPage, loadUsersPage],
+  );
   const permissionsConfig = {
     viewAdmin: { label: 'Acessar Painel Admin', category: 'Acesso Básico', icon: '🔓' },
     manageEmployees: { label: 'Gerenciar Funcionários', category: 'Gestão de Pessoas', icon: '👥' },
@@ -631,7 +685,7 @@ export default function AdminPage() {
     },
     manageOffScheduleAppointments: { label: 'Agendar Fora do Horário', category: 'Agendamentos', icon: '⏰' },
     manageBenefits: {
-      label: 'Gerenciar Benefícios dos Planos',
+      label: 'Gerenciamento de Planos',
       category: 'Configurações',
       icon: '🎁',
     },
@@ -1257,6 +1311,30 @@ export default function AdminPage() {
     }
   };
 
+  const formatImportUserErrors = (errors) => {
+    if (!Array.isArray(errors) || errors.length === 0) return '';
+
+    const details = errors
+      .map((item) => {
+        const line = item?.rowNumber ?? item?.row ?? item?.line ?? item?.linha;
+        const errorMessage =
+          item?.message || item?.error || item?.detail || item?.details || String(item);
+        return line ? `linha ${line}: ${errorMessage}` : errorMessage;
+      })
+      .join('; ');
+
+    return ` Detalhes: ${details}`;
+  };
+
+  const getImportUsersToastType = (status, success) => {
+    if (status === 201) return 'success';
+    if (status === 200) return 'warning';
+    if (status === 422) return 'danger';
+    if (success === true) return 'success';
+    if (success === false) return 'danger';
+    return 'warning';
+  };
+
   const handleImportUsersExcel = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -1284,35 +1362,43 @@ export default function AdminPage() {
           };
         });
 
-      const mappedRows = preparedRows.filter((row) => {
-        const hasPhone = String(row.phone || '').replace(/\D/g, '').length > 0;
-        const hasCpf = String(row.cpf || '').replace(/\D/g, '').length > 0;
-        return row.name && row.email && hasPhone && hasCpf;
-      });
-
-      const missingRequiredCount = preparedRows.length - mappedRows.length;
+      const mappedRows = preparedRows;
 
       if (!mappedRows.length) {
         showToast(
-          'Nenhuma linha válida encontrada. Nome, email, CPF e telefone são obrigatórios.',
+          'Nenhuma linha encontrada no Excel para importar.',
           'danger',
         );
         return;
       }
 
-      const result = await importUsersBatch({
+      const response = await importUsersBatch({
         defaultPassword: '123456',
         skipExisting: true,
         rows: mappedRows,
       });
+      console.log(response.data);
+      console.log(response.data?.errors);
 
       await loadData();
 
-      const message = `Clientes importados: ${result.createdCount}. Ignorados: ${(result.skippedCount || 0) + missingRequiredCount}. Erros: ${result.failedCount}. Senha padrão: 123456${missingRequiredCount > 0 ? `. Linhas sem nome/email/cpf/telefone: ${missingRequiredCount}` : ''}`;
-      showToast(message, result.failedCount > 0 ? 'danger' : 'success');
+      const responseData = response.data || {};
+      const errorDetails = formatImportUserErrors(responseData.errors);
+      const toastType = getImportUsersToastType(response.status, responseData.success);
+      showToast(`${responseData.message || 'Importação processada.'}${errorDetails}`, toastType);
     } catch (error) {
       console.error('Erro ao importar usuários por Excel:', error);
-      showToast('Erro ao importar clientes por Excel.', 'danger');
+      const apiError = error?.response?.data;
+      const apiStatus = error?.response?.status;
+      const errorMessage =
+        typeof apiError === 'string'
+          ? apiError
+          : apiError?.message || apiError?.error || error?.message || 'Erro ao importar clientes por Excel.';
+      const errorDetails = typeof apiError === 'string' ? '' : formatImportUserErrors(apiError?.errors);
+      showToast(
+        `${errorMessage}${errorDetails}`,
+        getImportUsersToastType(apiStatus, apiError?.success),
+      );
     } finally {
       setImportingUsers(false);
       clearFileInput(usersImportInputRef);
@@ -1677,6 +1763,27 @@ export default function AdminPage() {
     return null;
   };
 
+  const getPendingPaymentDisplayTime = (payment) => {
+    const appointmentTime = payment?.appointmentTime || payment?.appointment?.time;
+    if (typeof appointmentTime === 'string' && appointmentTime.trim()) {
+      return appointmentTime.slice(0, 5);
+    }
+
+    const appointmentStartAt = payment?.appointment?.startAt;
+    if (appointmentStartAt) {
+      const parsedStartAt = new Date(appointmentStartAt);
+      if (!Number.isNaN(parsedStartAt.getTime())) {
+        return parsedStartAt.toLocaleTimeString('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'America/Sao_Paulo',
+        });
+      }
+    }
+
+    return 'Horário não informado';
+  };
+
   const canCompleteAppointment = (appointment) => {
     const appointmentStartDate = getAppointmentStartDate(appointment);
     return Boolean(appointmentStartDate && appointmentStartDate <= new Date());
@@ -1860,8 +1967,11 @@ export default function AdminPage() {
       //   },
       // });
 
-      const usersResponse = await getUsers();
-      const allUsers = usersResponse.items;
+      const usersResponse = await getUsers({ page: usersPage, limit: usersLimit });
+      const allUsers = Array.isArray(usersResponse?.items) ? usersResponse.items : [];
+      setUsersPage(Number(usersResponse?.page) || usersPage);
+      setUsersLimit(Number(usersResponse?.limit) || usersLimit);
+      setUsersTotal(Number(usersResponse?.total) || allUsers.length);
       const allEmployees = allUsers.filter(
         (user) => user.role === 'barber' || user.role === 'receptionist' || user.role === 'admin',
       );
@@ -1931,7 +2041,7 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [usersPage, usersLimit]);
 
   const loadProducts = useCallback(async () => {
     try {
@@ -2319,8 +2429,8 @@ export default function AdminPage() {
         //   },
         // });
 
-        const checkEmailResponse = await getUsers();
-        const allUsers = checkEmailResponse.items;
+        const checkEmailResponse = await getUsers({ page: 1, limit: 10000 });
+        const allUsers = Array.isArray(checkEmailResponse?.items) ? checkEmailResponse.items : [];
         const emailExists = allUsers.some((u) => u.email === barberForm.userEmail);
         if (emailExists) {
           showToast('Este email já está cadastrado.', 'danger');
@@ -3559,7 +3669,7 @@ export default function AdminPage() {
       setEditingPlan(plan);
       setPlanForm({
         name: plan.name || '',
-        price: Number(plan.price || 0),
+        price: formatBrazilianCurrencyInput(String(Math.round(Number(plan.price || 0) * 100))),
         syncStripe: true,
       });
     } else {
@@ -3589,7 +3699,9 @@ export default function AdminPage() {
     }
 
     const planName = planForm.name?.trim();
-    const planPrice = Number(planForm.price);
+    const planPrice = parseBrazilianCurrency(planForm.price);
+    const planMpPreapprovalId = planForm.mpPreapprovalPlanId?.trim() || null;
+    const planSubscriptionUrl = planForm.mpSubscriptionUrl?.trim() || null;
 
     if (!planName) {
       showToast('Informe o nome do plano.', 'danger');
@@ -3827,7 +3939,15 @@ export default function AdminPage() {
     if (service) {
       setEditingService(service);
 
-      const priceValue = service.basePrice;
+      const currentServiceImage = String(
+        service.image || service.imageUrl || service.image_url || '',
+      ).trim();
+      const priceValue = formatBrazilianCurrencyInput(
+        String(Math.round(Number(service.basePrice || 0) * 100)),
+      );
+      const promotionalPriceValue = service.promotionalPrice
+        ? formatBrazilianCurrencyInput(String(Math.round(Number(service.promotionalPrice) * 100)))
+        : '';
       //.replace(/,/g, '.').replace(/R\$/g, '').trim();
       // const promotionalPriceValue = service.promotionalPrice
       //   ? service.promotionalPrice.replace(/,/g, '.').replace(/R\$/g, '').trim()
@@ -3836,10 +3956,10 @@ export default function AdminPage() {
       setServiceForm({
         name: service.name,
         price: priceValue,
-        promotionalPrice: service.promotionalPrice || 0,
+        promotionalPrice: promotionalPriceValue,
         commissionPercent: service.commissionPercent ?? service.commission_percent ?? 0,
         coveredByPlan: service.covered_by_plan || false,
-        image: service.image || '',
+        image: currentServiceImage,
         duration: service.durationMinutes || 30,
       });
     } else {
@@ -3885,8 +4005,28 @@ export default function AdminPage() {
     }
 
     try {
-      const formattedPrice = `R$ ${parseFloat(serviceForm.price).toFixed(2).replace('.', ',')}`;
+      const parsedPrice = parseBrazilianCurrency(serviceForm.price);
+      const parsedPromotionalPrice = serviceForm.promotionalPrice
+        ? parseBrazilianCurrency(serviceForm.promotionalPrice)
+        : 0;
       const parsedCommissionPercent = Number(serviceForm.commissionPercent);
+      const currentServiceImage = String(
+        serviceForm.image ||
+        editingService?.image ||
+        editingService?.imageUrl ||
+        editingService?.image_url ||
+        '',
+      ).trim();
+
+      if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+        showToast('Informe um preÃ§o vÃ¡lido.', 'danger');
+        return;
+      }
+
+      if (Number.isNaN(parsedPromotionalPrice) || parsedPromotionalPrice < 0) {
+        showToast('Informe um preÃ§o promocional vÃ¡lido.', 'danger');
+        return;
+      }
 
       if (
         Number.isNaN(parsedCommissionPercent) ||
@@ -3907,12 +4047,12 @@ export default function AdminPage() {
 
       const serviceData = {
         name: serviceForm.name,
-        basePrice: Number(serviceForm.price),
-        promotionalPrice: Number(serviceForm.promotionalPrice) || 0,
+        basePrice: parsedPrice,
+        promotionalPrice: parsedPromotionalPrice || 0,
         comissionPercent: parsedCommissionPercent,
         covered_by_plan: serviceForm.coveredByPlan,
         imageUrl:
-          serviceForm.image || 'https://images.unsplash.com/photo-1596728325488-58c87691e9af',
+          currentServiceImage || 'https://images.unsplash.com/photo-1596728325488-58c87691e9af',
         durationMinutes: parseInt(serviceForm.duration),
       };
 
@@ -4420,6 +4560,17 @@ export default function AdminPage() {
     return getPaymentTypeLabel(payment);
   };
 
+  const usersTotalPages = Math.max(1, Math.ceil(usersTotal / usersLimit));
+  const filteredAdminUsers = allUsers
+    .filter((u) => {
+      if (!userSearch.trim()) return true;
+      const q = userSearch.toLowerCase();
+      return (
+        (u.name || '').toLowerCase().includes(q) ||
+        (u.email || '').toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
   return (
     <BaseLayout>
@@ -4539,7 +4690,7 @@ export default function AdminPage() {
                     onClick={() => setActiveTab('benefits')}
                     className={`tab-btn ${activeTab === 'benefits' ? 'tab-btn--active' : ''}`}
                   >
-                    Benefícios dos Planos
+                    Gerenciamento de Planos
                   </button>
                 )}
                 {isAdmin && hasPermission('managePayments') && (
@@ -7540,11 +7691,7 @@ export default function AdminPage() {
                                 {new Date(payment.appointment.startAt).toLocaleDateString('pt-BR')}
                               </td>
                               <td>
-                                {new Date(payment.appointment.startAt).toLocaleTimeString('pt-BR', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                  timeZone: 'UTC',
-                                })}
+                                {getPendingPaymentDisplayTime(payment)}
                               </td>
                               <td>
                                 {payment.user.name}
@@ -8383,17 +8530,7 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {allUsers
-                      .filter((u) => {
-                        if (!userSearch.trim()) return true;
-                        const q = userSearch.toLowerCase();
-                        return (
-                          (u.name || '').toLowerCase().includes(q) ||
-                          (u.email || '').toLowerCase().includes(q)
-                        );
-                      })
-                      .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-                      .map((user) => (
+                    {filteredAdminUsers.map((user) => (
                         <tr
                           key={user.id}
                           style={{
@@ -8517,14 +8654,7 @@ export default function AdminPage() {
                           </td>
                         </tr>
                       ))}
-                    {allUsers.filter((u) => {
-                      if (!userSearch.trim()) return true;
-                      const q = userSearch.toLowerCase();
-                      return (
-                        (u.name || '').toLowerCase().includes(q) ||
-                        (u.email || '').toLowerCase().includes(q)
-                      );
-                    }).length === 0 && (
+                    {filteredAdminUsers.length === 0 && (
                         <tr>
                           <td
                             colSpan={7}
@@ -8537,8 +8667,62 @@ export default function AdminPage() {
                   </tbody>
                 </table>
               </div>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '1rem',
+                  flexWrap: 'wrap',
+                  marginTop: '1rem',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => handleUsersPageChange(usersPage - 1)}
+                  disabled={usersLoadingPage || usersPage <= 1}
+                  style={{
+                    background: usersPage <= 1 ? '#1a1a1a' : 'rgba(255,122,26,0.12)',
+                    border: '1px solid rgba(255,122,26,0.3)',
+                    color: usersPage <= 1 ? '#555' : '#ff7a1a',
+                    borderRadius: '7px',
+                    padding: '8px 14px',
+                    cursor: usersLoadingPage || usersPage <= 1 ? 'not-allowed' : 'pointer',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  Anterior
+                </button>
+                <span style={{ color: '#a8a8a8', fontSize: '0.84rem', fontWeight: 600 }}>
+                  {usersLoadingPage
+                    ? 'Carregando usuários...'
+                    : `Página ${usersPage} de ${usersTotalPages}`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleUsersPageChange(usersPage + 1)}
+                  disabled={usersLoadingPage || usersPage >= usersTotalPages}
+                  style={{
+                    background:
+                      usersPage >= usersTotalPages ? '#1a1a1a' : 'rgba(255,122,26,0.12)',
+                    border: '1px solid rgba(255,122,26,0.3)',
+                    color: usersPage >= usersTotalPages ? '#555' : '#ff7a1a',
+                    borderRadius: '7px',
+                    padding: '8px 14px',
+                    cursor:
+                      usersLoadingPage || usersPage >= usersTotalPages
+                        ? 'not-allowed'
+                        : 'pointer',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  Próxima
+                </button>
+              </div>
               <p style={{ color: '#444', fontSize: '0.78rem', marginTop: '1rem' }}>
-                Total: {allUsers.length} usuários cadastrados
+                Total: {usersTotal} usuários cadastrados
               </p>
             </div>
           )}
@@ -9559,12 +9743,13 @@ export default function AdminPage() {
 
               <Input
                 label="Preço (R$)"
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
+                inputMode="numeric"
                 value={planForm.price}
-                onChange={(e) => handlePlanFormChange('price', e.target.value)}
-                placeholder="Ex: 99.90"
+                onChange={(e) =>
+                  handlePlanFormChange('price', formatBrazilianCurrencyInput(e.target.value))
+                }
+                placeholder="R$ 0,00"
                 required
               />
 
@@ -9620,12 +9805,13 @@ export default function AdminPage() {
 
               <Input
                 label="Preço"
-                type="number"
-                step="0.01"
-                min="0"
+                type="text"
+                inputMode="numeric"
                 value={serviceForm.price}
-                onChange={(e) => handleServiceFormChange('price', e.target.value)}
-                placeholder="40.00"
+                onChange={(e) =>
+                  handleServiceFormChange('price', formatBrazilianCurrencyInput(e.target.value))
+                }
+                placeholder="R$ 0,00"
                 required
               />
 
@@ -9692,12 +9878,16 @@ export default function AdminPage() {
                 <div style={{ marginBottom: '1rem' }}>
                   <Input
                     label="Preço Promocional (opcional)"
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
+                    inputMode="numeric"
                     value={serviceForm.promotionalPrice}
-                    onChange={(e) => handleServiceFormChange('promotionalPrice', e.target.value)}
-                    placeholder="30.00"
+                    onChange={(e) =>
+                      handleServiceFormChange(
+                        'promotionalPrice',
+                        formatBrazilianCurrencyInput(e.target.value),
+                      )
+                    }
+                    placeholder="R$ 0,00"
                   />
                   <p
                     style={{

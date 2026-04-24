@@ -355,7 +355,7 @@ const barberNames = useMemo(() => {
     managePayments: { label: 'Ver Relatórios de Pagamentos', category: 'Financeiro', icon: '💰' },
     manageAgendamentos: { label: 'Ver Aba Agendamentos', category: 'Agendamentos', icon: '📅' },
     scheduleForOthers: { label: 'Agendar para Outros Clientes', category: 'Agendamentos', icon: '🗓️' },
-    manageBenefits: { label: 'Gerenciar Benefícios dos Planos', category: 'Configurações', icon: '🎁' },
+    manageBenefits: { label: 'Gerenciamento de Planos', category: 'Configurações', icon: '🎁' },
     manageSettings: { label: 'Alterar Configurações (PIX, Termos)', category: 'Configurações', icon: '⚙️' },
     manageGallery: { label: 'Gerenciar Galeria de Fotos', category: 'Conteúdo', icon: '🖼️' },
     managePayroll: { label: 'Ver Pagamentos de Funcionários', category: 'Financeiro', icon: '💰' },
@@ -3325,7 +3325,7 @@ const barberNames = useMemo(() => {
                 onClick={() => setActiveTab('benefits')}
                 className={`tab-btn ${activeTab === 'benefits' ? 'tab-btn--active' : ''}`}
               >
-                Benefícios dos Planos
+                Gerenciamento de Planos
               </button>
             )}
 
@@ -5042,7 +5042,7 @@ const barberNames = useMemo(() => {
           {activeTab === 'benefits' && hasPermission('manageBenefits') && (
             <div className="benefits-section">
               <div className="manage-barbers-header">
-                <h2>Gerenciar Benefícios dos Planos</h2>
+                <h2>Gerenciamento de Planos</h2>
                 {isAdmin && (
                   <button onClick={() => openPlanModal()} className="btn-add-barber">
                     Novo Plano

@@ -113,9 +113,8 @@ export const criarAssinatura = async (dadosAssinatura) => {
       autoRenewal: dadosAssinatura.autoRenewal ?? true,
       daysOverdue: 0,
 
-      monthlyBarberId: null,
-      monthlyBarberName: null,
-      monthlyBarberSetDate: null,
+      monthly_barber_id: null,
+      monthly_barber_set_at: null,
       overdueNotificationSent: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
