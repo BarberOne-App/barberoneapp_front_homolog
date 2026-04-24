@@ -6,6 +6,14 @@ const API_URL = 'https://barberoneapp-back-homolog.onrender.com';
 const extractApiErrorMessage = (error, fallbackMessage) => {
   const data = error?.response?.data;
 
+  if (Array.isArray(data)) {
+    const firstMessage = data[0];
+
+    if (typeof firstMessage === 'string' && firstMessage.trim()) {
+      return firstMessage;
+    }
+  }
+
   if (typeof data === 'string' && data.trim()) {
     return data;
   }
@@ -145,6 +153,7 @@ export const updateAppointment = async (id, updatedData) => {
 
 export const deleteAppointment = async (id) => {
   const token = getToken();
+  const fallbackMessage = 'Não foi possível cancelar este agendamento.';
   try {
     const response = await axios.delete(`${API_URL}/appointments/${id}`, {
       headers: {
@@ -154,7 +163,7 @@ export const deleteAppointment = async (id) => {
     return response.data;
   } catch (error) {
     console.error('Erro ao deletar agendamento:', error);
-    throw error;
+    throw normalizeAppointmentError(error, fallbackMessage);
   }
 };
 

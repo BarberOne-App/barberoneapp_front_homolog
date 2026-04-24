@@ -29,8 +29,19 @@ import {
 import './AuthPages.css';
 import { getToken } from '../services/authService.js';
 
-const extractAppointmentErrorMessage = (error) => {
+const extractAppointmentErrorMessage = (
+  error,
+  fallbackMessage = 'Não foi possível cancelar este agendamento.',
+) => {
   const data = error?.response?.data;
+
+  if (Array.isArray(data)) {
+    const firstMessage = data[0];
+
+    if (typeof firstMessage === 'string' && firstMessage.trim()) {
+      return firstMessage;
+    }
+  }
 
   if (typeof data === 'string' && data.trim()) {
     return data;
@@ -46,7 +57,7 @@ const extractAppointmentErrorMessage = (error) => {
     data?.detail ||
     data?.details ||
     error?.message ||
-    'Não foi possível concluir o agendamento. Tente novamente.';
+    fallbackMessage;
 
   const normalizedMessage = String(message)
     .normalize('NFD')
@@ -1877,7 +1888,17 @@ export default function AppointmentsPage() {
       showToast('Agendamento cancelado. Escolha novo horário.', 'info');
     } catch (error) {
       console.error('Erro ao deletar:', error);
-      showToast('Escolha novo horário. O anterior será substituído.', 'warning');
+      showToast(
+        extractAppointmentErrorMessage(
+          error,
+          'Não foi possível cancelar este agendamento.',
+        ),
+        'danger',
+      );
+      setExistingAppointment(null);
+      setSelectedDate(null);
+      setIsRescheduling(false);
+      return;
     }
 
     setIsRescheduling(true);
@@ -1896,7 +1917,10 @@ export default function AppointmentsPage() {
       setSelectedDate(null);
       setIsRescheduling(false);
     } catch (error) {
-      showToast('Erro ao cancelar agendamento.', 'danger');
+      showToast(
+        extractAppointmentErrorMessage(error, 'Não foi possível cancelar este agendamento.'),
+        'danger',
+      );
     }
   }, [existingAppointment, loadData, showToast, clearPaymentCache]);
 
@@ -2270,7 +2294,10 @@ export default function AppointmentsPage() {
       showToast('Agendamento cancelado com sucesso!', 'success');
       setAppointmentToDelete(null);
     } catch (error) {
-      showToast('Erro ao cancelar agendamento.', 'danger');
+      showToast(
+        extractAppointmentErrorMessage(error, 'Não foi possível cancelar este agendamento.'),
+        'danger',
+      );
     }
   }, [appointmentToDelete, loadData, showToast, clearPaymentCache]);
 
