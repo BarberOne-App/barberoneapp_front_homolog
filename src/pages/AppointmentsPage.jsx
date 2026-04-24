@@ -437,18 +437,57 @@ export default function AppointmentsPage() {
     }
   }, []);
 
+  const normalizeId = (value) => String(value ?? '');
+
+  const buildDependentLookupIds = (dependents = []) =>
+    new Set(
+      dependents.flatMap((dependent) => {
+        const normalizedId = normalizeId(dependent?.id);
+        if (!normalizedId) return [];
+        return [normalizedId, `dep_${normalizedId}`];
+      }),
+    );
+
+  const getAppointmentClientId = (appointment) =>
+    normalizeId(appointment?.clientId ?? appointment?.client?.id);
+
+  const getAppointmentDependentId = (appointment) =>
+    normalizeId(appointment?.dependentId ?? appointment?.dependent?.id);
+
+  const isAppointmentFromCurrentUser = (appointment, userId, dependentLookupIds = new Set()) => {
+    const normalizedUserId = normalizeId(userId);
+    const appointmentClientId = getAppointmentClientId(appointment);
+    const appointmentDependentId = getAppointmentDependentId(appointment);
+
+    return (
+      appointmentClientId === normalizedUserId ||
+      dependentLookupIds.has(appointmentClientId) ||
+      dependentLookupIds.has(appointmentDependentId)
+    );
+  };
+
+  const getAppointmentStartDate = (appointment) => {
+    const fallbackDateTime =
+      appointment?.date && appointment?.time
+        ? `${appointment.date}T${appointment.time}`
+        : appointment?.date;
+
+    const parsedDate = new Date(appointment?.startAt || appointment?.endAt || fallbackDateTime);
+    return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+  };
+
   const getUpcomingReminders = useMemo(() => {
     const now = new Date();
-    const depIds = userDependents.map((d) => d.id);
-    const userAppointments = appointments.filter(
-      (apt) => apt.clientId === currentUser?.id || depIds.includes(apt.clientId),
+    const dependentLookupIds = buildDependentLookupIds(userDependents);
+    const userAppointments = appointments.filter((apt) =>
+      isAppointmentFromCurrentUser(apt, currentUser?.id, dependentLookupIds),
     );
     const future = userAppointments.filter((apt) => {
-      const aptDateTime = new Date(apt.startAt || apt.endAt);
-      if (Number.isNaN(aptDateTime.getTime())) return false;
+      const aptDateTime = getAppointmentStartDate(apt);
+      if (!aptDateTime) return false;
       return aptDateTime >= now;
     });
-    future.sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
+    future.sort((a, b) => getAppointmentStartDate(a) - getAppointmentStartDate(b));
     return future;
   }, [appointments, currentUser?.id, userDependents]);
 
@@ -457,8 +496,6 @@ export default function AppointmentsPage() {
     if (value instanceof Date) return value.toLocaleDateString('en-CA');
     return String(value).slice(0, 10);
   };
-
-  const normalizeId = (value) => String(value ?? '');
 
   const normalizeText = (value) =>
     String(value || '')
@@ -1085,10 +1122,10 @@ export default function AppointmentsPage() {
         console.warn('Erro ao buscar dependentes:', e);
       }
 
-      const depIds = deps.map((d) => `dep_${d.id}`);
+      const dependentLookupIds = buildDependentLookupIds(deps);
 
-      const userAppointments = appointmentsData.filter(
-        (apt) => apt.clientId === currentUser?.id || depIds.includes(apt.clientId),
+      const userAppointments = appointmentsData.filter((apt) =>
+        isAppointmentFromCurrentUser(apt, currentUser?.id, dependentLookupIds),
       );
 
       const paymentsMap = {};
@@ -2239,17 +2276,22 @@ export default function AppointmentsPage() {
 
   const myAppointmentsBase = useMemo(() => {
     const now = new Date();
-    const depClientIds = userDependents.map((d) => d.id);
+    const normalizedCurrentUserId = String(currentUser?.id ?? '');
+    const dependentLookupIds = buildDependentLookupIds(userDependents);
+
     return appointments.filter((apt) => {
-      const isOwn = apt.clientId === currentUser?.id;
-      const isDep = depClientIds.includes(apt.clientId);
-      if (!isOwn && !isDep) return false;
+      const normalizedAppointmentClientId = String(apt?.clientId ?? apt?.client?.id ?? '');
+      const isCurrentUserAppointment =
+        normalizedAppointmentClientId === normalizedCurrentUserId ||
+        isAppointmentFromCurrentUser(apt, normalizedCurrentUserId, dependentLookupIds);
+
+      if (!isCurrentUserAppointment) return false;
 
       const appointmentStatus = String(apt.status || '').toLowerCase();
-      if (['completed', 'cancelled', 'no_show'].includes(appointmentStatus)) return false;
+      if (['cancelled', 'no_show'].includes(appointmentStatus)) return false;
 
-      const appointmentDateTime = new Date(apt.startAt || apt.endAt);
-      if (Number.isNaN(appointmentDateTime.getTime())) return false;
+      const appointmentDateTime = getAppointmentStartDate(apt);
+      if (!appointmentDateTime) return false;
 
       // Remove agendamentos que já passaram considerando data e hora atual.
       if (appointmentDateTime < now) return false;
@@ -2376,8 +2418,8 @@ export default function AppointmentsPage() {
 
   const sortedMyAppointments = useMemo(() => {
     return [...myAppointments].sort((a, b) => {
-      const dateA = new Date(`${a.date}T${a.time}`);
-      const dateB = new Date(`${b.date}T${b.time}`);
+      const dateA = getAppointmentStartDate(a) || new Date(0);
+      const dateB = getAppointmentStartDate(b) || new Date(0);
       return dateB - dateA;
     });
   }, [myAppointments]);
