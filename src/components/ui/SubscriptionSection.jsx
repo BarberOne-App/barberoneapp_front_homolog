@@ -5,6 +5,7 @@ import Toast from './Toast.jsx';
 import './SubscriptionSection.css';
 import { getToken } from '../../services/authService.js';
 import AppointmentsPage from '../../pages/AppointmentsPage-backup.jsx';
+import { createStripeSubscriptionCheckoutSession } from '../../services/stripeService.js';
 
 const PLAN_SERVICE_FEATURE_PREFIX = 'SERVICO_INCLUSO::';
 
@@ -128,34 +129,9 @@ export default function SubscriptionSection({ activeSubscription, onSubscribe })
     return { savings, savingsPercent };
   };
 
-  const buildSubscriptionCheckoutUrl = (baseUrl, userEmail) => {
-    const email = String(userEmail || '').trim();
-    if (!email) return baseUrl;
-
-    try {
-      const url = new URL(baseUrl);
-      url.searchParams.set('prefilled_email', email);
-      return url.toString();
-    } catch {
-      const separator = String(baseUrl).includes('?') ? '&' : '?';
-      return `${baseUrl}${separator}prefilled_email=${encodeURIComponent(email)}`;
-    }
-  };
-
-  const handleSelectPlan = (plan) => {
+  const handleSelectPlan = async (plan) => {
     if (!currentUser) {
       showToast('Por favor, faça login para assinar um plano.', 'danger');
-      return;
-    }
-
-    if (onSubscribe) {
-      onSubscribe(plan);
-      return;
-    }
-
-    const subscriptionUrl = plan?.mpSubscriptionUrl || plan?.subscriptionUrl;
-    if (!subscriptionUrl) {
-      showToast('Link de assinatura não configurado para esse plano.', 'danger');
       return;
     }
 
@@ -168,8 +144,39 @@ export default function SubscriptionSection({ activeSubscription, onSubscribe })
     localStorage.setItem('selectedPlan', JSON.stringify(planWithRecurring));
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
 
-    const checkoutUrl = buildSubscriptionCheckoutUrl(subscriptionUrl, currentUser?.email);
-    window.location.href = checkoutUrl;
+    if (onSubscribe) {
+      onSubscribe(plan);
+      return;
+    }
+
+    if (!plan?.stripePriceId) {
+      const subscriptionUrl =
+        plan?.stripePaymentLinkUrl || plan?.mpSubscriptionUrl || plan?.subscriptionUrl;
+
+      if (!subscriptionUrl) {
+        showToast('Link de assinatura não configurado para esse plano.', 'danger');
+        return;
+      }
+
+      window.location.href = subscriptionUrl;
+      return;
+    }
+
+    try {
+      const session = await createStripeSubscriptionCheckoutSession({
+        planId: plan.id,
+        email: currentUser.email,
+      });
+
+      if (!session?.url) {
+        throw new Error('Não foi possível iniciar o checkout.');
+      }
+
+      window.location.href = session.url;
+    } catch (error) {
+      console.error('Erro ao criar checkout da assinatura:', error);
+      showToast('Não foi possível iniciar a assinatura. Tente novamente.', 'danger');
+    }
   };
 
   return (

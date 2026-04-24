@@ -15,6 +15,7 @@ import PaymentModal from '../components/ui/PaymentModal.jsx';
 import { getProducts } from '../services/productService.js';
 import { getHomeInfo } from '../services/settingsService.js';
 import { getActiveBarbershop } from '../components/layout/Barbershops.jsx';
+import { createStripeSubscriptionCheckoutSession } from '../services/stripeService.js';
 import './Home.css';
 
 export default function Home() {
@@ -256,21 +257,7 @@ export default function Home() {
     }
   };
 
-  const buildSubscriptionCheckoutUrl = (baseUrl, userEmail) => {
-    const email = String(userEmail || '').trim();
-    if (!email) return baseUrl;
-
-    try {
-      const url = new URL(baseUrl);
-      url.searchParams.set('prefilled_email', email);
-      return url.toString();
-    } catch {
-      const separator = String(baseUrl).includes('?') ? '&' : '?';
-      return `${baseUrl}${separator}prefilled_email=${encodeURIComponent(email)}`;
-    }
-  };
-
-  const abrirModalGerenciar = (selectedPlan = null) => {
+  const abrirModalGerenciar = async (selectedPlan = null) => {
     if (!currentUser) {
       showToast('Faça login para gerenciar sua assinatura', 'danger');
       navigate('/login');
@@ -278,13 +265,6 @@ export default function Home() {
     }
 
     if (selectedPlan && !activeSubscription) {
-      const subscriptionUrl = selectedPlan?.mpSubscriptionUrl || selectedPlan?.subscriptionUrl;
-
-      if (!subscriptionUrl) {
-        showToast('Link de assinatura não configurado para esse plano.', 'danger');
-        return;
-      }
-
       const planWithRecurring = {
         ...selectedPlan,
         isRecurring: true,
@@ -294,9 +274,38 @@ export default function Home() {
       localStorage.setItem('selectedPlan', JSON.stringify(planWithRecurring));
       localStorage.setItem('currentUser', JSON.stringify(currentUser));
 
-      const checkoutUrl = buildSubscriptionCheckoutUrl(subscriptionUrl, currentUser?.email);
-      window.location.href = checkoutUrl;
-      return;
+      if (!selectedPlan?.stripePriceId) {
+        const subscriptionUrl =
+          selectedPlan?.stripePaymentLinkUrl ||
+          selectedPlan?.mpSubscriptionUrl ||
+          selectedPlan?.subscriptionUrl;
+
+        if (!subscriptionUrl) {
+          showToast('Link de assinatura não configurado para esse plano.', 'danger');
+          return;
+        }
+
+        window.location.href = subscriptionUrl;
+        return;
+      }
+
+      try {
+        const session = await createStripeSubscriptionCheckoutSession({
+          planId: selectedPlan.id,
+          email: currentUser.email,
+        });
+
+        if (!session?.url) {
+          throw new Error('Não foi possível gerar a sessão de checkout.');
+        }
+
+        window.location.href = session.url;
+        return;
+      } catch (error) {
+        console.error('Erro ao iniciar checkout da assinatura:', error);
+        showToast('Não foi possível iniciar a assinatura. Tente novamente.', 'danger');
+        return;
+      }
     }
 
     if (activeSubscription) {
