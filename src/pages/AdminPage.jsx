@@ -1752,6 +1752,27 @@ export default function AdminPage() {
     return null;
   };
 
+  const getPendingPaymentDisplayTime = (payment) => {
+    const appointmentTime = payment?.appointmentTime || payment?.appointment?.time;
+    if (typeof appointmentTime === 'string' && appointmentTime.trim()) {
+      return appointmentTime.slice(0, 5);
+    }
+
+    const appointmentStartAt = payment?.appointment?.startAt;
+    if (appointmentStartAt) {
+      const parsedStartAt = new Date(appointmentStartAt);
+      if (!Number.isNaN(parsedStartAt.getTime())) {
+        return parsedStartAt.toLocaleTimeString('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'America/Sao_Paulo',
+        });
+      }
+    }
+
+    return 'Horário não informado';
+  };
+
   const canCompleteAppointment = (appointment) => {
     const appointmentStartDate = getAppointmentStartDate(appointment);
     return Boolean(appointmentStartDate && appointmentStartDate <= new Date());
@@ -7540,11 +7561,7 @@ export default function AdminPage() {
                                 {new Date(payment.appointment.startAt).toLocaleDateString('pt-BR')}
                               </td>
                               <td>
-                                {new Date(payment.appointment.startAt).toLocaleTimeString('pt-BR', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                  timeZone: 'America/Sao_Paulo',
-                                })}
+                                {getPendingPaymentDisplayTime(payment)}
                               </td>
                               <td>
                                 {payment.user.name}
