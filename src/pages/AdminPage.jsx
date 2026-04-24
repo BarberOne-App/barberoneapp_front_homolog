@@ -246,6 +246,8 @@ export default function AdminPage() {
     locationAddress: '',
     locationCity: '',
   });
+  const [barberPaymentFrequency, setBarberPaymentFrequency] = useState('');
+  const [employeePaymentFrequency, setEmployeePaymentFrequency] = useState('');
   const [homeInfoLoading, setHomeInfoLoading] = useState(false);
   const [expandedBarbers, setExpandedBarbers] = useState({});
   const [expandedObsId, setExpandedObsId] = useState(null);
@@ -261,11 +263,13 @@ export default function AdminPage() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
-  const [payrollPeriodFilter, setPayrollPeriodFilter] = useState('mensal');
   const [payrollMonthFilter, setPayrollMonthFilter] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
+  const [payrollDateFilter, setPayrollDateFilter] = useState('');
+  const [payrollStartDate, setPayrollStartDate] = useState('');
+  const [payrollEndDate, setPayrollEndDate] = useState('');
   const [valeForm, setValeForm] = useState({
     employeeId: '',
     valor: '',
@@ -613,6 +617,8 @@ export default function AdminPage() {
           ...homeData,
           heroImages: Array.isArray(homeData?.heroImages) ? homeData.heroImages : [],
         }));
+        setBarberPaymentFrequency(homeData?.barberPaymentFrequency || '');
+        setEmployeePaymentFrequency(homeData?.employeePaymentFrequency || '');
       }
     } catch (error) {
       console.error('Erro ao carregar informações da home:', error);
@@ -896,6 +902,8 @@ export default function AdminPage() {
         ...data,
         heroImages: Array.isArray(data?.heroImages) ? data.heroImages : [],
       }));
+      setBarberPaymentFrequency(data?.barberPaymentFrequency || '');
+      setEmployeePaymentFrequency(data?.employeePaymentFrequency || '');
     } catch (error) {
       console.error('Erro ao carregar informações da home:', error);
     }
@@ -906,7 +914,11 @@ export default function AdminPage() {
     setHomeInfoLoading(true);
 
     try {
-      await saveHomeInfo(homeInfo);
+      await saveHomeInfo({
+        ...homeInfo,
+        barberPaymentFrequency,
+        employeePaymentFrequency,
+      });
       showToast('Informações da home atualizadas com sucesso!', 'success');
     } catch (error) {
       console.error('Erro ao salvar informações da home:', error);
@@ -2130,6 +2142,95 @@ export default function AdminPage() {
   const closeToast = () => {
     setToast({ show: false, message: '', type: 'success' });
   };
+
+  const extractFriendlyApiMessage = useCallback((payload, fallbackMessage) => {
+    const isFriendlyMessage = (value) => {
+      if (typeof value !== 'string') return false;
+
+      const trimmed = value.trim();
+      if (!trimmed) return false;
+      if (trimmed.startsWith('<')) return false;
+
+      return !/request failed with status code|failed to fetch|network error|internal server error|bad request|status code\s*\d+/i.test(
+        trimmed,
+      );
+    };
+
+    if (Array.isArray(payload)) {
+      const firstFriendlyItem = payload.find((item) => isFriendlyMessage(item));
+      if (firstFriendlyItem) return firstFriendlyItem.trim();
+    }
+
+    if (typeof payload === 'string' && isFriendlyMessage(payload)) {
+      return payload.trim();
+    }
+
+    if (Array.isArray(payload?.message)) {
+      const firstFriendlyItem = payload.message.find((item) => isFriendlyMessage(item));
+      if (firstFriendlyItem) return firstFriendlyItem.trim();
+    }
+
+    const candidates = [
+      payload?.message,
+      payload?.error,
+      payload?.detail,
+      payload?.details,
+      payload?.reason,
+      payload?.title,
+      fallbackMessage,
+    ];
+
+    const friendlyCandidate = candidates.find((candidate) => isFriendlyMessage(candidate));
+    return friendlyCandidate || fallbackMessage;
+  }, []);
+
+  const getFriendlyErrorFromResponse = useCallback(
+    async (
+      response,
+      fallbackMessage = 'N\u00e3o foi poss\u00edvel registrar o pagamento deste funcion\u00e1rio.',
+    ) => {
+      let payload = null;
+
+      try {
+        const contentType = response.headers.get('content-type') || '';
+        payload = contentType.includes('application/json')
+          ? await response.json()
+          : await response.text();
+      } catch {
+        payload = null;
+      }
+
+      return extractFriendlyApiMessage(payload, fallbackMessage);
+    },
+    [extractFriendlyApiMessage],
+  );
+
+  const loadPayrollData = useCallback(async () => {
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+
+    const [valesRes, paymentsRes, aptsRes] = await Promise.all([
+      fetch('https://barberoneapp-back-homolog.onrender.com/employeeVales', { headers }),
+      fetch('https://barberoneapp-back-homolog.onrender.com/employeePayments', { headers }),
+      fetch('https://barberoneapp-back-homolog.onrender.com/appointmentPayments', { headers }),
+    ]);
+
+    if (!valesRes.ok || !paymentsRes.ok || !aptsRes.ok) {
+      throw new Error('Pagamento registrado, mas não foi possível atualizar a listagem.');
+    }
+
+    const [valesData, paymentsData, appointmentPaymentsData] = await Promise.all([
+      valesRes.json(),
+      paymentsRes.json(),
+      aptsRes.json(),
+    ]);
+
+    setEmployeeVales(Array.isArray(valesData) ? valesData : []);
+    setEmployeePayments(Array.isArray(paymentsData) ? paymentsData : []);
+    setAppointmentPayments(Array.isArray(appointmentPaymentsData) ? appointmentPaymentsData : []);
+  }, [token]);
 
   const showConfirm = (message, onConfirm) => {
     setConfirmModal({ open: true, message, onConfirm });
@@ -4080,6 +4181,40 @@ export default function AdminPage() {
     return { start: '', end: '' };
   };
 
+  const getConfiguredPayrollFrequency = (employee, barberData = null) => {
+    if (employee?.role === 'barber') {
+      return barberPaymentFrequency || barberData?.paymentFrequency || employee?.paymentFrequency || 'mensal';
+    }
+
+    return employeePaymentFrequency || employee?.paymentFrequency || 'mensal';
+  };
+
+  const doesPayrollPeriodMatchDateFilters = (periodStart, periodEnd) => {
+    if (!periodStart || !periodEnd) return false;
+
+    const start = toDateStr(periodStart);
+    const end = toDateStr(periodEnd);
+
+    if (payrollDateFilter) {
+      const selectedDate = toDateStr(payrollDateFilter);
+      return selectedDate >= start && selectedDate <= end;
+    }
+
+    if (payrollStartDate || payrollEndDate) {
+      const filterStart = toDateStr(payrollStartDate) || start;
+      const filterEnd = toDateStr(payrollEndDate) || end;
+      return start <= filterEnd && end >= filterStart;
+    }
+
+    return true;
+  };
+
+  const clearPayrollDateFilters = () => {
+    setPayrollDateFilter('');
+    setPayrollStartDate('');
+    setPayrollEndDate('');
+  };
+
   const getBarberCommissionInPeriod = (barberId, start, end) => {
     if (!barberId || !start || !end) return 0;
     const barberData = barbers.find((b) => String(b.id) === String(barberId));
@@ -4309,9 +4444,11 @@ export default function AdminPage() {
     );
   };
 
-  const handleMarkPayrollPaid = async (employee, barberData, period) => {
+  const handleMarkPayrollPaid = async (employee, barberData) => {
+    const period = getConfiguredPayrollFrequency(employee, barberData);
     const { start, end } = getPayrollPeriodDates(period, payrollMonthFilter);
     const barberId = barberData?.id;
+    const fallbackErrorMessage = 'N\u00e3o foi poss\u00edvel registrar o pagamento deste funcion\u00e1rio.';
     const commission = barberId ? getBarberCommissionInPeriod(barberId, start, end) : 0;
     const vales = getValesInPeriod(employee.id, start, end);
     const totalExtraPayments = getExtraPaymentsInPeriod(employee.id, start, end).reduce(
@@ -4323,6 +4460,11 @@ export default function AdminPage() {
     const liquido = salarioFixo + commission + totalExtraPayments - totalVales;
 
     const existingPayment = checkAlreadyPaidInPeriod(employee.id, period, payrollMonthFilter);
+
+    if (existingPayment) {
+      showToast('Este funcionário já possui pagamento registrado no período selecionado.', 'info');
+      return;
+    }
     const periodLabel =
       period === 'semanal' ? 'semana' : period === 'quinzenal' ? 'quinzena' : 'mês';
     const confirmMsg = existingPayment
@@ -4344,7 +4486,7 @@ export default function AdminPage() {
           paidAt: new Date().toISOString(),
           paidBy: currentUser?.id,
         };
-        await fetch('https://barberoneapp-back-homolog.onrender.com/employeePayments', {
+        const paymentResponse = await fetch('https://barberoneapp-back-homolog.onrender.com/employeePayments', {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -4352,14 +4494,29 @@ export default function AdminPage() {
           },
           body: JSON.stringify(paymentRecord),
         });
-        for (const v of vales)
-          await fetch(`https://barberoneapp-back-homolog.onrender.com/employeeVales/${v.id}`, {
-            method: 'DELETE',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
+
+        if (!paymentResponse.ok) {
+          throw new Error(
+            await getFriendlyErrorFromResponse(paymentResponse, fallbackErrorMessage),
+          );
+        }
+
+        for (const v of vales) {
+          const valeDeleteResponse = await fetch(
+            `https://barberoneapp-back-homolog.onrender.com/employeeVales/${v.id}`,
+            {
+              method: 'DELETE',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
             },
-          });
+          );
+
+          if (!valeDeleteResponse.ok) {
+            throw new Error('Pagamento registrado, mas n\u00e3o foi poss\u00edvel atualizar os vales.');
+          }
+        }
 
         if (barberId) {
           const toMark = normalizedAppointmentPayments.filter((p) => {
@@ -4373,7 +4530,7 @@ export default function AdminPage() {
                 : '';
             return d >= start && d <= end;
           });
-          await Promise.all(
+          const commissionResponses = await Promise.all(
             toMark.map((p) =>
               fetch(`https://barberoneapp-back-homolog.onrender.com/appointmentPayments/${p.id}`, {
                 method: 'PATCH',
@@ -4385,27 +4542,99 @@ export default function AdminPage() {
               }),
             ),
           );
+
+          if (commissionResponses.some((response) => !response.ok)) {
+            throw new Error(
+              'Pagamento registrado, mas n\u00e3o foi poss\u00edvel atualizar o resumo das comiss\u00f5es.',
+            );
+          }
         }
 
-        const [valesRes, paymentsRes, aptsRes] = await Promise.all([
-          fetch('https://barberoneapp-back-homolog.onrender.com/employeeVales'),
-          fetch('https://barberoneapp-back-homolog.onrender.com/employeePayments'),
-          fetch('https://barberoneapp-back-homolog.onrender.com/appointmentPayments', {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          }),
-        ]);
-        setEmployeeVales(await valesRes.json());
-        setEmployeePayments(await paymentsRes.json());
-        setAppointmentPayments(await aptsRes.json());
-        showToast(`✅ Pagamento de ${employee.name} registrado com sucesso!`, 'success');
-      } catch {
-        showToast('Erro ao registrar pagamento.', 'danger');
+        await loadPayrollData();
+        showToast(`Pagamento de ${employee.name} registrado com sucesso!`, 'success');
+      } catch (error) {
+        const friendlyMessage = extractFriendlyApiMessage(
+          error?.message || error,
+          fallbackErrorMessage,
+        );
+
+        showToast(friendlyMessage, 'danger');
       }
     });
   };
+
+  const payrollSummary = (() => {
+    const eligibleEmployees = employees.filter(
+      (emp) => emp.role === 'barber' || emp.role === 'receptionist' || emp.role === 'admin',
+    );
+
+    const pending = eligibleEmployees.reduce((sum, emp) => {
+      const barberData = barbers.find((b) => String(b.userId) === String(emp.id));
+      const period = getConfiguredPayrollFrequency(emp, barberData);
+      const { start, end } = getPayrollPeriodDates(period, payrollMonthFilter);
+      const alreadyPaid = employeePayments.some(
+        (payment) =>
+          String(payment.employeeId) === String(emp.id) &&
+          payment.period === period &&
+          payment.periodStart === start &&
+          payment.periodEnd === end &&
+          doesPayrollPeriodMatchDateFilters(payment.periodStart, payment.periodEnd),
+      );
+
+      if (alreadyPaid) return sum;
+      if (!doesPayrollPeriodMatchDateFilters(start, end)) return sum;
+
+      const commission = barberData ? getBarberCommissionInPeriod(barberData.id, start, end) : 0;
+      const totalVales = getValesInPeriod(emp.id, start, end).reduce((acc, vale) => acc + vale.valor, 0);
+      const totalExtraPayments = getExtraPaymentsInPeriod(emp.id, start, end).reduce(
+        (acc, payment) => acc + Number(payment.liquido || 0),
+        0,
+      );
+      const salarioFixo = parseFloat(barberData?.salarioFixo ?? emp.salarioFixo ?? 0) || 0;
+      const liquido = salarioFixo + commission + totalExtraPayments - totalVales;
+
+      return sum + liquido;
+    }, 0);
+
+    const paid = employeePayments
+      .filter((payment) => {
+        const employee = eligibleEmployees.find((emp) => String(emp.id) === String(payment.employeeId));
+        if (!employee) return false;
+
+        const barberData = barbers.find((b) => String(b.userId) === String(employee.id));
+        const period = getConfiguredPayrollFrequency(employee, barberData);
+        const { start, end } = getPayrollPeriodDates(period, payrollMonthFilter);
+
+        return (
+          payment.period === period &&
+          payment.periodStart === start &&
+          payment.periodEnd === end &&
+          doesPayrollPeriodMatchDateFilters(payment.periodStart, payment.periodEnd)
+        );
+      })
+      .reduce((sum, payment) => sum + parseFloat(payment.liquido || 0), 0);
+
+    return {
+      pending,
+      paid,
+      total: pending + paid,
+    };
+  })();
+
+  const filteredPayrollHistory = [...employeePayments]
+    .filter((payment) => {
+      if (payrollMonthFilter) {
+        const [year, month] = payrollMonthFilter.split('-').map(Number);
+        const dateRef = payment.paidAt || payment.periodStart;
+        const date = new Date(dateRef);
+        if (date.getFullYear() !== year || date.getMonth() + 1 !== month) {
+          return false;
+        }
+      }
+
+      return doesPayrollPeriodMatchDateFilters(payment.periodStart, payment.periodEnd);
+    })
+    .sort((a, b) => new Date(b.paidAt) - new Date(a.paidAt));
 
   if (loading) {
     return (
@@ -4889,6 +5118,7 @@ export default function AdminPage() {
               </div>
 
               {isAdmin && (
+                <>
                 <div
                   style={{
                     background: '#1a1a1a',
@@ -4937,6 +5167,112 @@ export default function AdminPage() {
                     </label>
                   </div>
                 </div>
+
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                    gap: '1rem',
+                    marginBottom: '1.25rem',
+                  }}
+                >
+                  <div
+                    style={{
+                      background: '#1a1a1a',
+                      border: '1px solid #2a2a2a',
+                      borderRadius: '10px',
+                      padding: '1rem',
+                    }}
+                  >
+                    <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--gold)', fontSize: '1rem' }}>
+                      Frequencia de pagamento - Barbeiros
+                    </h3>
+                    <p style={{ margin: '0 0 0.9rem 0', color: '#a8a8a8', fontSize: '0.85rem' }}>
+                      Defina a recorrencia padrao de pagamento dos barbeiros.
+                    </p>
+
+                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
+                        <input
+                          type="radio"
+                          name="barber-payment-frequency"
+                          checked={barberPaymentFrequency === 'semanal'}
+                          onChange={() => setBarberPaymentFrequency('semanal')}
+                        />
+                        Semanal
+                      </label>
+
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
+                        <input
+                          type="radio"
+                          name="barber-payment-frequency"
+                          checked={barberPaymentFrequency === 'quinzenal'}
+                          onChange={() => setBarberPaymentFrequency('quinzenal')}
+                        />
+                        Quinzenal
+                      </label>
+
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
+                        <input
+                          type="radio"
+                          name="barber-payment-frequency"
+                          checked={barberPaymentFrequency === 'mensal'}
+                          onChange={() => setBarberPaymentFrequency('mensal')}
+                        />
+                        Mensal
+                      </label>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      background: '#1a1a1a',
+                      border: '1px solid #2a2a2a',
+                      borderRadius: '10px',
+                      padding: '1rem',
+                    }}
+                  >
+                    <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--gold)', fontSize: '1rem' }}>
+                      Frequencia de pagamento - Outros funcionarios
+                    </h3>
+                    <p style={{ margin: '0 0 0.9rem 0', color: '#a8a8a8', fontSize: '0.85rem' }}>
+                      Defina a recorrencia padrao de pagamento dos demais funcionarios.
+                    </p>
+
+                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
+                        <input
+                          type="radio"
+                          name="employee-payment-frequency"
+                          checked={employeePaymentFrequency === 'semanal'}
+                          onChange={() => setEmployeePaymentFrequency('semanal')}
+                        />
+                        Semanal
+                      </label>
+
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
+                        <input
+                          type="radio"
+                          name="employee-payment-frequency"
+                          checked={employeePaymentFrequency === 'quinzenal'}
+                          onChange={() => setEmployeePaymentFrequency('quinzenal')}
+                        />
+                        Quinzenal
+                      </label>
+
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
+                        <input
+                          type="radio"
+                          name="employee-payment-frequency"
+                          checked={employeePaymentFrequency === 'mensal'}
+                          onChange={() => setEmployeePaymentFrequency('mensal')}
+                        />
+                        Mensal
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                </>
               )}
 
               <form onSubmit={handleSaveHomeInfo} className="home-info-form">
@@ -5293,6 +5629,93 @@ export default function AdminPage() {
                   />
                 </div>
 
+                {false && (
+                <div className="form-section" style={{ marginTop: '2rem' }}>
+                  <h3 className="section-subtitle">Configurações de pagamento</h3>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                      gap: '1rem',
+                      marginTop: '1rem',
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: '#1a1a1a',
+                        border: '1px solid #2a2a2a',
+                        borderRadius: '10px',
+                        padding: '1rem',
+                      }}
+                    >
+                      <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--gold)', fontSize: '1rem' }}>
+                        Frequência de pagamento - Barbeiros
+                      </h4>
+                      <p style={{ margin: '0 0 0.9rem 0', color: '#a8a8a8', fontSize: '0.85rem' }}>
+                        Campo preparado para futura integração com a API usando `barberPaymentFrequency`.
+                      </p>
+
+                      <select
+                        value={homeInfo.barberPaymentFrequency || 'mensal'}
+                        onChange={(e) =>
+                          handleHomeInfoChange('barberPaymentFrequency', e.target.value)
+                        }
+                        style={{
+                          width: '100%',
+                          padding: '0.9rem 1rem',
+                          borderRadius: '10px',
+                          border: '1px solid #1f1f1f',
+                          background: '#0e0e0e',
+                          color: '#f5f5f5',
+                          fontSize: '1rem',
+                        }}
+                      >
+                        <option value="semanal">Semanal</option>
+                        <option value="quinzenal">Quinzenal</option>
+                        <option value="mensal">Mensal</option>
+                      </select>
+                    </div>
+
+                    <div
+                      style={{
+                        background: '#1a1a1a',
+                        border: '1px solid #2a2a2a',
+                        borderRadius: '10px',
+                        padding: '1rem',
+                      }}
+                    >
+                      <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--gold)', fontSize: '1rem' }}>
+                        Frequência de pagamento - Outros funcionários
+                      </h4>
+                      <p style={{ margin: '0 0 0.9rem 0', color: '#a8a8a8', fontSize: '0.85rem' }}>
+                        Campo preparado para futura integração com a API usando `employeePaymentFrequency`.
+                      </p>
+
+                      <select
+                        value={homeInfo.employeePaymentFrequency || 'mensal'}
+                        onChange={(e) =>
+                          handleHomeInfoChange('employeePaymentFrequency', e.target.value)
+                        }
+                        style={{
+                          width: '100%',
+                          padding: '0.9rem 1rem',
+                          borderRadius: '10px',
+                          border: '1px solid #1f1f1f',
+                          background: '#0e0e0e',
+                          color: '#f5f5f5',
+                          fontSize: '1rem',
+                        }}
+                      >
+                        <option value="semanal">Semanal</option>
+                        <option value="quinzenal">Quinzenal</option>
+                        <option value="mensal">Mensal</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                )}
+
                 <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
                   <Button type="submit" disabled={homeInfoLoading} className="btn-admin-save">
                     {homeInfoLoading ? 'Salvando...' : 'Salvar Alterações'}
@@ -5618,17 +6041,6 @@ export default function AdminPage() {
               <div className="manage-barbers-header">
                 <h2>Pagamentos de Funcionários</h2>
                 <div className="payroll-header-controls">
-                  <div className="payroll-period-buttons">
-                    {['semanal', 'quinzenal', 'mensal'].map((p) => (
-                      <button
-                        key={p}
-                        onClick={() => setPayrollPeriodFilter(p)}
-                        className={`payroll-period-btn${payrollPeriodFilter === p ? ' payroll-period-btn--active' : ''}`}
-                      >
-                        {p}
-                      </button>
-                    ))}
-                  </div>
                   <input
                     type="month"
                     value={payrollMonthFilter}
@@ -5638,6 +6050,133 @@ export default function AdminPage() {
                   <button onClick={() => setShowValeModal(true)} className="payroll-vale-btn">
                     Registrar Vale
                   </button>
+                </div>
+              </div>
+
+              <div className="filters-container" style={{ marginBottom: '1.5rem' }}>
+                <div className="filter-group">
+                  <label>Data Específica:</label>
+                  <input
+                    type="date"
+                    value={payrollDateFilter}
+                    onChange={(e) => {
+                      setPayrollDateFilter(e.target.value);
+                      if (e.target.value) {
+                        setPayrollStartDate('');
+                        setPayrollEndDate('');
+                      }
+                    }}
+                    className="filter-input"
+                  />
+                </div>
+
+                <div className="filter-group">
+                  <label>De:</label>
+                  <input
+                    type="date"
+                    value={payrollStartDate}
+                    onChange={(e) => {
+                      setPayrollStartDate(e.target.value);
+                      if (e.target.value) {
+                        setPayrollDateFilter('');
+                      }
+                    }}
+                    className="filter-input"
+                    disabled={!!payrollDateFilter}
+                  />
+                </div>
+
+                <div className="filter-group">
+                  <label>Até:</label>
+                  <input
+                    type="date"
+                    value={payrollEndDate}
+                    onChange={(e) => {
+                      setPayrollEndDate(e.target.value);
+                      if (e.target.value) {
+                        setPayrollDateFilter('');
+                      }
+                    }}
+                    className="filter-input"
+                    disabled={!!payrollDateFilter}
+                  />
+                </div>
+
+                {(payrollDateFilter || payrollStartDate || payrollEndDate) && (
+                  <div className="filter-group">
+                    <button onClick={clearPayrollDateFilters} className="clear-filters-btn">
+                      Limpar Filtros
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                  gap: '1rem',
+                  marginBottom: '1.5rem',
+                }}
+              >
+                <div
+                  style={{
+                    padding: '1rem',
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    borderRadius: '6px',
+                  }}
+                >
+                  <span style={{ fontSize: '0.9rem', color: '#888' }}>Pendente</span>
+                  <div
+                    style={{
+                      fontSize: '1.5rem',
+                      fontWeight: 'bold',
+                      color: '#ef4444',
+                      marginTop: '0.5rem',
+                    }}
+                  >
+                    R$ {payrollSummary.pending.toFixed(2)}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    padding: '1rem',
+                    background: 'rgba(34, 197, 94, 0.1)',
+                    borderRadius: '6px',
+                  }}
+                >
+                  <span style={{ fontSize: '0.9rem', color: '#888' }}>Pago</span>
+                  <div
+                    style={{
+                      fontSize: '1.5rem',
+                      fontWeight: 'bold',
+                      color: '#22c55e',
+                      marginTop: '0.5rem',
+                    }}
+                  >
+                    R$ {payrollSummary.paid.toFixed(2)}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    padding: '1rem',
+                    background: 'rgba(212, 175, 55, 0.1)',
+                    borderRadius: '6px',
+                  }}
+                >
+                  <span style={{ fontSize: '0.9rem', color: '#888' }}>Total</span>
+                  <div
+                    style={{
+                      fontSize: '1.5rem',
+                      fontWeight: 'bold',
+                      color: 'var(--gold)',
+                      marginTop: '0.5rem',
+                    }}
+                  >
+                    R$ {payrollSummary.total.toFixed(2)}
+                  </div>
                 </div>
               </div>
 
@@ -5665,10 +6204,8 @@ export default function AdminPage() {
                       )
                       .map((emp) => {
                         const barberData = barbers.find((b) => String(b.userId) === String(emp.id));
-                        const { start, end } = getPayrollPeriodDates(
-                          payrollPeriodFilter,
-                          payrollMonthFilter,
-                        );
+                        const period = getConfiguredPayrollFrequency(emp, barberData);
+                        const { start, end } = getPayrollPeriodDates(period, payrollMonthFilter);
                         const commission = barberData
                           ? getBarberCommissionInPeriod(barberData.id, start, end)
                           : 0;
@@ -5684,7 +6221,7 @@ export default function AdminPage() {
 
                         const alreadyPaid = !!checkAlreadyPaidInPeriod(
                           emp.id,
-                          payrollPeriodFilter,
+                          period,
                           payrollMonthFilter,
                         );
 
@@ -5728,7 +6265,7 @@ export default function AdminPage() {
 
                               <td className="payroll-td">
                                 <span className="payroll-frequency-badge">
-                                  {barberData?.paymentFrequency || 'mensal'}
+                                  {period}
                                 </span>
                               </td>
 
@@ -5779,20 +6316,10 @@ export default function AdminPage() {
                                     }}
                                   >
                                     <span className="payroll-paid-badge">✅ Pago</span>
-                                    <button
-                                      onClick={() =>
-                                        handleMarkPayrollPaid(emp, barberData, payrollPeriodFilter)
-                                      }
-                                      className="payroll-repay-btn"
-                                    >
-                                      Pagar novamente
-                                    </button>
                                   </div>
                                 ) : (
                                   <button
-                                    onClick={() =>
-                                      handleMarkPayrollPaid(emp, barberData, payrollPeriodFilter)
-                                    }
+                                    onClick={() => handleMarkPayrollPaid(emp, barberData)}
                                     className="payroll-pay-btn"
                                   >
                                     Pagar
@@ -5836,12 +6363,7 @@ export default function AdminPage() {
 
               <div className="payroll-history-section">
                 <h3 className="payroll-history-title">Pagamentos Realizados</h3>
-                {employeePayments.filter((p) => {
-                  if (!payrollMonthFilter) return true;
-                  const [y, m] = payrollMonthFilter.split('-').map(Number);
-                  const d = new Date(p.paidAt);
-                  return d.getFullYear() === y && d.getMonth() + 1 === m;
-                }).length === 0 ? (
+                {filteredPayrollHistory.length === 0 ? (
                   <p className="no-data">Nenhum pagamento registrado neste período.</p>
                 ) : (
                   <div className="payroll-table-wrapper">
@@ -5859,15 +6381,7 @@ export default function AdminPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {[...employeePayments]
-                          .sort((a, b) => new Date(b.paidAt) - new Date(a.paidAt))
-                          .filter((p) => {
-                            if (!payrollMonthFilter) return true;
-                            const [y, m] = payrollMonthFilter.split('-').map(Number);
-                            const d = new Date(p.paidAt);
-                            return d.getFullYear() === y && d.getMonth() + 1 === m;
-                          })
-                          .map((p) => (
+                        {filteredPayrollHistory.map((p) => (
                             <tr key={p.id} className="payroll-history-row">
                               <td className="payroll-td payroll-td--name">{p.employeeName}</td>
                               <td className="payroll-td payroll-td--center">
