@@ -33,6 +33,14 @@ function normalizeHeroImages(value) {
   return Array.from(new Set(sanitized));
 }
 
+function normalizePaymentFrequency(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'weekly' || normalized === 'semanal') return 'weekly';
+  if (normalized === 'biweekly' || normalized === 'quinzenal') return 'biweekly';
+  if (normalized === 'monthly' || normalized === 'mensal') return 'monthly';
+  return 'monthly';
+}
+
 function getLocalHomeInfo() {
   try {
     const raw = localStorage.getItem(HOME_INFO_LOCAL_KEY);
@@ -45,6 +53,8 @@ function getLocalHomeInfo() {
       heroSubtitle: String(parsed.heroSubtitle || ''),
       heroImage: String(parsed.heroImage || ''),
       heroImages: normalizeHeroImages(parsed.heroImages),
+      barberPaymentFrequency: normalizePaymentFrequency(parsed.barberPaymentFrequency),
+      employeePaymentFrequency: normalizePaymentFrequency(parsed.employeePaymentFrequency),
     };
   } catch {
     return null;
@@ -58,6 +68,8 @@ function saveLocalHomeInfo(homeInfo) {
       heroSubtitle: String(homeInfo?.heroSubtitle || ''),
       heroImage: String(homeInfo?.heroImage || ''),
       heroImages: normalizeHeroImages(homeInfo?.heroImages),
+      barberPaymentFrequency: normalizePaymentFrequency(homeInfo?.barberPaymentFrequency),
+      employeePaymentFrequency: normalizePaymentFrequency(homeInfo?.employeePaymentFrequency),
     };
     localStorage.setItem(HOME_INFO_LOCAL_KEY, JSON.stringify(dataToPersist));
   } catch {
@@ -198,6 +210,16 @@ export async function getHomeInfo() {
         heroSubtitle: homeInfoData.hero_subtitle ?? homeInfoData.heroSubtitle ?? localHomeInfo?.heroSubtitle ?? "",
         heroImage,
         heroImages: effectiveHeroImages,
+        barberPaymentFrequency: normalizePaymentFrequency(
+          homeInfoData.barber_payment_frequency ??
+            homeInfoData.barberPaymentFrequency ??
+            localHomeInfo?.barberPaymentFrequency,
+        ),
+        employeePaymentFrequency: normalizePaymentFrequency(
+          homeInfoData.employee_payment_frequency ??
+            homeInfoData.employeePaymentFrequency ??
+            localHomeInfo?.employeePaymentFrequency,
+        ),
         aboutTitle: homeInfoData.about_title ?? homeInfoData.aboutTitle ?? "Barbearia Rodrigues",
         aboutText1: homeInfoData.about_text1 ?? homeInfoData.aboutText1 ?? "A Barbearia Rodrigues é referência em cortes masculinos há mais de 10 anos.",
         aboutText2: homeInfoData.about_text2 ?? homeInfoData.aboutText2 ?? "Combinamos técnicas tradicionais com tendências modernas para garantir o melhor atendimento.",
@@ -221,6 +243,8 @@ export async function getHomeInfo() {
       heroSubtitle: localHomeInfo?.heroSubtitle ?? "",
       heroImage: localHomeInfo?.heroImage ?? "",
       heroImages: localHomeInfo?.heroImages ?? [],
+      barberPaymentFrequency: normalizePaymentFrequency(localHomeInfo?.barberPaymentFrequency),
+      employeePaymentFrequency: normalizePaymentFrequency(localHomeInfo?.employeePaymentFrequency),
       aboutTitle: "Barbearia Rodrigues",
       aboutText1: "A Barbearia Rodrigues é referência em cortes masculinos há mais de 10 anos.",
       aboutText2: "Combinamos técnicas tradicionais com tendências modernas para garantir o melhor atendimento.",
@@ -242,6 +266,8 @@ export async function getHomeInfo() {
       heroSubtitle: localHomeInfo?.heroSubtitle ?? "",
       heroImage: localHomeInfo?.heroImage ?? "",
       heroImages: localHomeInfo?.heroImages ?? [],
+      barberPaymentFrequency: normalizePaymentFrequency(localHomeInfo?.barberPaymentFrequency),
+      employeePaymentFrequency: normalizePaymentFrequency(localHomeInfo?.employeePaymentFrequency),
       aboutTitle: "Barbearia Rodrigues",
       aboutText1: "A Barbearia Rodrigues é referência em cortes masculinos há mais de 10 anos.",
       aboutText2: "Combinamos técnicas tradicionais com tendências modernas para garantir o melhor atendimento.",
@@ -266,6 +292,31 @@ export async function saveHomeInfo(homeInfo) {
       ...homeInfo,
       heroImage: homeInfo.heroImage ?? heroImages[0] ?? '',
       heroImages,
+      barberPaymentFrequency: normalizePaymentFrequency(homeInfo?.barberPaymentFrequency),
+      employeePaymentFrequency: normalizePaymentFrequency(homeInfo?.employeePaymentFrequency),
+    };
+
+    const payload = {
+      hero_title: nextHomeInfo.heroTitle ?? null,
+      hero_subtitle: nextHomeInfo.heroSubtitle ?? null,
+      hero_image: nextHomeInfo.heroImage ?? null,
+      hero_images: heroImages,
+      barber_payment_frequency: nextHomeInfo.barberPaymentFrequency,
+      employee_payment_frequency: nextHomeInfo.employeePaymentFrequency,
+      about_title: nextHomeInfo.aboutTitle ?? null,
+      about_text1: nextHomeInfo.aboutText1 ?? null,
+      about_text2: nextHomeInfo.aboutText2 ?? null,
+      about_text3: nextHomeInfo.aboutText3 ?? null,
+      schedule_title: nextHomeInfo.scheduleTitle ?? null,
+      schedule_line1: nextHomeInfo.scheduleLine1 ?? null,
+      schedule_line2: nextHomeInfo.scheduleLine2 ?? null,
+      schedule_line3: nextHomeInfo.scheduleLine3 ?? null,
+      whatsapp_number: nextHomeInfo.whatsappNumber ?? null,
+      location_title: nextHomeInfo.locationTitle ?? null,
+      location_address: nextHomeInfo.locationAddress ?? null,
+      location_city: nextHomeInfo.locationCity ?? null,
+      barberPaymentFrequency: nextHomeInfo.barberPaymentFrequency,
+      employeePaymentFrequency: nextHomeInfo.employeePaymentFrequency,
     };
 
     saveLocalHomeInfo(nextHomeInfo);
@@ -276,31 +327,28 @@ export async function saveHomeInfo(homeInfo) {
         'Content-Type': 'application/json',
         ...getAuthHeaders(),
       },
-      body: JSON.stringify({
-        hero_title: homeInfo.heroTitle ?? null,
-        hero_subtitle: homeInfo.heroSubtitle ?? null,
-        hero_image: nextHomeInfo.heroImage ?? null,
-        hero_images: heroImages,
-        about_title: homeInfo.aboutTitle ?? null,
-        about_text1: homeInfo.aboutText1 ?? null,
-        about_text2: homeInfo.aboutText2 ?? null,
-        about_text3: homeInfo.aboutText3 ?? null,
-        schedule_title: homeInfo.scheduleTitle ?? null,
-        schedule_line1: homeInfo.scheduleLine1 ?? null,
-        schedule_line2: homeInfo.scheduleLine2 ?? null,
-        schedule_line3: homeInfo.scheduleLine3 ?? null,
-        whatsapp_number: homeInfo.whatsappNumber ?? null,
-        location_title: homeInfo.locationTitle ?? null,
-        location_address: homeInfo.locationAddress ?? null,
-        location_city: homeInfo.locationCity ?? null,
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
       throw new Error(`Erro ao salvar: ${response.status}`);
     }
 
-    return await response.json();
+    const saved = await response.json().catch(() => null);
+
+    return {
+      ...nextHomeInfo,
+      barberPaymentFrequency: normalizePaymentFrequency(
+        saved?.barber_payment_frequency ??
+          saved?.barberPaymentFrequency ??
+          nextHomeInfo.barberPaymentFrequency,
+      ),
+      employeePaymentFrequency: normalizePaymentFrequency(
+        saved?.employee_payment_frequency ??
+          saved?.employeePaymentFrequency ??
+          nextHomeInfo.employeePaymentFrequency,
+      ),
+    };
   } catch (error) {
     console.error('Erro ao salvar informações da home:', error);
     throw error;
