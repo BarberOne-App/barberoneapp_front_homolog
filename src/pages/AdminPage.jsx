@@ -213,7 +213,7 @@ export default function AdminPage() {
     specialty: '',
     photo: '',
     salarioFixo: '',
-    paymentFrequency: 'mensal',
+    paymentFrequency: 'monthly',
     createUser: false,
     userEmail: '',
     userPassword: '',
@@ -238,6 +238,8 @@ export default function AdminPage() {
     heroSubtitle: '',
     heroImage: '',
     heroImages: [],
+    barberPaymentFrequency: 'monthly',
+    employeePaymentFrequency: 'monthly',
     aboutTitle: '',
     aboutText1: '',
     aboutText2: '',
@@ -251,8 +253,8 @@ export default function AdminPage() {
     locationAddress: '',
     locationCity: '',
   });
-  const [barberPaymentFrequency, setBarberPaymentFrequency] = useState('');
-  const [employeePaymentFrequency, setEmployeePaymentFrequency] = useState('');
+  const [barberPaymentFrequency, setBarberPaymentFrequency] = useState('monthly');
+  const [employeePaymentFrequency, setEmployeePaymentFrequency] = useState('monthly');
   const [homeInfoLoading, setHomeInfoLoading] = useState(false);
   const [expandedBarbers, setExpandedBarbers] = useState({});
   const [expandedObsId, setExpandedObsId] = useState(null);
@@ -627,9 +629,11 @@ export default function AdminPage() {
           ...prev,
           ...homeData,
           heroImages: Array.isArray(homeData?.heroImages) ? homeData.heroImages : [],
+          barberPaymentFrequency: normalizePaymentFrequency(homeData?.barberPaymentFrequency),
+          employeePaymentFrequency: normalizePaymentFrequency(homeData?.employeePaymentFrequency),
         }));
-        setBarberPaymentFrequency(homeData?.barberPaymentFrequency || '');
-        setEmployeePaymentFrequency(homeData?.employeePaymentFrequency || '');
+        setBarberPaymentFrequency(normalizePaymentFrequency(homeData?.barberPaymentFrequency));
+        setEmployeePaymentFrequency(normalizePaymentFrequency(homeData?.employeePaymentFrequency));
       }
     } catch (error) {
       console.error('Erro ao carregar informações da home:', error);
@@ -840,7 +844,22 @@ export default function AdminPage() {
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
 
     return s.slice(0, 10);
-  }
+  };
+
+  const normalizePaymentFrequency = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (normalized === 'weekly' || normalized === 'semanal') return 'weekly';
+    if (normalized === 'biweekly' || normalized === 'quinzenal') return 'biweekly';
+    if (normalized === 'monthly' || normalized === 'mensal') return 'monthly';
+    return 'monthly';
+  };
+
+  const getPaymentFrequencyLabel = (value) => {
+    const normalized = normalizePaymentFrequency(value);
+    if (normalized === 'weekly') return 'Semanal';
+    if (normalized === 'biweekly') return 'Quinzenal';
+    return 'Mensal';
+  };
 
   function isDateInRange(dateStr, startDate, endDate) {
     if (!startDate && !endDate) return true;
@@ -912,9 +931,11 @@ export default function AdminPage() {
         ...prev,
         ...data,
         heroImages: Array.isArray(data?.heroImages) ? data.heroImages : [],
+        barberPaymentFrequency: normalizePaymentFrequency(data?.barberPaymentFrequency),
+        employeePaymentFrequency: normalizePaymentFrequency(data?.employeePaymentFrequency),
       }));
-      setBarberPaymentFrequency(data?.barberPaymentFrequency || '');
-      setEmployeePaymentFrequency(data?.employeePaymentFrequency || '');
+      setBarberPaymentFrequency(normalizePaymentFrequency(data?.barberPaymentFrequency));
+      setEmployeePaymentFrequency(normalizePaymentFrequency(data?.employeePaymentFrequency));
     } catch (error) {
       console.error('Erro ao carregar informações da home:', error);
     }
@@ -925,11 +946,19 @@ export default function AdminPage() {
     setHomeInfoLoading(true);
 
     try {
-      await saveHomeInfo({
+      const savedHomeInfo = await saveHomeInfo({
         ...homeInfo,
         barberPaymentFrequency,
         employeePaymentFrequency,
       });
+      setHomeInfo((prev) => ({
+        ...prev,
+        ...savedHomeInfo,
+        barberPaymentFrequency: normalizePaymentFrequency(savedHomeInfo?.barberPaymentFrequency),
+        employeePaymentFrequency: normalizePaymentFrequency(savedHomeInfo?.employeePaymentFrequency),
+      }));
+      setBarberPaymentFrequency(normalizePaymentFrequency(savedHomeInfo?.barberPaymentFrequency));
+      setEmployeePaymentFrequency(normalizePaymentFrequency(savedHomeInfo?.employeePaymentFrequency));
       showToast('Informações da home atualizadas com sucesso!', 'success');
     } catch (error) {
       console.error('Erro ao salvar informações da home:', error);
@@ -940,15 +969,49 @@ export default function AdminPage() {
   };
 
   const handleHomeInfoChange = (field, value) => {
+    if (field === 'barberPaymentFrequency') {
+      setBarberPaymentFrequency(value);
+    }
+
+    if (field === 'employeePaymentFrequency') {
+      setEmployeePaymentFrequency(value);
+    }
+
     setHomeInfo((prev) => ({
       ...prev,
       [field]: value,
     }));
   };
 
+  const handleBarberPaymentFrequencyChange = (value) => {
+    setBarberPaymentFrequency(value);
+    setHomeInfo((prev) => ({
+      ...prev,
+      barberPaymentFrequency: value,
+    }));
+  };
+
+  const handleEmployeePaymentFrequencyChange = (value) => {
+    setEmployeePaymentFrequency(value);
+    setHomeInfo((prev) => ({
+      ...prev,
+      employeePaymentFrequency: value,
+    }));
+  };
+
   const persistHomeInfo = async (nextHomeInfo) => {
     try {
-      await saveHomeInfo(nextHomeInfo);
+      await saveHomeInfo({
+        ...nextHomeInfo,
+        barberPaymentFrequency:
+          normalizePaymentFrequency(
+            nextHomeInfo?.barberPaymentFrequency ?? barberPaymentFrequency ?? 'monthly',
+          ),
+        employeePaymentFrequency:
+          normalizePaymentFrequency(
+            nextHomeInfo?.employeePaymentFrequency ?? employeePaymentFrequency ?? 'monthly',
+          ),
+      });
     } catch (error) {
       console.error('Erro ao salvar informações da home:', error);
       showToast('Erro ao salvar informações da home', 'danger');
@@ -967,13 +1030,32 @@ export default function AdminPage() {
         heroSubtitle: String(homeInfo?.heroSubtitle || ''),
         heroImage: String(homeInfo?.heroImage || ''),
         heroImages,
+        barberPaymentFrequency: String(
+          normalizePaymentFrequency(
+            homeInfo?.barberPaymentFrequency || barberPaymentFrequency || 'monthly',
+          ),
+        ),
+        employeePaymentFrequency: String(
+          normalizePaymentFrequency(
+            homeInfo?.employeePaymentFrequency || employeePaymentFrequency || 'monthly',
+          ),
+        ),
       };
 
       localStorage.setItem(HOME_INFO_LOCAL_KEY, JSON.stringify(localPayload));
     } catch {
       // sem bloqueio: cache local apenas para resiliência do formulário
     }
-  }, [homeInfo?.heroTitle, homeInfo?.heroSubtitle, homeInfo?.heroImage, homeInfo?.heroImages]);
+  }, [
+    barberPaymentFrequency,
+    employeePaymentFrequency,
+    homeInfo?.barberPaymentFrequency,
+    homeInfo?.employeePaymentFrequency,
+    homeInfo?.heroTitle,
+    homeInfo?.heroSubtitle,
+    homeInfo?.heroImage,
+    homeInfo?.heroImages,
+  ]);
 
   const addHeroImageToCarousel = async (rawUrl) => {
     const imageUrl = String(rawUrl || '').trim();
@@ -2428,7 +2510,7 @@ export default function AdminPage() {
         specialty: employee.role === 'admin' ? 'Administrador' : 'Recepcionista',
         photo: employee.photo || '',
         salarioFixo: employee.salarioFixo || '',
-        paymentFrequency: employee.paymentFrequency || 'mensal',
+        paymentFrequency: normalizePaymentFrequency(employee.paymentFrequency),
         createUser: false,
         userEmail: employee.email || '',
         userPassword: '',
@@ -2442,7 +2524,7 @@ export default function AdminPage() {
         specialty: barber.specialty,
         photo: barber.photo,
         salarioFixo: barber.salarioFixo || '',
-        paymentFrequency: barber.paymentFrequency || 'mensal',
+        paymentFrequency: normalizePaymentFrequency(barber.paymentFrequency),
         createUser: false,
         userEmail: '',
         userPassword: '',
@@ -2456,6 +2538,8 @@ export default function AdminPage() {
         displayName: '',
         specialty: '',
         photo: '',
+        salarioFixo: '',
+        paymentFrequency: 'monthly',
         createUser: false,
         userEmail: '',
         userPassword: '',
@@ -2474,6 +2558,8 @@ export default function AdminPage() {
       displayName: '',
       specialty: '',
       photo: '',
+      salarioFixo: '',
+      paymentFrequency: 'monthly',
       createUser: false,
       userEmail: '',
       userPassword: '',
@@ -2507,7 +2593,7 @@ export default function AdminPage() {
           role: barberForm.userRole,
           isAdmin: barberForm.userRole === 'admin',
           salarioFixo: parseFloat(barberForm.salarioFixo) || 0,
-          paymentFrequency: barberForm.paymentFrequency || 'mensal',
+          paymentFrequency: normalizePaymentFrequency(barberForm.paymentFrequency),
         };
         await fetch(`https://barberoneapp-back-homolog.onrender.com/users/${editingBarber.userId}`, {
           method: 'PATCH',
@@ -2565,7 +2651,7 @@ export default function AdminPage() {
           specialty: barberForm.specialty,
           photo: barberForm.photo,
           salarioFixo: parseFloat(barberForm.salarioFixo) || 0,
-          paymentFrequency: barberForm.paymentFrequency || 'mensal',
+          paymentFrequency: normalizePaymentFrequency(barberForm.paymentFrequency),
           serviceIds: barberForm.serviceIds || [],
 
           ...(editingBarber && !editingBarber.isUserOnly
@@ -4205,15 +4291,16 @@ export default function AdminPage() {
   };
 
   const getPayrollPeriodDates = (period, monthStr) => {
+    const normalizedPeriod = normalizePaymentFrequency(period);
     const [year, month] = monthStr.split('-').map(Number);
     const now = new Date();
-    if (period === 'mensal') {
+    if (normalizedPeriod === 'monthly') {
       const start = `${year}-${String(month).padStart(2, '0')}-01`;
       const lastDay = new Date(year, month, 0).getDate();
       const end = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
       return { start, end };
     }
-    if (period === 'quinzenal') {
+    if (normalizedPeriod === 'biweekly') {
       const day = now.getMonth() + 1 === month && now.getFullYear() === year ? now.getDate() : 15;
       if (day <= 15) {
         return {
@@ -4227,7 +4314,7 @@ export default function AdminPage() {
         end: `${year}-${String(month).padStart(2, '0')}-${lastDay}`,
       };
     }
-    if (period === 'semanal') {
+    if (normalizedPeriod === 'weekly') {
       const monday = new Date(now);
       monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
       const sunday = new Date(monday);
@@ -4242,10 +4329,14 @@ export default function AdminPage() {
 
   const getConfiguredPayrollFrequency = (employee, barberData = null) => {
     if (employee?.role === 'barber') {
-      return barberPaymentFrequency || barberData?.paymentFrequency || employee?.paymentFrequency || 'mensal';
+      return normalizePaymentFrequency(
+        barberPaymentFrequency || barberData?.paymentFrequency || employee?.paymentFrequency,
+      );
     }
 
-    return employeePaymentFrequency || employee?.paymentFrequency || 'mensal';
+    return normalizePaymentFrequency(
+      employeePaymentFrequency || employee?.paymentFrequency,
+    );
   };
 
   const doesPayrollPeriodMatchDateFilters = (periodStart, periodEnd) => {
@@ -4274,19 +4365,67 @@ export default function AdminPage() {
     setPayrollEndDate('');
   };
 
+  const getEffectivePayrollRange = (period, monthStr) => {
+    const baseRange = getPayrollPeriodDates(period, monthStr);
+    const selectedDate = toDateStr(payrollDateFilter);
+    const selectedStart = toDateStr(payrollStartDate);
+    const selectedEnd = toDateStr(payrollEndDate);
+
+    if (selectedDate) {
+      return {
+        start: selectedDate,
+        end: selectedDate,
+      };
+    }
+
+    if (selectedStart || selectedEnd) {
+      const start = selectedStart || baseRange.start;
+      const end = selectedEnd || baseRange.end;
+
+      if (start && end && start > end) {
+        return {
+          start: end,
+          end: start,
+        };
+      }
+
+      return {
+        start,
+        end,
+      };
+    }
+
+    return baseRange;
+  };
+
+  const isPayrollPaymentRecordedForRange = (payment, employeeId, start, end) => {
+    if (!payment || isExtraPayment(payment)) return false;
+    if (String(payment.employeeId) !== String(employeeId)) return false;
+
+    const paymentStart = toDateStr(payment.periodStart);
+    const paymentEnd = toDateStr(payment.periodEnd);
+    const rangeStart = toDateStr(start);
+    const rangeEnd = toDateStr(end);
+
+    if (!paymentStart || !paymentEnd || !rangeStart || !rangeEnd) return false;
+
+    return paymentStart <= rangeEnd && paymentEnd >= rangeStart;
+  };
+
   const getBarberCommissionInPeriod = (barberId, start, end) => {
     if (!barberId || !start || !end) return 0;
     const barberData = barbers.find((b) => String(b.id) === String(barberId));
     if (!barberData) return 0;
     const commissionPercent = Number(barberData.commissionPercent) || 50;
     const relevantPayments = normalizedAppointmentPayments.filter((p) => {
+      const paymentBarberId = p?.appointment?.barber?.id;
+      const paymentBarberName = p?.appointment?.barber?.displayName;
       if (
-        String(p.appointment.barber.id) !== String(barberId) &&
-        p.appointment.barber.displayName !== barberData.displayName
+        String(paymentBarberId) !== String(barberId) &&
+        paymentBarberName !== barberData.displayName
       )
         return false;
-      // if (p.status !== 'paid') return false;
-      // if (p.commissionPaid === true) return false;
+      if (p.commissionPaid === true) return false;
       const d = p.appointmentDate
         ? String(p.appointmentDate).slice(0, 10)
         : p.paidAt
@@ -4294,8 +4433,7 @@ export default function AdminPage() {
           : '';
       return d >= start && d <= end;
     });
-    // const total = normalizedAppointmentPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
-    const total = normalizedAppointmentPayments.reduce(
+    const total = relevantPayments.reduce(
       (sum, p) => sum + (parseFloat(p.amount) || 0),
       0,
     );
@@ -4456,7 +4594,7 @@ export default function AdminPage() {
         employeeId: employee.id,
         employeeName: employee.name,
         paymentType: 'extra',
-        period: 'mensal',
+        period: 'monthly',
         periodStart: paymentDate,
         periodEnd: paymentDate,
         salarioFixo: amount,
@@ -4495,22 +4633,18 @@ export default function AdminPage() {
   };
 
   const checkAlreadyPaidInPeriod = (employeeId, period, monthStr) => {
-    const { start, end } = getPayrollPeriodDates(period, monthStr);
+    const { start, end } = getEffectivePayrollRange(period, monthStr);
 
     return (
       employeePayments.find(
-        (p) =>
-          String(p.employeeId) === String(employeeId) &&
-          p.period === period &&
-          p.periodStart === start &&
-          p.periodEnd === end,
+        (p) => isPayrollPaymentRecordedForRange(p, employeeId, start, end),
       ) || null
     );
   };
 
   const handleMarkPayrollPaid = async (employee, barberData) => {
     const period = getConfiguredPayrollFrequency(employee, barberData);
-    const { start, end } = getPayrollPeriodDates(period, payrollMonthFilter);
+    const { start, end } = getEffectivePayrollRange(period, payrollMonthFilter);
     const barberId = barberData?.id;
     const fallbackErrorMessage = 'N\u00e3o foi poss\u00edvel registrar o pagamento deste funcion\u00e1rio.';
     const commission = barberId ? getBarberCommissionInPeriod(barberId, start, end) : 0;
@@ -4530,7 +4664,7 @@ export default function AdminPage() {
       return;
     }
     const periodLabel =
-      period === 'semanal' ? 'semana' : period === 'quinzenal' ? 'quinzena' : 'mês';
+      period === 'weekly' ? 'semana' : period === 'biweekly' ? 'quinzena' : 'mês';
     const confirmMsg = existingPayment
       ? `⚠️ ${employee.name} já recebeu R$ ${parseFloat(existingPayment.liquido).toFixed(2)} nessa ${periodLabel} (pago em ${new Date(existingPayment.paidAt).toLocaleDateString('pt-BR')}).\n\nTem certeza que deseja registrar um segundo pagamento de R$ ${liquido.toFixed(2)}?`
       : `Confirmar pagamento de R$ ${liquido.toFixed(2)} para ${employee.name}?`;
@@ -4637,18 +4771,12 @@ export default function AdminPage() {
     const pending = eligibleEmployees.reduce((sum, emp) => {
       const barberData = barbers.find((b) => String(b.userId) === String(emp.id));
       const period = getConfiguredPayrollFrequency(emp, barberData);
-      const { start, end } = getPayrollPeriodDates(period, payrollMonthFilter);
+      const { start, end } = getEffectivePayrollRange(period, payrollMonthFilter);
       const alreadyPaid = employeePayments.some(
-        (payment) =>
-          String(payment.employeeId) === String(emp.id) &&
-          payment.period === period &&
-          payment.periodStart === start &&
-          payment.periodEnd === end &&
-          doesPayrollPeriodMatchDateFilters(payment.periodStart, payment.periodEnd),
+        (payment) => isPayrollPaymentRecordedForRange(payment, emp.id, start, end),
       );
 
       if (alreadyPaid) return sum;
-      if (!doesPayrollPeriodMatchDateFilters(start, end)) return sum;
 
       const commission = barberData ? getBarberCommissionInPeriod(barberData.id, start, end) : 0;
       const totalVales = getValesInPeriod(emp.id, start, end).reduce((acc, vale) => acc + vale.valor, 0);
@@ -4669,14 +4797,9 @@ export default function AdminPage() {
 
         const barberData = barbers.find((b) => String(b.userId) === String(employee.id));
         const period = getConfiguredPayrollFrequency(employee, barberData);
-        const { start, end } = getPayrollPeriodDates(period, payrollMonthFilter);
+        const { start, end } = getEffectivePayrollRange(period, payrollMonthFilter);
 
-        return (
-          payment.period === period &&
-          payment.periodStart === start &&
-          payment.periodEnd === end &&
-          doesPayrollPeriodMatchDateFilters(payment.periodStart, payment.periodEnd)
-        );
+        return isPayrollPaymentRecordedForRange(payment, employee.id, start, end);
       })
       .reduce((sum, payment) => sum + parseFloat(payment.liquido || 0), 0);
 
@@ -5262,8 +5385,8 @@ export default function AdminPage() {
                         <input
                           type="radio"
                           name="barber-payment-frequency"
-                          checked={barberPaymentFrequency === 'semanal'}
-                          onChange={() => setBarberPaymentFrequency('semanal')}
+                          checked={barberPaymentFrequency === 'weekly'}
+                          onChange={() => handleBarberPaymentFrequencyChange('weekly')}
                         />
                         Semanal
                       </label>
@@ -5272,8 +5395,8 @@ export default function AdminPage() {
                         <input
                           type="radio"
                           name="barber-payment-frequency"
-                          checked={barberPaymentFrequency === 'quinzenal'}
-                          onChange={() => setBarberPaymentFrequency('quinzenal')}
+                          checked={barberPaymentFrequency === 'biweekly'}
+                          onChange={() => handleBarberPaymentFrequencyChange('biweekly')}
                         />
                         Quinzenal
                       </label>
@@ -5282,8 +5405,8 @@ export default function AdminPage() {
                         <input
                           type="radio"
                           name="barber-payment-frequency"
-                          checked={barberPaymentFrequency === 'mensal'}
-                          onChange={() => setBarberPaymentFrequency('mensal')}
+                          checked={barberPaymentFrequency === 'monthly'}
+                          onChange={() => handleBarberPaymentFrequencyChange('monthly')}
                         />
                         Mensal
                       </label>
@@ -5310,8 +5433,8 @@ export default function AdminPage() {
                         <input
                           type="radio"
                           name="employee-payment-frequency"
-                          checked={employeePaymentFrequency === 'semanal'}
-                          onChange={() => setEmployeePaymentFrequency('semanal')}
+                          checked={employeePaymentFrequency === 'weekly'}
+                          onChange={() => handleEmployeePaymentFrequencyChange('weekly')}
                         />
                         Semanal
                       </label>
@@ -5320,8 +5443,8 @@ export default function AdminPage() {
                         <input
                           type="radio"
                           name="employee-payment-frequency"
-                          checked={employeePaymentFrequency === 'quinzenal'}
-                          onChange={() => setEmployeePaymentFrequency('quinzenal')}
+                          checked={employeePaymentFrequency === 'biweekly'}
+                          onChange={() => handleEmployeePaymentFrequencyChange('biweekly')}
                         />
                         Quinzenal
                       </label>
@@ -5330,8 +5453,8 @@ export default function AdminPage() {
                         <input
                           type="radio"
                           name="employee-payment-frequency"
-                          checked={employeePaymentFrequency === 'mensal'}
-                          onChange={() => setEmployeePaymentFrequency('mensal')}
+                          checked={employeePaymentFrequency === 'monthly'}
+                          onChange={() => handleEmployeePaymentFrequencyChange('monthly')}
                         />
                         Mensal
                       </label>
@@ -5723,7 +5846,7 @@ export default function AdminPage() {
                       </p>
 
                       <select
-                        value={homeInfo.barberPaymentFrequency || 'mensal'}
+                        value={homeInfo.barberPaymentFrequency || 'monthly'}
                         onChange={(e) =>
                           handleHomeInfoChange('barberPaymentFrequency', e.target.value)
                         }
@@ -5737,9 +5860,9 @@ export default function AdminPage() {
                           fontSize: '1rem',
                         }}
                       >
-                        <option value="semanal">Semanal</option>
-                        <option value="quinzenal">Quinzenal</option>
-                        <option value="mensal">Mensal</option>
+                        <option value="weekly">Semanal</option>
+                        <option value="biweekly">Quinzenal</option>
+                        <option value="monthly">Mensal</option>
                       </select>
                     </div>
 
@@ -5759,7 +5882,7 @@ export default function AdminPage() {
                       </p>
 
                       <select
-                        value={homeInfo.employeePaymentFrequency || 'mensal'}
+                        value={homeInfo.employeePaymentFrequency || 'monthly'}
                         onChange={(e) =>
                           handleHomeInfoChange('employeePaymentFrequency', e.target.value)
                         }
@@ -5773,9 +5896,9 @@ export default function AdminPage() {
                           fontSize: '1rem',
                         }}
                       >
-                        <option value="semanal">Semanal</option>
-                        <option value="quinzenal">Quinzenal</option>
-                        <option value="mensal">Mensal</option>
+                        <option value="weekly">Semanal</option>
+                        <option value="biweekly">Quinzenal</option>
+                        <option value="monthly">Mensal</option>
                       </select>
                     </div>
                   </div>
@@ -6271,7 +6394,7 @@ export default function AdminPage() {
                       .map((emp) => {
                         const barberData = barbers.find((b) => String(b.userId) === String(emp.id));
                         const period = getConfiguredPayrollFrequency(emp, barberData);
-                        const { start, end } = getPayrollPeriodDates(period, payrollMonthFilter);
+                        const { start, end } = getEffectivePayrollRange(period, payrollMonthFilter);
                         const commission = barberData
                           ? getBarberCommissionInPeriod(barberData.id, start, end)
                           : 0;
@@ -6290,6 +6413,12 @@ export default function AdminPage() {
                           period,
                           payrollMonthFilter,
                         );
+                        const displaySalarioFixo = alreadyPaid ? 0 : salarioFixo;
+                        const displayCommission = alreadyPaid ? 0 : commission;
+                        const displayExtraPayments = alreadyPaid ? 0 : totalExtraPayments;
+                        const displayVales = alreadyPaid ? 0 : totalVales;
+                        const displayLiquido = alreadyPaid ? 0 : liquido;
+                        const displayValesList = alreadyPaid ? [] : vales;
 
                         return (
                           <React.Fragment key={emp.id}>
@@ -6331,28 +6460,28 @@ export default function AdminPage() {
 
                               <td className="payroll-td">
                                 <span className="payroll-frequency-badge">
-                                  {period}
+                                  {getPaymentFrequencyLabel(period)}
                                 </span>
                               </td>
 
                               <td className="payroll-td payroll-td--right payroll-value--green">
-                                R$ {salarioFixo.toFixed(2)}
+                                R$ {displaySalarioFixo.toFixed(2)}
                               </td>
 
                               <td className="payroll-td payroll-td--right payroll-value--blue">
-                                R$ {commission.toFixed(2)}
+                                R$ {displayCommission.toFixed(2)}
                               </td>
 
                               <td className="payroll-td payroll-td--right payroll-value--green">
-                                R$ {totalExtraPayments.toFixed(2)}
+                                R$ {displayExtraPayments.toFixed(2)}
                               </td>
 
                               <td className="payroll-td payroll-td--right">
                                 <div className="payroll-vales-cell">
                                   <span className="payroll-value--red">
-                                    - R$ {totalVales.toFixed(2)}
+                                    - R$ {displayVales.toFixed(2)}
                                   </span>
-                                  {vales.length > 0 && (
+                                  {displayValesList.length > 0 && (
                                     <button
                                       onClick={() => setPayrollExpandedId(isExp ? null : emp.id)}
                                       className="payroll-vales-toggle"
@@ -6365,9 +6494,9 @@ export default function AdminPage() {
 
                               <td className="payroll-td payroll-td--right">
                                 <span
-                                  className={`payroll-liquido${liquido >= 0 ? ' payroll-liquido--positive' : ' payroll-liquido--negative'}`}
+                                  className={`payroll-liquido${displayLiquido >= 0 ? ' payroll-liquido--positive' : ' payroll-liquido--negative'}`}
                                 >
-                                  R$ {liquido.toFixed(2)}
+                                  R$ {displayLiquido.toFixed(2)}
                                 </span>
                               </td>
 
@@ -6394,13 +6523,13 @@ export default function AdminPage() {
                               </td>
                             </tr>
 
-                            {isExp && (
+                            {isExp && displayValesList.length > 0 && (
                               <tr className="payroll-row-expanded-detail">
                                 <td colSpan={8} className="payroll-td-vales-detail">
                                   <div className="payroll-vales-header">
                                     Vales do período: {start} → {end}
                                   </div>
-                                  {vales.map((v) => (
+                                  {displayValesList.map((v) => (
                                     <div key={v.id} className="payroll-vale-item">
                                       <span className="payroll-vale-valor">
                                         - R$ {parseFloat(v.valor).toFixed(2)}
@@ -6451,7 +6580,9 @@ export default function AdminPage() {
                             <tr key={p.id} className="payroll-history-row">
                               <td className="payroll-td payroll-td--name">{p.employeeName}</td>
                               <td className="payroll-td payroll-td--center">
-                                <span className="payroll-frequency-badge">{p.period}</span>
+                                <span className="payroll-frequency-badge">
+                                  {getPaymentFrequencyLabel(p.period)}
+                                </span>
                               </td>
                               <td className="payroll-td payroll-td--center payroll-td--muted">
                                 {p.periodStart?.split('-').reverse().join('/')} →{' '}
@@ -9505,9 +9636,9 @@ export default function AdminPage() {
                     fontSize: '0.9rem',
                   }}
                 >
-                  <option value="semanal">Semanal</option>
-                  <option value="quinzenal">Quinzenal</option>
-                  <option value="mensal">Mensal</option>
+                  <option value="weekly">Semanal</option>
+                  <option value="biweekly">Quinzenal</option>
+                  <option value="monthly">Mensal</option>
                 </select>
               </div>
 
