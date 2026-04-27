@@ -1,12 +1,35 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getRedirectPath, hasValidSession } from '../services/authService';
+import {
+  getRedirectPath,
+  hasValidSession,
+  registerBarbershopFromLanding,
+} from '../services/authService';
 import './LandingPage.css';
+
+const PLAN_LABELS = {
+  basic: 'Plano Basico',
+  premium: 'Plano Premium',
+};
 
 const LandingPage = () => {
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [formData, setFormData] = useState({
+    barbershopName: '',
+    slug: '',
+    cnpj: '',
+    phone: '',
+    adminName: '',
+    adminEmail: '',
+    adminPhone: '',
+    password: '',
+    confirmPassword: '',
+  });
+  const [formError, setFormError] = useState('');
+  const [formSuccess, setFormSuccess] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const handleLogin = () => {
     if (!hasValidSession()) {
@@ -19,7 +42,91 @@ const LandingPage = () => {
 
   const handleSubscribe = (plan) => {
     setSelectedPlan(plan);
+    setFormError('');
+    setFormSuccess('');
     setShowModal(true);
+  };
+
+  const closeModal = () => {
+    if (submitting) return;
+    setShowModal(false);
+  };
+
+  const handleFormChange = (field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleRegisterBarbershop = async (event) => {
+    event.preventDefault();
+    setFormError('');
+    setFormSuccess('');
+
+    const payload = {
+      barbershopName: formData.barbershopName.trim(),
+      slug: formData.slug.trim() || undefined,
+      cnpj: formData.cnpj.trim() || null,
+      phone: formData.phone.trim() || null,
+      adminName: formData.adminName.trim(),
+      adminEmail: formData.adminEmail.trim().toLowerCase(),
+      adminPhone: formData.adminPhone.trim() || null,
+      password: formData.password,
+      selectedPlan,
+    };
+
+    if (!payload.barbershopName || !payload.adminName || !payload.adminEmail || !payload.password) {
+      setFormError('Preencha todos os campos obrigatorios.');
+      return;
+    }
+
+    if (payload.slug && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(payload.slug)) {
+      setFormError('Slug invalido. Use apenas letras minusculas, numeros e hifen.');
+      return;
+    }
+
+    if (formData.password.length < 4) {
+      setFormError('A senha deve ter no minimo 4 caracteres.');
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setFormError('Senha e confirmacao de senha nao conferem.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const result = await registerBarbershopFromLanding(payload);
+
+      setFormSuccess('Barbearia cadastrada com sucesso. Redirecionando para pagamento...');
+
+      // Preferir checkoutUrl retornada pelo backend quando disponível
+      if (result?.checkoutUrl) {
+        window.location.href = result.checkoutUrl;
+        return;
+      }
+
+      // Caso nao haja checkoutUrl, usar Payment Link de teste e prefill do email do admin
+      const PAYMENT_LINK = 'https://buy.stripe.com/test_14A8wQ9M7gYgedi1m6awo00';
+      const email = encodeURIComponent(payload.adminEmail || '');
+      const url = email ? `${PAYMENT_LINK}?prefilled_email=${email}` : PAYMENT_LINK;
+      // Redireciona o usuário para o Payment Link (Stripe)
+      window.location.href = url;
+      return;
+    } catch (error) {
+      const apiErrors = error?.response?.data;
+      if (Array.isArray(apiErrors) && apiErrors.length > 0) {
+        setFormError(apiErrors[0]);
+      } else if (error?.response?.data?.message) {
+        setFormError(error.response.data.message);
+      } else {
+        setFormError('Nao foi possivel concluir o cadastro agora. Tente novamente.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -166,7 +273,7 @@ const LandingPage = () => {
               </div>
               <div className="price">
                 <span className="currency">R$</span>
-                <span className="amount">89,90</span>
+                <span className="amount">29,90</span>
                 <span className="period">/mês</span>
               </div>
               <ul className="features-list">
@@ -192,7 +299,7 @@ const LandingPage = () => {
               </div>
               <div className="price">
                 <span className="currency">R$</span>
-                <span className="amount">139,90</span>
+                <span className="amount">39,90</span>
                 <span className="period">/mês</span>
               </div>
               <ul className="features-list">
@@ -275,14 +382,145 @@ const LandingPage = () => {
       </footer>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3>Assinar Plano {selectedPlan === 'basic' ? 'Básico' : 'Premium'}</h3>
-            <p>Para assinar este plano, você precisa fazer login ou criar uma conta.</p>
-            <div className="modal-buttons">
-              <button onClick={handleLogin} className="btn-primary">Fazer Login</button>
-              <button onClick={() => setShowModal(false)} className="btn-secondary">Cancelar</button>
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal-content modal-content--register" onClick={(e) => e.stopPropagation()}>
+            <div className="lp-register-header">
+              <h3>Cadastro da Barbearia</h3>
+              <p>
+                Voce selecionou o <strong>{PLAN_LABELS[selectedPlan] || 'plano'}</strong>. Complete os dados para criar sua conta e seguir para assinatura.
+              </p>
             </div>
+
+            <form onSubmit={handleRegisterBarbershop} className="lp-register-form">
+              <div className="lp-register-section">
+                <h4>Dados da Barbearia</h4>
+
+                <label>
+                  Nome da barbearia *
+                  <input
+                    type="text"
+                    value={formData.barbershopName}
+                    onChange={(e) => handleFormChange('barbershopName', e.target.value)}
+                    placeholder="Ex: Barbearia Rodrigues"
+                    required
+                    disabled={submitting}
+                  />
+                </label>
+
+                <label>
+                  Slug da barbearia
+                  <input
+                    type="text"
+                    value={formData.slug}
+                    onChange={(e) => handleFormChange('slug', e.target.value.toLowerCase())}
+                    placeholder="Ex: barbearia-rodrigues"
+                    disabled={submitting}
+                  />
+                  <small className="lp-register-helper">
+                    Se nao informar, o sistema gera automaticamente com base no nome.
+                  </small>
+                </label>
+
+                <label>
+                  CNPJ
+                  <input
+                    type="text"
+                    value={formData.cnpj}
+                    onChange={(e) => handleFormChange('cnpj', e.target.value)}
+                    placeholder="00.000.000/0001-00"
+                    disabled={submitting}
+                  />
+                </label>
+
+                <label>
+                  Telefone da barbearia
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => handleFormChange('phone', e.target.value)}
+                    placeholder="(11) 99999-9999"
+                    disabled={submitting}
+                  />
+                </label>
+              </div>
+
+              <div className="lp-register-section">
+                <h4>Conta do Administrador</h4>
+
+                <label>
+                  Nome do administrador *
+                  <input
+                    type="text"
+                    value={formData.adminName}
+                    onChange={(e) => handleFormChange('adminName', e.target.value)}
+                    placeholder="Seu nome completo"
+                    required
+                    disabled={submitting}
+                  />
+                </label>
+
+                <label>
+                  E-mail *
+                  <input
+                    type="email"
+                    value={formData.adminEmail}
+                    onChange={(e) => handleFormChange('adminEmail', e.target.value)}
+                    placeholder="voce@empresa.com"
+                    required
+                    disabled={submitting}
+                  />
+                </label>
+
+                <label>
+                  Telefone do administrador
+                  <input
+                    type="tel"
+                    value={formData.adminPhone}
+                    onChange={(e) => handleFormChange('adminPhone', e.target.value)}
+                    placeholder="(11) 99999-9999"
+                    disabled={submitting}
+                  />
+                </label>
+
+                <div className="lp-register-grid">
+                  <label>
+                    Senha *
+                    <input
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) => handleFormChange('password', e.target.value)}
+                      placeholder="Minimo 4 caracteres"
+                      required
+                      disabled={submitting}
+                    />
+                  </label>
+
+                  <label>
+                    Confirmar senha *
+                    <input
+                      type="password"
+                      value={formData.confirmPassword}
+                      onChange={(e) => handleFormChange('confirmPassword', e.target.value)}
+                      placeholder="Repita sua senha"
+                      required
+                      disabled={submitting}
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {formError ? <p className="lp-register-feedback lp-register-feedback--error">{formError}</p> : null}
+              {formSuccess ? <p className="lp-register-feedback lp-register-feedback--success">{formSuccess}</p> : null}
+
+              <div className="modal-buttons">
+                <button type="button" onClick={closeModal} className="btn-secondary" disabled={submitting}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary" disabled={submitting}>
+                  {submitting ? 'Cadastrando...' : 'Cadastrar e Continuar'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

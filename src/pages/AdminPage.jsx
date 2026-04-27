@@ -7538,9 +7538,9 @@ export default function AdminPage() {
             <div className="settings-section">
               <div className="settings-container">
                 <div className="settings-card" style={{ marginBottom: '16px' }}>
-                  <h2>Stripe Connect (Pagamentos Avulsos)</h2>
+                  <h2>Stripe Connect</h2>
                   <p className="settings-description">
-                    Conecte a conta Stripe desta barbearia para receber pagamentos avulsos com
+                    Conecte a conta Stripe desta barbearia para receber pagamentos com
                     repasse automatico.
                   </p>
 

@@ -7,6 +7,9 @@ import RegisterPage from './pages/RegisterPage.jsx';
 import AppointmentsPage from './pages/AppointmentsPage.jsx';
 import AdminPage from './pages/AdminPage.jsx';
 import BarberPage from './pages/BarberPage.jsx';
+import SuperAdminPage from './pages/SuperAdminPage.jsx';
+import SuperAdminSetupPage from './pages/SuperAdminSetupPage.jsx';
+import StripeReturnPage from './pages/StripeReturnPage.jsx';
 import ProfilePage from './components/ui/ProfilePage.jsx';
 
 const router = createBrowserRouter([
@@ -18,6 +21,9 @@ const router = createBrowserRouter([
   { path: '/agendamentos', element: <AppointmentsPage /> },
   { path: '/appointments', element: <AppointmentsPage /> },
   { path: '/admin', element: <AdminPage /> },
+  { path: '/super-admin', element: <SuperAdminPage /> },
+  { path: '/setup/super-admin', element: <SuperAdminSetupPage /> },
+  { path: '/stripe/landing-return', element: <StripeReturnPage /> },
   { path: '/barber', element: <BarberPage /> },
   { path: '/profile', element: <ProfilePage  /> },
   { path: '*', element: <LandingPage /> },

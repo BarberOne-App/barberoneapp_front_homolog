@@ -84,7 +84,9 @@ export default function LoginPage() {
   };
 
   const navigateByRole = (user) => {
-    if (user.role === 'admin' || user.isAdmin === true) {
+    if (user.role === 'super_admin') {
+      navigate('/super-admin');
+    } else if (user.role === 'admin' || user.isAdmin === true) {
       navigate('/home');
     } else if (user.role === 'barber') {
       navigate('/home');
@@ -155,6 +157,13 @@ export default function LoginPage() {
               Cadastre-se
             </Link>
           </p>
+
+          {/* <p className="auth-footer" style={{ marginTop: 8 }}>
+            Setup inicial?{' '}
+            <Link to="/setup/super-admin" className="auth-link">
+              Criar super admin
+            </Link>
+          </p> */}
         </div>
       </section>
 
