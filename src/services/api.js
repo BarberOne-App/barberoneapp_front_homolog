@@ -1,7 +1,13 @@
 import axios from "axios";
 
+export const API_BASE_URL = String(import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+
+if (!API_BASE_URL) {
+  throw new Error("VITE_API_URL não foi definida no arquivo .env");
+}
+
 const api = axios.create({
-  baseURL: "https://barberoneapp-back-homolog.onrender.com" || "http://localhost:3000",
+  baseURL: API_BASE_URL,
   timeout: 15000,
 });
 
@@ -13,5 +19,20 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 401) {
+      localStorage.removeItem("currentUser");
+      localStorage.removeItem("token");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("activeBarbershop");
+      localStorage.removeItem("sessionApiBaseUrl");
+    }
+
+    return Promise.reject(error);
+  },
+);
 
 export default api;

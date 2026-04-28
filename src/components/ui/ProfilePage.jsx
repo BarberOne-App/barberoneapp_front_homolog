@@ -11,6 +11,9 @@ import Header from '../layout/Header.jsx';
 import { uploadImagem, criarPreviewLocal } from '../../services/cloudinaryService';
 import ChangePasswordPanel from './Changepasswordpanel.jsx';
 import { getToken } from '../../services/authService';
+import { API_BASE_URL } from '../../services/api';
+
+const API_URL = API_BASE_URL;
 
 export default function ProfilePage() {
   const navigate = useNavigate();
@@ -74,7 +77,7 @@ export default function ProfilePage() {
     loadDependents(user.id);
 
     // Busca permissoes atualizadas no backend e sincroniza sessao
-    fetch(`${import.meta.env.VITE_API_URL}/users/${user.id}`, {
+    fetch(`${API_URL}/users/${user.id}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(res => res.ok ? res.json() : null)
@@ -100,7 +103,7 @@ export default function ProfilePage() {
 
   const loadUserPhoto = async (userId) => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/users/${userId}`, {
+      const res = await fetch(`${API_URL}/users/${userId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -115,7 +118,7 @@ export default function ProfilePage() {
 
   const loadDependents = async (userId) => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/dependents?parentId=${userId}`, {
+      const res = await fetch(`${API_URL}/dependents?parentId=${userId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -197,7 +200,7 @@ export default function ProfilePage() {
     try {
       const cpfDigits = dependentForm.cpf.replace(/[^0-9]/g, '');
 
-      const allDepsRes = await fetch(`${import.meta.env.VITE_API_URL}/dependents`, {
+      const allDepsRes = await fetch(`${API_URL}/dependents`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -212,7 +215,7 @@ export default function ProfilePage() {
         return;
       }
 
-      const allUsersRes = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
+      const allUsersRes = await fetch(`${API_URL}/users`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -227,7 +230,7 @@ export default function ProfilePage() {
       }
 
       if (editingDependent) {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/dependents/${editingDependent.id}`, {
+        const res = await fetch(`${API_URL}/dependents/${editingDependent.id}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
@@ -250,12 +253,12 @@ export default function ProfilePage() {
         // }
 
         // const [usersRes, dependentsRes] = await Promise.all([
-        //   fetch(`${import.meta.env.VITE_API_URL}/users`, {
+        //   fetch(`${API_URL}/users`, {
         //     headers: {
         //       Authorization: `Bearer ${token}`,
         //     },
         //   }),
-        //   fetch(`${import.meta.env.VITE_API_URL}/dependents`, {
+        //   fetch(`${API_URL}/dependents`, {
         //     headers: {
         //       Authorization: `Bearer ${token}`,
         //     },
@@ -294,7 +297,7 @@ export default function ProfilePage() {
         //   return;
         // }
 
-        // const res = await fetch(`${import.meta.env.VITE_API_URL}/dependents`, {
+        // const res = await fetch(`${API_URL}/dependents`, {
         //   method: 'POST',
         //   headers: {
         //     'Content-Type': 'application/json',
@@ -317,7 +320,7 @@ export default function ProfilePage() {
 
         // showToast('Dependente cadastrado com sucesso!', 'success');
 
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/dependents`, {
+        const res = await fetch(`${API_URL}/dependents`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -347,7 +350,7 @@ export default function ProfilePage() {
   const handleDeleteDependent = async (depId) => {
     setDeletingDependentId(depId);
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/dependents/${depId}`, {
+      await fetch(`${API_URL}/dependents/${depId}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -401,7 +404,7 @@ export default function ProfilePage() {
     try {
       const secure_url = await uploadImagem(pendingFile, 'perfil');
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/users/${currentUser.id}`, {
+      const response = await fetch(`${API_URL}/users/${currentUser.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -443,7 +446,7 @@ export default function ProfilePage() {
     if (!newName.trim() || !currentUser) return;
     setSavingName(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/users/${currentUser.id}`, {
+      const res = await fetch(`${API_URL}/users/${currentUser.id}`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -483,7 +486,7 @@ export default function ProfilePage() {
 
     setSavingProfile(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/users/${currentUser.id}`, {
+      const res = await fetch(`${API_URL}/users/${currentUser.id}`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,

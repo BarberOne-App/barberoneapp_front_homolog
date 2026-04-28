@@ -1,14 +1,13 @@
 import api from "./api.js";
 import { getToken } from "./authService.js";
 
-const BASE = "https://barberoneapp-back-homolog.onrender.com/users";
-const token = getToken();
+const BASE = "/users";
 
 export async function getUsers(params = {}) {
   const res = await api.get(BASE, {
     params,
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${getToken()}`,
     },
   });
   return res.data;
@@ -17,7 +16,7 @@ export async function getUsers(params = {}) {
 export async function createUser(data) {
   const res = await api.post(BASE, data, {
      headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${getToken()}`,
     },
   });
   return res.data;
@@ -26,7 +25,7 @@ export async function createUser(data) {
 export async function importUsers(data) {
   return api.post(`${BASE}/import`, data, {
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${getToken()}`,
     },
   });
 }
@@ -35,7 +34,7 @@ export async function userExists(email) {
   try {
     const res = await api.get(`${BASE}/check-email/${encodeURIComponent(email)}`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return res.data?.exists ?? false;
@@ -47,7 +46,7 @@ export async function userExists(email) {
 export async function updateUser(userId, data) {
   const res = await api.patch(`${BASE}/${userId}`, data, {
      headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${getToken()}`,
     },
   });
   return res.data;
@@ -56,7 +55,7 @@ export async function updateUser(userId, data) {
 export async function getUserById(userId) {
   const res = await api.get(`${BASE}/${userId}`, {
      headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${getToken()}`,
     },
   });
   return res.data;

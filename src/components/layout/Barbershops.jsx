@@ -1,16 +1,19 @@
 export const BARBERSHOPS = [
-  // { id: '001', name: 'Barbearia Rodrigues', slug: 'rodrigues' },
+  { id: 'env', name: 'Barbearia Rodrigues', slug: import.meta.env.VITE_BARBERSHOP_SLUG || 'barbearia_rodrigues' },
   // { id: '002', name: 'Barbearia Lucas',     slug: 'lucas'     },
   // { id: '003', name: 'Barbearia Abilton',   slug: 'abilton'   },
-  { id: '004', name: 'Barbearia Teste',  slug: 'barbearia-teste'  }
 ];
 
 export const DEFAULT_BARBERSHOP = BARBERSHOPS[0];
 
 export function getActiveBarbershop() {
+  const expectedSlug = import.meta.env.VITE_BARBERSHOP_SLUG || DEFAULT_BARBERSHOP.slug;
   try {
     const stored = localStorage.getItem('activeBarbershop');
-    if (stored) return JSON.parse(stored);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (!expectedSlug || parsed?.slug === expectedSlug) return parsed;
+    }
   } catch (_) {}
   return DEFAULT_BARBERSHOP;
 }

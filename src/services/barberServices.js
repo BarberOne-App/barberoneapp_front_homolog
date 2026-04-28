@@ -1,7 +1,6 @@
-import api from "./api";
+import api, { API_BASE_URL } from "./api";
 import { getToken } from "./authService";
 
-const token = getToken();
 
 export async function getBarbers() {
   const { data } = await api.get("/barbers");
@@ -11,7 +10,7 @@ export async function getBarbers() {
 export async function getBarberById(id) {
   const { data } = await api.get(`/barbers/${id}`, {
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${getToken()}`,
     },
   });
   return data;
@@ -20,7 +19,7 @@ export async function getBarberById(id) {
 export async function createBarber(barberData) {
   const { data } = await api.post("/barbers", barberData, {
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${getToken()}`,
     },
   });
   return data;
@@ -29,7 +28,7 @@ export async function createBarber(barberData) {
 export async function updateBarber(id, barberData) {
   const { data } = await api.put(`/barbers/${id}`, barberData, {
      headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
   });
   return data;
@@ -38,7 +37,7 @@ export async function updateBarber(id, barberData) {
 export async function deleteBarber(id) {
   await api.delete(`/barbers/${id}`, {
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${getToken()}`,
     },
   });
 }
@@ -46,11 +45,11 @@ export async function deleteBarber(id) {
 
 export const linkBarberToUser = async (barberId, userId) => {
   try {
-    const response = await fetch(`${API_BASE}/barbers/${barberId}`, {
+    const response = await fetch(`${API_BASE_URL}/barbers/${barberId}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
       body: JSON.stringify({ userId })
     });

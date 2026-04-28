@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { getToken } from './authService';
+import { API_BASE_URL } from './api';
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = API_BASE_URL;
 
 export async function createStripePaymentIntent(payload) {
   const token = getToken();

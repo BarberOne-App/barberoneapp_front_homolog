@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import api from '../services/api.js';
+import api, { API_BASE_URL } from '../services/api.js';
 import BaseLayout from '../components/layout/BaseLayout.jsx';
 import DatePicker from '../components/ui/DatePicker.jsx';
 import axios, { all } from 'axios';
@@ -28,6 +28,8 @@ import {
 } from '../services/paymentService.js';
 import './AuthPages.css';
 import { getToken } from '../services/authService.js';
+
+const API_URL = API_BASE_URL;
 
 const extractAppointmentErrorMessage = (
   error,
@@ -226,7 +228,7 @@ export default function AppointmentsPage() {
     console.log('PREAPPROVAL ID:', preapprovalId);
 
     if (preapprovalId) {
-      fetch(`${import.meta.env.VITE_API_URL}/assinatura/${preapprovalId}`, {
+      fetch(`${API_URL}/assinatura/${preapprovalId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -311,7 +313,7 @@ export default function AppointmentsPage() {
       }
 
       try {
-        const response = await axios.get(`${import.meta.env.VITE_API_URL}/dependents`, {
+        const response = await axios.get(`${API_URL}/dependents`, {
           params: { parentId },
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -436,7 +438,7 @@ export default function AppointmentsPage() {
 
   const fetchBlockedDates = useCallback(async () => {
     try {
-      const response = await fetch('https://barberoneapp-back-homolog.onrender.com/blocked-dates', {
+      const response = await fetch(`${API_URL}/blocked-dates`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -1021,7 +1023,7 @@ export default function AppointmentsPage() {
       ] = await Promise.all([
         getBarbers(),
         getAllServices(),
-        fetch('https://barberoneapp-back-homolog.onrender.com/products', {
+        fetch(`${API_URL}/products`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -1031,7 +1033,7 @@ export default function AppointmentsPage() {
         getPaymentVisibilitySettings(),
       ]);
 
-      const res = await fetch('https://barberoneapp-back-homolog.onrender.com/subscriptions', {
+      const res = await fetch(`${API_URL}/subscriptions`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -1044,7 +1046,7 @@ export default function AppointmentsPage() {
       // Só tenta listar usuários se puder agendar para terceiros
       if (canScheduleForOthers) {
         try {
-          const usersResponse = await fetch('https://barberoneapp-back-homolog.onrender.com/users', {
+          const usersResponse = await fetch(`${API_URL}/users`, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -1118,7 +1120,7 @@ export default function AppointmentsPage() {
       let deps = [];
       try {
         const depsRes = await fetch(
-          `https://barberoneapp-back-homolog.onrender.com/dependents?parentId=${currentUser?.id}`,
+          `${API_URL}/dependents?parentId=${currentUser?.id}`,
           {
             headers: { authorization: `Bearer ${token}` },
           },
@@ -1166,7 +1168,7 @@ export default function AppointmentsPage() {
   //     const [barbersData, servicesData, productsData, appointmentsData] = await Promise.all([
   //       getBarbers(),
   //       getAllServices(),
-  //       fetch('https://barberoneapp-back-homolog.onrender.com/products', {
+  //       fetch(`${API_URL}/products`, {
   //         headers: {
   //           Authorization: `Bearer ${token}`,
   //         }
@@ -1174,14 +1176,14 @@ export default function AppointmentsPage() {
   //       getAppointments(),
   //     ]);
 
-  //     const res = await fetch('https://barberoneapp-back-homolog.onrender.com/subscriptions', {
+  //     const res = await fetch(`${API_URL}/subscriptions`, {
   //       headers: {
   //         Authorization: `Bearer ${token}`,
   //       }
   //     });
 
   //     const subscription = await res.json();
-  //     const usersResponse = await fetch('https://barberoneapp-back-homolog.onrender.com/users', {
+  //     const usersResponse = await fetch(`${API_URL}/users`, {
   //       headers: {
   //         Authorization: `Bearer ${token}`,
   //       }
@@ -1208,7 +1210,7 @@ export default function AppointmentsPage() {
 
   //     let deps = [];
   //     try {
-  //       const depsRes = await fetch(`https://barberoneapp-back-homolog.onrender.com/dependents?parentId=${currentUser?.id}`, {
+  //       const depsRes = await fetch(`${API_URL}/dependents?parentId=${currentUser?.id}`, {
   //         headers: { authorization: `Bearer ${token}` },
   //       });
   //       if (depsRes.ok) {
@@ -1244,7 +1246,7 @@ export default function AppointmentsPage() {
 
   const handleUpdateStock = useCallback(async (productId, quantity) => {
     try {
-      const response = await fetch(`https://barberoneapp-back-homolog.onrender.com/products/${productId}`, {
+      const response = await fetch(`${API_URL}/products/${productId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -1252,7 +1254,7 @@ export default function AppointmentsPage() {
       const product = await response.json();
       const newStock = Math.max(0, product.stock - quantity);
 
-      await fetch(`https://barberoneapp-back-homolog.onrender.com/products/${productId}`, {
+      await fetch(`${API_URL}/products/${productId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -2144,7 +2146,7 @@ export default function AppointmentsPage() {
             await ensureMonthlyBarberLock(pendingBookingData.barberId, pendingBookingData.barberName);
           }
 
-          const response = await axios.get(`${import.meta.env.VITE_API_URL}/dependents`, {
+          const response = await axios.get(`${API_URL}/dependents`, {
             headers: {
               Authorization: `Bearer ${token}`,
             },

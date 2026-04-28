@@ -66,10 +66,11 @@ import {
 } from '../services/stripeService';
 import { uploadImagem } from '../services/cloudinaryService';
 import { getToken } from '../services/authService';
+import { API_BASE_URL } from '../services/api';
 
 export default function AdminPage() {
   const navigate = useNavigate();
-  const API_URL = import.meta.env.VITE_API_URL;
+  const API_URL = API_BASE_URL;
 
   const currentUserRef = useRef(getSession());
   const currentUser = currentUserRef.current;
@@ -551,9 +552,7 @@ export default function AdminPage() {
     let filtered = [...normalizedAppointmentPayments];
 
     const getPaymentDate = (payment) => {
-      if (payment.appointmentDate) return String(payment.appointmentDate).slice(0, 10);
-      if (payment.createdAt) return String(payment.createdAt).slice(0, 10);
-      return '';
+      return getAppointmentPaymentDate(payment);
     };
 
     if (paymentDateFilter) {
@@ -584,9 +583,7 @@ export default function AdminPage() {
     return filtered;
   };
 
-  const allPaid = getFilteredPayments().filter(
-    (p) => p.status === 'paid' || p.status === 'plan_covered' || p.status === 'plancovered',
-  );
+  const allPaid = getFilteredPayments().filter(isSettledAppointmentPayment);
 
   const stripeConnectIsConnected = Boolean(
     stripeConnectStatus?.chargesEnabled && stripeConnectStatus?.payoutsEnabled,
@@ -845,6 +842,21 @@ export default function AdminPage() {
 
     return s.slice(0, 10);
   };
+
+  function getAppointmentPaymentDate(payment) {
+    return (
+      toDateStr(payment?.appointmentDate) ||
+      toDateStr(payment?.appointment?.startAt) ||
+      toDateStr(payment?.appointment?.endAt) ||
+      toDateStr(payment?.paidAt) ||
+      toDateStr(payment?.createdAt)
+    );
+  }
+
+  function isSettledAppointmentPayment(payment) {
+    const status = String(payment?.status || '').toLowerCase();
+    return ['paid', 'approved', 'covered', 'plan_covered', 'plancovered'].includes(status);
+  }
 
   const normalizePaymentFrequency = (value) => {
     const normalized = String(value || '').trim().toLowerCase();
@@ -1614,7 +1626,7 @@ export default function AdminPage() {
   const fetchBlockedDates = async () => {
     try {
       setLoadingBlockedDates(true);
-      const response = await fetch('https://barberoneapp-back-homolog.onrender.com/blocked-dates', {
+      const response = await fetch(`${API_URL}/blocked-dates`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -1701,7 +1713,7 @@ export default function AdminPage() {
         createdBy: currentUser?.id,
         createdAt: new Date().toISOString(),
       };
-      const response = await fetch('https://barberoneapp-back-homolog.onrender.com/blocked-dates', {
+      const response = await fetch(`${API_URL}/blocked-dates`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(blockData),
@@ -1754,7 +1766,7 @@ export default function AdminPage() {
   const handleRemoveBlockedDate = (id) => {
     showConfirm('Deseja realmente desbloquear esta data?', async () => {
       try {
-        const response = await fetch(`https://barberoneapp-back-homolog.onrender.com/blocked-dates/${id}`, {
+        const response = await fetch(`${API_URL}/blocked-dates/${id}`, {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -2055,7 +2067,7 @@ export default function AdminPage() {
         buscarTodasVendasProdutos(),
       ]);
 
-      // const usersResponse = await fetch('https://barberoneapp-back-homolog.onrender.com/users', {
+      // const usersResponse = await fetch(`${API_URL}/users`, {
       //   headers: {
       //     Authorization: `Bearer ${token}`,
       //   },
@@ -2071,8 +2083,9 @@ export default function AdminPage() {
       );
 
       const subscriptionStatusMap = {};
-      if (subscriptionsData.items) {
-        subscriptionsData.items.forEach((sub) => {
+      const subscriptionItems = Array.isArray(subscriptionsData?.items) ? subscriptionsData.items : [];
+      if (subscriptionItems.length) {
+        subscriptionItems.forEach((sub) => {
           if (sub.status === 'active') {
             subscriptionStatusMap[sub.userId] = true;
           }
@@ -2084,12 +2097,12 @@ export default function AdminPage() {
       setAppointments(appointmentsData);
 
       const today = new Date();
-      const toExpire = subscriptionsData.items.filter(
+      const toExpire = subscriptionItems.filter(
         (s) =>
           s.status === 'cancel_pending' && s.nextBillingDate && new Date(s.nextBillingDate) < today,
       );
       for (const s of toExpire) {
-        await fetch(`https://barberoneapp-back-homolog.onrender.com/subscriptions/${s.id}`, {
+        await fetch(`${API_URL}/subscriptions/${s.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'cancelled', updatedAt: new Date().toISOString() }),
@@ -2097,12 +2110,12 @@ export default function AdminPage() {
       }
       const updatedSubs =
         toExpire.length > 0
-          ? subscriptionsData.map((s) =>
+          ? subscriptionItems.map((s) =>
             toExpire.find((e) => e.id === s.id) ? { ...s, status: 'cancelled' } : s,
           )
-          : subscriptionsData;
+          : subscriptionItems;
 
-      const subsWithCpf = updatedSubs.items.map((sub) => {
+      const subsWithCpf = updatedSubs.map((sub) => {
         const user = allUsers.find((u) => u.id === sub.userId);
         return user?.cpf ? { ...sub, userCpf: user.cpf } : sub;
       });
@@ -2115,12 +2128,12 @@ export default function AdminPage() {
       setAllUsers(allUsers);
       setClientSubscriptionStatus(subscriptionStatusMap);
       try {
-        const valesRes = await fetch('https://barberoneapp-back-homolog.onrender.com/employeeVales', {
+        const valesRes = await fetch(`${API_URL}/employeeVales`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-        const paymentsRes = await fetch('https://barberoneapp-back-homolog.onrender.com/employeePayments', {
+        const paymentsRes = await fetch(`${API_URL}/employeePayments`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -2184,7 +2197,7 @@ export default function AdminPage() {
     }
 
     // Busca permissões frescas do backend antes de checar acesso
-    fetch(`${import.meta.env.VITE_API_URL}/users/${currentUser.id}`, {
+    fetch(`${API_URL}/users/${currentUser.id}`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -2356,9 +2369,9 @@ export default function AdminPage() {
     };
 
     const [valesRes, paymentsRes, aptsRes] = await Promise.all([
-      fetch('https://barberoneapp-back-homolog.onrender.com/employeeVales', { headers }),
-      fetch('https://barberoneapp-back-homolog.onrender.com/employeePayments', { headers }),
-      fetch('https://barberoneapp-back-homolog.onrender.com/appointmentPayments', { headers }),
+      fetch(`${API_URL}/employeeVales`, { headers }),
+      fetch(`${API_URL}/employeePayments`, { headers }),
+      fetch(`${API_URL}/appointmentPayments`, { headers }),
     ]);
 
     if (!valesRes.ok || !paymentsRes.ok || !aptsRes.ok) {
@@ -2457,7 +2470,7 @@ export default function AdminPage() {
     }
     setResetPasswordLoading(true);
     try {
-      await fetch(`https://barberoneapp-back-homolog.onrender.com/users/${resetPasswordUser.id}`, {
+      await fetch(`${API_URL}/users/${resetPasswordUser.id}`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -2484,7 +2497,7 @@ export default function AdminPage() {
     }
     try {
       await fetch(
-        `https://barberoneapp-back-homolog.onrender.com/users/${selectedUserPermissions.id}/permissions`,
+        `${API_URL}/users/${selectedUserPermissions.id}/permissions`,
         {
           method: 'PATCH',
           headers: {
@@ -2595,7 +2608,7 @@ export default function AdminPage() {
           salarioFixo: parseFloat(barberForm.salarioFixo) || 0,
           paymentFrequency: normalizePaymentFrequency(barberForm.paymentFrequency),
         };
-        await fetch(`https://barberoneapp-back-homolog.onrender.com/users/${editingBarber.userId}`, {
+        await fetch(`${API_URL}/users/${editingBarber.userId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(userData),
@@ -2610,7 +2623,7 @@ export default function AdminPage() {
           showToast('Email e senha são obrigatórios para criar conta de acesso.', 'danger');
           return;
         }
-        // const checkEmailResponse = await fetch('https://barberoneapp-back-homolog.onrender.com/users', {
+        // const checkEmailResponse = await fetch(`${API_URL}/users`, {
         //   headers: {
         //     Authorization: `Bearer ${token}`,
         //   },
@@ -2633,7 +2646,7 @@ export default function AdminPage() {
           isAdmin: barberForm.userRole === 'admin',
           createdAt: new Date().toISOString(),
         };
-        const userResponse = await fetch('https://barberoneapp-back-homolog.onrender.com/users', {
+        const userResponse = await fetch(`${API_URL}/users`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2661,7 +2674,7 @@ export default function AdminPage() {
         if (editingBarber && !editingBarber.isUserOnly) {
           await updateBarber(editingBarber.id, barberData);
           if (editingBarber.userId) {
-            await fetch(`https://barberoneapp-back-homolog.onrender.com/users/${editingBarber.userId}`, {
+            await fetch(`${API_URL}/users/${editingBarber.userId}`, {
               method: 'PATCH',
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -2704,7 +2717,7 @@ export default function AdminPage() {
     showConfirm('Deseja realmente excluir este funcionário?', async () => {
       try {
         if (isUserOnly) {
-          await fetch(`https://barberoneapp-back-homolog.onrender.com/users/${id}`, {
+          await fetch(`${API_URL}/users/${id}`, {
             method: 'DELETE',
             headers: {
               Authorization: `Bearer ${token}`,
@@ -2715,7 +2728,7 @@ export default function AdminPage() {
           await deleteBarber(id);
           const barber = barbers.find((b) => b.id === id);
           if (barber?.userId) {
-            await fetch(`https://barberoneapp-back-homolog.onrender.com/users/${barber.userId}`, {
+            await fetch(`${API_URL}/users/${barber.userId}`, {
               method: 'DELETE',
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -3142,7 +3155,7 @@ export default function AdminPage() {
       ? new Date(sub.currentCycle?.periodEnd || sub.nextBillingDate).toLocaleDateString('pt-BR')
       : 'data não definida';
     try {
-      await fetch(`https://barberoneapp-back-homolog.onrender.com/stripe/subscriptions/${sub.subscriptionId || sub.id}/cancel`, {
+      await fetch(`${API_URL}/stripe/subscriptions/${sub.subscriptionId || sub.id}/cancel`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -3437,8 +3450,10 @@ export default function AdminPage() {
     const [year, month] = selectedMonth.split('-');
     return payments.filter((payment) => {
       const paymentDate = new Date(
-        payment.createdAt ||
         payment.appointmentDate ||
+        payment.appointment?.startAt ||
+        payment.appointment?.endAt ||
+        payment.createdAt ||
         payment.date ||
         payment.startDate ||
         payment.nextPaymentDate,
@@ -3497,11 +3512,12 @@ export default function AdminPage() {
         }
       }
     });
-    const paidAppointmentPayments = paymentsToUse.filter((p) => p.status === 'paid');
+    const paidAppointmentPayments = paymentsToUse.filter(isSettledAppointmentPayment);
     paidAppointmentPayments.forEach((payment) => {
       const amount = parseFloat(payment.amount || 0);
       const method = String(payment.paymentMethod || payment.method || '').toLowerCase();
       const isPlanCovered =
+        payment.status === 'covered' ||
         payment.status === 'plan_covered' ||
         payment.status === 'plancovered' ||
         method === 'subscription';
@@ -3547,7 +3563,7 @@ export default function AdminPage() {
         await Promise.all(
           sale.products.map(async (item) => {
             try {
-              const res = await fetch(`${import.meta.env.VITE_API_URL}/products/${item.id}`, {
+              const res = await fetch(`${API_URL}/products/${item.id}`, {
                 headers: {
                   Authorization: `Bearer ${token}`,
                   'Content-Type': 'application/json',
@@ -3555,7 +3571,7 @@ export default function AdminPage() {
               });
               const product = await res.json();
               const newStock = Math.max(0, (product.stock ?? 0) - (item.quantity ?? 1));
-              await fetch(`${import.meta.env.VITE_API_URL}/products/${item.id}`, {
+              await fetch(`${API_URL}/products/${item.id}`, {
                 method: 'PATCH',
                 headers: {
                   Authorization: `Bearer ${token}`,
@@ -3742,7 +3758,7 @@ export default function AdminPage() {
       )
       .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
     const paidAppointments = filteredAppointmentPayments
-      .filter((p) => p.status === 'paid')
+      .filter(isSettledAppointmentPayment)
       .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
     const filteredSubscriptions = filterPaymentsByMonth(subscriptions);
     const paidSubscriptions = filteredSubscriptions.reduce(
@@ -3767,7 +3783,7 @@ export default function AdminPage() {
         p.status === 'pending' || p.status === 'pendinglocal' || p.status === 'confirmed_unpaid',
     );
 
-    const getDate = (p) => toDateStr(p.appointmentDate) || toDateStr(p.createdAt);
+    const getDate = (p) => getAppointmentPaymentDate(p);
     if (paymentDateFilter) {
       base = base.filter((p) => getDate(p) === toDateStr(paymentDateFilter));
     } else if (paymentStartDate || paymentEndDate) {
@@ -3783,7 +3799,9 @@ export default function AdminPage() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return base.map((p) => {
-      const apptDate = p.appointmentDate ? new Date(p.appointmentDate) : null;
+      const rawAppointmentDate =
+        p.appointmentDate || p.appointment?.startAt || p.appointment?.endAt;
+      const apptDate = rawAppointmentDate ? new Date(rawAppointmentDate) : null;
       const isPast = apptDate && apptDate < today;
       const isConfirmedUnpaid = p.status === 'confirmed_unpaid';
       const displayStatus = isConfirmedUnpaid ? 'confirmed_unpaid' : isPast ? 'overdue' : p.status;
@@ -3793,9 +3811,7 @@ export default function AdminPage() {
 
   const paidPayments = filteredAppointmentPaymentsForAgendamentos.filter(
     (p) =>
-      p.status === 'paid' ||
-      p.status === 'plan_covered' ||
-      p.status === 'plancovered' ||
+      isSettledAppointmentPayment(p) ||
       String(p.paymentMethod || p.method || '').toLowerCase() === 'subscription',
   );
 
@@ -4426,11 +4442,7 @@ export default function AdminPage() {
       )
         return false;
       if (p.commissionPaid === true) return false;
-      const d = p.appointmentDate
-        ? String(p.appointmentDate).slice(0, 10)
-        : p.paidAt
-          ? String(p.paidAt).slice(0, 10)
-          : '';
+      const d = getAppointmentPaymentDate(p);
       return d >= start && d <= end;
     });
     const total = relevantPayments.reduce(
@@ -4475,7 +4487,7 @@ export default function AdminPage() {
         createdAt: new Date().toISOString(),
         createdBy: currentUser?.id,
       };
-      await fetch('https://barberoneapp-back-homolog.onrender.com/employeeVales', {
+      await fetch(`${API_URL}/employeeVales`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -4483,7 +4495,7 @@ export default function AdminPage() {
         },
         body: JSON.stringify(vale),
       });
-      const res = await fetch('https://barberoneapp-back-homolog.onrender.com/employeeVales', {
+      const res = await fetch(`${API_URL}/employeeVales`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -4504,7 +4516,7 @@ export default function AdminPage() {
 
   const handleDeleteVale = (id) => {
     showConfirm('Deseja excluir este vale?', async () => {
-      await fetch(`https://barberoneapp-back-homolog.onrender.com/employeeVales/${id}`, {
+      await fetch(`${API_URL}/employeeVales/${id}`, {
         method: 'DELETE',
       });
       setEmployeeVales((prev) => prev.filter((v) => v.id !== id));
@@ -4603,7 +4615,7 @@ export default function AdminPage() {
         liquido: amount,
       };
 
-      const response = await fetch('https://barberoneapp-back-homolog.onrender.com/employeePayments', {
+      const response = await fetch(`${API_URL}/employeePayments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -4686,7 +4698,7 @@ export default function AdminPage() {
           paidAt: new Date().toISOString(),
           paidBy: currentUser?.id,
         };
-        const paymentResponse = await fetch('https://barberoneapp-back-homolog.onrender.com/employeePayments', {
+        const paymentResponse = await fetch(`${API_URL}/employeePayments`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -4703,7 +4715,7 @@ export default function AdminPage() {
 
         for (const v of vales) {
           const valeDeleteResponse = await fetch(
-            `https://barberoneapp-back-homolog.onrender.com/employeeVales/${v.id}`,
+            `${API_URL}/employeeVales/${v.id}`,
             {
               method: 'DELETE',
               headers: {
@@ -4723,16 +4735,12 @@ export default function AdminPage() {
             if (String(p.barberId) !== String(barberId) && p.barberName !== barberData?.name)
               return false;
             if (p.status !== 'paid' || p.commissionPaid === true) return false;
-            const d = p.appointmentDate
-              ? String(p.appointmentDate).slice(0, 10)
-              : p.paidAt
-                ? String(p.paidAt).slice(0, 10)
-                : '';
+            const d = getAppointmentPaymentDate(p);
             return d >= start && d <= end;
           });
           const commissionResponses = await Promise.all(
             toMark.map((p) =>
-              fetch(`https://barberoneapp-back-homolog.onrender.com/appointmentPayments/${p.id}`, {
+              fetch(`${API_URL}/appointmentPayments/${p.id}`, {
                 method: 'PATCH',
                 headers: {
                   Authorization: `Bearer ${token}`,

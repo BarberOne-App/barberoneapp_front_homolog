@@ -1,4 +1,4 @@
-Ôªøimport { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BaseLayout from '../components/layout/BaseLayout';
 import Toast from '../components/ui/Toast';
@@ -7,7 +7,10 @@ import { getUserById } from '../services/userServices';
 import { getAppointments, updateAppointment } from '../services/appointmentService';
 import { getBarbers } from '../services/barberServices';
 import { getHomeInfo } from '../services/settingsService';
+import { API_BASE_URL } from '../services/api';
 import './AuthPages.css';
+
+const API_URL = API_BASE_URL;
 
 export default function BarberPage() {
   const navigate = useNavigate();
@@ -37,7 +40,7 @@ export default function BarberPage() {
     const normalized = normalizePaymentFrequency(value);
     if (normalized === 'weekly') return 'Semana Atual';
     if (normalized === 'biweekly') return 'Quinzena Atual';
-    return 'M√™s Atual';
+    return 'MÍs Atual';
   };
 
   const getCurrentEarningsPeriodRange = () => {
@@ -223,7 +226,7 @@ export default function BarberPage() {
       const [appointmentsData, barbersData, employeePaymentsResponse, homeInfo] = await Promise.all([
         getAppointments(),
         getBarbers(),
-        fetch('https://barberoneapp-back-homolog.onrender.com/employeePayments', {
+        fetch(`${API_URL}/employeePayments`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -370,25 +373,25 @@ export default function BarberPage() {
       const clientIdRaw = appointment.clientId || appointment.client?.id;
       const userData = clientIdRaw ? await getUserById(clientIdRaw) : null;
       const clientName = userData?.name || getAppointmentClientName(appointment);
-      const clientPhone = getAppointmentPhone(appointment, userData) || 'N√£o cadastrado';
+      const clientPhone = getAppointmentPhone(appointment, userData) || 'N„o cadastrado';
 
       const startDate = getAppointmentStartDate(appointment);
       const time = startDate && !Number.isNaN(startDate.getTime())
         ? startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-        : (getAppointmentTime(appointment) || 'Hor√°rio n√£o informado');
+        : (getAppointmentTime(appointment) || 'Hor·rio n„o informado');
 
-      const serviceName = getAppointmentServicesLabel(appointment) || 'Servi√ßo';
+      const serviceName = getAppointmentServicesLabel(appointment) || 'ServiÁo';
 
-      const message = `üîî PR√ìXIMO CLIENTE EM 15 MINUTOS!\n\nCliente: ${clientName}\nHor√°rio: ${time}\nServi√ßo: ${serviceName || 'Servi√ßo'}\nTelefone: ${clientPhone}`;
+      const message = `?? PR”XIMO CLIENTE EM 15 MINUTOS!\n\nCliente: ${clientName}\nHor·rio: ${time}\nServiÁo: ${serviceName || 'ServiÁo'}\nTelefone: ${clientPhone}`;
 
       if (currentUser?.phone) {
         let barberPhone = currentUser.phone.replace(/\D/g, '');
         if (!barberPhone.startsWith('55')) barberPhone = `55${barberPhone}`;
         window.open(`https://wa.me/${barberPhone}?text=${encodeURIComponent(message)}`, '_blank');
       }
-      showToast('Notifica√ß√£o: Pr√≥ximo cliente em 15 minutos!', 'info');
+      showToast('NotificaÁ„o: PrÛximo cliente em 15 minutos!', 'info');
     } catch (error) {
-      console.error('Erro ao enviar notifica√ß√£o:', error);
+      console.error('Erro ao enviar notificaÁ„o:', error);
     }
   };
 
@@ -401,7 +404,7 @@ export default function BarberPage() {
       const clientIdRaw = appointment.clientId || appointment.client?.id;
       const userData = clientIdRaw ? await getUserById(clientIdRaw) : null;
       const rawPhone = getAppointmentPhone(appointment, userData);
-      if (!rawPhone) return showToast('Cliente n√£o possui telefone cadastrado.', 'danger');
+      if (!rawPhone) return showToast('Cliente n„o possui telefone cadastrado.', 'danger');
 
       let phone = rawPhone.replace(/\D/g, '');
       if (!phone.startsWith('55')) phone = `55${phone}`;
@@ -418,16 +421,16 @@ export default function BarberPage() {
       const startDate = getAppointmentStartDate(appointment);
       const date = startDate && !Number.isNaN(startDate.getTime())
         ? startDate.toLocaleDateString('pt-BR')
-        : 'data n√£o informada';
+        : 'data n„o informada';
       const time = startDate && !Number.isNaN(startDate.getTime())
         ? startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-        : (getAppointmentTime(appointment) || 'hor√°rio n√£o informado');
+        : (getAppointmentTime(appointment) || 'hor·rio n„o informado');
 
-      const serviceName = getAppointmentServicesLabel(appointment) || 'Servi√ßo';
+      const serviceName = getAppointmentServicesLabel(appointment) || 'ServiÁo';
 
       const messages = {
-        confirm: `Ol√° ${clientName}!\n\nGostaria de CONFIRMAR seu agendamento:\n\nüìÖ Data: ${date}\nüïê Hor√°rio: ${time}\n‚úÇÔ∏è Servi√ßo: ${serviceName}\nüë®‚Äçü¶∞ Barbeiro: ${barberName}\n\nPor favor, responda esta mensagem para confirmar sua presen√ßa.\n\n‚ú® ADDEV Barbearia`,
-        reminder: `Ol√° ${clientName}!\n\n‚è∞ LEMBRETE do seu agendamento:\n\nüìÖ Data: ${date}\nüïê Hor√°rio: ${time}\n‚úÇÔ∏è Servi√ßo: ${serviceName}\nüë®‚Äçü¶∞ Barbeiro: ${barberName}\n\nTe esperamos!\n\n‚ú® ADDEV Barbearia`,
+        confirm: `Ol· ${clientName}!\n\nGostaria de CONFIRMAR seu agendamento:\n\n?? Data: ${date}\n?? Hor·rio: ${time}\n?? ServiÁo: ${serviceName}\n????? Barbeiro: ${barberName}\n\nPor favor, responda esta mensagem para confirmar sua presenÁa.\n\n? ADDEV Barbearia`,
+        reminder: `Ol· ${clientName}!\n\n? LEMBRETE do seu agendamento:\n\n?? Data: ${date}\n?? Hor·rio: ${time}\n?? ServiÁo: ${serviceName}\n????? Barbeiro: ${barberName}\n\nTe esperamos!\n\n? ADDEV Barbearia`,
       };
 
       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(messages[type])}`, '_blank');
@@ -531,7 +534,8 @@ export default function BarberPage() {
     const filtered = getFilteredAppointmentsByPeriod();
     const filteredExtraPayments = getFilteredExtraPaymentsByPeriod();
     const filteredPayrollPayments = getFilteredPayrollPaymentsByPeriod();
-    let totalRevenue = 0;
+    let pendingRevenue = 0;
+    let paidRevenue = 0;
     let totalServices = 0;
     const commissionPercent = barberProfile?.commissionPercent || 50;
 
@@ -633,7 +637,7 @@ export default function BarberPage() {
                   Hoje ({todayAppointments.length})
                 </button>
                 <button onClick={() => setFilter('upcoming')} className={`tab-btn ${filter === 'upcoming' ? 'tab-btn--active' : ''}`}>
-                  Pr√≥ximos
+                  PrÛximos
                 </button>
                 <button onClick={() => setFilter('all')} className={`tab-btn ${filter === 'all' ? 'tab-btn--active' : ''}`}>
                   Todos ({appointments.length})
@@ -652,11 +656,11 @@ export default function BarberPage() {
                         <tr>
                           <th>Cliente</th>
                           <th>Data</th>
-                          <th>Hor√°rio</th>
-                          <th>Servi√ßos</th>
+                          <th>Hor·rio</th>
+                          <th>ServiÁos</th>
                           <th>Telefone</th>
                           <th className="status-column-header">Status</th>
-                          <th className="actions-column-header">A√ß√µes</th>
+                          <th className="actions-column-header">AÁıes</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -742,7 +746,7 @@ export default function BarberPage() {
 
                 <div className="period-display">
                   <p className="auth-subtitle" style={{ margin: '1rem 0', fontSize: '1rem' }}>
-                    Per√≠odo: <strong style={{ color: 'var(--gold)' }}>{getPeriodLabel()}</strong>
+                    PerÌodo: <strong style={{ color: 'var(--gold)' }}>{getPeriodLabel()}</strong>
                   </p>
                 </div>
               </div>
@@ -893,7 +897,7 @@ export default function BarberPage() {
 
                 <div className="fluig-children-container">
                   {stats.filteredAppointments.length === 0 ? (
-                    <p className="no-appointments">Nenhum agendamento encontrado neste per√≠odo.</p>
+                    <p className="no-appointments">Nenhum agendamento encontrado neste perÌodo.</p>
                   ) : (
                     <table className="fluig-table-children">
                       <thead>
@@ -901,8 +905,8 @@ export default function BarberPage() {
                           <th>Status</th>
                           <th>Cliente</th>
                           <th>Data</th>
-                          <th>Hor√°rio</th>
-                          <th>Servi√ßos</th>
+                          <th>Hor·rio</th>
+                          <th>ServiÁos</th>
                           <th>Total</th>
                           <th>Seus Ganhos %</th>
                         </tr>
@@ -954,7 +958,7 @@ export default function BarberPage() {
 
                   {stats.filteredExtraPayments.length > 0 && (
                     <div style={{ marginTop: '1.25rem' }}>
-                      <h4 style={{ color: 'var(--gold)', marginBottom: '0.75rem' }}>Pagamentos extras do per√≠odo</h4>
+                      <h4 style={{ color: 'var(--gold)', marginBottom: '0.75rem' }}>Pagamentos extras do perÌodo</h4>
                       <table className="fluig-table-children">
                         <thead>
                           <tr>
@@ -987,16 +991,16 @@ export default function BarberPage() {
 
                   {stats.filteredPayrollPayments.length > 0 && (
                     <div style={{ marginTop: '1.25rem' }}>
-                      <h4 style={{ color: 'var(--gold)', marginBottom: '0.75rem' }}>Pagamentos de folha do per√≠odo</h4>
+                      <h4 style={{ color: 'var(--gold)', marginBottom: '0.75rem' }}>Pagamentos de folha do perÌodo</h4>
                       <table className="fluig-table-children">
                         <thead>
                           <tr>
                             <th>Data Pgto.</th>
-                            <th>Per√≠odo</th>
-                            <th>Sal√°rio</th>
-                            <th>Comiss√£o</th>
+                            <th>PerÌodo</th>
+                            <th>Sal·rio</th>
+                            <th>Comiss„o</th>
                             <th>Vales</th>
-                            <th>L√≠quido</th>
+                            <th>LÌquido</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1010,7 +1014,7 @@ export default function BarberPage() {
                                     : '-'}
                                 </td>
                                 <td>
-                                  {payment.periodStart?.split('-').reverse().join('/')} ‚Üí{' '}
+                                  {payment.periodStart?.split('-').reverse().join('/')} ?{' '}
                                   {payment.periodEnd?.split('-').reverse().join('/')}
                                 </td>
                                 <td>R$ {Number(payment.salarioFixo || 0).toFixed(2)}</td>
