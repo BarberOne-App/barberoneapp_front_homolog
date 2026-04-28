@@ -59,6 +59,11 @@ import {
   updateGalleryImage,
   deleteGalleryImage,
 } from '../services/homeServices';
+import {
+  createStripeConnectAccount,
+  createStripeConnectAccountLink,
+  getStripeConnectStatus,
+} from '../services/stripeService';
 import { uploadImagem } from '../services/cloudinaryService';
 import { getToken } from '../services/authService';
 
@@ -481,8 +486,7 @@ export default function AdminPage() {
   const [planForm, setPlanForm] = useState({
     name: '',
     price: '',
-    mpPreapprovalPlanId: '',
-    mpSubscriptionUrl: '',
+    syncStripe: true,
   });
   const [planSaving, setPlanSaving] = useState(false);
   const [showBenefitModal, setShowBenefitModal] = useState(false);
@@ -533,6 +537,9 @@ export default function AdminPage() {
   const [usersLoadingPage, setUsersLoadingPage] = useState(false);
   const [hiddenBookingPaymentMethods, setHiddenBookingPaymentMethods] = useState([]);
   const [savingPaymentVisibility, setSavingPaymentVisibility] = useState(false);
+  const [stripeConnectStatus, setStripeConnectStatus] = useState(null);
+  const [stripeConnectLoading, setStripeConnectLoading] = useState(false);
+  const [stripeConnectActionLoading, setStripeConnectActionLoading] = useState(false);
 
   const normalizedAppointmentPayments = Array.isArray(appointmentPayments)
     ? appointmentPayments
@@ -579,6 +586,10 @@ export default function AdminPage() {
 
   const allPaid = getFilteredPayments().filter(
     (p) => p.status === 'paid' || p.status === 'plan_covered' || p.status === 'plancovered',
+  );
+
+  const stripeConnectIsConnected = Boolean(
+    stripeConnectStatus?.chargesEnabled && stripeConnectStatus?.payoutsEnabled,
   );
 
   const token = getToken();
@@ -826,7 +837,7 @@ export default function AdminPage() {
     }
   }, [activeTab, canManageGallery, canManageAgendamentos]);
 
-  const toDateStr = (val) => {
+  function toDateStr(val) {
     if (!val) return '';
     const s = String(val);
 
@@ -850,7 +861,7 @@ export default function AdminPage() {
     return 'Mensal';
   };
 
-  const isDateInRange = (dateStr, startDate, endDate) => {
+  function isDateInRange(dateStr, startDate, endDate) {
     if (!startDate && !endDate) return true;
     const d = toDateStr(dateStr);
     const s = toDateStr(startDate);
@@ -859,7 +870,7 @@ export default function AdminPage() {
     if (s) return d >= s;
     if (e) return d <= e;
     return true;
-  };
+  }
 
   const getFilteredAppointments = () => {
     let filtered = [...appointments];
@@ -1979,6 +1990,51 @@ export default function AdminPage() {
     }
   };
 
+  const loadStripeConnectStatus = useCallback(async () => {
+    if (!hasPermission('manageSettings')) return;
+
+    setStripeConnectLoading(true);
+    try {
+      const data = await getStripeConnectStatus();
+      setStripeConnectStatus(data || null);
+    } catch (error) {
+      setStripeConnectStatus(null);
+    } finally {
+      setStripeConnectLoading(false);
+    }
+  }, [currentUser?.role, currentUser?.isAdmin, currentUser?.permissions]);
+
+  const openStripeConnectOnboarding = async (ensureAccount = false) => {
+    if (!isAdmin) {
+      showToast('Apenas administradores podem configurar Stripe Connect.', 'danger');
+      return;
+    }
+
+    setStripeConnectActionLoading(true);
+    try {
+      if (ensureAccount) {
+        await createStripeConnectAccount();
+      }
+
+      const linkData = await createStripeConnectAccountLink();
+      const onboardingUrl = String(linkData?.url || '');
+
+      if (!onboardingUrl) {
+        throw new Error('A Stripe não retornou URL de onboarding.');
+      }
+
+      window.location.href = onboardingUrl;
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Não foi possível abrir o onboarding do Stripe Connect.';
+      showToast(message, 'danger');
+    } finally {
+      setStripeConnectActionLoading(false);
+    }
+  };
+
   const loadData = useCallback(async () => {
     try {
       const [
@@ -2196,6 +2252,12 @@ export default function AdminPage() {
       loadPaymentVisibility();
     }
   }, [isAdmin, activeTab, loadPaymentVisibility]);
+
+  useEffect(() => {
+    if (activeTab === 'terms') {
+      loadStripeConnectStatus();
+    }
+  }, [activeTab, loadStripeConnectStatus]);
 
   const getAppointmentByPayment = (payment) => {
     const appointmentId = payment.appointmentId || payment.appointment?.id;
@@ -3795,12 +3857,11 @@ export default function AdminPage() {
       setPlanForm({
         name: plan.name || '',
         price: formatBrazilianCurrencyInput(String(Math.round(Number(plan.price || 0) * 100))),
-        mpPreapprovalPlanId: plan.mpPreapprovalPlanId || '',
-        mpSubscriptionUrl: plan.mpSubscriptionUrl || '',
+        syncStripe: true,
       });
     } else {
       setEditingPlan(null);
-      setPlanForm({ name: '', price: '', mpPreapprovalPlanId: '', mpSubscriptionUrl: '' });
+      setPlanForm({ name: '', price: '', syncStripe: true });
     }
 
     setShowPlanModal(true);
@@ -3809,7 +3870,7 @@ export default function AdminPage() {
   const closePlanModal = () => {
     setShowPlanModal(false);
     setEditingPlan(null);
-    setPlanForm({ name: '', price: '', mpPreapprovalPlanId: '', mpSubscriptionUrl: '' });
+    setPlanForm({ name: '', price: '', syncStripe: true });
   };
 
   const handlePlanFormChange = (field, value) => {
@@ -3852,8 +3913,7 @@ export default function AdminPage() {
           body: JSON.stringify({
             name: planName,
             price: planPrice,
-            mpPreapprovalPlanId: planMpPreapprovalId,
-            mpSubscriptionUrl: planSubscriptionUrl,
+            syncStripe: Boolean(planForm.syncStripe),
           }),
         });
 
@@ -3873,8 +3933,7 @@ export default function AdminPage() {
             features: [],
             active: true,
             recommended: false,
-            mpPreapprovalPlanId: planMpPreapprovalId,
-            mpSubscriptionUrl: planSubscriptionUrl,
+            syncStripe: Boolean(planForm.syncStripe),
           }),
         });
 
@@ -4454,6 +4513,10 @@ export default function AdminPage() {
   };
 
   function isExtraPayment(payment) {
+    const paymentType = String(payment?.paymentType || '').toLowerCase();
+    if (paymentType === 'extra') return true;
+    if (paymentType === 'payroll') return false;
+
     const start = payment?.periodStart;
     const end = payment?.periodEnd;
     const salarioFixo = Number(payment?.salarioFixo || 0);
@@ -4530,6 +4593,7 @@ export default function AdminPage() {
       const payload = {
         employeeId: employee.id,
         employeeName: employee.name,
+        paymentType: 'extra',
         period: 'monthly',
         periodStart: paymentDate,
         periodEnd: paymentDate,
@@ -4610,11 +4674,13 @@ export default function AdminPage() {
         const paymentRecord = {
           employeeId: employee.id,
           employeeName: employee.name,
+          paymentType: 'payroll',
           period,
           periodStart: start,
           periodEnd: end,
           salarioFixo,
           commission,
+          totalExtraPayments,
           totalVales,
           liquido,
           paidAt: new Date().toISOString(),
@@ -7471,6 +7537,70 @@ export default function AdminPage() {
           {activeTab === 'terms' && hasPermission('manageSettings') && (
             <div className="settings-section">
               <div className="settings-container">
+                <div className="settings-card" style={{ marginBottom: '16px' }}>
+                  <h2>Stripe Connect</h2>
+                  <p className="settings-description">
+                    Conecte a conta Stripe desta barbearia para receber pagamentos com
+                    repasse automatico.
+                  </p>
+
+                  {stripeConnectLoading ? (
+                    <p style={{ color: '#999' }}>Carregando status...</p>
+                  ) : (
+                    <div style={{ marginTop: '10px' }}>
+                      <p style={{ margin: '0 0 6px 0', color: '#ddd' }}>
+                        Conta conectada:{' '}
+                        <strong>{stripeConnectStatus?.accountId || 'nao criada'}</strong>
+                      </p>
+                      <p style={{ margin: '0 0 6px 0', color: '#ddd' }}>
+                        Pode cobrar: <strong>{stripeConnectStatus?.chargesEnabled ? 'Sim' : 'Não'}</strong>
+                      </p>
+                      <p style={{ margin: '0 0 6px 0', color: '#ddd' }}>
+                        Pode sacar: <strong>{stripeConnectStatus?.payoutsEnabled ? 'Sim' : 'Não'}</strong>
+                      </p>
+                      <p style={{ margin: 0, color: stripeConnectIsConnected ? '#4caf50' : '#ff9800' }}>
+                        {stripeConnectIsConnected
+                          ? 'Stripe Connect pronto para pagamentos avulsos.'
+                          : 'Finalize o onboarding para habilitar pagamentos.'}
+                      </p>
+                    </div>
+                  )}
+
+                  {isAdmin && (
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '16px', flexWrap: 'wrap' }}>
+                      <Button
+                        onClick={() => openStripeConnectOnboarding(true)}
+                        disabled={stripeConnectActionLoading || stripeConnectIsConnected}
+                        className="btn-admin-save"
+                      >
+                        {stripeConnectActionLoading
+                          ? 'Abrindo...'
+                          : stripeConnectIsConnected
+                            ? 'Stripe Conectado'
+                            : 'Conectar Stripe'}
+                      </Button>
+                      <Button
+                        onClick={() => openStripeConnectOnboarding(false)}
+                        disabled={
+                          stripeConnectActionLoading ||
+                          stripeConnectIsConnected ||
+                          !stripeConnectStatus?.accountId
+                        }
+                        className="btn-admin-save"
+                      >
+                        {stripeConnectIsConnected ? 'Onboarding Concluido' : 'Continuar Onboarding'}
+                      </Button>
+                      <Button
+                        onClick={loadStripeConnectStatus}
+                        disabled={stripeConnectLoading}
+                        className="btn-admin-save"
+                      >
+                        Atualizar Status
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
                 <div className="settings-card">
                   <h2>Termos e Documentos</h2>
                   <p className="settings-description">
@@ -10268,19 +10398,27 @@ export default function AdminPage() {
                 required
               />
 
-              <Input
-                label="ID do plano na Stripe"
-                value={planForm.mpPreapprovalPlanId}
-                onChange={(e) => handlePlanFormChange('mpPreapprovalPlanId', e.target.value)}
-                placeholder="Ex: plan_123456"
-              />
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  color: '#d9d9d9',
+                  fontSize: '0.92rem',
+                  marginTop: '4px',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={Boolean(planForm.syncStripe)}
+                  onChange={(e) => handlePlanFormChange('syncStripe', e.target.checked)}
+                />
+                Criar e vincular automaticamente na Stripe Connect desta barbearia
+              </label>
 
-              <Input
-                label="Link de assinatura (Stripe)"
-                value={planForm.mpSubscriptionUrl}
-                onChange={(e) => handlePlanFormChange('mpSubscriptionUrl', e.target.value)}
-                placeholder="Ex: https://buy.stripe.com/..."
-              />
+              <p style={{ margin: '0', color: '#9a9a9a', fontSize: '0.82rem', lineHeight: 1.4 }}>
+                Quando ativado, o sistema gera produto, preço mensal e link de assinatura direto na conta Connect.
+              </p>
 
               <div className="modal-actions">
                 <Button type="button" onClick={closePlanModal}>

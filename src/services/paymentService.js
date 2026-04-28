@@ -393,7 +393,8 @@ export const buscarAssinaturaAtiva = async (currentUser) => {
 
     const matchedPlan = plans.find((plan) => {
       if (!normalizedProductId) return false;
-      const planMpId = plan?.mpPreapprovalPlanId ?? plan?.mp_preapproval_plan_id;
+      const planMpId =
+        plan?.stripeProductId ?? plan?.mpPreapprovalPlanId ?? plan?.mp_preapproval_plan_id;
       if (!planMpId) return false;
       return normalizeId(planMpId) === normalizedProductId;
     });

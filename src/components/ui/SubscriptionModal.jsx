@@ -185,6 +185,7 @@
 import { X, Check } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import api from '../../services/api.js';
+import { createStripeSubscriptionCheckoutSession } from '../../services/stripeService.js';
 import Toast from './Toast.jsx';
 import './SubscriptionModal.css';
 
@@ -252,30 +253,9 @@ export default function SubscriptionModal({ isOpen, onClose, currentUser }) {
 
   if (!isOpen) return null;
 
-  const buildSubscriptionCheckoutUrl = (baseUrl, userEmail) => {
-    const email = String(userEmail || '').trim();
-    if (!email) return baseUrl;
-
-    try {
-      const url = new URL(baseUrl);
-      url.searchParams.set('prefilled_email', email);
-      return url.toString();
-    } catch {
-      const separator = String(baseUrl).includes('?') ? '&' : '?';
-      return `${baseUrl}${separator}prefilled_email=${encodeURIComponent(email)}`;
-    }
-  };
-
-  const handleSelectPlan = (plan) => {
+  const handleSelectPlan = async (plan) => {
     if (!currentUser) {
       showToast('Por favor, faça login para assinar um plano.', 'danger');
-      return;
-    }
-
-    const subscriptionUrl = plan?.mpSubscriptionUrl || plan?.subscriptionUrl;
-
-    if (!subscriptionUrl) {
-      showToast('Link de assinatura não configurado para esse plano.', 'danger');
       return;
     }
 
@@ -288,8 +268,34 @@ export default function SubscriptionModal({ isOpen, onClose, currentUser }) {
     localStorage.setItem('selectedPlan', JSON.stringify(planWithRecurring));
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
 
-    const checkoutUrl = buildSubscriptionCheckoutUrl(subscriptionUrl, currentUser?.email);
-    window.location.href = checkoutUrl;
+    if (!plan?.stripePriceId) {
+      const subscriptionUrl =
+        plan?.stripePaymentLinkUrl || plan?.mpSubscriptionUrl || plan?.subscriptionUrl;
+
+      if (!subscriptionUrl) {
+        showToast('Link de assinatura não configurado para esse plano.', 'danger');
+        return;
+      }
+
+      window.location.href = subscriptionUrl;
+      return;
+    }
+
+    try {
+      const session = await createStripeSubscriptionCheckoutSession({
+        planId: plan.id,
+        email: currentUser.email,
+      });
+
+      if (!session?.url) {
+        throw new Error('Não foi possível iniciar o checkout.');
+      }
+
+      window.location.href = session.url;
+    } catch (error) {
+      console.error('Erro ao criar checkout da assinatura:', error);
+      showToast('Não foi possível iniciar a assinatura. Tente novamente.', 'danger');
+    }
   };
 
   return (

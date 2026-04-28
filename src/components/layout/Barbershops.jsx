@@ -2,7 +2,7 @@ export const BARBERSHOPS = [
   // { id: '001', name: 'Barbearia Rodrigues', slug: 'rodrigues' },
   // { id: '002', name: 'Barbearia Lucas',     slug: 'lucas'     },
   // { id: '003', name: 'Barbearia Abilton',   slug: 'abilton'   },
-  { id: '004', name: 'Barbearia Rodrigues',  slug: 'barbeariarodrigues'  }
+  { id: '004', name: 'Barbearia Teste',  slug: 'barbearia-teste'  }
 ];
 
 export const DEFAULT_BARBERSHOP = BARBERSHOPS[0];

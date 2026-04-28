@@ -88,6 +88,24 @@ export async function register(userData) {
   return data.user;
 }
 
+export async function registerBarbershopFromLanding(payload) {
+  const { data } = await api.post('/barbershops/register', payload);
+  saveSession(data);
+  return data;
+}
+
+export async function registerSuperAdminSetup(payload) {
+  const { data } = await api.post('/auth/setup/super-admin', {
+    setupKey: payload.setupKey,
+    name: payload.name,
+    email: payload.email,
+    password: payload.password,
+  });
+
+  saveSession(data);
+  return data.user;
+}
+
 /**
  * Busca dados do usuário logado — GET /auth/me
  */
@@ -151,6 +169,7 @@ export const getRedirectPath = () => {
 
   const user = getSession();
   if (!user) return '/login';
+  if (user.role === 'super_admin') return '/super-admin';
   if (user.role === 'admin' || user.isAdmin) return '/admin';
   if (user.role === 'barber') return '/barber';
   return '/appointments';
