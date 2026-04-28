@@ -16,7 +16,10 @@ import { getProducts } from '../services/productService.js';
 import { getHomeInfo } from '../services/settingsService.js';
 import { getActiveBarbershop } from '../components/layout/Barbershops.jsx';
 import { createStripeSubscriptionCheckoutSession } from '../services/stripeService.js';
+import { API_BASE_URL } from '../services/api.js';
 import './Home.css';
+
+const API_URL = API_BASE_URL;
 
 export default function Home() {
   const navigate = useNavigate();
@@ -173,10 +176,10 @@ export default function Home() {
 
   const handleUpdateStock = async (productId, quantity) => {
     try {
-      const response = await fetch(`https://barberoneapp-back-homolog.onrender.com/products/${productId}`);
+      const response = await fetch(`${API_URL}/products/${productId}`);
       const product = await response.json();
       const newStock = Math.max(0, product.stock - quantity);
-      await fetch(`https://barberoneapp-back-homolog.onrender.com/products/${productId}`, {
+      await fetch(`${API_URL}/products/${productId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stock: newStock }),

@@ -4,10 +4,11 @@ import Button from './Button.jsx';
 import Toast from './Toast.jsx';
 import './SubscriptionSection.css';
 import { getToken } from '../../services/authService.js';
-import AppointmentsPage from '../../pages/AppointmentsPage-backup.jsx';
 import { createStripeSubscriptionCheckoutSession } from '../../services/stripeService.js';
+import { API_BASE_URL } from '../../services/api.js';
 
 const PLAN_SERVICE_FEATURE_PREFIX = 'SERVICO_INCLUSO::';
+const API_URL = API_BASE_URL;
 
 const formatBenefitLabel = (benefit) => {
   if (typeof benefit !== 'string') return benefit;
@@ -42,7 +43,7 @@ export default function SubscriptionSection({ activeSubscription, onSubscribe })
   useEffect(() => {
     const loadPlans = async () => {
       try {
-        const response = await fetch('https://barberoneapp-back-homolog.onrender.com/subscription-plans', {
+        const response = await fetch(`${API_URL}/subscription-plans`, {
           headers: {
             Authorization: `Bearer ${token}`
           }

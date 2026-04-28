@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { FaLock, FaEye, FaEyeSlash, FaCheck, FaTimes } from 'react-icons/fa';
 import './ChangePasswordPanel.css';
 import { getToken } from '../../services/authService';
+import { API_BASE_URL } from '../../services/api';
+
+const API_URL = API_BASE_URL;
 
 export default function ChangePasswordPanel({ currentUser, onToast }) {
   const [senhaAtual, setSenhaAtual] = useState('');
@@ -38,7 +41,7 @@ export default function ChangePasswordPanel({ currentUser, onToast }) {
 
   //   setSalvando(true);
   //   try {
-  //     const res = await fetch(`${import.meta.env.VITE_API_URL}/users/${currentUser.id}`, {
+  //     const res = await fetch(`${API_URL}/users/${currentUser.id}`, {
   //       headers: {
   //         Authorization: `Bearer ${token}`,
   //       },
@@ -51,7 +54,7 @@ export default function ChangePasswordPanel({ currentUser, onToast }) {
   //       return;
   //     }
 
-  //     const patchRes = await fetch(`${import.meta.env.VITE_API_URL}/users/${currentUser.id}`, {
+  //     const patchRes = await fetch(`${API_URL}/users/${currentUser.id}`, {
   //       method: 'PATCH',
   //       headers: {
   //         Authorization: `Bearer ${token}`,
@@ -92,7 +95,7 @@ export default function ChangePasswordPanel({ currentUser, onToast }) {
     setSalvando(true);
 
     try {
-      const patchRes = await fetch(`${import.meta.env.VITE_API_URL}/users/${currentUser.id}`, {
+      const patchRes = await fetch(`${API_URL}/users/${currentUser.id}`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,

@@ -1,7 +1,6 @@
 import api from './api';
 import { getToken } from './authService';
 
-const token = getToken();
 
 function obterProximaDataCobranca() {
   const hoje = new Date();
@@ -66,7 +65,7 @@ export const buscarPlanosAssinatura = async () => {
   try {
     const response = await api.get('/subscription-plans', {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -80,7 +79,7 @@ export const buscarPlanoAssinatura = async (planId) => {
   try {
     const response = await api.get(`/subscription-plans/${planId}`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -123,7 +122,7 @@ export const criarAssinatura = async (dadosAssinatura) => {
 
     const response = await api.post('/subscriptions', assinatura, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -137,7 +136,7 @@ export const verificarAssinaturasVencidas = async () => {
   try {
     const response = await api.get('/subscriptions?status=active', {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     const assinaturasAtivas = response.data;
@@ -160,7 +159,7 @@ export const marcarAssinaturaComoAtrasada = async (subscriptionId) => {
   try {
     const subscription = await api.get(`/subscriptions/${subscriptionId}`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     const sub = subscription.data;
@@ -194,7 +193,7 @@ export const enviarNotificacaoAtraso = async (subscription) => {
     try {
       const userResponse = await api.get(`/users/${subscription.userId}`, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${getToken()}`,
         },
       });
       const user = userResponse.data;
@@ -219,7 +218,7 @@ export const enviarNotificacaoAtraso = async (subscription) => {
     },
       {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${getToken()}`,
         },
       });
 
@@ -257,7 +256,7 @@ export const renovarAssinatura = async (subscriptionId, paymentData) => {
       },
       {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${getToken()}`,
         },
       });
 
@@ -280,7 +279,7 @@ export const renovarAssinatura = async (subscriptionId, paymentData) => {
       },
       {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${getToken()}`,
         },
       }
     );
@@ -302,7 +301,7 @@ export const alternarModoCobranca = async (subscriptionId, isRecurring) => {
     },
       {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${getToken()}`,
         },
       }
     );
@@ -318,7 +317,7 @@ export const buscarAssinaturasUsuario = async (userId) => {
   try {
     const response = await api.get(`/subscriptions?userId=${userId}`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -441,7 +440,7 @@ export const buscarAssinaturaAtiva = async (currentUser) => {
 //     const [resActive, resPending] = await Promise.all([
 //       api.get(`/subscriptions/${planId}`, {
 //         headers: {
-//           Authorization: `Bearer ${token}`,
+//           Authorization: `Bearer ${getToken()}`,
 //         },
 //       })
 //     ]);
@@ -477,13 +476,29 @@ export const buscarTodasAssinaturas = async () => {
   try {
     const response = await api.get('/stripe/subscriptions?all=true', {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
-    return response.data;
-  } catch (error) {
+    const items = Array.isArray(response.data?.items)
+      ? response.data.items
+      : Array.isArray(response.data?.subscriptions)
+        ? response.data.subscriptions
+        : [];
 
-    return [];
+    return {
+      ...response.data,
+      items,
+      subscriptions: items,
+      total: Number(response.data?.total ?? items.length),
+    };
+  } catch (error) {
+    return {
+      found: false,
+      total: 0,
+      items: [],
+      subscriptions: [],
+      warning: error?.response?.data?.warning || error?.response?.data?.error || 'Assinaturas indisponÃ­veis.',
+    };
   }
 };
 
@@ -495,7 +510,7 @@ export const atualizarStatusAssinatura = async (subscriptionId, status) => {
       ...(status === 'cancelled' && { cancelledAt: new Date().toISOString() })
     }, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -539,7 +554,7 @@ export const criarPagamentoAgendamento = async (dadosPagamento) => {
 
     const response = await api.post('/appointmentPayments', pagamento, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -553,7 +568,7 @@ export const buscarPagamentoAgendamento = async (appointmentId) => {
   try {
     const response = await api.get(`/appointmentPayments?appointmentId=${appointmentId}`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     const payload = response.data;
@@ -588,7 +603,7 @@ export const buscarTodosPagamentosAgendamentos = async () => {
   try {
     const response = await api.get('/appointmentPayments?_sort=createdAt&_order=desc', {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data.items;
@@ -612,7 +627,7 @@ export const atualizarPagamentoAgendamento = async (paymentId, dados) => {
 
     const response = await api.patch(`/appointmentPayments/${paymentId}`, payload, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -668,7 +683,7 @@ export const processarPagamento = async (dadosPagamento) => {
 
     const response = await api.post('/payments', pagamento, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -682,7 +697,7 @@ export const buscarHistoricoPagamentos = async (userId) => {
   try {
     const response = await api.get(`/payments?userId=${userId}&_sort=createdAt&_order=desc`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -696,7 +711,7 @@ export const buscarPagamento = async (paymentId) => {
   try {
     const response = await api.get(`/payments/${paymentId}`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -722,7 +737,7 @@ export const salvarMetodoPagamento = async (dadosMetodo) => {
 
     const response = await api.post('/payment-methods', metodoPagamento, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -736,7 +751,7 @@ export const buscarMetodosPagamento = async (userId) => {
   try {
     const response = await api.get(`/payment-methods?userId=${userId}`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -750,7 +765,7 @@ export const deletarMetodoPagamento = async (methodId) => {
   try {
     await api.delete(`/payment-methods/${methodId}`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return true;
@@ -767,7 +782,7 @@ export const definirMetodoPadrao = async (userId, methodId) => {
       metodos.map(metodo =>
         api.patch(`/payment-methods/${metodo.id}`, { isDefault: false }, {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${getToken()}`,
           },
         })
       )
@@ -775,7 +790,7 @@ export const definirMetodoPadrao = async (userId, methodId) => {
 
     const response = await api.patch(`/payment-methods/${methodId}`, { isDefault: true }, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -941,7 +956,7 @@ export const buscarTodasVendasProdutos = async () => {
   try {
     // const response = await api.get('/productSales', {
     //   headers: {
-    //     Authorization: `Bearer ${token}`,
+    //     Authorization: `Bearer ${getToken()}`,
     //   },
     // },);
     return [];
@@ -958,7 +973,7 @@ export const atualizarVendaProduto = async (id, dados) => {
       updatedAt: new Date().toISOString(),
     }, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
