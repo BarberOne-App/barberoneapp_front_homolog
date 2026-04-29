@@ -4,8 +4,9 @@ import BaseLayout from '../components/layout/BaseLayout';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Toast from '../components/ui/Toast';
-import { getSession, logout } from '../services/authService';
+import { getSession, logout, register as registerClient } from '../services/authService';
 import { getUserById, getUsers, importUsers as importUsersBatch } from '../services/userServices';
+import { getActiveBarbershop } from '../components/layout/Barbershops.jsx';
 import {
   getTermsDocument,
   uploadTermsDocument,
@@ -67,6 +68,15 @@ import {
 import { uploadImagem } from '../services/cloudinaryService';
 import { getToken } from '../services/authService';
 import { API_BASE_URL } from '../services/api';
+
+const MANUAL_CLIENT_INITIAL_FORM = {
+  name: '',
+  email: '',
+  phone: '',
+  cpf: '',
+  password: '',
+  confirmPassword: '',
+};
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -531,6 +541,9 @@ export default function AdminPage() {
     confirmPassword: '',
   });
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
+  const [showManualClientModal, setShowManualClientModal] = useState(false);
+  const [manualClientForm, setManualClientForm] = useState(MANUAL_CLIENT_INITIAL_FORM);
+  const [manualClientLoading, setManualClientLoading] = useState(false);
   const [userSearch, setUserSearch] = useState('');
   const USERS_PAGE_LIMIT = 50;
   const [usersPage, setUsersPage] = useState(1);
@@ -1159,6 +1172,45 @@ export default function AdminPage() {
     }
 
     return value || '—';
+  };
+
+  const formatCpfInput = (value) => {
+    const digits = String(value || '').replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+    if (digits.length <= 9) {
+      return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+    }
+
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+  };
+
+  const formatPhoneInput = (value) => {
+    const digits = String(value || '').replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  };
+
+  const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || ''));
+
+  const isValidCpf = (cpf) => {
+    const cleanCPF = String(cpf || '').replace(/\D/g, '');
+    if (cleanCPF.length !== 11) return false;
+    if (/^(\d)\1{10}$/.test(cleanCPF)) return false;
+
+    let sum = 0;
+    for (let i = 0; i < 9; i++) sum += parseInt(cleanCPF.charAt(i), 10) * (10 - i);
+    let checkDigit = 11 - (sum % 11);
+    if (checkDigit === 10 || checkDigit === 11) checkDigit = 0;
+    if (checkDigit !== parseInt(cleanCPF.charAt(9), 10)) return false;
+
+    sum = 0;
+    for (let i = 0; i < 10; i++) sum += parseInt(cleanCPF.charAt(i), 10) * (11 - i);
+    checkDigit = 11 - (sum % 11);
+    if (checkDigit === 10 || checkDigit === 11) checkDigit = 0;
+
+    return checkDigit === parseInt(cleanCPF.charAt(10), 10);
   };
 
   const getFilteredAppointmentPayments = () => {
@@ -2369,6 +2421,98 @@ export default function AdminPage() {
     },
     [extractFriendlyApiMessage],
   );
+
+  const openManualClientModal = () => {
+    setManualClientForm(MANUAL_CLIENT_INITIAL_FORM);
+    setShowManualClientModal(true);
+  };
+
+  const closeManualClientModal = () => {
+    if (manualClientLoading) return;
+    setShowManualClientModal(false);
+    setManualClientForm(MANUAL_CLIENT_INITIAL_FORM);
+  };
+
+  const handleManualClientFormChange = (field, value) => {
+    const nextValue =
+      field === 'cpf' ? formatCpfInput(value) : field === 'phone' ? formatPhoneInput(value) : value;
+
+    setManualClientForm((prev) => ({
+      ...prev,
+      [field]: nextValue,
+    }));
+  };
+
+  const handleManualClientSubmit = async (event) => {
+    event.preventDefault();
+
+    const name = manualClientForm.name.trim();
+    const email = manualClientForm.email.trim();
+    const cleanCPF = manualClientForm.cpf.replace(/\D/g, '');
+    const phoneNumbers = manualClientForm.phone.replace(/\D/g, '');
+    const password = manualClientForm.password;
+    const confirmPassword = manualClientForm.confirmPassword;
+
+    if (!name || !email || !cleanCPF || !phoneNumbers || !password || !confirmPassword) {
+      showToast('Preencha todos os campos do cliente.', 'danger');
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      showToast('Digite um e-mail v\u00e1lido. exemplo@dominio.com', 'danger');
+      return;
+    }
+
+    if (!isValidCpf(cleanCPF)) {
+      showToast('CPF inv\u00e1lido. Verifique os d\u00edgitos digitados.', 'danger');
+      return;
+    }
+
+    if (phoneNumbers.length < 10 || phoneNumbers.length > 11) {
+      showToast('Telefone inv\u00e1lido. Use o formato (85) 99999-9999', 'danger');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      showToast('As senhas precisam ser iguais.', 'danger');
+      return;
+    }
+
+    if (password.length < 4) {
+      showToast('A senha deve ter no m\u00ednimo 4 caracteres.', 'danger');
+      return;
+    }
+
+    setManualClientLoading(true);
+    try {
+      const activeBarbershop = getActiveBarbershop();
+      await registerClient(
+        {
+          slug: activeBarbershop?.slug || import.meta.env.VITE_BARBERSHOP_SLUG || '',
+          name,
+          email,
+          cpf: cleanCPF,
+          phone: phoneNumbers,
+          password,
+          role: 'client',
+        },
+        { persistSession: false },
+      );
+
+      showToast('Cliente cadastrado com sucesso!', 'success');
+      setShowManualClientModal(false);
+      setManualClientForm(MANUAL_CLIENT_INITIAL_FORM);
+      await loadUsersPage(1);
+    } catch (error) {
+      const message = extractFriendlyApiMessage(
+        error?.response?.data,
+        error?.message || 'Erro ao cadastrar cliente.',
+      );
+      showToast(message, 'danger');
+    } finally {
+      setManualClientLoading(false);
+    }
+  };
 
   const loadPayrollData = useCallback(async () => {
     const headers = {
@@ -9272,6 +9416,13 @@ export default function AdminPage() {
                   >
                     {importingUsers ? 'Importando...' : 'Importar Clientes (Excel)'}
                   </button>
+                  <button
+                    type="button"
+                    onClick={openManualClientModal}
+                    className="btn-add-barber"
+                  >
+                    Cadastrar Cliente
+                  </button>
                   <input
                     type="text"
                     placeholder="Buscar por nome ou e-mail..."
@@ -10983,6 +11134,155 @@ export default function AdminPage() {
                   Cancelar
                 </Button>
                 <Button type="submit">{editingGalleryImage ? 'Atualizar' : 'Adicionar'}</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showManualClientModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+          }}
+          onClick={closeManualClientModal}
+        >
+          <div
+            style={{
+              background: '#1a1a1a',
+              border: '1px solid #2a2a2a',
+              borderRadius: '14px',
+              padding: '2rem',
+              maxWidth: '640px',
+              width: '100%',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '1.5rem',
+              }}
+            >
+              <div>
+                <h2 style={{ color: '#fff', fontSize: '1.05rem', margin: 0 }}>
+                  Cadastrar Cliente
+                </h2>
+                <p style={{ color: '#888', fontSize: '0.8rem', margin: '4px 0 0' }}>
+                  Crie um acesso de cliente usando o mesmo cadastro publico.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeManualClientModal}
+                disabled={manualClientLoading}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#666',
+                  fontSize: '1.4rem',
+                  cursor: manualClientLoading ? 'not-allowed' : 'pointer',
+                  lineHeight: 1,
+                }}
+              >
+                x
+              </button>
+            </div>
+
+            <form className="auth-form auth-form--register" onSubmit={handleManualClientSubmit}>
+              <div className="full-width">
+                <Input
+                  label="Nome Completo"
+                  value={manualClientForm.name}
+                  onChange={(e) => handleManualClientFormChange('name', e.target.value)}
+                  placeholder="Digite o nome completo"
+                  disabled={manualClientLoading}
+                />
+              </div>
+              <div className="full-width">
+                <Input
+                  label="E-mail"
+                  type="email"
+                  value={manualClientForm.email}
+                  onChange={(e) => handleManualClientFormChange('email', e.target.value)}
+                  placeholder="cliente@exemplo.com"
+                  disabled={manualClientLoading}
+                />
+              </div>
+              <Input
+                label="CPF"
+                type="text"
+                value={manualClientForm.cpf}
+                onChange={(e) => handleManualClientFormChange('cpf', e.target.value)}
+                placeholder="000.000.000-00"
+                maxLength={14}
+                disabled={manualClientLoading}
+              />
+              <Input
+                label="Telefone/WhatsApp"
+                type="tel"
+                value={manualClientForm.phone}
+                onChange={(e) => handleManualClientFormChange('phone', e.target.value)}
+                placeholder="(85) 99999-9999"
+                maxLength={15}
+                disabled={manualClientLoading}
+              />
+              <Input
+                label="Senha"
+                type="password"
+                value={manualClientForm.password}
+                onChange={(e) => handleManualClientFormChange('password', e.target.value)}
+                placeholder="Minimo 4 caracteres"
+                disabled={manualClientLoading}
+              />
+              <Input
+                label="Confirmar senha"
+                type="password"
+                value={manualClientForm.confirmPassword}
+                onChange={(e) => handleManualClientFormChange('confirmPassword', e.target.value)}
+                placeholder="Digite a senha novamente"
+                disabled={manualClientLoading}
+              />
+
+              <div
+                className="full-width"
+                style={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  gap: '0.75rem',
+                  marginTop: '0.25rem',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={closeManualClientModal}
+                  disabled={manualClientLoading}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid #333',
+                    color: '#a8a8a8',
+                    borderRadius: '8px',
+                    padding: '9px 20px',
+                    cursor: manualClientLoading ? 'not-allowed' : 'pointer',
+                    fontSize: '0.88rem',
+                  }}
+                >
+                  Cancelar
+                </button>
+                <Button type="submit" disabled={manualClientLoading}>
+                  {manualClientLoading ? 'Cadastrando...' : 'Salvar Cliente'}
+                </Button>
               </div>
             </form>
           </div>

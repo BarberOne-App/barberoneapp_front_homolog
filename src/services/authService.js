@@ -77,7 +77,8 @@ export async function loginWithGoogle(name, email, slug) {
  * Registro de cliente — POST /auth/register/client
  * O backend exige { slug, name, email, phone?, password }
  */
-export async function register(userData) {
+export async function register(userData, options = {}) {
+  const { persistSession = true } = options;
   const { data } = await api.post("/auth/register/client", {
     slug: userData.slug,
     name: userData.name,
@@ -85,9 +86,13 @@ export async function register(userData) {
     cpf: userData.cpf || null,
     phone: userData.phone || null,
     password: userData.password,
+    role: userData.role || "client",
   });
 
-  saveSession(data);
+  if (persistSession) {
+    saveSession(data);
+  }
+
   return data.user;
 }
 
