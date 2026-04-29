@@ -1,4 +1,4 @@
-Ôªøimport { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BaseLayout from '../components/layout/BaseLayout';
 import Toast from '../components/ui/Toast';
@@ -6,7 +6,11 @@ import { getSession, getToken, logout } from '../services/authService';
 import { getUserById } from '../services/userServices';
 import { getAppointments, updateAppointment } from '../services/appointmentService';
 import { getBarbers } from '../services/barberServices';
+import { getHomeInfo } from '../services/settingsService';
+import { API_BASE_URL } from '../services/api';
 import './AuthPages.css';
+
+const API_URL = API_BASE_URL;
 
 export default function BarberPage() {
   const navigate = useNavigate();
@@ -19,12 +23,63 @@ export default function BarberPage() {
   const [filter, setFilter] = useState('today');
   const [notificationSent, setNotificationSent] = useState(new Set());
   const [activeTab, setActiveTab] = useState('appointments');
-  const [earningsFilter, setEarningsFilter] = useState('week');
-  const [customStartDate, setCustomStartDate] = useState('');
-  const [customEndDate, setCustomEndDate] = useState('');
+  const [barberPaymentFrequency, setBarberPaymentFrequency] = useState('monthly');
 
   const token = getToken();
   const isBarber = currentUser?.role === 'barber';
+
+  const normalizePaymentFrequency = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (normalized === 'weekly' || normalized === 'semanal') return 'weekly';
+    if (normalized === 'biweekly' || normalized === 'quinzenal') return 'biweekly';
+    if (normalized === 'monthly' || normalized === 'mensal') return 'monthly';
+    return 'monthly';
+  };
+
+  const getEarningsFilterLabel = (value) => {
+    const normalized = normalizePaymentFrequency(value);
+    if (normalized === 'weekly') return 'Semana Atual';
+    if (normalized === 'biweekly') return 'Quinzena Atual';
+    return 'MÍs Atual';
+  };
+
+  const getCurrentEarningsPeriodRange = () => {
+    const frequency = normalizePaymentFrequency(barberPaymentFrequency);
+    const now = new Date();
+
+    if (frequency === 'weekly') {
+      const today = now.getDay();
+      const mondayOffset = today === 0 ? -6 : 1 - today;
+      const start = new Date(now);
+      start.setDate(now.getDate() + mondayOffset);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+      return { start, end, frequency };
+    }
+
+    if (frequency === 'biweekly') {
+      const day = now.getDate();
+      const start = new Date(now.getFullYear(), now.getMonth(), day <= 15 ? 1 : 16);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        day <= 15 ? 15 : new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(),
+        23,
+        59,
+        59,
+        999,
+      );
+      return { start, end, frequency };
+    }
+
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    return { start, end, frequency };
+  };
 
   const parseDateOnly = (dateStr) => {
     const [year, month, day] = String(dateStr || '')
@@ -168,22 +223,25 @@ export default function BarberPage() {
 
   async function loadData() {
     try {
-      const [appointmentsData, barbersData, employeePaymentsResponse] = await Promise.all([
+      const [appointmentsData, barbersData, employeePaymentsResponse, homeInfo] = await Promise.all([
         getAppointments(),
         getBarbers(),
-        fetch('https://barberoneapp-back-homolog.onrender.com/employeePayments', {
+        fetch(`${API_URL}/employeePayments`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         }),
+        getHomeInfo(),
       ]);
 
       const employeePaymentsData = employeePaymentsResponse.ok
         ? await employeePaymentsResponse.json()
         : [];
+      const configuredFrequency = normalizePaymentFrequency(homeInfo?.barberPaymentFrequency);
 
       const barber = barbersData.find(b => b.userId === currentUser?.id);
       setBarberProfile(barber);
+      setBarberPaymentFrequency(configuredFrequency);
       setEmployeePayments(Array.isArray(employeePaymentsData) ? employeePaymentsData : []);
       if (barber) {
         setAppointments(appointmentsData.filter(apt => apt.barberId === barber.id));
@@ -315,25 +373,25 @@ export default function BarberPage() {
       const clientIdRaw = appointment.clientId || appointment.client?.id;
       const userData = clientIdRaw ? await getUserById(clientIdRaw) : null;
       const clientName = userData?.name || getAppointmentClientName(appointment);
-      const clientPhone = getAppointmentPhone(appointment, userData) || 'N√£o cadastrado';
+      const clientPhone = getAppointmentPhone(appointment, userData) || 'N„o cadastrado';
 
       const startDate = getAppointmentStartDate(appointment);
       const time = startDate && !Number.isNaN(startDate.getTime())
         ? startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-        : (getAppointmentTime(appointment) || 'Hor√°rio n√£o informado');
+        : (getAppointmentTime(appointment) || 'Hor·rio n„o informado');
 
-      const serviceName = getAppointmentServicesLabel(appointment) || 'Servi√ßo';
+      const serviceName = getAppointmentServicesLabel(appointment) || 'ServiÁo';
 
-      const message = `üîî PR√ìXIMO CLIENTE EM 15 MINUTOS!\n\nCliente: ${clientName}\nHor√°rio: ${time}\nServi√ßo: ${serviceName || 'Servi√ßo'}\nTelefone: ${clientPhone}`;
+      const message = `?? PR”XIMO CLIENTE EM 15 MINUTOS!\n\nCliente: ${clientName}\nHor·rio: ${time}\nServiÁo: ${serviceName || 'ServiÁo'}\nTelefone: ${clientPhone}`;
 
       if (currentUser?.phone) {
         let barberPhone = currentUser.phone.replace(/\D/g, '');
         if (!barberPhone.startsWith('55')) barberPhone = `55${barberPhone}`;
         window.open(`https://wa.me/${barberPhone}?text=${encodeURIComponent(message)}`, '_blank');
       }
-      showToast('Notifica√ß√£o: Pr√≥ximo cliente em 15 minutos!', 'info');
+      showToast('NotificaÁ„o: PrÛximo cliente em 15 minutos!', 'info');
     } catch (error) {
-      console.error('Erro ao enviar notifica√ß√£o:', error);
+      console.error('Erro ao enviar notificaÁ„o:', error);
     }
   };
 
@@ -346,7 +404,7 @@ export default function BarberPage() {
       const clientIdRaw = appointment.clientId || appointment.client?.id;
       const userData = clientIdRaw ? await getUserById(clientIdRaw) : null;
       const rawPhone = getAppointmentPhone(appointment, userData);
-      if (!rawPhone) return showToast('Cliente n√£o possui telefone cadastrado.', 'danger');
+      if (!rawPhone) return showToast('Cliente n„o possui telefone cadastrado.', 'danger');
 
       let phone = rawPhone.replace(/\D/g, '');
       if (!phone.startsWith('55')) phone = `55${phone}`;
@@ -363,16 +421,16 @@ export default function BarberPage() {
       const startDate = getAppointmentStartDate(appointment);
       const date = startDate && !Number.isNaN(startDate.getTime())
         ? startDate.toLocaleDateString('pt-BR')
-        : 'data n√£o informada';
+        : 'data n„o informada';
       const time = startDate && !Number.isNaN(startDate.getTime())
         ? startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-        : (getAppointmentTime(appointment) || 'hor√°rio n√£o informado');
+        : (getAppointmentTime(appointment) || 'hor·rio n„o informado');
 
-      const serviceName = getAppointmentServicesLabel(appointment) || 'Servi√ßo';
+      const serviceName = getAppointmentServicesLabel(appointment) || 'ServiÁo';
 
       const messages = {
-        confirm: `Ol√° ${clientName}!\n\nGostaria de CONFIRMAR seu agendamento:\n\nüìÖ Data: ${date}\nüïê Hor√°rio: ${time}\n‚úÇÔ∏è Servi√ßo: ${serviceName}\nüë®‚Äçü¶∞ Barbeiro: ${barberName}\n\nPor favor, responda esta mensagem para confirmar sua presen√ßa.\n\n‚ú® ADDEV Barbearia`,
-        reminder: `Ol√° ${clientName}!\n\n‚è∞ LEMBRETE do seu agendamento:\n\nüìÖ Data: ${date}\nüïê Hor√°rio: ${time}\n‚úÇÔ∏è Servi√ßo: ${serviceName}\nüë®‚Äçü¶∞ Barbeiro: ${barberName}\n\nTe esperamos!\n\n‚ú® ADDEV Barbearia`,
+        confirm: `Ol· ${clientName}!\n\nGostaria de CONFIRMAR seu agendamento:\n\n?? Data: ${date}\n?? Hor·rio: ${time}\n?? ServiÁo: ${serviceName}\n????? Barbeiro: ${barberName}\n\nPor favor, responda esta mensagem para confirmar sua presenÁa.\n\n? ADDEV Barbearia`,
+        reminder: `Ol· ${clientName}!\n\n? LEMBRETE do seu agendamento:\n\n?? Data: ${date}\n?? Hor·rio: ${time}\n?? ServiÁo: ${serviceName}\n????? Barbeiro: ${barberName}\n\nTe esperamos!\n\n? ADDEV Barbearia`,
       };
 
       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(messages[type])}`, '_blank');
@@ -432,102 +490,84 @@ export default function BarberPage() {
   };
 
   const getFilteredAppointmentsByPeriod = () => {
-    const now = new Date();
+    const { start, end } = getCurrentEarningsPeriodRange();
 
-    if (earningsFilter === 'week') {
-      const today = now.getDay();
-      const mondayOffset = today === 0 ? -6 : 1 - today;
-      const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() + mondayOffset);
-      weekStart.setHours(0, 0, 0, 0);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
-      weekEnd.setHours(23, 59, 59, 999);
-
-      return appointments.filter((apt) => {
-        const aptDate = getAppointmentStartDate(apt);
-        return aptDate && !Number.isNaN(aptDate.getTime()) && aptDate >= weekStart && aptDate <= weekEnd;
-      });
-    }
-
-    if (earningsFilter === 'month') {
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-      return appointments.filter((apt) => {
-        const aptDate = getAppointmentStartDate(apt);
-        return aptDate && !Number.isNaN(aptDate.getTime()) && aptDate >= monthStart && aptDate <= monthEnd;
-      });
-    }
-
-    if (earningsFilter === 'custom' && customStartDate && customEndDate) {
-      const start = new Date(customStartDate + 'T00:00:00');
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(customEndDate + 'T00:00:00');
-      end.setHours(23, 59, 59, 999);
-      return appointments.filter((apt) => {
-        const aptDate = getAppointmentStartDate(apt);
-        return aptDate && !Number.isNaN(aptDate.getTime()) && aptDate >= start && aptDate <= end;
-      });
-    }
-
-    return appointments;
+    return appointments.filter((apt) => {
+      const aptDate = getAppointmentStartDate(apt);
+      return aptDate && !Number.isNaN(aptDate.getTime()) && aptDate >= start && aptDate <= end;
+    });
   };
 
 
   const calculateTotal = (services) => {
+    if (!Array.isArray(services)) return 0;
+
     return services.reduce((sum, service) => {
-      const price = Number(String(service.price ?? '0').replace(/[R$.\-]/g, '').replace(',', '.'));
-      return sum + (isNaN(price) ? 0 : price);
+      const rawUnitPrice =
+        service?.unitPrice ??
+        service?.price ??
+        service?.basePrice ??
+        service?.unit_price ??
+        0;
+      const normalizedPrice = Number(
+        String(rawUnitPrice).replace(/[R$\s]/g, '').replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.'),
+      );
+      const quantity = Number(service?.quantity ?? 1);
+      const unitPrice = Number.isNaN(normalizedPrice) ? 0 : normalizedPrice;
+      const safeQuantity = Number.isNaN(quantity) || quantity <= 0 ? 1 : quantity;
+
+      return sum + unitPrice * safeQuantity;
     }, 0);
   };
 
   const getPeriodLabel = () => {
-    const now = new Date();
+    const { start, end, frequency } = getCurrentEarningsPeriodRange();
 
-    if (earningsFilter === 'week') {
-      const today = now.getDay();
-      const mondayOffset = today === 0 ? -6 : 1 - today;
-      const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() + mondayOffset);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
-      return `${weekStart.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} - ${weekEnd.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`;
+    if (frequency === 'monthly') {
+      return start.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
     }
 
-    if (earningsFilter === 'month') {
-      return now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-    }
-
-    if (earningsFilter === 'custom' && customStartDate && customEndDate) {
-      const start = new Date(customStartDate + 'T00:00:00');
-      const end = new Date(customEndDate + 'T00:00:00');
-      return `${start.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} - ${end.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`;
-    }
-
-    return 'Todos os per√≠odos';
+    return `${start.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} - ${end.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`;
   };
 
   const calculateBarberStats = () => {
     const filtered = getFilteredAppointmentsByPeriod();
     const filteredExtraPayments = getFilteredExtraPaymentsByPeriod();
     const filteredPayrollPayments = getFilteredPayrollPaymentsByPeriod();
-    let totalRevenue = 0;
+    let pendingRevenue = 0;
+    let paidRevenue = 0;
     let totalServices = 0;
+    const commissionPercent = barberProfile?.commissionPercent || 50;
 
     filtered.forEach(apt => {
-      const aptTotal = calculateTotal(apt.services);
-      totalRevenue += aptTotal;
-      totalServices += apt.services.length;
+      const services = Array.isArray(apt?.services) ? apt.services : [];
+      const aptTotal = calculateTotal(services);
+      const isConfirmed = isConfirmedStatus(apt?.status);
+
+      if (isConfirmed) {
+        paidRevenue += aptTotal;
+        totalServices += services.length;
+      } else {
+        pendingRevenue += aptTotal;
+      }
     });
 
-    const commissionPercent = barberProfile?.commissionPercent || 50;
-    const barberEarnings = (totalRevenue * commissionPercent) / 100;
-    const shopEarnings = totalRevenue - barberEarnings;
+    const pendingBarberEarnings = (pendingRevenue * commissionPercent) / 100;
+    const paidBarberEarnings = (paidRevenue * commissionPercent) / 100;
+    const totalBarberEarnings = pendingBarberEarnings + paidBarberEarnings;
+    const totalRevenue = pendingRevenue + paidRevenue;
+    const barberEarnings = paidBarberEarnings;
+    const shopEarnings = paidRevenue - paidBarberEarnings;
     const extraPaymentsTotal = filteredExtraPayments.reduce((sum, p) => sum + Number(p.liquido || 0), 0);
     const payrollPaymentsTotal = filteredPayrollPayments.reduce((sum, p) => sum + Number(p.liquido || 0), 0);
 
     return {
+      pendingRevenue,
+      paidRevenue,
       totalRevenue,
+      pendingBarberEarnings,
+      paidBarberEarnings,
+      totalBarberEarnings,
       totalServices,
       appointmentsCount: filtered.length,
       commissionPercent,
@@ -597,7 +637,7 @@ export default function BarberPage() {
                   Hoje ({todayAppointments.length})
                 </button>
                 <button onClick={() => setFilter('upcoming')} className={`tab-btn ${filter === 'upcoming' ? 'tab-btn--active' : ''}`}>
-                  Pr√≥ximos
+                  PrÛximos
                 </button>
                 <button onClick={() => setFilter('all')} className={`tab-btn ${filter === 'all' ? 'tab-btn--active' : ''}`}>
                   Todos ({appointments.length})
@@ -616,11 +656,11 @@ export default function BarberPage() {
                         <tr>
                           <th>Cliente</th>
                           <th>Data</th>
-                          <th>Hor√°rio</th>
-                          <th>Servi√ßos</th>
+                          <th>Hor·rio</th>
+                          <th>ServiÁos</th>
                           <th>Telefone</th>
                           <th className="status-column-header">Status</th>
-                          <th className="actions-column-header">A√ß√µes</th>
+                          <th className="actions-column-header">AÁıes</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -696,34 +736,120 @@ export default function BarberPage() {
             <div className="earnings-section">
               <div className="earnings-filters">
                 <div className="appointments-tabs" style={{ marginBottom: '1rem', borderBottom: 'none' }}>
-                  <button onClick={() => setEarningsFilter('week')} className={`tab-btn ${earningsFilter === 'week' ? 'tab-btn--active' : ''}`}>
-                    Semana Atual
-                  </button>
-                  <button onClick={() => setEarningsFilter('month')} className={`tab-btn ${earningsFilter === 'month' ? 'tab-btn--active' : ''}`}>
-                    M√™s Atual
-                  </button>
-                  <button onClick={() => setEarningsFilter('custom')} className={`tab-btn ${earningsFilter === 'custom' ? 'tab-btn--active' : ''}`}>
-                    Per√≠odo Personalizado
+                  <button
+                    type="button"
+                    className="tab-btn tab-btn--active"
+                  >
+                    {getEarningsFilterLabel(barberPaymentFrequency)}
                   </button>
                 </div>
 
-                {earningsFilter === 'custom' && (
-                  <div className="custom-date-filters">
-                    <div className="date-input-group">
-                      <label className="form-label">Data Inicial</label>
-                      <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} className="form-select" style={{ maxWidth: '200px' }} />
-                    </div>
-                    <div className="date-input-group">
-                      <label className="form-label">Data Final</label>
-                      <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} className="form-select" style={{ maxWidth: '200px' }} />
-                    </div>
-                  </div>
-                )}
-
                 <div className="period-display">
                   <p className="auth-subtitle" style={{ margin: '1rem 0', fontSize: '1rem' }}>
-                    Per√≠odo: <strong style={{ color: 'var(--gold)' }}>{getPeriodLabel()}</strong>
+                    PerÌodo: <strong style={{ color: 'var(--gold)' }}>{getPeriodLabel()}</strong>
                   </p>
+                </div>
+              </div>
+
+              <p
+                className="auth-subtitle"
+                style={{
+                  marginBottom: '1rem',
+                  color: 'var(--gold)',
+                  textAlign: 'left',
+                  fontWeight: 'bold',
+                  fontSize: '1.05rem',
+                }}
+              >
+                Resumo dos seus ganhos
+              </p>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                  gap: '1rem',
+                  marginBottom: '1.5rem',
+                }}
+              >
+                <div
+                  style={{
+                    padding: '1rem',
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    borderRadius: '6px',
+                  }}
+                >
+                  <span style={{ fontSize: '0.9rem', color: '#888' }}>Pendente</span>
+                  <div
+                    style={{
+                      fontSize: '1.5rem',
+                      fontWeight: 'bold',
+                      color: '#ef4444',
+                      marginTop: '0.5rem',
+                    }}
+                  >
+                    R$ {stats.pendingBarberEarnings.toFixed(2)}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    padding: '1rem',
+                    background: 'rgba(34, 197, 94, 0.1)',
+                    borderRadius: '6px',
+                  }}
+                >
+                  <span style={{ fontSize: '0.9rem', color: '#888' }}>Pago</span>
+                  <div
+                    style={{
+                      fontSize: '1.5rem',
+                      fontWeight: 'bold',
+                      color: '#22c55e',
+                      marginTop: '0.5rem',
+                    }}
+                  >
+                    R$ {stats.paidBarberEarnings.toFixed(2)}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    padding: '1rem',
+                    background: 'rgba(212, 175, 55, 0.1)',
+                    borderRadius: '6px',
+                  }}
+                >
+                  <span style={{ fontSize: '0.9rem', color: '#888' }}>Total</span>
+                  <div
+                    style={{
+                      fontSize: '1.5rem',
+                      fontWeight: 'bold',
+                      color: 'var(--gold)',
+                      marginTop: '0.5rem',
+                    }}
+                  >
+                    R$ {stats.totalBarberEarnings.toFixed(2)}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    padding: '1rem',
+                    background: 'rgba(212, 175, 55, 0.1)',
+                    borderRadius: '6px',
+                  }}
+                >
+                  <span style={{ fontSize: '0.9rem', color: '#888' }}>Barbearia</span>
+                  <div
+                    style={{
+                      fontSize: '1.5rem',
+                      fontWeight: 'bold',
+                      color: 'var(--gold)',
+                      marginTop: '0.5rem',
+                    }}
+                  >
+                    R$ {stats.shopEarnings.toFixed(2)}
+                  </div>
                 </div>
               </div>
 
@@ -771,7 +897,7 @@ export default function BarberPage() {
 
                 <div className="fluig-children-container">
                   {stats.filteredAppointments.length === 0 ? (
-                    <p className="no-appointments">Nenhum agendamento encontrado neste per√≠odo.</p>
+                    <p className="no-appointments">Nenhum agendamento encontrado neste perÌodo.</p>
                   ) : (
                     <table className="fluig-table-children">
                       <thead>
@@ -779,24 +905,27 @@ export default function BarberPage() {
                           <th>Status</th>
                           <th>Cliente</th>
                           <th>Data</th>
-                          <th>Hor√°rio</th>
-                          <th>Servi√ßos</th>
+                          <th>Hor·rio</th>
+                          <th>ServiÁos</th>
                           <th>Total</th>
-                          <th>Seus Ganhos ({stats.commissionPercent}%)</th>
+                          <th>Seus Ganhos %</th>
                         </tr>
                       </thead>
                       <tbody>
                         {stats.filteredAppointments.sort((a, b) => { const dateA = getAppointmentStartDate(a); const dateB = getAppointmentStartDate(b); const timeA = dateA && !Number.isNaN(dateA.getTime()) ? dateA.getTime() : 0; const timeB = dateB && !Number.isNaN(dateB.getTime()) ? dateB.getTime() : 0; return timeB - timeA; }).map(apt => {
-                          const aptTotal = calculateTotal(apt.services);
+                          const normalizedStatus = String(apt?.status || '').trim().toLowerCase();
+                          const isConfirmed = normalizedStatus === 'confirmed' || normalizedStatus === 'confirmado';
+                          const services = Array.isArray(apt?.services) ? apt.services : [];
+                          const aptTotal = calculateTotal(services);
                           const barberEarning = (aptTotal * stats.commissionPercent) / 100;
 
                           const appointmentDateTime = getAppointmentStartDate(apt);
                           const serviceNames = getAppointmentServiceNames(apt);
 
                           return (
-                            <tr key={apt.id} className={apt.status === 'confirmed' ? 'row-confirmed' : ''}>
+                            <tr key={apt.id} className={isConfirmed ? 'row-confirmed' : ''}>
                               <td>
-                                {apt.status === 'confirmed' ? (
+                                {isConfirmed ? (
                                   <span className="status-badge status-confirmed">Confirmado</span>
                                 ) : apt.status === 'completed' ? (
                                   <span className="status-badge status-completed">Finalizado</span>
@@ -829,7 +958,7 @@ export default function BarberPage() {
 
                   {stats.filteredExtraPayments.length > 0 && (
                     <div style={{ marginTop: '1.25rem' }}>
-                      <h4 style={{ color: 'var(--gold)', marginBottom: '0.75rem' }}>Pagamentos extras do per√≠odo</h4>
+                      <h4 style={{ color: 'var(--gold)', marginBottom: '0.75rem' }}>Pagamentos extras do perÌodo</h4>
                       <table className="fluig-table-children">
                         <thead>
                           <tr>
@@ -862,16 +991,16 @@ export default function BarberPage() {
 
                   {stats.filteredPayrollPayments.length > 0 && (
                     <div style={{ marginTop: '1.25rem' }}>
-                      <h4 style={{ color: 'var(--gold)', marginBottom: '0.75rem' }}>Pagamentos de folha do per√≠odo</h4>
+                      <h4 style={{ color: 'var(--gold)', marginBottom: '0.75rem' }}>Pagamentos de folha do perÌodo</h4>
                       <table className="fluig-table-children">
                         <thead>
                           <tr>
                             <th>Data Pgto.</th>
-                            <th>Per√≠odo</th>
-                            <th>Sal√°rio</th>
-                            <th>Comiss√£o</th>
+                            <th>PerÌodo</th>
+                            <th>Sal·rio</th>
+                            <th>Comiss„o</th>
                             <th>Vales</th>
-                            <th>L√≠quido</th>
+                            <th>LÌquido</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -885,7 +1014,7 @@ export default function BarberPage() {
                                     : '-'}
                                 </td>
                                 <td>
-                                  {payment.periodStart?.split('-').reverse().join('/')} ‚Üí{' '}
+                                  {payment.periodStart?.split('-').reverse().join('/')} ?{' '}
                                   {payment.periodEnd?.split('-').reverse().join('/')}
                                 </td>
                                 <td>R$ {Number(payment.salarioFixo || 0).toFixed(2)}</td>
@@ -909,8 +1038,5 @@ export default function BarberPage() {
     </BaseLayout>
   );
 }
-
-
-
 
 

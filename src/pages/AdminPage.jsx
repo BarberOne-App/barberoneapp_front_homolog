@@ -4,8 +4,9 @@ import BaseLayout from '../components/layout/BaseLayout';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Toast from '../components/ui/Toast';
-import { getSession, logout } from '../services/authService';
+import { getSession, logout, register as registerClient } from '../services/authService';
 import { getUserById, getUsers, importUsers as importUsersBatch } from '../services/userServices';
+import { getActiveBarbershop } from '../components/layout/Barbershops.jsx';
 import {
   getTermsDocument,
   uploadTermsDocument,
@@ -66,10 +67,20 @@ import {
 } from '../services/stripeService';
 import { uploadImagem } from '../services/cloudinaryService';
 import { getToken } from '../services/authService';
+import { API_BASE_URL } from '../services/api';
+
+const MANUAL_CLIENT_INITIAL_FORM = {
+  name: '',
+  email: '',
+  phone: '',
+  cpf: '',
+  password: '',
+  confirmPassword: '',
+};
 
 export default function AdminPage() {
   const navigate = useNavigate();
-  const API_URL = import.meta.env.VITE_API_URL;
+  const API_URL = API_BASE_URL;
 
   const currentUserRef = useRef(getSession());
   const currentUser = currentUserRef.current;
@@ -213,6 +224,7 @@ export default function AdminPage() {
     specialty: '',
     photo: '',
     salarioFixo: '',
+    commissionPercent: '',
     paymentFrequency: 'monthly',
     createUser: false,
     userEmail: '',
@@ -529,6 +541,9 @@ export default function AdminPage() {
     confirmPassword: '',
   });
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
+  const [showManualClientModal, setShowManualClientModal] = useState(false);
+  const [manualClientForm, setManualClientForm] = useState(MANUAL_CLIENT_INITIAL_FORM);
+  const [manualClientLoading, setManualClientLoading] = useState(false);
   const [userSearch, setUserSearch] = useState('');
   const USERS_PAGE_LIMIT = 50;
   const [usersPage, setUsersPage] = useState(1);
@@ -551,9 +566,7 @@ export default function AdminPage() {
     let filtered = [...normalizedAppointmentPayments];
 
     const getPaymentDate = (payment) => {
-      if (payment.appointmentDate) return String(payment.appointmentDate).slice(0, 10);
-      if (payment.createdAt) return String(payment.createdAt).slice(0, 10);
-      return '';
+      return getAppointmentPaymentDate(payment);
     };
 
     if (paymentDateFilter) {
@@ -584,9 +597,7 @@ export default function AdminPage() {
     return filtered;
   };
 
-  const allPaid = getFilteredPayments().filter(
-    (p) => p.status === 'paid' || p.status === 'plan_covered' || p.status === 'plancovered',
-  );
+  const allPaid = getFilteredPayments().filter(isSettledAppointmentPayment);
 
   const stripeConnectIsConnected = Boolean(
     stripeConnectStatus?.chargesEnabled && stripeConnectStatus?.payoutsEnabled,
@@ -846,12 +857,34 @@ export default function AdminPage() {
     return s.slice(0, 10);
   };
 
+  function getAppointmentPaymentDate(payment) {
+    return (
+      toDateStr(payment?.appointmentDate) ||
+      toDateStr(payment?.appointment?.startAt) ||
+      toDateStr(payment?.appointment?.endAt) ||
+      toDateStr(payment?.paidAt) ||
+      toDateStr(payment?.createdAt)
+    );
+  }
+
+  function isSettledAppointmentPayment(payment) {
+    const status = String(payment?.status || '').toLowerCase();
+    return ['paid', 'approved', 'covered', 'plan_covered', 'plancovered'].includes(status);
+  }
+
   const normalizePaymentFrequency = (value) => {
     const normalized = String(value || '').trim().toLowerCase();
     if (normalized === 'weekly' || normalized === 'semanal') return 'weekly';
     if (normalized === 'biweekly' || normalized === 'quinzenal') return 'biweekly';
     if (normalized === 'monthly' || normalized === 'mensal') return 'monthly';
     return 'monthly';
+  };
+
+  const mapPaymentFrequencyToApi = (value) => {
+    const normalized = normalizePaymentFrequency(value);
+    if (normalized === 'weekly') return 'semanal';
+    if (normalized === 'biweekly') return 'quinzenal';
+    return 'mensal';
   };
 
   const getPaymentFrequencyLabel = (value) => {
@@ -1004,11 +1037,11 @@ export default function AdminPage() {
       await saveHomeInfo({
         ...nextHomeInfo,
         barberPaymentFrequency:
-          normalizePaymentFrequency(
+          mapPaymentFrequencyToApi(
             nextHomeInfo?.barberPaymentFrequency ?? barberPaymentFrequency ?? 'monthly',
           ),
         employeePaymentFrequency:
-          normalizePaymentFrequency(
+          mapPaymentFrequencyToApi(
             nextHomeInfo?.employeePaymentFrequency ?? employeePaymentFrequency ?? 'monthly',
           ),
       });
@@ -1139,6 +1172,45 @@ export default function AdminPage() {
     }
 
     return value || '—';
+  };
+
+  const formatCpfInput = (value) => {
+    const digits = String(value || '').replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+    if (digits.length <= 9) {
+      return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+    }
+
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+  };
+
+  const formatPhoneInput = (value) => {
+    const digits = String(value || '').replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  };
+
+  const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || ''));
+
+  const isValidCpf = (cpf) => {
+    const cleanCPF = String(cpf || '').replace(/\D/g, '');
+    if (cleanCPF.length !== 11) return false;
+    if (/^(\d)\1{10}$/.test(cleanCPF)) return false;
+
+    let sum = 0;
+    for (let i = 0; i < 9; i++) sum += parseInt(cleanCPF.charAt(i), 10) * (10 - i);
+    let checkDigit = 11 - (sum % 11);
+    if (checkDigit === 10 || checkDigit === 11) checkDigit = 0;
+    if (checkDigit !== parseInt(cleanCPF.charAt(9), 10)) return false;
+
+    sum = 0;
+    for (let i = 0; i < 10; i++) sum += parseInt(cleanCPF.charAt(i), 10) * (11 - i);
+    checkDigit = 11 - (sum % 11);
+    if (checkDigit === 10 || checkDigit === 11) checkDigit = 0;
+
+    return checkDigit === parseInt(cleanCPF.charAt(10), 10);
   };
 
   const getFilteredAppointmentPayments = () => {
@@ -1614,7 +1686,7 @@ export default function AdminPage() {
   const fetchBlockedDates = async () => {
     try {
       setLoadingBlockedDates(true);
-      const response = await fetch('https://barberoneapp-back-homolog.onrender.com/blocked-dates', {
+      const response = await fetch(`${API_URL}/blocked-dates`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -1701,7 +1773,7 @@ export default function AdminPage() {
         createdBy: currentUser?.id,
         createdAt: new Date().toISOString(),
       };
-      const response = await fetch('https://barberoneapp-back-homolog.onrender.com/blocked-dates', {
+      const response = await fetch(`${API_URL}/blocked-dates`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(blockData),
@@ -1754,7 +1826,7 @@ export default function AdminPage() {
   const handleRemoveBlockedDate = (id) => {
     showConfirm('Deseja realmente desbloquear esta data?', async () => {
       try {
-        const response = await fetch(`https://barberoneapp-back-homolog.onrender.com/blocked-dates/${id}`, {
+        const response = await fetch(`${API_URL}/blocked-dates/${id}`, {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -2055,7 +2127,7 @@ export default function AdminPage() {
         buscarTodasVendasProdutos(),
       ]);
 
-      // const usersResponse = await fetch('https://barberoneapp-back-homolog.onrender.com/users', {
+      // const usersResponse = await fetch(`${API_URL}/users`, {
       //   headers: {
       //     Authorization: `Bearer ${token}`,
       //   },
@@ -2071,8 +2143,9 @@ export default function AdminPage() {
       );
 
       const subscriptionStatusMap = {};
-      if (subscriptionsData.items) {
-        subscriptionsData.items.forEach((sub) => {
+      const subscriptionItems = Array.isArray(subscriptionsData?.items) ? subscriptionsData.items : [];
+      if (subscriptionItems.length) {
+        subscriptionItems.forEach((sub) => {
           if (sub.status === 'active') {
             subscriptionStatusMap[sub.userId] = true;
           }
@@ -2084,12 +2157,12 @@ export default function AdminPage() {
       setAppointments(appointmentsData);
 
       const today = new Date();
-      const toExpire = subscriptionsData.items.filter(
+      const toExpire = subscriptionItems.filter(
         (s) =>
           s.status === 'cancel_pending' && s.nextBillingDate && new Date(s.nextBillingDate) < today,
       );
       for (const s of toExpire) {
-        await fetch(`https://barberoneapp-back-homolog.onrender.com/subscriptions/${s.id}`, {
+        await fetch(`${API_URL}/subscriptions/${s.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'cancelled', updatedAt: new Date().toISOString() }),
@@ -2097,12 +2170,12 @@ export default function AdminPage() {
       }
       const updatedSubs =
         toExpire.length > 0
-          ? subscriptionsData.map((s) =>
+          ? subscriptionItems.map((s) =>
             toExpire.find((e) => e.id === s.id) ? { ...s, status: 'cancelled' } : s,
           )
-          : subscriptionsData;
+          : subscriptionItems;
 
-      const subsWithCpf = updatedSubs.items.map((sub) => {
+      const subsWithCpf = updatedSubs.map((sub) => {
         const user = allUsers.find((u) => u.id === sub.userId);
         return user?.cpf ? { ...sub, userCpf: user.cpf } : sub;
       });
@@ -2115,12 +2188,12 @@ export default function AdminPage() {
       setAllUsers(allUsers);
       setClientSubscriptionStatus(subscriptionStatusMap);
       try {
-        const valesRes = await fetch('https://barberoneapp-back-homolog.onrender.com/employeeVales', {
+        const valesRes = await fetch(`${API_URL}/employeeVales`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-        const paymentsRes = await fetch('https://barberoneapp-back-homolog.onrender.com/employeePayments', {
+        const paymentsRes = await fetch(`${API_URL}/employeePayments`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -2184,7 +2257,7 @@ export default function AdminPage() {
     }
 
     // Busca permissões frescas do backend antes de checar acesso
-    fetch(`${import.meta.env.VITE_API_URL}/users/${currentUser.id}`, {
+    fetch(`${API_URL}/users/${currentUser.id}`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -2349,6 +2422,98 @@ export default function AdminPage() {
     [extractFriendlyApiMessage],
   );
 
+  const openManualClientModal = () => {
+    setManualClientForm(MANUAL_CLIENT_INITIAL_FORM);
+    setShowManualClientModal(true);
+  };
+
+  const closeManualClientModal = () => {
+    if (manualClientLoading) return;
+    setShowManualClientModal(false);
+    setManualClientForm(MANUAL_CLIENT_INITIAL_FORM);
+  };
+
+  const handleManualClientFormChange = (field, value) => {
+    const nextValue =
+      field === 'cpf' ? formatCpfInput(value) : field === 'phone' ? formatPhoneInput(value) : value;
+
+    setManualClientForm((prev) => ({
+      ...prev,
+      [field]: nextValue,
+    }));
+  };
+
+  const handleManualClientSubmit = async (event) => {
+    event.preventDefault();
+
+    const name = manualClientForm.name.trim();
+    const email = manualClientForm.email.trim();
+    const cleanCPF = manualClientForm.cpf.replace(/\D/g, '');
+    const phoneNumbers = manualClientForm.phone.replace(/\D/g, '');
+    const password = manualClientForm.password;
+    const confirmPassword = manualClientForm.confirmPassword;
+
+    if (!name || !email || !cleanCPF || !phoneNumbers || !password || !confirmPassword) {
+      showToast('Preencha todos os campos do cliente.', 'danger');
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      showToast('Digite um e-mail v\u00e1lido. exemplo@dominio.com', 'danger');
+      return;
+    }
+
+    if (!isValidCpf(cleanCPF)) {
+      showToast('CPF inv\u00e1lido. Verifique os d\u00edgitos digitados.', 'danger');
+      return;
+    }
+
+    if (phoneNumbers.length < 10 || phoneNumbers.length > 11) {
+      showToast('Telefone inv\u00e1lido. Use o formato (85) 99999-9999', 'danger');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      showToast('As senhas precisam ser iguais.', 'danger');
+      return;
+    }
+
+    if (password.length < 4) {
+      showToast('A senha deve ter no m\u00ednimo 4 caracteres.', 'danger');
+      return;
+    }
+
+    setManualClientLoading(true);
+    try {
+      const activeBarbershop = getActiveBarbershop();
+      await registerClient(
+        {
+          slug: activeBarbershop?.slug || import.meta.env.VITE_BARBERSHOP_SLUG || '',
+          name,
+          email,
+          cpf: cleanCPF,
+          phone: phoneNumbers,
+          password,
+          role: 'client',
+        },
+        { persistSession: false },
+      );
+
+      showToast('Cliente cadastrado com sucesso!', 'success');
+      setShowManualClientModal(false);
+      setManualClientForm(MANUAL_CLIENT_INITIAL_FORM);
+      await loadUsersPage(1);
+    } catch (error) {
+      const message = extractFriendlyApiMessage(
+        error?.response?.data,
+        error?.message || 'Erro ao cadastrar cliente.',
+      );
+      showToast(message, 'danger');
+    } finally {
+      setManualClientLoading(false);
+    }
+  };
+
   const loadPayrollData = useCallback(async () => {
     const headers = {
       Authorization: `Bearer ${token}`,
@@ -2356,9 +2521,9 @@ export default function AdminPage() {
     };
 
     const [valesRes, paymentsRes, aptsRes] = await Promise.all([
-      fetch('https://barberoneapp-back-homolog.onrender.com/employeeVales', { headers }),
-      fetch('https://barberoneapp-back-homolog.onrender.com/employeePayments', { headers }),
-      fetch('https://barberoneapp-back-homolog.onrender.com/appointmentPayments', { headers }),
+      fetch(`${API_URL}/employeeVales`, { headers }),
+      fetch(`${API_URL}/employeePayments`, { headers }),
+      fetch(`${API_URL}/appointmentPayments`, { headers }),
     ]);
 
     if (!valesRes.ok || !paymentsRes.ok || !aptsRes.ok) {
@@ -2457,7 +2622,7 @@ export default function AdminPage() {
     }
     setResetPasswordLoading(true);
     try {
-      await fetch(`https://barberoneapp-back-homolog.onrender.com/users/${resetPasswordUser.id}`, {
+      await fetch(`${API_URL}/users/${resetPasswordUser.id}`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -2484,7 +2649,7 @@ export default function AdminPage() {
     }
     try {
       await fetch(
-        `https://barberoneapp-back-homolog.onrender.com/users/${selectedUserPermissions.id}/permissions`,
+        `${API_URL}/users/${selectedUserPermissions.id}/permissions`,
         {
           method: 'PATCH',
           headers: {
@@ -2510,6 +2675,7 @@ export default function AdminPage() {
         specialty: employee.role === 'admin' ? 'Administrador' : 'Recepcionista',
         photo: employee.photo || '',
         salarioFixo: employee.salarioFixo || '',
+        commissionPercent: '',
         paymentFrequency: normalizePaymentFrequency(employee.paymentFrequency),
         createUser: false,
         userEmail: employee.email || '',
@@ -2524,6 +2690,7 @@ export default function AdminPage() {
         specialty: barber.specialty,
         photo: barber.photo,
         salarioFixo: barber.salarioFixo || '',
+        commissionPercent: barber.commission_percent ?? barber.commissionPercent ?? '',
         paymentFrequency: normalizePaymentFrequency(barber.paymentFrequency),
         createUser: false,
         userEmail: '',
@@ -2539,6 +2706,7 @@ export default function AdminPage() {
         specialty: '',
         photo: '',
         salarioFixo: '',
+        commissionPercent: '',
         paymentFrequency: 'monthly',
         createUser: false,
         userEmail: '',
@@ -2559,6 +2727,7 @@ export default function AdminPage() {
       specialty: '',
       photo: '',
       salarioFixo: '',
+      commissionPercent: '',
       paymentFrequency: 'monthly',
       createUser: false,
       userEmail: '',
@@ -2573,6 +2742,12 @@ export default function AdminPage() {
     setBarberForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const parseCommissionPercent = (value) => {
+    const parsed = Number(String(value ?? '').replace(',', '.'));
+    if (Number.isNaN(parsed)) return 0;
+    return Math.max(0, Math.min(100, parsed));
+  };
+
   const handleSaveBarber = async (e) => {
     e.preventDefault();
     if (!isAdmin) {
@@ -2581,6 +2756,15 @@ export default function AdminPage() {
     }
     if (!barberForm.displayName.trim()) {
       showToast('O nome do funcionário é obrigatório.', 'danger');
+      return;
+    }
+    const shouldSaveBarber = barberForm.userRole === 'barber' || !barberForm.createUser;
+    const rawCommissionPercent = Number(String(barberForm.commissionPercent || 0).replace(',', '.'));
+    if (
+      shouldSaveBarber &&
+      (Number.isNaN(rawCommissionPercent) || rawCommissionPercent < 0 || rawCommissionPercent > 100)
+    ) {
+      showToast('A comissão deve ser um valor entre 0 e 100.', 'danger');
       return;
     }
     try {
@@ -2595,7 +2779,7 @@ export default function AdminPage() {
           salarioFixo: parseFloat(barberForm.salarioFixo) || 0,
           paymentFrequency: normalizePaymentFrequency(barberForm.paymentFrequency),
         };
-        await fetch(`https://barberoneapp-back-homolog.onrender.com/users/${editingBarber.userId}`, {
+        await fetch(`${API_URL}/users/${editingBarber.userId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(userData),
@@ -2610,7 +2794,7 @@ export default function AdminPage() {
           showToast('Email e senha são obrigatórios para criar conta de acesso.', 'danger');
           return;
         }
-        // const checkEmailResponse = await fetch('https://barberoneapp-back-homolog.onrender.com/users', {
+        // const checkEmailResponse = await fetch(`${API_URL}/users`, {
         //   headers: {
         //     Authorization: `Bearer ${token}`,
         //   },
@@ -2633,7 +2817,7 @@ export default function AdminPage() {
           isAdmin: barberForm.userRole === 'admin',
           createdAt: new Date().toISOString(),
         };
-        const userResponse = await fetch('https://barberoneapp-back-homolog.onrender.com/users', {
+        const userResponse = await fetch(`${API_URL}/users`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -2645,12 +2829,13 @@ export default function AdminPage() {
         const createdUser = await userResponse.json();
         userId = createdUser.id;
       }
-      if (barberForm.userRole === 'barber' || !barberForm.createUser) {
+      if (shouldSaveBarber) {
         const barberData = {
           displayName: barberForm.displayName,
           specialty: barberForm.specialty,
           photo: barberForm.photo,
           salarioFixo: parseFloat(barberForm.salarioFixo) || 0,
+          commission_percent: parseCommissionPercent(barberForm.commissionPercent),
           paymentFrequency: normalizePaymentFrequency(barberForm.paymentFrequency),
           serviceIds: barberForm.serviceIds || [],
 
@@ -2661,7 +2846,7 @@ export default function AdminPage() {
         if (editingBarber && !editingBarber.isUserOnly) {
           await updateBarber(editingBarber.id, barberData);
           if (editingBarber.userId) {
-            await fetch(`https://barberoneapp-back-homolog.onrender.com/users/${editingBarber.userId}`, {
+            await fetch(`${API_URL}/users/${editingBarber.userId}`, {
               method: 'PATCH',
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -2704,7 +2889,7 @@ export default function AdminPage() {
     showConfirm('Deseja realmente excluir este funcionário?', async () => {
       try {
         if (isUserOnly) {
-          await fetch(`https://barberoneapp-back-homolog.onrender.com/users/${id}`, {
+          await fetch(`${API_URL}/users/${id}`, {
             method: 'DELETE',
             headers: {
               Authorization: `Bearer ${token}`,
@@ -2715,7 +2900,7 @@ export default function AdminPage() {
           await deleteBarber(id);
           const barber = barbers.find((b) => b.id === id);
           if (barber?.userId) {
-            await fetch(`https://barberoneapp-back-homolog.onrender.com/users/${barber.userId}`, {
+            await fetch(`${API_URL}/users/${barber.userId}`, {
               method: 'DELETE',
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -3142,7 +3327,7 @@ export default function AdminPage() {
       ? new Date(sub.currentCycle?.periodEnd || sub.nextBillingDate).toLocaleDateString('pt-BR')
       : 'data não definida';
     try {
-      await fetch(`https://barberoneapp-back-homolog.onrender.com/stripe/subscriptions/${sub.subscriptionId || sub.id}/cancel`, {
+      await fetch(`${API_URL}/stripe/subscriptions/${sub.subscriptionId || sub.id}/cancel`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -3322,6 +3507,17 @@ export default function AdminPage() {
     }, 0);
   };
 
+  const getBarberCommissionPercent = (barberData) => {
+    const rawCommission = barberData?.commissionPercent ?? barberData?.commission_percent;
+    const parsedCommission = Number(rawCommission);
+
+    if (!Number.isNaN(parsedCommission) && parsedCommission >= 0) {
+      return Math.max(0, Math.min(100, parsedCommission));
+    }
+
+    return 50;
+  };
+
   const calculateBarberStatsbyBarber = (barberId) => {
     const barber = barbers.find((b) => b.id === barberId);
     const barberAppointments = getAppointmentsByBarber(barberId);
@@ -3332,7 +3528,7 @@ export default function AdminPage() {
       totalRevenue += aptTotal;
       totalServices += apt.services.length;
     });
-    const commissionPercent = barber?.commissionPercent || 50;
+    const commissionPercent = getBarberCommissionPercent(barber);
     const barberEarnings = (totalRevenue * commissionPercent) / 100;
     const shopEarnings = totalRevenue - barberEarnings;
     return {
@@ -3393,7 +3589,7 @@ export default function AdminPage() {
       totalRevenue += calculateTotal(apt.services || []);
     });
 
-    const commissionPercent = barberProfile?.commissionPercent || 50;
+    const commissionPercent = getBarberCommissionPercent(barberProfile);
     const barberEarnings = (totalRevenue * commissionPercent) / 100;
 
     return {
@@ -3417,7 +3613,7 @@ export default function AdminPage() {
       totalServices += apt.services.length;
     });
 
-    const commissionPercent = barberProfile?.commissionPercent || 50;
+    const commissionPercent = getBarberCommissionPercent(barberProfile);
     const barberEarnings = (totalRevenue * commissionPercent) / 100;
     const shopEarnings = totalRevenue - barberEarnings;
 
@@ -3437,8 +3633,10 @@ export default function AdminPage() {
     const [year, month] = selectedMonth.split('-');
     return payments.filter((payment) => {
       const paymentDate = new Date(
-        payment.createdAt ||
         payment.appointmentDate ||
+        payment.appointment?.startAt ||
+        payment.appointment?.endAt ||
+        payment.createdAt ||
         payment.date ||
         payment.startDate ||
         payment.nextPaymentDate,
@@ -3497,11 +3695,12 @@ export default function AdminPage() {
         }
       }
     });
-    const paidAppointmentPayments = paymentsToUse.filter((p) => p.status === 'paid');
+    const paidAppointmentPayments = paymentsToUse.filter(isSettledAppointmentPayment);
     paidAppointmentPayments.forEach((payment) => {
       const amount = parseFloat(payment.amount || 0);
       const method = String(payment.paymentMethod || payment.method || '').toLowerCase();
       const isPlanCovered =
+        payment.status === 'covered' ||
         payment.status === 'plan_covered' ||
         payment.status === 'plancovered' ||
         method === 'subscription';
@@ -3547,7 +3746,7 @@ export default function AdminPage() {
         await Promise.all(
           sale.products.map(async (item) => {
             try {
-              const res = await fetch(`${import.meta.env.VITE_API_URL}/products/${item.id}`, {
+              const res = await fetch(`${API_URL}/products/${item.id}`, {
                 headers: {
                   Authorization: `Bearer ${token}`,
                   'Content-Type': 'application/json',
@@ -3555,7 +3754,7 @@ export default function AdminPage() {
               });
               const product = await res.json();
               const newStock = Math.max(0, (product.stock ?? 0) - (item.quantity ?? 1));
-              await fetch(`${import.meta.env.VITE_API_URL}/products/${item.id}`, {
+              await fetch(`${API_URL}/products/${item.id}`, {
                 method: 'PATCH',
                 headers: {
                   Authorization: `Bearer ${token}`,
@@ -3655,7 +3854,7 @@ export default function AdminPage() {
       extraPaymentsTotal = extraPaymentsInPeriod.reduce((sum, p) => sum + (p.liquido || 0), 0);
     }
 
-    const commissionPercent = loggedInBarberProfile?.commissionPercent || 50;
+    const commissionPercent = getBarberCommissionPercent(loggedInBarberProfile);
     const barberEarnings = (totalRevenue * commissionPercent) / 100;
 
     return {
@@ -3742,7 +3941,7 @@ export default function AdminPage() {
       )
       .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
     const paidAppointments = filteredAppointmentPayments
-      .filter((p) => p.status === 'paid')
+      .filter(isSettledAppointmentPayment)
       .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
     const filteredSubscriptions = filterPaymentsByMonth(subscriptions);
     const paidSubscriptions = filteredSubscriptions.reduce(
@@ -3767,7 +3966,7 @@ export default function AdminPage() {
         p.status === 'pending' || p.status === 'pendinglocal' || p.status === 'confirmed_unpaid',
     );
 
-    const getDate = (p) => toDateStr(p.appointmentDate) || toDateStr(p.createdAt);
+    const getDate = (p) => getAppointmentPaymentDate(p);
     if (paymentDateFilter) {
       base = base.filter((p) => getDate(p) === toDateStr(paymentDateFilter));
     } else if (paymentStartDate || paymentEndDate) {
@@ -3783,7 +3982,9 @@ export default function AdminPage() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return base.map((p) => {
-      const apptDate = p.appointmentDate ? new Date(p.appointmentDate) : null;
+      const rawAppointmentDate =
+        p.appointmentDate || p.appointment?.startAt || p.appointment?.endAt;
+      const apptDate = rawAppointmentDate ? new Date(rawAppointmentDate) : null;
       const isPast = apptDate && apptDate < today;
       const isConfirmedUnpaid = p.status === 'confirmed_unpaid';
       const displayStatus = isConfirmedUnpaid ? 'confirmed_unpaid' : isPast ? 'overdue' : p.status;
@@ -3793,9 +3994,7 @@ export default function AdminPage() {
 
   const paidPayments = filteredAppointmentPaymentsForAgendamentos.filter(
     (p) =>
-      p.status === 'paid' ||
-      p.status === 'plan_covered' ||
-      p.status === 'plancovered' ||
+      isSettledAppointmentPayment(p) ||
       String(p.paymentMethod || p.method || '').toLowerCase() === 'subscription',
   );
 
@@ -4290,10 +4489,22 @@ export default function AdminPage() {
     });
   };
 
+  const getPayrollAnchorDate = (monthStr) => {
+    const selectedDate = toDateStr(payrollDateFilter);
+    const selectedStart = toDateStr(payrollStartDate);
+    const selectedEnd = toDateStr(payrollEndDate);
+
+    if (selectedDate) return selectedDate;
+    if (selectedStart) return selectedStart;
+    if (selectedEnd) return selectedEnd;
+    return `${monthStr}-01`;
+  };
+
   const getPayrollPeriodDates = (period, monthStr) => {
     const normalizedPeriod = normalizePaymentFrequency(period);
     const [year, month] = monthStr.split('-').map(Number);
-    const now = new Date();
+    const anchorDate = new Date(`${getPayrollAnchorDate(monthStr)}T00:00:00`);
+
     if (normalizedPeriod === 'monthly') {
       const start = `${year}-${String(month).padStart(2, '0')}-01`;
       const lastDay = new Date(year, month, 0).getDate();
@@ -4301,22 +4512,16 @@ export default function AdminPage() {
       return { start, end };
     }
     if (normalizedPeriod === 'biweekly') {
-      const day = now.getMonth() + 1 === month && now.getFullYear() === year ? now.getDate() : 15;
-      if (day <= 15) {
-        return {
-          start: `${year}-${String(month).padStart(2, '0')}-01`,
-          end: `${year}-${String(month).padStart(2, '0')}-15`,
-        };
-      }
       const lastDay = new Date(year, month, 0).getDate();
+      const isFirstHalf = anchorDate.getDate() <= 15;
       return {
-        start: `${year}-${String(month).padStart(2, '0')}-16`,
-        end: `${year}-${String(month).padStart(2, '0')}-${lastDay}`,
+        start: `${year}-${String(month).padStart(2, '0')}-${isFirstHalf ? '01' : '16'}`,
+        end: `${year}-${String(month).padStart(2, '0')}-${String(isFirstHalf ? 15 : lastDay).padStart(2, '0')}`,
       };
     }
     if (normalizedPeriod === 'weekly') {
-      const monday = new Date(now);
-      monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+      const monday = new Date(anchorDate);
+      monday.setDate(anchorDate.getDate() - ((anchorDate.getDay() + 6) % 7));
       const sunday = new Date(monday);
       sunday.setDate(monday.getDate() + 6);
       return {
@@ -4398,9 +4603,10 @@ export default function AdminPage() {
     return baseRange;
   };
 
-  const isPayrollPaymentRecordedForRange = (payment, employeeId, start, end) => {
+  const isPayrollPaymentRecordedForRange = (payment, employeeId, period, start, end) => {
     if (!payment || isExtraPayment(payment)) return false;
     if (String(payment.employeeId) !== String(employeeId)) return false;
+    if (normalizePaymentFrequency(payment.period) !== normalizePaymentFrequency(period)) return false;
 
     const paymentStart = toDateStr(payment.periodStart);
     const paymentEnd = toDateStr(payment.periodEnd);
@@ -4409,35 +4615,151 @@ export default function AdminPage() {
 
     if (!paymentStart || !paymentEnd || !rangeStart || !rangeEnd) return false;
 
-    return paymentStart <= rangeEnd && paymentEnd >= rangeStart;
+    return paymentStart === rangeStart && paymentEnd === rangeEnd;
+  };
+
+  const getPayrollPaymentsInRange = (employeeId, period, start, end) => {
+    if (!Array.isArray(employeePayments)) return [];
+
+    return employeePayments.filter((payment) =>
+      isPayrollPaymentRecordedForRange(payment, employeeId, period, start, end),
+    );
+  };
+
+  const getPayrollPaidTotalInRange = (employeeId, period, start, end) => {
+    return getPayrollPaymentsInRange(employeeId, period, start, end).reduce(
+      (sum, payment) => sum + Number(payment.liquido || 0),
+      0,
+    );
+  };
+
+  const getServicePrice = (service) => {
+    const rawPrice =
+      service?.unitPrice ??
+      service?.price ??
+      service?.basePrice ??
+      service?.promotionalPrice ??
+      0;
+    const price = Number(
+      String(rawPrice)
+        .replace('R$', '')
+        .replace(/\./g, '')
+        .replace(',', '.'),
+    );
+    return Number.isNaN(price) ? 0 : price;
+  };
+
+  const getServiceCommissionPercent = (service, barberData) => {
+    const serviceCommission =
+      service?.commissionPercent ??
+      service?.comissionPercent ??
+      service?.commission_percent;
+    const parsedServiceCommission = Number(serviceCommission);
+
+    if (!Number.isNaN(parsedServiceCommission) && parsedServiceCommission > 0) {
+      return parsedServiceCommission;
+    }
+
+    return getBarberCommissionPercent(barberData);
+  };
+
+  const calculateAppointmentCommission = (appointment, fallbackAmount, barberData) => {
+    const appointmentServices = Array.isArray(appointment?.services) ? appointment.services : [];
+
+    if (appointmentServices.length > 0) {
+      return appointmentServices.reduce((sum, service) => {
+        const price = getServicePrice(service);
+        const commissionPercent = getServiceCommissionPercent(service, barberData);
+        return sum + (price * commissionPercent) / 100;
+      }, 0);
+    }
+
+    const commissionPercent = getBarberCommissionPercent(barberData);
+    return (Number(fallbackAmount || 0) * commissionPercent) / 100;
+  };
+
+  const getPaymentAppointmentId = (payment) => {
+    return payment?.appointmentId || payment?.appointment?.id || null;
+  };
+
+  const getAppointmentMatchesBarber = (appointment, barberData) => {
+    if (!appointment || !barberData) return false;
+
+    const appointmentBarberId = appointment.barberId || appointment.barber?.id;
+    const appointmentBarberName =
+      appointment.barberName || appointment.barber?.displayName || appointment.barber?.name;
+
+    return (
+      String(appointmentBarberId || '') === String(barberData.id || '') ||
+      String(appointmentBarberName || '') === String(barberData.displayName || barberData.name || '')
+    );
+  };
+
+  const getPaymentMatchesBarber = (payment, barberData) => {
+    if (!payment || !barberData) return false;
+
+    const paymentBarberId =
+      payment.barberId || payment.appointment?.barberId || payment.appointment?.barber?.id;
+    const paymentBarberName =
+      payment.barberName ||
+      payment.appointment?.barberName ||
+      payment.appointment?.barber?.displayName ||
+      payment.appointment?.barber?.name;
+
+    return (
+      String(paymentBarberId || '') === String(barberData.id || '') ||
+      String(paymentBarberName || '') === String(barberData.displayName || barberData.name || '')
+    );
   };
 
   const getBarberCommissionInPeriod = (barberId, start, end) => {
     if (!barberId || !start || !end) return 0;
     const barberData = barbers.find((b) => String(b.id) === String(barberId));
     if (!barberData) return 0;
-    const commissionPercent = Number(barberData.commissionPercent) || 50;
-    const relevantPayments = normalizedAppointmentPayments.filter((p) => {
-      const paymentBarberId = p?.appointment?.barber?.id;
-      const paymentBarberName = p?.appointment?.barber?.displayName;
-      if (
-        String(paymentBarberId) !== String(barberId) &&
-        paymentBarberName !== barberData.displayName
-      )
-        return false;
-      if (p.commissionPaid === true) return false;
-      const d = p.appointmentDate
-        ? String(p.appointmentDate).slice(0, 10)
-        : p.paidAt
-          ? String(p.paidAt).slice(0, 10)
-          : '';
-      return d >= start && d <= end;
+
+    const commissionByAppointmentKey = new Map();
+
+    normalizedAppointmentPayments.filter(isSettledAppointmentPayment).forEach((payment) => {
+      if (!getPaymentMatchesBarber(payment, barberData)) return;
+      const d = getAppointmentPaymentDate(payment);
+      if (d < start || d > end) return;
+
+      const appointment = payment.appointment || getAppointmentByPayment(payment);
+      const key = getPaymentAppointmentId(payment) || `payment:${payment.id}`;
+      const commission = calculateAppointmentCommission(
+        appointment,
+        payment.amount,
+        barberData,
+      );
+      commissionByAppointmentKey.set(key, commission);
     });
-    const total = relevantPayments.reduce(
-      (sum, p) => sum + (parseFloat(p.amount) || 0),
+
+    appointments.forEach((appointment) => {
+      if (String(appointment.status || '').toLowerCase() !== 'completed') return;
+      if (!getAppointmentMatchesBarber(appointment, barberData)) return;
+
+      const d = toDateStr(appointment.startAt || appointment.date || appointment.appointmentDate);
+      if (d < start || d > end) return;
+
+      const key = appointment.id || `appointment:${d}:${barberId}`;
+      if (commissionByAppointmentKey.has(key)) return;
+
+      commissionByAppointmentKey.set(
+        key,
+        calculateAppointmentCommission(
+          appointment,
+          calculateTotal(appointment.services || []),
+          barberData,
+        ),
+      );
+    });
+
+    const total = Array.from(commissionByAppointmentKey.values()).reduce(
+      (sum, commission) => sum + Number(commission || 0),
       0,
     );
-    return parseFloat(((total * commissionPercent) / 100).toFixed(2));
+
+    return parseFloat(total.toFixed(2));
   };
 
   const getValesInPeriod = (employeeId, start, end) => {
@@ -4475,7 +4797,7 @@ export default function AdminPage() {
         createdAt: new Date().toISOString(),
         createdBy: currentUser?.id,
       };
-      await fetch('https://barberoneapp-back-homolog.onrender.com/employeeVales', {
+      await fetch(`${API_URL}/employeeVales`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -4483,7 +4805,7 @@ export default function AdminPage() {
         },
         body: JSON.stringify(vale),
       });
-      const res = await fetch('https://barberoneapp-back-homolog.onrender.com/employeeVales', {
+      const res = await fetch(`${API_URL}/employeeVales`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -4504,7 +4826,7 @@ export default function AdminPage() {
 
   const handleDeleteVale = (id) => {
     showConfirm('Deseja excluir este vale?', async () => {
-      await fetch(`https://barberoneapp-back-homolog.onrender.com/employeeVales/${id}`, {
+      await fetch(`${API_URL}/employeeVales/${id}`, {
         method: 'DELETE',
       });
       setEmployeeVales((prev) => prev.filter((v) => v.id !== id));
@@ -4594,7 +4916,7 @@ export default function AdminPage() {
         employeeId: employee.id,
         employeeName: employee.name,
         paymentType: 'extra',
-        period: 'monthly',
+        period: mapPaymentFrequencyToApi('monthly'),
         periodStart: paymentDate,
         periodEnd: paymentDate,
         salarioFixo: amount,
@@ -4603,7 +4925,7 @@ export default function AdminPage() {
         liquido: amount,
       };
 
-      const response = await fetch('https://barberoneapp-back-homolog.onrender.com/employeePayments', {
+      const response = await fetch(`${API_URL}/employeePayments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -4634,12 +4956,9 @@ export default function AdminPage() {
 
   const checkAlreadyPaidInPeriod = (employeeId, period, monthStr) => {
     const { start, end } = getEffectivePayrollRange(period, monthStr);
+    const payments = getPayrollPaymentsInRange(employeeId, period, start, end);
 
-    return (
-      employeePayments.find(
-        (p) => isPayrollPaymentRecordedForRange(p, employeeId, start, end),
-      ) || null
-    );
+    return payments.length > 0 ? payments[0] : null;
   };
 
   const handleMarkPayrollPaid = async (employee, barberData) => {
@@ -4647,6 +4966,13 @@ export default function AdminPage() {
     const { start, end } = getEffectivePayrollRange(period, payrollMonthFilter);
     const barberId = barberData?.id;
     const fallbackErrorMessage = 'N\u00e3o foi poss\u00edvel registrar o pagamento deste funcion\u00e1rio.';
+    const existingPayment = checkAlreadyPaidInPeriod(employee.id, period, payrollMonthFilter);
+
+    if (existingPayment) {
+      showToast('Este funcionário já possui pagamento registrado neste período.', 'info');
+      return;
+    }
+
     const commission = barberId ? getBarberCommissionInPeriod(barberId, start, end) : 0;
     const vales = getValesInPeriod(employee.id, start, end);
     const totalExtraPayments = getExtraPaymentsInPeriod(employee.id, start, end).reduce(
@@ -4655,19 +4981,15 @@ export default function AdminPage() {
     );
     const totalVales = vales.reduce((s, v) => s + v.valor, 0);
     const salarioFixo = parseFloat(barberData?.salarioFixo ?? employee.salarioFixo ?? 0) || 0;
-    const liquido = salarioFixo + commission + totalExtraPayments - totalVales;
+    const totalDue = salarioFixo + commission + totalExtraPayments - totalVales;
+    const alreadyPaidTotal = getPayrollPaidTotalInRange(employee.id, period, start, end);
+    const liquido = Math.max(totalDue - alreadyPaidTotal, 0);
 
-    const existingPayment = checkAlreadyPaidInPeriod(employee.id, period, payrollMonthFilter);
-
-    if (existingPayment) {
-      showToast('Este funcionário já possui pagamento registrado no período selecionado.', 'info');
+    if (liquido <= 0) {
+      showToast('Este funcionario nao possui valor pendente no periodo selecionado.', 'info');
       return;
     }
-    const periodLabel =
-      period === 'weekly' ? 'semana' : period === 'biweekly' ? 'quinzena' : 'mês';
-    const confirmMsg = existingPayment
-      ? `⚠️ ${employee.name} já recebeu R$ ${parseFloat(existingPayment.liquido).toFixed(2)} nessa ${periodLabel} (pago em ${new Date(existingPayment.paidAt).toLocaleDateString('pt-BR')}).\n\nTem certeza que deseja registrar um segundo pagamento de R$ ${liquido.toFixed(2)}?`
-      : `Confirmar pagamento de R$ ${liquido.toFixed(2)} para ${employee.name}?`;
+    const confirmMsg = `Confirmar pagamento de R$ ${liquido.toFixed(2)} para ${employee.name}?`;
 
     showConfirm(confirmMsg, async () => {
       try {
@@ -4675,7 +4997,7 @@ export default function AdminPage() {
           employeeId: employee.id,
           employeeName: employee.name,
           paymentType: 'payroll',
-          period,
+          period: mapPaymentFrequencyToApi(period),
           periodStart: start,
           periodEnd: end,
           salarioFixo,
@@ -4686,7 +5008,7 @@ export default function AdminPage() {
           paidAt: new Date().toISOString(),
           paidBy: currentUser?.id,
         };
-        const paymentResponse = await fetch('https://barberoneapp-back-homolog.onrender.com/employeePayments', {
+        const paymentResponse = await fetch(`${API_URL}/employeePayments`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -4703,7 +5025,7 @@ export default function AdminPage() {
 
         for (const v of vales) {
           const valeDeleteResponse = await fetch(
-            `https://barberoneapp-back-homolog.onrender.com/employeeVales/${v.id}`,
+            `${API_URL}/employeeVales/${v.id}`,
             {
               method: 'DELETE',
               headers: {
@@ -4715,38 +5037,6 @@ export default function AdminPage() {
 
           if (!valeDeleteResponse.ok) {
             throw new Error('Pagamento registrado, mas n\u00e3o foi poss\u00edvel atualizar os vales.');
-          }
-        }
-
-        if (barberId) {
-          const toMark = normalizedAppointmentPayments.filter((p) => {
-            if (String(p.barberId) !== String(barberId) && p.barberName !== barberData?.name)
-              return false;
-            if (p.status !== 'paid' || p.commissionPaid === true) return false;
-            const d = p.appointmentDate
-              ? String(p.appointmentDate).slice(0, 10)
-              : p.paidAt
-                ? String(p.paidAt).slice(0, 10)
-                : '';
-            return d >= start && d <= end;
-          });
-          const commissionResponses = await Promise.all(
-            toMark.map((p) =>
-              fetch(`https://barberoneapp-back-homolog.onrender.com/appointmentPayments/${p.id}`, {
-                method: 'PATCH',
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ commissionPaid: true }),
-              }),
-            ),
-          );
-
-          if (commissionResponses.some((response) => !response.ok)) {
-            throw new Error(
-              'Pagamento registrado, mas n\u00e3o foi poss\u00edvel atualizar o resumo das comiss\u00f5es.',
-            );
           }
         }
 
@@ -4772,11 +5062,6 @@ export default function AdminPage() {
       const barberData = barbers.find((b) => String(b.userId) === String(emp.id));
       const period = getConfiguredPayrollFrequency(emp, barberData);
       const { start, end } = getEffectivePayrollRange(period, payrollMonthFilter);
-      const alreadyPaid = employeePayments.some(
-        (payment) => isPayrollPaymentRecordedForRange(payment, emp.id, start, end),
-      );
-
-      if (alreadyPaid) return sum;
 
       const commission = barberData ? getBarberCommissionInPeriod(barberData.id, start, end) : 0;
       const totalVales = getValesInPeriod(emp.id, start, end).reduce((acc, vale) => acc + vale.valor, 0);
@@ -4785,7 +5070,9 @@ export default function AdminPage() {
         0,
       );
       const salarioFixo = parseFloat(barberData?.salarioFixo ?? emp.salarioFixo ?? 0) || 0;
-      const liquido = salarioFixo + commission + totalExtraPayments - totalVales;
+      const totalDue = salarioFixo + commission + totalExtraPayments - totalVales;
+      const alreadyPaidTotal = getPayrollPaidTotalInRange(emp.id, period, start, end);
+      const liquido = Math.max(totalDue - alreadyPaidTotal, 0);
 
       return sum + liquido;
     }, 0);
@@ -4799,7 +5086,7 @@ export default function AdminPage() {
         const period = getConfiguredPayrollFrequency(employee, barberData);
         const { start, end } = getEffectivePayrollRange(period, payrollMonthFilter);
 
-        return isPayrollPaymentRecordedForRange(payment, employee.id, start, end);
+        return isPayrollPaymentRecordedForRange(payment, employee.id, period, start, end);
       })
       .reduce((sum, payment) => sum + parseFloat(payment.liquido || 0), 0);
 
@@ -6405,20 +6692,21 @@ export default function AdminPage() {
 
                         const salarioFixo =
                           parseFloat(barberData?.salarioFixo ?? emp.salarioFixo ?? 0) || 0;
-                        const liquido = salarioFixo + commission + totalExtraPayments - totalVales;
-                        const isExp = payrollExpandedId === emp.id;
-
-                        const alreadyPaid = !!checkAlreadyPaidInPeriod(
+                        const totalDue = salarioFixo + commission + totalExtraPayments - totalVales;
+                        const alreadyPaidTotal = getPayrollPaidTotalInRange(emp.id, period, start, end);
+                        const saldoPendente = Math.max(totalDue - alreadyPaidTotal, 0);
+                        const alreadyPaidRecord = !!checkAlreadyPaidInPeriod(
                           emp.id,
                           period,
                           payrollMonthFilter,
                         );
-                        const displaySalarioFixo = alreadyPaid ? 0 : salarioFixo;
-                        const displayCommission = alreadyPaid ? 0 : commission;
-                        const displayExtraPayments = alreadyPaid ? 0 : totalExtraPayments;
-                        const displayVales = alreadyPaid ? 0 : totalVales;
-                        const displayLiquido = alreadyPaid ? 0 : liquido;
-                        const displayValesList = alreadyPaid ? [] : vales;
+                        const isExp = payrollExpandedId === emp.id;
+                        const displaySalarioFixo = salarioFixo;
+                        const displayCommission = commission;
+                        const displayExtraPayments = totalExtraPayments;
+                        const displayVales = totalVales;
+                        const displayLiquido = saldoPendente;
+                        const displayValesList = vales;
 
                         return (
                           <React.Fragment key={emp.id}>
@@ -6501,24 +6789,17 @@ export default function AdminPage() {
                               </td>
 
                               <td className="payroll-td payroll-td--center">
-                                {alreadyPaid ? (
-                                  <div
-                                    style={{
-                                      display: 'flex',
-                                      flexDirection: 'column',
-                                      alignItems: 'center',
-                                      gap: '6px',
-                                    }}
-                                  >
-                                    <span className="payroll-paid-badge">✅ Pago</span>
-                                  </div>
-                                ) : (
+                                {alreadyPaidRecord ? (
+                                  <span className="payroll-paid-badge">Pagamento já realizado</span>
+                                ) : saldoPendente > 0 ? (
                                   <button
                                     onClick={() => handleMarkPayrollPaid(emp, barberData)}
                                     className="payroll-pay-btn"
                                   >
                                     Pagar
                                   </button>
+                                ) : (
+                                  <span className="payroll-paid-badge">Pago neste período</span>
                                 )}
                               </td>
                             </tr>
@@ -8526,7 +8807,7 @@ export default function AdminPage() {
                     (p) => (p.appointment?.barber?.displayName || 'Sem barbeiro') === barberName,
                   );
                   const barberObj = barbers.find((b) => b.displayName === barberName);
-                  const commissionPercent = barberObj?.commissionPercent || 50;
+                  const commissionPercent = getBarberCommissionPercent(barberObj);
 
                   const paidOnly = barberPayments.filter((p) => {
                     const isPlanCovered =
@@ -9135,6 +9416,13 @@ export default function AdminPage() {
                   >
                     {importingUsers ? 'Importando...' : 'Importar Clientes (Excel)'}
                   </button>
+                  <button
+                    type="button"
+                    onClick={openManualClientModal}
+                    className="btn-add-barber"
+                  >
+                    Cadastrar Cliente
+                  </button>
                   <input
                     type="text"
                     placeholder="Buscar por nome ou e-mail..."
@@ -9620,6 +9908,22 @@ export default function AdminPage() {
                 value={barberForm.salarioFixo}
                 onChange={(e) => handleBarberFormChange('salarioFixo', e.target.value)}
               />
+
+              {barberForm.userRole === 'barber' && !editingBarber?.isUserOnly && (
+                <label className="input-field">
+                  <span className="input-field__label">Comissão (%)</span>
+                  <input
+                    className="input-field__control"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    placeholder="Ex: 50.00"
+                    value={barberForm.commissionPercent}
+                    onChange={(e) => handleBarberFormChange('commissionPercent', e.target.value)}
+                  />
+                </label>
+              )}
 
               <div style={{ marginBottom: '1rem' }}>
                 <label className="form-label">Frequência de Pagamento</label>
@@ -10830,6 +11134,155 @@ export default function AdminPage() {
                   Cancelar
                 </Button>
                 <Button type="submit">{editingGalleryImage ? 'Atualizar' : 'Adicionar'}</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showManualClientModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+          }}
+          onClick={closeManualClientModal}
+        >
+          <div
+            style={{
+              background: '#1a1a1a',
+              border: '1px solid #2a2a2a',
+              borderRadius: '14px',
+              padding: '2rem',
+              maxWidth: '640px',
+              width: '100%',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '1.5rem',
+              }}
+            >
+              <div>
+                <h2 style={{ color: '#fff', fontSize: '1.05rem', margin: 0 }}>
+                  Cadastrar Cliente
+                </h2>
+                <p style={{ color: '#888', fontSize: '0.8rem', margin: '4px 0 0' }}>
+                  Crie um acesso de cliente usando o mesmo cadastro publico.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeManualClientModal}
+                disabled={manualClientLoading}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#666',
+                  fontSize: '1.4rem',
+                  cursor: manualClientLoading ? 'not-allowed' : 'pointer',
+                  lineHeight: 1,
+                }}
+              >
+                x
+              </button>
+            </div>
+
+            <form className="auth-form auth-form--register" onSubmit={handleManualClientSubmit}>
+              <div className="full-width">
+                <Input
+                  label="Nome Completo"
+                  value={manualClientForm.name}
+                  onChange={(e) => handleManualClientFormChange('name', e.target.value)}
+                  placeholder="Digite o nome completo"
+                  disabled={manualClientLoading}
+                />
+              </div>
+              <div className="full-width">
+                <Input
+                  label="E-mail"
+                  type="email"
+                  value={manualClientForm.email}
+                  onChange={(e) => handleManualClientFormChange('email', e.target.value)}
+                  placeholder="cliente@exemplo.com"
+                  disabled={manualClientLoading}
+                />
+              </div>
+              <Input
+                label="CPF"
+                type="text"
+                value={manualClientForm.cpf}
+                onChange={(e) => handleManualClientFormChange('cpf', e.target.value)}
+                placeholder="000.000.000-00"
+                maxLength={14}
+                disabled={manualClientLoading}
+              />
+              <Input
+                label="Telefone/WhatsApp"
+                type="tel"
+                value={manualClientForm.phone}
+                onChange={(e) => handleManualClientFormChange('phone', e.target.value)}
+                placeholder="(85) 99999-9999"
+                maxLength={15}
+                disabled={manualClientLoading}
+              />
+              <Input
+                label="Senha"
+                type="password"
+                value={manualClientForm.password}
+                onChange={(e) => handleManualClientFormChange('password', e.target.value)}
+                placeholder="Minimo 4 caracteres"
+                disabled={manualClientLoading}
+              />
+              <Input
+                label="Confirmar senha"
+                type="password"
+                value={manualClientForm.confirmPassword}
+                onChange={(e) => handleManualClientFormChange('confirmPassword', e.target.value)}
+                placeholder="Digite a senha novamente"
+                disabled={manualClientLoading}
+              />
+
+              <div
+                className="full-width"
+                style={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  gap: '0.75rem',
+                  marginTop: '0.25rem',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={closeManualClientModal}
+                  disabled={manualClientLoading}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid #333',
+                    color: '#a8a8a8',
+                    borderRadius: '8px',
+                    padding: '9px 20px',
+                    cursor: manualClientLoading ? 'not-allowed' : 'pointer',
+                    fontSize: '0.88rem',
+                  }}
+                >
+                  Cancelar
+                </button>
+                <Button type="submit" disabled={manualClientLoading}>
+                  {manualClientLoading ? 'Cadastrando...' : 'Salvar Cliente'}
+                </Button>
               </div>
             </form>
           </div>

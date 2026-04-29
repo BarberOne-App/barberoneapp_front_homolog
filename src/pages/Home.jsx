@@ -15,8 +15,11 @@ import PaymentModal from '../components/ui/PaymentModal.jsx';
 import { getProducts } from '../services/productService.js';
 import { getHomeInfo } from '../services/settingsService.js';
 import { getActiveBarbershop } from '../components/layout/Barbershops.jsx';
-import { createStripeSubscriptionCheckoutSession } from '../services/stripeService.js';
+import { startSubscriptionFlow } from '../services/subscriptionCheckoutService.js';
+import { API_BASE_URL } from '../services/api.js';
 import './Home.css';
+
+const API_URL = API_BASE_URL;
 
 export default function Home() {
   const navigate = useNavigate();
@@ -173,10 +176,10 @@ export default function Home() {
 
   const handleUpdateStock = async (productId, quantity) => {
     try {
-      const response = await fetch(`https://barberoneapp-back-homolog.onrender.com/products/${productId}`);
+      const response = await fetch(`${API_URL}/products/${productId}`);
       const product = await response.json();
       const newStock = Math.max(0, product.stock - quantity);
-      await fetch(`https://barberoneapp-back-homolog.onrender.com/products/${productId}`, {
+      await fetch(`${API_URL}/products/${productId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stock: newStock }),
@@ -265,45 +268,16 @@ export default function Home() {
     }
 
     if (selectedPlan && !activeSubscription) {
-      const planWithRecurring = {
-        ...selectedPlan,
-        isRecurring: true,
-        autoRenewal: true,
-      };
-
-      localStorage.setItem('selectedPlan', JSON.stringify(planWithRecurring));
-      localStorage.setItem('currentUser', JSON.stringify(currentUser));
-
-      if (!selectedPlan?.stripePriceId) {
-        const subscriptionUrl =
-          selectedPlan?.stripePaymentLinkUrl ||
-          selectedPlan?.mpSubscriptionUrl ||
-          selectedPlan?.subscriptionUrl;
-
-        if (!subscriptionUrl) {
-          showToast('Link de assinatura não configurado para esse plano.', 'danger');
-          return;
-        }
-
-        window.location.href = subscriptionUrl;
-        return;
-      }
-
       try {
-        const session = await createStripeSubscriptionCheckoutSession({
-          planId: selectedPlan.id,
-          email: currentUser.email,
-        });
-
-        if (!session?.url) {
-          throw new Error('Não foi possível gerar a sessão de checkout.');
+        const result = await startSubscriptionFlow(selectedPlan, currentUser);
+        if (result?.type === 'local-test') {
+          setActiveSubscription(result.subscription);
+          showToast('Assinatura de teste ativada para este usuário.', 'success');
         }
-
-        window.location.href = session.url;
         return;
       } catch (error) {
-        console.error('Erro ao iniciar checkout da assinatura:', error);
-        showToast('Não foi possível iniciar a assinatura. Tente novamente.', 'danger');
+        console.error('Erro ao iniciar assinatura:', error);
+        showToast(error?.message || 'Não foi possível iniciar a assinatura. Tente novamente.', 'danger');
         return;
       }
     }

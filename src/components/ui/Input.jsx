@@ -1,6 +1,6 @@
 import './Input.css';
 
-export default function Input({ label, type = 'text', name, placeholder, value, onChange }) {
+export default function Input({ label, type = 'text', name, placeholder, value, onChange, ...props }) {
   return (
     <label className="input-field">
       {label && <span className="input-field__label">{label}</span>}
@@ -11,6 +11,7 @@ export default function Input({ label, type = 'text', name, placeholder, value, 
         placeholder={placeholder}
         value={value}
         onChange={onChange}
+        {...props}
       />
     </label>
   );

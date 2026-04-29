@@ -334,13 +334,33 @@ export default function BarberCard({
 
   const parsePrice = (price) => {
     if (!price) return 0;
-    return Number(price);
+    if (typeof price === 'number') return Number.isFinite(price) ? price : 0;
+
+    let cleanPrice = String(price).replace(/R\$/g, '').trim();
+    if (cleanPrice.includes(',')) {
+      cleanPrice = cleanPrice.replace(/\./g, '').replace(',', '.');
+    }
+
+    const parsed = Number(cleanPrice);
+    return Number.isFinite(parsed) ? parsed : 0;
   };
 
+  const isPlanCoveredService = (service) =>
+    hasActiveSubscription &&
+    (service.covered_by_plan === true ||
+      String(service.covered_by_plan ?? '').trim().toLowerCase() === 'true' ||
+      service.coveredByPlan === true ||
+      String(service.coveredByPlan ?? '').trim().toLowerCase() === 'true' ||
+      service.serviceCoveredByPlan === true ||
+      String(service.serviceCoveredByPlan ?? '').trim().toLowerCase() === 'true' ||
+      isServiceCoveredByPlan(service));
+
+  const getServicePrice = (service) =>
+    parsePrice(service.basePrice ?? service.base_price ?? service.price ?? service.originalBasePrice);
+
   const getEffectiveServicePrice = (service) => {
-    const raw = parsePrice(service.basePrice);
-    if (hasActiveSubscription && isServiceCoveredByPlan(service)) return 0;
-    return raw;
+    if (isPlanCoveredService(service)) return 0;
+    return getServicePrice(service);
   };
 
   const totalPrice = selectedServices.reduce(
@@ -349,7 +369,7 @@ export default function BarberCard({
   );
 
   const selectedCoveredCount = selectedServices.filter(
-    (service) => hasActiveSubscription && isServiceCoveredByPlan(service),
+    (service) => isPlanCoveredService(service),
   ).length;
 
   return (
@@ -388,8 +408,8 @@ export default function BarberCard({
 
           {services.map((service) => {
             const isSelected = selectedServices.find((s) => s.id === service.id);
-            const coveredByPlan = hasActiveSubscription && isServiceCoveredByPlan(service);
-            const originalPrice = parsePrice(service.basePrice);
+            const coveredByPlan = isPlanCoveredService(service);
+            const originalPrice = getServicePrice(service);
 
             return (
               <div
@@ -402,11 +422,9 @@ export default function BarberCard({
                 <div className="service-box__name">{service.name}</div>
                 <div className="service-box__price">
                   {coveredByPlan ? (
-                    <>
-                      <span style={{ color: '#22c55e', fontWeight: 700 }}>R$ 0,00</span>
+                    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: '0.15rem' }}>
                       <span
                         style={{
-                          marginLeft: '0.45rem',
                           textDecoration: 'line-through',
                           opacity: 0.65,
                           fontSize: '0.82rem',
@@ -417,7 +435,8 @@ export default function BarberCard({
                           currency: 'BRL',
                         })}
                       </span>
-                    </>
+                      <span style={{ color: '#22c55e', fontWeight: 700 }}>Incluso no plano</span>
+                    </span>
                   ) : (
                     originalPrice.toLocaleString('pt-BR', {
                       style: 'currency',

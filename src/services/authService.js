@@ -1,6 +1,8 @@
-import api from "./api";
+import api, { API_BASE_URL } from "./api";
 
 const TOKEN_EXPIRY_LEEWAY_SECONDS = 30;
+const SESSION_API_BASE_URL_KEY = "sessionApiBaseUrl";
+const EXPECTED_BARBERSHOP_SLUG = String(import.meta.env.VITE_BARBERSHOP_SLUG || '').trim();
 
 function decodeJwtPayload(token) {
   try {
@@ -35,6 +37,7 @@ export function isTokenValid(token) {
  */
 export async function login(email, password) {
   const { data } = await api.post("/auth/login", {
+    ...(EXPECTED_BARBERSHOP_SLUG ? { slug: EXPECTED_BARBERSHOP_SLUG } : {}),
     email,
     password,
   });
@@ -111,7 +114,8 @@ export async function loginWithGoogle(name, email, slug) {
  * Registro de cliente — POST /auth/register/client
  * O backend exige { slug, name, email, phone?, password }
  */
-export async function register(userData) {
+export async function register(userData, options = {}) {
+  const { persistSession = true } = options;
   const { data } = await api.post("/auth/register/client", {
     slug: userData.slug,
     name: userData.name,
@@ -119,9 +123,13 @@ export async function register(userData) {
     cpf: userData.cpf || null,
     phone: userData.phone || null,
     password: userData.password,
+    role: userData.role || "client",
   });
 
-  saveSession(data);
+  if (persistSession) {
+    saveSession(data);
+  }
+
   return data.user;
 }
 
@@ -157,6 +165,7 @@ export async function fetchMe() {
 export function saveSession(data) {
   if (data.token) localStorage.setItem("token", data.token);
   if (data.refreshToken) localStorage.setItem("refreshToken", data.refreshToken);
+  localStorage.setItem(SESSION_API_BASE_URL_KEY, API_BASE_URL);
 
   const user = data.user || data;
   localStorage.setItem("currentUser", JSON.stringify(user));
@@ -166,9 +175,20 @@ export function saveSession(data) {
   }
 }
 
+function isSessionForCurrentBarbershop() {
+  if (!EXPECTED_BARBERSHOP_SLUG) return true;
+
+  try {
+    const activeBarbershop = JSON.parse(localStorage.getItem("activeBarbershop") || "null");
+    return String(activeBarbershop?.slug || "") === EXPECTED_BARBERSHOP_SLUG;
+  } catch {
+    return false;
+  }
+}
+
 export function getSession() {
   const token = localStorage.getItem("token");
-  if (!isTokenValid(token)) {
+  if (!isSessionForCurrentApi() || !isSessionForCurrentBarbershop() || !isTokenValid(token)) {
     logout();
     return null;
   }
@@ -198,11 +218,16 @@ export function getSession() {
 
 export function getToken() {
   const token = localStorage.getItem("token");
-  if (!isTokenValid(token)) {
+  if (!isSessionForCurrentApi() || !isSessionForCurrentBarbershop() || !isTokenValid(token)) {
     logout();
     return null;
   }
   return token;
+}
+
+function isSessionForCurrentApi() {
+  const sessionApiBaseUrl = localStorage.getItem(SESSION_API_BASE_URL_KEY);
+  return !sessionApiBaseUrl || sessionApiBaseUrl === API_BASE_URL;
 }
 
 export function hasValidSession() {
@@ -214,6 +239,7 @@ export function logout() {
   localStorage.removeItem("token");
   localStorage.removeItem("refreshToken");
   localStorage.removeItem("activeBarbershop");
+  localStorage.removeItem(SESSION_API_BASE_URL_KEY);
 }
 
 export const getRedirectPath = () => {

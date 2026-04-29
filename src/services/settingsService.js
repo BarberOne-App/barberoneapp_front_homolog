@@ -1,12 +1,12 @@
 import { getToken } from "./authService";
+import { API_BASE_URL } from "./api";
 
-const API_URL = 'https://barberoneapp-back-homolog.onrender.com';
-const token = getToken();
+const API_URL = API_BASE_URL;
 const HOME_INFO_LOCAL_KEY = 'barberone_home_info_local';
 
 function getAuthHeaders() {
   return {
-    Authorization: `Bearer ${getToken() || token}`,
+    Authorization: `Bearer ${getToken()}`,
   };
 }
 
@@ -131,7 +131,7 @@ export async function getPixKey() {
   try {
     const response = await fetch(`${API_URL}/settings`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     const settings = await response.json();
@@ -147,7 +147,7 @@ export async function savePixKey(pixKey) {
   try {
     const response = await fetch(`${API_URL}/settings`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     const settings = await response.json();
@@ -157,7 +157,7 @@ export async function savePixKey(pixKey) {
       await fetch(`${API_URL}/settings/${settings[0].id}`, {
         method: 'PATCH',
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${getToken()}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ pixKey }),
@@ -167,7 +167,7 @@ export async function savePixKey(pixKey) {
       await fetch(`${API_URL}/settings`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${getToken()}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ id: 1, pixKey }),

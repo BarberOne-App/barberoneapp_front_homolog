@@ -1,7 +1,7 @@
 import api from './api';
 import { getToken } from './authService';
+import { isLocalOrHomologEnvironment } from './subscriptionEnvironment.js';
 
-const token = getToken();
 
 function obterProximaDataCobranca() {
   const hoje = new Date();
@@ -66,7 +66,7 @@ export const buscarPlanosAssinatura = async () => {
   try {
     const response = await api.get('/subscription-plans', {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -80,7 +80,7 @@ export const buscarPlanoAssinatura = async (planId) => {
   try {
     const response = await api.get(`/subscription-plans/${planId}`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -106,7 +106,7 @@ export const criarAssinatura = async (dadosAssinatura) => {
       startDate: new Date().toISOString(),
       nextBillingDate: obterProximaDataCobranca(),
       lastBillingDate: new Date().toISOString(),
-      paymentMethod: "credito",
+      paymentMethod: dadosAssinatura.paymentMethod || "credito",
       mp_preapproval_id: dadosAssinatura.mp_preapproval_id || null,
 
       isRecurring: dadosAssinatura.isRecurring ?? true,
@@ -123,7 +123,7 @@ export const criarAssinatura = async (dadosAssinatura) => {
 
     const response = await api.post('/subscriptions', assinatura, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -137,7 +137,7 @@ export const verificarAssinaturasVencidas = async () => {
   try {
     const response = await api.get('/subscriptions?status=active', {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     const assinaturasAtivas = response.data;
@@ -160,7 +160,7 @@ export const marcarAssinaturaComoAtrasada = async (subscriptionId) => {
   try {
     const subscription = await api.get(`/subscriptions/${subscriptionId}`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     const sub = subscription.data;
@@ -194,7 +194,7 @@ export const enviarNotificacaoAtraso = async (subscription) => {
     try {
       const userResponse = await api.get(`/users/${subscription.userId}`, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${getToken()}`,
         },
       });
       const user = userResponse.data;
@@ -219,7 +219,7 @@ export const enviarNotificacaoAtraso = async (subscription) => {
     },
       {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${getToken()}`,
         },
       });
 
@@ -257,7 +257,7 @@ export const renovarAssinatura = async (subscriptionId, paymentData) => {
       },
       {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${getToken()}`,
         },
       });
 
@@ -280,7 +280,7 @@ export const renovarAssinatura = async (subscriptionId, paymentData) => {
       },
       {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${getToken()}`,
         },
       }
     );
@@ -302,7 +302,7 @@ export const alternarModoCobranca = async (subscriptionId, isRecurring) => {
     },
       {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${getToken()}`,
         },
       }
     );
@@ -318,7 +318,7 @@ export const buscarAssinaturasUsuario = async (userId) => {
   try {
     const response = await api.get(`/subscriptions?userId=${userId}`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -360,14 +360,74 @@ export const buscarAssinaturaAtiva = async (currentUser) => {
 
     const subscriptions = stripeResponse.data?.subscriptions || [];
     const plans = Array.isArray(plansResponse.data) ? plansResponse.data : [];
+    const getLocalHomologSubscription = async () => {
+      const userId = typeof currentUser === 'string' ? null : currentUser?.id;
+      if (!userId || !isLocalOrHomologEnvironment()) return null;
+      const getStoredLocalSubscription = () => {
+        if (typeof localStorage === 'undefined') return null;
 
-    if (!subscriptions.length) return null;
+        try {
+          const stored = JSON.parse(localStorage.getItem('localTestSubscription') || 'null');
+          if (
+            stored &&
+            String(stored.userId) === String(userId) &&
+            String(stored.status || '').toLowerCase() === 'active'
+          ) {
+            const resolvedPlan = plans.find((plan) => String(plan.id) === String(stored.planId));
+            return {
+              ...stored,
+              planDetails: resolvedPlan || stored.planDetails || null,
+              planName: stored.planName || resolvedPlan?.name || 'Plano',
+              price: stored.planPrice ?? stored.amount ?? resolvedPlan?.price,
+              amount: stored.amount ?? stored.planPrice ?? resolvedPlan?.price,
+              paymentMethod: stored.paymentMethod || 'teste_local',
+            };
+          }
+        } catch {
+          return null;
+        }
+
+        return null;
+      };
+
+      try {
+        const localResponse = await buscarAssinaturasUsuario(userId);
+        const localSubscriptions = Array.isArray(localResponse?.items)
+          ? localResponse.items
+          : Array.isArray(localResponse)
+            ? localResponse
+            : [];
+        const activeLocalSubscription = localSubscriptions.find(
+          (subscription) => String(subscription?.status || '').toLowerCase() === 'active',
+        );
+
+        if (!activeLocalSubscription) return getStoredLocalSubscription();
+
+        const resolvedPlan = plans.find(
+          (plan) => String(plan.id) === String(activeLocalSubscription.planId),
+        );
+
+        return {
+          ...activeLocalSubscription,
+          planDetails: resolvedPlan || activeLocalSubscription.planDetails || null,
+          planName: activeLocalSubscription.planName || resolvedPlan?.name || 'Plano',
+          price: activeLocalSubscription.planPrice ?? activeLocalSubscription.amount ?? resolvedPlan?.price,
+          amount: activeLocalSubscription.amount ?? activeLocalSubscription.planPrice ?? resolvedPlan?.price,
+          paymentMethod: activeLocalSubscription.paymentMethod || 'teste_local',
+        };
+      } catch (error) {
+        console.error('Erro ao buscar assinatura local/homolog:', error);
+        return getStoredLocalSubscription();
+      }
+    };
+
+    if (!subscriptions.length) return getLocalHomologSubscription();
 
     const activeSubscriptions = subscriptions.filter((subscription) =>
       isActiveStripeSubscriptionStatus(subscription?.status),
     );
 
-    if (!activeSubscriptions.length) return null;
+    if (!activeSubscriptions.length) return getLocalHomologSubscription();
 
     const statusPriority = {
       active: 5,
@@ -518,13 +578,29 @@ export const buscarTodasAssinaturas = async () => {
   try {
     const response = await api.get('/stripe/subscriptions?all=true', {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
-    return response.data;
-  } catch (error) {
+    const items = Array.isArray(response.data?.items)
+      ? response.data.items
+      : Array.isArray(response.data?.subscriptions)
+        ? response.data.subscriptions
+        : [];
 
-    return [];
+    return {
+      ...response.data,
+      items,
+      subscriptions: items,
+      total: Number(response.data?.total ?? items.length),
+    };
+  } catch (error) {
+    return {
+      found: false,
+      total: 0,
+      items: [],
+      subscriptions: [],
+      warning: error?.response?.data?.warning || error?.response?.data?.error || 'Assinaturas indisponÃ­veis.',
+    };
   }
 };
 
@@ -536,7 +612,7 @@ export const atualizarStatusAssinatura = async (subscriptionId, status) => {
       ...(status === 'cancelled' && { cancelledAt: new Date().toISOString() })
     }, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -580,7 +656,7 @@ export const criarPagamentoAgendamento = async (dadosPagamento) => {
 
     const response = await api.post('/appointmentPayments', pagamento, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -594,7 +670,7 @@ export const buscarPagamentoAgendamento = async (appointmentId) => {
   try {
     const response = await api.get(`/appointmentPayments?appointmentId=${appointmentId}`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     const payload = response.data;
@@ -629,7 +705,7 @@ export const buscarTodosPagamentosAgendamentos = async () => {
   try {
     const response = await api.get('/appointmentPayments?_sort=createdAt&_order=desc', {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data.items;
@@ -653,7 +729,7 @@ export const atualizarPagamentoAgendamento = async (paymentId, dados) => {
 
     const response = await api.patch(`/appointmentPayments/${paymentId}`, payload, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -709,7 +785,7 @@ export const processarPagamento = async (dadosPagamento) => {
 
     const response = await api.post('/payments', pagamento, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -723,7 +799,7 @@ export const buscarHistoricoPagamentos = async (userId) => {
   try {
     const response = await api.get(`/payments?userId=${userId}&_sort=createdAt&_order=desc`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -737,7 +813,7 @@ export const buscarPagamento = async (paymentId) => {
   try {
     const response = await api.get(`/payments/${paymentId}`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -763,7 +839,7 @@ export const salvarMetodoPagamento = async (dadosMetodo) => {
 
     const response = await api.post('/payment-methods', metodoPagamento, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -777,7 +853,7 @@ export const buscarMetodosPagamento = async (userId) => {
   try {
     const response = await api.get(`/payment-methods?userId=${userId}`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -791,7 +867,7 @@ export const deletarMetodoPagamento = async (methodId) => {
   try {
     await api.delete(`/payment-methods/${methodId}`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return true;
@@ -808,7 +884,7 @@ export const definirMetodoPadrao = async (userId, methodId) => {
       metodos.map(metodo =>
         api.patch(`/payment-methods/${metodo.id}`, { isDefault: false }, {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${getToken()}`,
           },
         })
       )
@@ -816,7 +892,7 @@ export const definirMetodoPadrao = async (userId, methodId) => {
 
     const response = await api.patch(`/payment-methods/${methodId}`, { isDefault: true }, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;
@@ -982,7 +1058,7 @@ export const buscarTodasVendasProdutos = async () => {
   try {
     // const response = await api.get('/productSales', {
     //   headers: {
-    //     Authorization: `Bearer ${token}`,
+    //     Authorization: `Bearer ${getToken()}`,
     //   },
     // },);
     return [];
@@ -999,7 +1075,7 @@ export const atualizarVendaProduto = async (id, dados) => {
       updatedAt: new Date().toISOString(),
     }, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     });
     return response.data;

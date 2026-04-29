@@ -171,7 +171,7 @@ export default function AppointmentsPage() {
 
   const fetchBlockedDates = useCallback(async () => {
     try {
-      const response = await fetch('https://barberoneapp-back-homolog.onrender.com/blocked-dates', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/blocked-dates`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -370,7 +370,7 @@ const getUpcomingReminders = useMemo(() => {
       const [barbersData, servicesData, productsData, appointmentsData] = await Promise.all([
         getBarbers(),
         getAllServices(),
-        fetch('https://barberoneapp-back-homolog.onrender.com/products', {
+        fetch(`${import.meta.env.VITE_API_URL}/products`, {
           headers: {
             Authorization: `Bearer ${token}`,
           }
@@ -378,7 +378,7 @@ const getUpcomingReminders = useMemo(() => {
         getAppointments(),
       ]);
 
-      const res = await fetch('https://barberoneapp-back-homolog.onrender.com/subscriptions', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/subscriptions`, {
         headers: {
           Authorization: `Bearer ${token}`,
         }
@@ -391,7 +391,7 @@ const getUpcomingReminders = useMemo(() => {
       // Só tenta listar usuários se puder agendar para terceiros
       if (canScheduleForOthers) {
         try {
-          const usersResponse = await fetch('https://barberoneapp-back-homolog.onrender.com/users', {
+          const usersResponse = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
             headers: {
               Authorization: `Bearer ${token}`,
             }
@@ -434,7 +434,7 @@ const getUpcomingReminders = useMemo(() => {
 
       let deps = [];
       try {
-        const depsRes = await fetch(`https://barberoneapp-back-homolog.onrender.com/dependents?parentId=${currentUser?.id}`, {
+        const depsRes = await fetch(`${import.meta.env.VITE_API_URL}/dependents?parentId=${currentUser?.id}`, {
           headers: { authorization: `Bearer ${token}` },
         });
 
@@ -477,7 +477,7 @@ const getUpcomingReminders = useMemo(() => {
   //     const [barbersData, servicesData, productsData, appointmentsData] = await Promise.all([
   //       getBarbers(),
   //       getAllServices(),
-  //       fetch('https://barberoneapp-back-homolog.onrender.com/products', {
+  //       fetch(`${import.meta.env.VITE_API_URL}/products`, {
   //         headers: {
   //           Authorization: `Bearer ${token}`,
   //         }
@@ -485,14 +485,14 @@ const getUpcomingReminders = useMemo(() => {
   //       getAppointments(),
   //     ]);
 
-  //     const res = await fetch('https://barberoneapp-back-homolog.onrender.com/subscriptions', {
+  //     const res = await fetch(`${import.meta.env.VITE_API_URL}/subscriptions`, {
   //       headers: {
   //         Authorization: `Bearer ${token}`,
   //       }
   //     });
 
   //     const subscription = await res.json();
-  //     const usersResponse = await fetch('https://barberoneapp-back-homolog.onrender.com/users', {
+  //     const usersResponse = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
   //       headers: {
   //         Authorization: `Bearer ${token}`,
   //       }
@@ -519,7 +519,7 @@ const getUpcomingReminders = useMemo(() => {
 
   //     let deps = [];
   //     try {
-  //       const depsRes = await fetch(`https://barberoneapp-back-homolog.onrender.com/dependents?parentId=${currentUser?.id}`, {
+  //       const depsRes = await fetch(`${import.meta.env.VITE_API_URL}/dependents?parentId=${currentUser?.id}`, {
   //         headers: { authorization: `Bearer ${token}` },
   //       });
   //       if (depsRes.ok) {
@@ -555,7 +555,7 @@ const getUpcomingReminders = useMemo(() => {
 
   const handleUpdateStock = useCallback(async (productId, quantity) => {
     try {
-      const response = await fetch(`https://barberoneapp-back-homolog.onrender.com/products/${productId}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/products/${productId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         }
@@ -563,7 +563,7 @@ const getUpcomingReminders = useMemo(() => {
       const product = await response.json();
       const newStock = Math.max(0, product.stock - quantity);
 
-      await fetch(`https://barberoneapp-back-homolog.onrender.com/products/${productId}`, {
+      await fetch(`${import.meta.env.VITE_API_URL}/products/${productId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

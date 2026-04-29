@@ -4,10 +4,11 @@ import Button from './Button.jsx';
 import Toast from './Toast.jsx';
 import './SubscriptionSection.css';
 import { getToken } from '../../services/authService.js';
-import AppointmentsPage from '../../pages/AppointmentsPage-backup.jsx';
-import { createStripeSubscriptionCheckoutSession } from '../../services/stripeService.js';
+import { API_BASE_URL } from '../../services/api.js';
+import { startSubscriptionFlow } from '../../services/subscriptionCheckoutService.js';
 
 const PLAN_SERVICE_FEATURE_PREFIX = 'SERVICO_INCLUSO::';
+const API_URL = API_BASE_URL;
 
 const formatBenefitLabel = (benefit) => {
   if (typeof benefit !== 'string') return benefit;
@@ -42,7 +43,7 @@ export default function SubscriptionSection({ activeSubscription, onSubscribe })
   useEffect(() => {
     const loadPlans = async () => {
       try {
-        const response = await fetch('https://barberoneapp-back-homolog.onrender.com/subscription-plans', {
+        const response = await fetch(`${API_URL}/subscription-plans`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -135,47 +136,19 @@ export default function SubscriptionSection({ activeSubscription, onSubscribe })
       return;
     }
 
-    const planWithRecurring = {
-      ...plan,
-      isRecurring: true,
-      autoRenewal: true,
-    };
-
-    localStorage.setItem('selectedPlan', JSON.stringify(planWithRecurring));
-    localStorage.setItem('currentUser', JSON.stringify(currentUser));
-
     if (onSubscribe) {
       onSubscribe(plan);
       return;
     }
 
-    if (!plan?.stripePriceId) {
-      const subscriptionUrl =
-        plan?.stripePaymentLinkUrl || plan?.mpSubscriptionUrl || plan?.subscriptionUrl;
-
-      if (!subscriptionUrl) {
-        showToast('Link de assinatura não configurado para esse plano.', 'danger');
-        return;
-      }
-
-      window.location.href = subscriptionUrl;
-      return;
-    }
-
     try {
-      const session = await createStripeSubscriptionCheckoutSession({
-        planId: plan.id,
-        email: currentUser.email,
-      });
-
-      if (!session?.url) {
-        throw new Error('Não foi possível iniciar o checkout.');
+      const result = await startSubscriptionFlow(plan, currentUser);
+      if (result?.type === 'local-test') {
+        showToast('Assinatura de teste ativada para este usuário.', 'success');
       }
-
-      window.location.href = session.url;
     } catch (error) {
-      console.error('Erro ao criar checkout da assinatura:', error);
-      showToast('Não foi possível iniciar a assinatura. Tente novamente.', 'danger');
+      console.error('Erro ao iniciar assinatura:', error);
+      showToast(error?.message || 'Não foi possível iniciar a assinatura. Tente novamente.', 'danger');
     }
   };
 

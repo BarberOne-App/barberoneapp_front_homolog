@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { getToken } from './authService';
+import { API_BASE_URL } from './api';
 
-const API_URL = 'https://barberoneapp-back-homolog.onrender.com';
+const API_URL = API_BASE_URL;
 
 const extractApiErrorMessage = (error, fallbackMessage) => {
   const data = error?.response?.data;

@@ -1,5 +1,8 @@
 
 import axios from "axios";
+import { API_BASE_URL } from "./api";
+
+const API_URL = API_BASE_URL;
 
 function makeIdempotencyKey() {
   return `mp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -8,7 +11,7 @@ function makeIdempotencyKey() {
 export const processMercadoPagoPayment = async (paymentData) => {
   try {
     const res = await axios.post(
-      `${import.meta.env.VITE_API_URL}/process_payment`,
+      `${API_URL}/process_payment`,
       paymentData,
       {
         headers: {
@@ -32,7 +35,7 @@ export const processMercadoPagoPayment = async (paymentData) => {
 export const processMercadoPagoPaymentPix = async (paymentData) => {
   try {
     const res = await axios.post(
-      `${import.meta.env.VITE_API_URL}/criar_pix`,
+      `${API_URL}/criar_pix`,
       paymentData,
       {
         headers: {
@@ -57,7 +60,7 @@ export const processMercadoPagoPaymentPix = async (paymentData) => {
 export const checkPixStatus = async (pixId) => {
   try {
     const res = await axios.get(
-      `${import.meta.env.VITE_API_URL}/pixstatus/${pixId}`,
+      `${API_URL}/pixstatus/${pixId}`,
       // {
       //   headers: {
       //     "Authorization": `Bearer ${import.meta.env.VITE_MERCADO_PAGO_ACCESS_TOKEN}`,

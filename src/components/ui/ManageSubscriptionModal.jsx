@@ -5,8 +5,10 @@ import axios from 'axios';
 import Button from './Button.jsx';
 import './ManageSubscriptionModal.css';
 import { getToken } from '../../services/authService';
+import { API_BASE_URL } from '../../services/api';
 
 const PLAN_SERVICE_FEATURE_PREFIX = 'SERVICO_INCLUSO::';
+const API_URL = API_BASE_URL;
 
 const formatBenefitLabel = (benefit) => {
   if (typeof benefit !== 'string') return benefit;
@@ -118,7 +120,7 @@ export default function ManageSubscriptionModal({ isOpen, onClose, subscription,
       setLoading(true);
       try {
         const { data } = await axios.get(
-          `https://barberoneapp-back-homolog.onrender.com/subscription-plans/${subscription.planId}`,
+          `${API_URL}/subscription-plans/${subscription.planId}`,
           {
             headers: {
               Authorization: `Bearer ${getToken()}`,
