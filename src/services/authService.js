@@ -2,7 +2,11 @@ import api, { API_BASE_URL } from "./api";
 
 const TOKEN_EXPIRY_LEEWAY_SECONDS = 30;
 const SESSION_API_BASE_URL_KEY = "sessionApiBaseUrl";
-const EXPECTED_BARBERSHOP_SLUG = String(import.meta.env.VITE_BARBERSHOP_SLUG || '').trim();
+
+function shouldCheckHomeInfo(user) {
+  const role = String(user?.role || '').toLowerCase();
+  return role !== 'super_admin';
+}
 
 function decodeJwtPayload(token) {
   try {
@@ -37,12 +41,33 @@ export function isTokenValid(token) {
  */
 export async function login(email, password) {
   const { data } = await api.post("/auth/login", {
-    ...(EXPECTED_BARBERSHOP_SLUG ? { slug: EXPECTED_BARBERSHOP_SLUG } : {}),
     email,
     password,
   });
 
+  // Bloqueia login caso a barbearia vinculada esteja inativa ou bloqueada
+  const barbershop = data.barbershop || data.user?.barbershop || (Array.isArray(data.user?.barbershops) ? data.user.barbershops[0] : null);
+  const status = String(barbershop?.status || '').toLowerCase();
+  if (status === 'inactive' || status === 'blocked') {
+    const label = status === 'blocked' ? 'bloqueada' : 'inativa';
+    // Lança erro no formato esperado pelos handlers do app (error.response.data.message)
+    throw { response: { data: { message: `Login bloqueado: a barbearia está ${label}. Entre em contato com o suporte.` } } };
+  }
+
   saveSession(data);
+
+  // Verifica acesso às rotas protegidas (ex: home-info). Se for negado, remove sessão e trata como falha de login.
+  if (shouldCheckHomeInfo(data.user)) {
+    try {
+      await api.get('/home-info');
+    } catch (err) {
+      // Limpa sessão e repassa mensagem legível para o handler do login
+      logout();
+      const message = err?.response?.data?.message || (Array.isArray(err?.response?.data) ? err.response.data.join(', ') : null) || 'Acesso indisponível para esta barbearia';
+      throw { response: { data: { message } } };
+    }
+  }
+
   return data.user;
 }
 
@@ -62,7 +87,26 @@ export async function loginWithGoogle(name, email, slug) {
       password: crypto.randomUUID().slice(0, 12), // senha temporária
       phone: null,
     });
+
+    const barbershop = data.barbershop || data.user?.barbershop || (Array.isArray(data.user?.barbershops) ? data.user.barbershops[0] : null);
+    const status = String(barbershop?.status || '').toLowerCase();
+    if (status === 'inactive' || status === 'blocked') {
+      const label = status === 'blocked' ? 'bloqueada' : 'inativa';
+      throw { response: { data: { message: `Login bloqueado: a barbearia está ${label}. Entre em contato com o suporte.` } } };
+    }
+
     saveSession(data);
+
+    if (shouldCheckHomeInfo(data.user)) {
+      try {
+        await api.get('/home-info');
+      } catch (err) {
+        logout();
+        const message = err?.response?.data?.message || (Array.isArray(err?.response?.data) ? err.response.data.join(', ') : null) || 'Acesso indisponível para esta barbearia';
+        throw { response: { data: { message } } };
+      }
+    }
+
     return data.user;
   } catch (error) {
     // Se já existe (409 conflict), tenta carregar dados via /auth/me com token existente
@@ -114,6 +158,15 @@ export async function registerSuperAdminSetup(payload) {
   return data.user;
 }
 
+export async function switchBarbershop(barbershopId) {
+  const { data } = await api.post('/auth/switch-barbershop', {
+    barbershopId,
+  });
+
+  saveSession(data);
+  return data;
+}
+
 /**
  * Busca dados do usuário logado — GET /auth/me
  */
@@ -139,14 +192,10 @@ export function saveSession(data) {
 }
 
 function isSessionForCurrentBarbershop() {
-  if (!EXPECTED_BARBERSHOP_SLUG) return true;
-
-  try {
-    const activeBarbershop = JSON.parse(localStorage.getItem("activeBarbershop") || "null");
-    return String(activeBarbershop?.slug || "") === EXPECTED_BARBERSHOP_SLUG;
-  } catch {
-    return false;
-  }
+  // Não invalidar automaticamente a sessão apenas porque `VITE_BARBERSHOP_SLUG`
+  // está definido no ambiente. Esse valor serve apenas para pré-seleção
+  // em deploys específicos, não para bloquear logins de outros tenants.
+  return true;
 }
 
 export function getSession() {
@@ -157,8 +206,23 @@ export function getSession() {
   }
 
   try {
-    const user = localStorage.getItem("currentUser");
-    return user ? JSON.parse(user) : null;
+    const userJson = localStorage.getItem("currentUser");
+    const user = userJson ? JSON.parse(userJson) : null;
+
+    // Se houver uma barbearia ativa salva, bloqueia sessão local caso ela esteja inativa/bloqueada
+    const activeBarbershopJson = localStorage.getItem('activeBarbershop');
+    const activeBarbershop = activeBarbershopJson ? JSON.parse(activeBarbershopJson) : null;
+    const status = String(activeBarbershop?.status || '').toLowerCase();
+    if (status === 'inactive' || status === 'blocked') {
+      const label = status === 'blocked' ? 'bloqueada' : 'inativa';
+      logout();
+      try {
+        localStorage.setItem('loginBlockReason', `A barbearia vinculada está ${label}. Entre em contato com o suporte.`);
+      } catch (e) {}
+      return null;
+    }
+
+    return user;
   } catch {
     return null;
   }

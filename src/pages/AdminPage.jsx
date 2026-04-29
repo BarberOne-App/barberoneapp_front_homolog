@@ -5353,7 +5353,7 @@ export default function AdminPage() {
                     onClick={() => setActiveTab('usuarios')}
                     className={`tab-btn ${activeTab === 'usuarios' ? 'tab-btn--active' : ''}`}
                   >
-                    Usuários
+                    Clientes
                   </button>
                 )}
               </>
