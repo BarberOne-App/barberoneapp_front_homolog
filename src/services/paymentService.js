@@ -1,5 +1,6 @@
 import api from './api';
 import { getToken } from './authService';
+import { isLocalOrHomologEnvironment } from './subscriptionEnvironment.js';
 
 
 function obterProximaDataCobranca() {
@@ -105,7 +106,7 @@ export const criarAssinatura = async (dadosAssinatura) => {
       startDate: new Date().toISOString(),
       nextBillingDate: obterProximaDataCobranca(),
       lastBillingDate: new Date().toISOString(),
-      paymentMethod: "credito",
+      paymentMethod: dadosAssinatura.paymentMethod || "credito",
       mp_preapproval_id: dadosAssinatura.mp_preapproval_id || null,
 
       isRecurring: dadosAssinatura.isRecurring ?? true,
@@ -359,14 +360,74 @@ export const buscarAssinaturaAtiva = async (currentUser) => {
 
     const subscriptions = stripeResponse.data?.subscriptions || [];
     const plans = Array.isArray(plansResponse.data) ? plansResponse.data : [];
+    const getLocalHomologSubscription = async () => {
+      const userId = typeof currentUser === 'string' ? null : currentUser?.id;
+      if (!userId || !isLocalOrHomologEnvironment()) return null;
+      const getStoredLocalSubscription = () => {
+        if (typeof localStorage === 'undefined') return null;
 
-    if (!subscriptions.length) return null;
+        try {
+          const stored = JSON.parse(localStorage.getItem('localTestSubscription') || 'null');
+          if (
+            stored &&
+            String(stored.userId) === String(userId) &&
+            String(stored.status || '').toLowerCase() === 'active'
+          ) {
+            const resolvedPlan = plans.find((plan) => String(plan.id) === String(stored.planId));
+            return {
+              ...stored,
+              planDetails: resolvedPlan || stored.planDetails || null,
+              planName: stored.planName || resolvedPlan?.name || 'Plano',
+              price: stored.planPrice ?? stored.amount ?? resolvedPlan?.price,
+              amount: stored.amount ?? stored.planPrice ?? resolvedPlan?.price,
+              paymentMethod: stored.paymentMethod || 'teste_local',
+            };
+          }
+        } catch {
+          return null;
+        }
+
+        return null;
+      };
+
+      try {
+        const localResponse = await buscarAssinaturasUsuario(userId);
+        const localSubscriptions = Array.isArray(localResponse?.items)
+          ? localResponse.items
+          : Array.isArray(localResponse)
+            ? localResponse
+            : [];
+        const activeLocalSubscription = localSubscriptions.find(
+          (subscription) => String(subscription?.status || '').toLowerCase() === 'active',
+        );
+
+        if (!activeLocalSubscription) return getStoredLocalSubscription();
+
+        const resolvedPlan = plans.find(
+          (plan) => String(plan.id) === String(activeLocalSubscription.planId),
+        );
+
+        return {
+          ...activeLocalSubscription,
+          planDetails: resolvedPlan || activeLocalSubscription.planDetails || null,
+          planName: activeLocalSubscription.planName || resolvedPlan?.name || 'Plano',
+          price: activeLocalSubscription.planPrice ?? activeLocalSubscription.amount ?? resolvedPlan?.price,
+          amount: activeLocalSubscription.amount ?? activeLocalSubscription.planPrice ?? resolvedPlan?.price,
+          paymentMethod: activeLocalSubscription.paymentMethod || 'teste_local',
+        };
+      } catch (error) {
+        console.error('Erro ao buscar assinatura local/homolog:', error);
+        return getStoredLocalSubscription();
+      }
+    };
+
+    if (!subscriptions.length) return getLocalHomologSubscription();
 
     const activeSubscriptions = subscriptions.filter((subscription) =>
       isActiveStripeSubscriptionStatus(subscription?.status),
     );
 
-    if (!activeSubscriptions.length) return null;
+    if (!activeSubscriptions.length) return getLocalHomologSubscription();
 
     const statusPriority = {
       active: 5,

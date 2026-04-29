@@ -9,6 +9,7 @@ export default function ProductsModal({
   onConfirm,
   hasActiveSubscription,
   serviceCoveredByPlan = false,
+  coveredServices = [],
   servicePrice = 0,
   serviceName = '',
   onUpdateStock,
@@ -220,6 +221,12 @@ export default function ProductsModal({
                 <span>R$ {parsePrice(servicePrice).toFixed(2)}</span>
               </div>
             )}
+            {coveredServices.length > 0 && (
+              <div className="summary-row">
+                <span>Incluso no plano ({coveredServices.join(', ')})</span>
+                <span>R$ 0,00</span>
+              </div>
+            )}
             {selectedProducts.map(product => (
               <div className="summary-row" key={product.id}>
                 <span>{product.name} (x{product.quantity})</span>
@@ -262,6 +269,7 @@ ProductsModal.propTypes = {
   onConfirm: PropTypes.func.isRequired,
   hasActiveSubscription: PropTypes.bool,
   serviceCoveredByPlan: PropTypes.bool,
+  coveredServices: PropTypes.array,
   servicePrice: PropTypes.number,
   serviceName: PropTypes.string,
   onUpdateStock: PropTypes.func,
