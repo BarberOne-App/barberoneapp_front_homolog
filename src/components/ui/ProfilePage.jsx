@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getSession, logout } from '../../services/authService';
+import { getSession, logout, switchBarbershop } from '../../services/authService';
 import { buscarAssinaturaAtiva } from '../../services/paymentService';
 import ManageSubscriptionModal from '../ui/ManageSubscriptionModal.jsx';
 import SubscriptionModal from '../ui/SubscriptionModal.jsx';
@@ -464,10 +464,16 @@ export default function ProfilePage() {
     setTimeout(() => navigate(path), 1000);
   };
 
-  const handleSelectBarbershop = (shop) => {
-    setActiveBarbershop(shop);
-    setActiveBarbershopState(shop);
-    showToast(`Barbearia alterada para ${shop.name}`);
+  const handleSelectBarbershop = async (shop) => {
+    try {
+      await switchBarbershop(shop.id);
+      setActiveBarbershop(shop);
+      setActiveBarbershopState(shop);
+      showToast(`Barbearia alterada para ${shop.name}`);
+    } catch (error) {
+      console.error(error);
+      showToast(error?.response?.data?.message || 'Não foi possível alterar a barbearia.');
+    }
   };
 
   const handleLogout = () => {

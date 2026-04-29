@@ -2,7 +2,11 @@ import api, { API_BASE_URL } from "./api";
 
 const TOKEN_EXPIRY_LEEWAY_SECONDS = 30;
 const SESSION_API_BASE_URL_KEY = "sessionApiBaseUrl";
-const EXPECTED_BARBERSHOP_SLUG = String(import.meta.env.VITE_BARBERSHOP_SLUG || '').trim();
+
+function shouldCheckHomeInfo(user) {
+  const role = String(user?.role || '').toLowerCase();
+  return role !== 'super_admin';
+}
 
 function decodeJwtPayload(token) {
   try {
@@ -53,13 +57,15 @@ export async function login(email, password) {
   saveSession(data);
 
   // Verifica acesso às rotas protegidas (ex: home-info). Se for negado, remove sessão e trata como falha de login.
-  try {
-    await api.get('/home-info');
-  } catch (err) {
-    // Limpa sessão e repassa mensagem legível para o handler do login
-    logout();
-    const message = err?.response?.data?.message || (Array.isArray(err?.response?.data) ? err.response.data.join(', ') : null) || 'Acesso indisponível para esta barbearia';
-    throw { response: { data: { message } } };
+  if (shouldCheckHomeInfo(data.user)) {
+    try {
+      await api.get('/home-info');
+    } catch (err) {
+      // Limpa sessão e repassa mensagem legível para o handler do login
+      logout();
+      const message = err?.response?.data?.message || (Array.isArray(err?.response?.data) ? err.response.data.join(', ') : null) || 'Acesso indisponível para esta barbearia';
+      throw { response: { data: { message } } };
+    }
   }
 
   return data.user;
@@ -91,12 +97,14 @@ export async function loginWithGoogle(name, email, slug) {
 
     saveSession(data);
 
-    try {
-      await api.get('/home-info');
-    } catch (err) {
-      logout();
-      const message = err?.response?.data?.message || (Array.isArray(err?.response?.data) ? err.response.data.join(', ') : null) || 'Acesso indisponível para esta barbearia';
-      throw { response: { data: { message } } };
+    if (shouldCheckHomeInfo(data.user)) {
+      try {
+        await api.get('/home-info');
+      } catch (err) {
+        logout();
+        const message = err?.response?.data?.message || (Array.isArray(err?.response?.data) ? err.response.data.join(', ') : null) || 'Acesso indisponível para esta barbearia';
+        throw { response: { data: { message } } };
+      }
     }
 
     return data.user;
@@ -148,6 +156,15 @@ export async function registerSuperAdminSetup(payload) {
 
   saveSession(data);
   return data.user;
+}
+
+export async function switchBarbershop(barbershopId) {
+  const { data } = await api.post('/auth/switch-barbershop', {
+    barbershopId,
+  });
+
+  saveSession(data);
+  return data;
 }
 
 /**

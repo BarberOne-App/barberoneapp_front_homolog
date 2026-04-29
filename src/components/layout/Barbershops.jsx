@@ -7,12 +7,11 @@ export const BARBERSHOPS = [
 export const DEFAULT_BARBERSHOP = BARBERSHOPS[0];
 
 export function getActiveBarbershop() {
-  const expectedSlug = import.meta.env.VITE_BARBERSHOP_SLUG || DEFAULT_BARBERSHOP.slug;
   try {
     const stored = localStorage.getItem('activeBarbershop');
     if (stored) {
       const parsed = JSON.parse(stored);
-      if (!expectedSlug || parsed?.slug === expectedSlug) return parsed;
+      return parsed;
     }
   } catch (_) {}
   return DEFAULT_BARBERSHOP;

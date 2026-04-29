@@ -40,7 +40,7 @@ export default function BarberPage() {
     const normalized = normalizePaymentFrequency(value);
     if (normalized === 'weekly') return 'Semana Atual';
     if (normalized === 'biweekly') return 'Quinzena Atual';
-    return 'Mês Atual';
+    return 'Mï¿½s Atual';
   };
 
   const getCurrentEarningsPeriodRange = () => {
@@ -164,6 +164,17 @@ export default function BarberPage() {
     return normalizeTimeValue(appointment?.time || appointment?.appointmentTime);
   };
 
+  const isConfirmedStatus = (status) => {
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+
+    return (
+      normalizedStatus === 'confirmed' ||
+      normalizedStatus === 'confirmado' ||
+      normalizedStatus === 'completed' ||
+      normalizedStatus === 'finalizado'
+    );
+  };
+
   const getAppointmentPhone = (appointment, userData = null) =>
     userData?.phone ||
     appointment?.client?.phone ||
@@ -285,42 +296,52 @@ export default function BarberPage() {
     return !isExtraPayment(payment);
   };
 
+  // const isDateWithinSelectedPeriod = (dateRef) => {
+  //   if (!dateRef) return false;
+
+  //   const date = new Date(dateRef);
+  //   if (Number.isNaN(date.getTime())) return false;
+
+  //   const now = new Date();
+
+  //   if (earningsFilter === 'week') {
+  //     const today = now.getDay();
+  //     const mondayOffset = today === 0 ? -6 : 1 - today;
+  //     const weekStart = new Date(now);
+  //     weekStart.setDate(now.getDate() + mondayOffset);
+  //     weekStart.setHours(0, 0, 0, 0);
+  //     const weekEnd = new Date(weekStart);
+  //     weekEnd.setDate(weekStart.getDate() + 6);
+  //     weekEnd.setHours(23, 59, 59, 999);
+
+  //     return date >= weekStart && date <= weekEnd;
+  //   }
+
+  //   if (earningsFilter === 'month') {
+  //     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  //     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  //     return date >= monthStart && date <= monthEnd;
+  //   }
+
+  //   if (earningsFilter === 'custom' && customStartDate && customEndDate) {
+  //     const start = new Date(`${customStartDate}T00:00:00`);
+  //     const end = new Date(`${customEndDate}T23:59:59`);
+  //     return date >= start && date <= end;
+  //   }
+
+  //   return true;
+  // };
+
   const isDateWithinSelectedPeriod = (dateRef) => {
     if (!dateRef) return false;
 
     const date = new Date(dateRef);
     if (Number.isNaN(date.getTime())) return false;
 
-    const now = new Date();
+    const { start, end } = getCurrentEarningsPeriodRange();
 
-    if (earningsFilter === 'week') {
-      const today = now.getDay();
-      const mondayOffset = today === 0 ? -6 : 1 - today;
-      const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() + mondayOffset);
-      weekStart.setHours(0, 0, 0, 0);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
-      weekEnd.setHours(23, 59, 59, 999);
-
-      return date >= weekStart && date <= weekEnd;
-    }
-
-    if (earningsFilter === 'month') {
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-      return date >= monthStart && date <= monthEnd;
-    }
-
-    if (earningsFilter === 'custom' && customStartDate && customEndDate) {
-      const start = new Date(`${customStartDate}T00:00:00`);
-      const end = new Date(`${customEndDate}T23:59:59`);
-      return date >= start && date <= end;
-    }
-
-    return true;
+    return date >= start && date <= end;
   };
-
   const getFilteredExtraPaymentsByPeriod = () => {
     if (!Array.isArray(employeePayments)) return [];
 
@@ -346,7 +367,7 @@ export default function BarberPage() {
     loadData();
   }, []);
 
-  
+
   useEffect(() => {
     const checkUpcomingAppointments = () => {
       const now = new Date();
@@ -373,25 +394,25 @@ export default function BarberPage() {
       const clientIdRaw = appointment.clientId || appointment.client?.id;
       const userData = clientIdRaw ? await getUserById(clientIdRaw) : null;
       const clientName = userData?.name || getAppointmentClientName(appointment);
-      const clientPhone = getAppointmentPhone(appointment, userData) || 'Não cadastrado';
+      const clientPhone = getAppointmentPhone(appointment, userData) || 'Nï¿½o cadastrado';
 
       const startDate = getAppointmentStartDate(appointment);
       const time = startDate && !Number.isNaN(startDate.getTime())
         ? startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-        : (getAppointmentTime(appointment) || 'Horário não informado');
+        : (getAppointmentTime(appointment) || 'Horï¿½rio nï¿½o informado');
 
-      const serviceName = getAppointmentServicesLabel(appointment) || 'Serviço';
+      const serviceName = getAppointmentServicesLabel(appointment) || 'Serviï¿½o';
 
-      const message = `?? PRÓXIMO CLIENTE EM 15 MINUTOS!\n\nCliente: ${clientName}\nHorário: ${time}\nServiço: ${serviceName || 'Serviço'}\nTelefone: ${clientPhone}`;
+      const message = `?? PRï¿½XIMO CLIENTE EM 15 MINUTOS!\n\nCliente: ${clientName}\nHorï¿½rio: ${time}\nServiï¿½o: ${serviceName || 'Serviï¿½o'}\nTelefone: ${clientPhone}`;
 
       if (currentUser?.phone) {
         let barberPhone = currentUser.phone.replace(/\D/g, '');
         if (!barberPhone.startsWith('55')) barberPhone = `55${barberPhone}`;
         window.open(`https://wa.me/${barberPhone}?text=${encodeURIComponent(message)}`, '_blank');
       }
-      showToast('Notificação: Próximo cliente em 15 minutos!', 'info');
+      showToast('Notificaï¿½ï¿½o: Prï¿½ximo cliente em 15 minutos!', 'info');
     } catch (error) {
-      console.error('Erro ao enviar notificação:', error);
+      console.error('Erro ao enviar notificaï¿½ï¿½o:', error);
     }
   };
 
@@ -404,7 +425,7 @@ export default function BarberPage() {
       const clientIdRaw = appointment.clientId || appointment.client?.id;
       const userData = clientIdRaw ? await getUserById(clientIdRaw) : null;
       const rawPhone = getAppointmentPhone(appointment, userData);
-      if (!rawPhone) return showToast('Cliente não possui telefone cadastrado.', 'danger');
+      if (!rawPhone) return showToast('Cliente nï¿½o possui telefone cadastrado.', 'danger');
 
       let phone = rawPhone.replace(/\D/g, '');
       if (!phone.startsWith('55')) phone = `55${phone}`;
@@ -421,16 +442,16 @@ export default function BarberPage() {
       const startDate = getAppointmentStartDate(appointment);
       const date = startDate && !Number.isNaN(startDate.getTime())
         ? startDate.toLocaleDateString('pt-BR')
-        : 'data não informada';
+        : 'data nï¿½o informada';
       const time = startDate && !Number.isNaN(startDate.getTime())
         ? startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-        : (getAppointmentTime(appointment) || 'horário não informado');
+        : (getAppointmentTime(appointment) || 'horï¿½rio nï¿½o informado');
 
-      const serviceName = getAppointmentServicesLabel(appointment) || 'Serviço';
+      const serviceName = getAppointmentServicesLabel(appointment) || 'Serviï¿½o';
 
       const messages = {
-        confirm: `Olá ${clientName}!\n\nGostaria de CONFIRMAR seu agendamento:\n\n?? Data: ${date}\n?? Horário: ${time}\n?? Serviço: ${serviceName}\n????? Barbeiro: ${barberName}\n\nPor favor, responda esta mensagem para confirmar sua presença.\n\n? ADDEV Barbearia`,
-        reminder: `Olá ${clientName}!\n\n? LEMBRETE do seu agendamento:\n\n?? Data: ${date}\n?? Horário: ${time}\n?? Serviço: ${serviceName}\n????? Barbeiro: ${barberName}\n\nTe esperamos!\n\n? ADDEV Barbearia`,
+        confirm: `Olï¿½ ${clientName}!\n\nGostaria de CONFIRMAR seu agendamento:\n\n?? Data: ${date}\n?? Horï¿½rio: ${time}\n?? Serviï¿½o: ${serviceName}\n????? Barbeiro: ${barberName}\n\nPor favor, responda esta mensagem para confirmar sua presenï¿½a.\n\n? ADDEV Barbearia`,
+        reminder: `Olï¿½ ${clientName}!\n\n? LEMBRETE do seu agendamento:\n\n?? Data: ${date}\n?? Horï¿½rio: ${time}\n?? Serviï¿½o: ${serviceName}\n????? Barbeiro: ${barberName}\n\nTe esperamos!\n\n? ADDEV Barbearia`,
       };
 
       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(messages[type])}`, '_blank');
@@ -607,7 +628,7 @@ export default function BarberPage() {
     <BaseLayout>
       <section className="auth">
         <div className="auth-card auth-card--wide">
-      
+
           <div className="appointments-header">
             <div>
               <h1 className="auth-title">Painel do Barbeiro</h1>
@@ -637,7 +658,7 @@ export default function BarberPage() {
                   Hoje ({todayAppointments.length})
                 </button>
                 <button onClick={() => setFilter('upcoming')} className={`tab-btn ${filter === 'upcoming' ? 'tab-btn--active' : ''}`}>
-                  Próximos
+                  PrÃ³ximos
                 </button>
                 <button onClick={() => setFilter('all')} className={`tab-btn ${filter === 'all' ? 'tab-btn--active' : ''}`}>
                   Todos ({appointments.length})
@@ -656,11 +677,11 @@ export default function BarberPage() {
                         <tr>
                           <th>Cliente</th>
                           <th>Data</th>
-                          <th>Horário</th>
-                          <th>Serviços</th>
+                          <th>HorÃ¡rio</th>
+                          <th>ServiÃ§os</th>
                           <th>Telefone</th>
                           <th className="status-column-header">Status</th>
-                          <th className="actions-column-header">Ações</th>
+                          <th className="actions-column-header">AÃ§Ãµes</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -731,7 +752,7 @@ export default function BarberPage() {
             </>
           )}
 
-       
+
           {activeTab === 'earnings' && (
             <div className="earnings-section">
               <div className="earnings-filters">
@@ -746,7 +767,7 @@ export default function BarberPage() {
 
                 <div className="period-display">
                   <p className="auth-subtitle" style={{ margin: '1rem 0', fontSize: '1rem' }}>
-                    Período: <strong style={{ color: 'var(--gold)' }}>{getPeriodLabel()}</strong>
+                    Perï¿½odo: <strong style={{ color: 'var(--gold)' }}>{getPeriodLabel()}</strong>
                   </p>
                 </div>
               </div>
@@ -897,7 +918,7 @@ export default function BarberPage() {
 
                 <div className="fluig-children-container">
                   {stats.filteredAppointments.length === 0 ? (
-                    <p className="no-appointments">Nenhum agendamento encontrado neste período.</p>
+                    <p className="no-appointments">Nenhum agendamento encontrado neste perï¿½odo.</p>
                   ) : (
                     <table className="fluig-table-children">
                       <thead>
@@ -905,8 +926,8 @@ export default function BarberPage() {
                           <th>Status</th>
                           <th>Cliente</th>
                           <th>Data</th>
-                          <th>Horário</th>
-                          <th>Serviços</th>
+                          <th>Horï¿½rio</th>
+                          <th>Serviï¿½os</th>
                           <th>Total</th>
                           <th>Seus Ganhos %</th>
                         </tr>
@@ -958,7 +979,7 @@ export default function BarberPage() {
 
                   {stats.filteredExtraPayments.length > 0 && (
                     <div style={{ marginTop: '1.25rem' }}>
-                      <h4 style={{ color: 'var(--gold)', marginBottom: '0.75rem' }}>Pagamentos extras do período</h4>
+                      <h4 style={{ color: 'var(--gold)', marginBottom: '0.75rem' }}>Pagamentos extras do perï¿½odo</h4>
                       <table className="fluig-table-children">
                         <thead>
                           <tr>
@@ -991,16 +1012,16 @@ export default function BarberPage() {
 
                   {stats.filteredPayrollPayments.length > 0 && (
                     <div style={{ marginTop: '1.25rem' }}>
-                      <h4 style={{ color: 'var(--gold)', marginBottom: '0.75rem' }}>Pagamentos de folha do período</h4>
+                      <h4 style={{ color: 'var(--gold)', marginBottom: '0.75rem' }}>Pagamentos de folha do perï¿½odo</h4>
                       <table className="fluig-table-children">
                         <thead>
                           <tr>
                             <th>Data Pgto.</th>
-                            <th>Período</th>
-                            <th>Salário</th>
-                            <th>Comissão</th>
+                            <th>Perï¿½odo</th>
+                            <th>Salï¿½rio</th>
+                            <th>Comissï¿½o</th>
                             <th>Vales</th>
-                            <th>Líquido</th>
+                            <th>Lï¿½quido</th>
                           </tr>
                         </thead>
                         <tbody>
