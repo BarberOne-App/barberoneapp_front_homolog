@@ -1,5 +1,5 @@
 export const BARBERSHOPS = [
-  { id: 'env', name: 'Barbearia Rodrigues', slug: import.meta.env.VITE_BARBERSHOP_SLUG || 'barbearia_rodrigues' },
+  { id: 'env', name: 'Barbearia Teste', slug: import.meta.env.VITE_BARBERSHOP_SLUG || 'barbearia-teste' },
   // { id: '002', name: 'Barbearia Lucas',     slug: 'lucas'     },
   // { id: '003', name: 'Barbearia Abilton',   slug: 'abilton'   },
 ];
