@@ -371,7 +371,7 @@ export default function AppointmentsPage() {
 
       return appointments.some((apt) => {
         const aptStatus = String(apt?.status || '').toLowerCase();
-        if (aptStatus === 'cancelled' || aptStatus === 'no_show') return false;
+        if (isCancelledStatus(aptStatus) || aptStatus === 'no_show') return false;
 
         const aptDependentId = apt?.dependentId || apt?.dependent?.id || null;
         const sameOwner = targetDependentId
@@ -422,7 +422,7 @@ export default function AppointmentsPage() {
 
       return appointments.find((apt) => {
         const aptStatus = String(apt?.status || '').toLowerCase();
-        if (aptStatus === 'cancelled' || aptStatus === 'no_show') return false;
+        if (isCancelledStatus(aptStatus) || aptStatus === 'no_show') return false;
 
         const aptDependentId = apt?.dependentId || apt?.dependent?.id || null;
         const sameOwner = targetDependentId
@@ -507,9 +507,16 @@ export default function AppointmentsPage() {
   const getUpcomingReminders = useMemo(() => {
     const now = new Date();
     const dependentLookupIds = buildDependentLookupIds(userDependents);
-    const userAppointments = appointments.filter((apt) =>
-      isAppointmentFromCurrentUser(apt, currentUser?.id, dependentLookupIds),
-    );
+    const userAppointments = appointments.filter((apt) => {
+      if (!isAppointmentFromCurrentUser(apt, currentUser?.id, dependentLookupIds)) {
+        return false;
+      }
+      // Filter out cancelled appointments
+      if (isCancelledStatus(apt.status) || String(apt.status || '').toLowerCase() === 'no_show') {
+        return false;
+      }
+      return true;
+    });
     const future = userAppointments.filter((apt) => {
       const aptDateTime = getAppointmentStartDate(apt);
       if (!aptDateTime) return false;
@@ -2389,6 +2396,22 @@ export default function AppointmentsPage() {
     }
   }, [appointmentToDelete, loadData, showToast, clearPaymentCache]);
 
+  const isCancelledStatus = (status) => {
+    const normalized = String(status || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+    
+    return (
+      normalized === 'cancelled' ||
+      normalized === 'canceled' ||
+      normalized === 'cancelado' ||
+      normalized === 'cancel' ||
+      normalized.startsWith('cancel')
+    );
+  };
+
   const myAppointmentsBase = useMemo(() => {
     const now = new Date();
     const normalizedCurrentUserId = String(currentUser?.id ?? '');
@@ -2403,7 +2426,7 @@ export default function AppointmentsPage() {
       if (!isCurrentUserAppointment) return false;
 
       const appointmentStatus = String(apt.status || '').toLowerCase();
-      if (['cancelled', 'no_show'].includes(appointmentStatus)) return false;
+      if (isCancelledStatus(appointmentStatus) || appointmentStatus === 'no_show') return false;
 
       const appointmentDateTime = getAppointmentStartDate(apt);
       if (!appointmentDateTime) return false;
