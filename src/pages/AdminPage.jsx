@@ -4494,12 +4494,12 @@ export default function AdminPage() {
       ).trim();
 
       if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
-        showToast('Informe um preÃ§o vÃ¡lido.', 'danger');
+        showToast('Informe um preço válido.', 'danger');
         return;
       }
 
       if (Number.isNaN(parsedPromotionalPrice) || parsedPromotionalPrice < 0) {
-        showToast('Informe um preÃ§o promocional vÃ¡lido.', 'danger');
+        showToast('Informe um preço promocional válido.', 'danger');
         return;
       }
 
@@ -5075,7 +5075,7 @@ export default function AdminPage() {
     const liquido = Math.max(totalDue - alreadyPaidTotal, 0);
 
     if (liquido <= 0) {
-      showToast('Este funcionario nao possui valor pendente no periodo selecionado.', 'info');
+      showToast('Este funcionário não possui valor pendente no período selecionado.', 'info');
       return;
     }
     const confirmMsg = `Confirmar pagamento de R$ ${liquido.toFixed(2)} para ${employee.name}?`;
@@ -5750,10 +5750,10 @@ export default function AdminPage() {
                     }}
                   >
                     <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--gold)', fontSize: '1rem' }}>
-                      Frequencia de pagamento - Barbeiros
+                      Frequência de pagamento - Barbeiros
                     </h3>
                     <p style={{ margin: '0 0 0.9rem 0', color: '#a8a8a8', fontSize: '0.85rem' }}>
-                      Defina a recorrencia padrao de pagamento dos barbeiros.
+                      Defina a recorrência padrão de pagamento dos barbeiros.
                     </p>
 
                     <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
@@ -5798,10 +5798,10 @@ export default function AdminPage() {
                     }}
                   >
                     <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--gold)', fontSize: '1rem' }}>
-                      Frequencia de pagamento - Outros funcionarios
+                      Frequência de pagamento - Outros funcionários
                     </h3>
                     <p style={{ margin: '0 0 0.9rem 0', color: '#a8a8a8', fontSize: '0.85rem' }}>
-                      Defina a recorrencia padrao de pagamento dos demais funcionarios.
+                      Defina a recorrência padrão de pagamento dos demais funcionários.
                     </p>
 
                     <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
@@ -7920,7 +7920,7 @@ export default function AdminPage() {
                     <div style={{ marginTop: '10px' }}>
                       <p style={{ margin: '0 0 6px 0', color: '#ddd' }}>
                         Conta conectada:{' '}
-                        <strong>{stripeConnectStatus?.accountId || 'nao criada'}</strong>
+                        <strong>{stripeConnectStatus?.accountId || 'não criada'}</strong>
                       </p>
                       <p style={{ margin: '0 0 6px 0', color: '#ddd' }}>
                         Pode cobrar: <strong>{stripeConnectStatus?.chargesEnabled ? 'Sim' : 'Não'}</strong>

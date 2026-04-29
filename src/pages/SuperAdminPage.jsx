@@ -302,7 +302,7 @@ export default function SuperAdminPage() {
                 showToast(
                     error?.response?.data?.[0] ||
                     error?.response?.data?.message ||
-                    'Nao foi possivel carregar os dados do Super Admin.',
+                    'Não foi possível carregar os dados do Super Admin.',
                     'danger'
                 );
             } finally {
@@ -342,7 +342,7 @@ export default function SuperAdminPage() {
             showToast(
                 error?.response?.data?.[0] ||
                 error?.response?.data?.message ||
-                'Nao foi possivel atualizar o status da barbearia.',
+                'Não foi possível atualizar o status da barbearia.',
                 'danger'
             );
         }
@@ -393,7 +393,7 @@ export default function SuperAdminPage() {
             setSelectedBarbershop(details);
             setSelectedBarbershopUsers(Array.isArray(users?.items) ? users.items : []);
         } catch (error) {
-            showToast('Nao foi possivel carregar os detalhes da barbearia.', 'danger');
+            showToast('Não foi possível carregar os detalhes da barbearia.', 'danger');
         } finally {
             setDetailsLoading(false);
         }
@@ -615,12 +615,12 @@ export default function SuperAdminPage() {
                                     <thead>
                                         <tr>
                                             <th>Barbearia</th>
-                                            <th>Responsavel</th>
+                                            <th>Responsável</th>
                                             <th>Plano</th>
                                             <th>Status</th>
-                                            <th>Criacao</th>
+                                            <th>Criação</th>
                                             <th>Indicadores</th>
-                                            <th>Acoes</th>
+                                            <th>Ações</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -686,7 +686,7 @@ export default function SuperAdminPage() {
 
                             <footer className="super-admin-pagination">
                                 <span>
-                                    Pagina {page} de {totalPages} | Total: {total}
+                                    Página {page} de {totalPages} | Total: {total}
                                 </span>
                                 <div>
                                     <button
@@ -703,7 +703,7 @@ export default function SuperAdminPage() {
                                         disabled={page >= totalPages}
                                         onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
                                     >
-                                        Proxima
+                                        Próxima
                                     </button>
                                 </div>
                             </footer>
@@ -838,7 +838,7 @@ export default function SuperAdminPage() {
                                                     <li key={sub.id}>
                                                         <strong>{sub.subscription_plans?.name || 'Plano desconhecido'}</strong>
                                                         <span>Status: {sub.status}</span>
-                                                        <span>Proxima cobranca: {formatDate(sub.next_billing_at)}</span>
+                                                        <span>Próxima cobrança: {formatDate(sub.next_billing_at)}</span>
                                                     </li>
                                                 ))}
                                             </ul>
@@ -847,9 +847,9 @@ export default function SuperAdminPage() {
                                 </div>
 
                                 <section>
-                                    <h4>Usuarios vinculados ({selectedBarbershopUsers.length})</h4>
+                                    <h4>Usuários vinculados ({selectedBarbershopUsers.length})</h4>
                                     {selectedBarbershopUsers.length === 0 ? (
-                                        <p>Nenhum usuario vinculado.</p>
+                                        <p>Nenhum usuário vinculado.</p>
                                     ) : (
                                         <div className="super-admin-users-table">
                                             <table>
@@ -859,7 +859,7 @@ export default function SuperAdminPage() {
                                                         <th>Email</th>
                                                         <th>Telefone</th>
                                                         <th>Role</th>
-                                                        <th>Criacao</th>
+                                                        <th>Criação</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -904,7 +904,7 @@ export default function SuperAdminPage() {
                                 value={statusReasonModal.reason}
                                 onChange={(e) => setStatusReasonModal((prev) => ({ ...prev, reason: e.target.value }))}
                                 rows={4}
-                                placeholder="Ex.: pendencia financeira, solicitacao do responsavel, ajuste interno..."
+                                placeholder="Ex.: pendência financeira, solicitação do responsável, ajuste interno..."
                             />
                         </div>
 
