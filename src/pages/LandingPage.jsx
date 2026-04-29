@@ -82,17 +82,17 @@ const LandingPage = () => {
     }
 
     if (payload.slug && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(payload.slug)) {
-      setFormError('Slug invalido. Use apenas letras minusculas, numeros e hifen.');
+      setFormError('Slug inválido. Use apenas letras minúsculas, números e hífen.');
       return;
     }
 
     if (formData.password.length < 4) {
-      setFormError('A senha deve ter no minimo 4 caracteres.');
+      setFormError('A senha deve ter no mínimo 4 caracteres.');
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setFormError('Senha e confirmacao de senha nao conferem.');
+      setFormError('Senha e confirmação de senha não conferem.');
       return;
     }
 
@@ -108,7 +108,7 @@ const LandingPage = () => {
         return;
       }
 
-      // Caso nao haja checkoutUrl, usar Payment Link de teste e prefill do email do admin
+      // Caso não haja checkoutUrl, usar Payment Link de teste e prefill do email do admin
       const PAYMENT_LINK = 'https://buy.stripe.com/test_14A8wQ9M7gYgedi1m6awo00';
       const email = encodeURIComponent(payload.adminEmail || '');
       const url = email ? `${PAYMENT_LINK}?prefilled_email=${email}` : PAYMENT_LINK;
@@ -122,7 +122,7 @@ const LandingPage = () => {
       } else if (error?.response?.data?.message) {
         setFormError(error.response.data.message);
       } else {
-        setFormError('Nao foi possivel concluir o cadastro agora. Tente novamente.');
+        setFormError('Não foi possível concluir o cadastro agora. Tente novamente.');
       }
     } finally {
       setSubmitting(false);
@@ -387,7 +387,7 @@ const LandingPage = () => {
             <div className="lp-register-header">
               <h3>Cadastro da Barbearia</h3>
               <p>
-                Voce selecionou o <strong>{PLAN_LABELS[selectedPlan] || 'plano'}</strong>. Complete os dados para criar sua conta e seguir para assinatura.
+                Você selecionou o <strong>{PLAN_LABELS[selectedPlan] || 'plano'}</strong>. Complete os dados para criar sua conta e seguir para assinatura.
               </p>
             </div>
 
@@ -417,7 +417,7 @@ const LandingPage = () => {
                     disabled={submitting}
                   />
                   <small className="lp-register-helper">
-                    Se nao informar, o sistema gera automaticamente com base no nome.
+                    Se não informar, o sistema gera automaticamente com base no nome.
                   </small>
                 </label>
 

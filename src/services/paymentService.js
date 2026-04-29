@@ -599,7 +599,7 @@ export const buscarTodasAssinaturas = async () => {
       total: 0,
       items: [],
       subscriptions: [],
-      warning: error?.response?.data?.warning || error?.response?.data?.error || 'Assinaturas indisponÃ­veis.',
+      warning: error?.response?.data?.warning || error?.response?.data?.error || 'Assinaturas indisponíveis.',
     };
   }
 };

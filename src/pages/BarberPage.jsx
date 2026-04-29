@@ -40,7 +40,7 @@ export default function BarberPage() {
     const normalized = normalizePaymentFrequency(value);
     if (normalized === 'weekly') return 'Semana Atual';
     if (normalized === 'biweekly') return 'Quinzena Atual';
-    return 'M�s Atual';
+    return 'Mês Atual';
   };
 
   const getCurrentEarningsPeriodRange = () => {
@@ -394,25 +394,25 @@ export default function BarberPage() {
       const clientIdRaw = appointment.clientId || appointment.client?.id;
       const userData = clientIdRaw ? await getUserById(clientIdRaw) : null;
       const clientName = userData?.name || getAppointmentClientName(appointment);
-      const clientPhone = getAppointmentPhone(appointment, userData) || 'N�o cadastrado';
+      const clientPhone = getAppointmentPhone(appointment, userData) || 'Não cadastrado';
 
       const startDate = getAppointmentStartDate(appointment);
       const time = startDate && !Number.isNaN(startDate.getTime())
         ? startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-        : (getAppointmentTime(appointment) || 'Hor�rio n�o informado');
+        : (getAppointmentTime(appointment) || 'Horário não informado');
 
-      const serviceName = getAppointmentServicesLabel(appointment) || 'Servi�o';
+      const serviceName = getAppointmentServicesLabel(appointment) || 'Serviço';
 
-      const message = `?? PR�XIMO CLIENTE EM 15 MINUTOS!\n\nCliente: ${clientName}\nHor�rio: ${time}\nServi�o: ${serviceName || 'Servi�o'}\nTelefone: ${clientPhone}`;
+      const message = `🔔 PRÓXIMO CLIENTE EM 15 MINUTOS!\n\nCliente: ${clientName}\nHorário: ${time}\nServiço: ${serviceName || 'Serviço'}\nTelefone: ${clientPhone}`;
 
       if (currentUser?.phone) {
         let barberPhone = currentUser.phone.replace(/\D/g, '');
         if (!barberPhone.startsWith('55')) barberPhone = `55${barberPhone}`;
         window.open(`https://wa.me/${barberPhone}?text=${encodeURIComponent(message)}`, '_blank');
       }
-      showToast('Notifica��o: Pr�ximo cliente em 15 minutos!', 'info');
+      showToast('Notificação: Próximo cliente em 15 minutos!', 'info');
     } catch (error) {
-      console.error('Erro ao enviar notifica��o:', error);
+      console.error('Erro ao enviar notificação:', error);
     }
   };
 
@@ -425,7 +425,7 @@ export default function BarberPage() {
       const clientIdRaw = appointment.clientId || appointment.client?.id;
       const userData = clientIdRaw ? await getUserById(clientIdRaw) : null;
       const rawPhone = getAppointmentPhone(appointment, userData);
-      if (!rawPhone) return showToast('Cliente n�o possui telefone cadastrado.', 'danger');
+      if (!rawPhone) return showToast('Cliente não possui telefone cadastrado.', 'danger');
 
       let phone = rawPhone.replace(/\D/g, '');
       if (!phone.startsWith('55')) phone = `55${phone}`;
@@ -442,16 +442,16 @@ export default function BarberPage() {
       const startDate = getAppointmentStartDate(appointment);
       const date = startDate && !Number.isNaN(startDate.getTime())
         ? startDate.toLocaleDateString('pt-BR')
-        : 'data n�o informada';
+        : 'data não informada';
       const time = startDate && !Number.isNaN(startDate.getTime())
         ? startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-        : (getAppointmentTime(appointment) || 'hor�rio n�o informado');
+        : (getAppointmentTime(appointment) || 'horário não informado');
 
-      const serviceName = getAppointmentServicesLabel(appointment) || 'Servi�o';
+      const serviceName = getAppointmentServicesLabel(appointment) || 'Serviço';
 
       const messages = {
-        confirm: `Ol� ${clientName}!\n\nGostaria de CONFIRMAR seu agendamento:\n\n?? Data: ${date}\n?? Hor�rio: ${time}\n?? Servi�o: ${serviceName}\n????? Barbeiro: ${barberName}\n\nPor favor, responda esta mensagem para confirmar sua presen�a.\n\n? ADDEV Barbearia`,
-        reminder: `Ol� ${clientName}!\n\n? LEMBRETE do seu agendamento:\n\n?? Data: ${date}\n?? Hor�rio: ${time}\n?? Servi�o: ${serviceName}\n????? Barbeiro: ${barberName}\n\nTe esperamos!\n\n? ADDEV Barbearia`,
+        confirm: `Olá ${clientName}!\n\nGostaria de CONFIRMAR seu agendamento:\n\n📅 Data: ${date}\n⏰ Horário: ${time}\n✂️ Serviço: ${serviceName}\n💈 Barbeiro: ${barberName}\n\nPor favor, responda esta mensagem para confirmar sua presença.\n\n✅ ADDEV Barbearia`,
+        reminder: `Olá ${clientName}!\n\n🔔 LEMBRETE do seu agendamento:\n\n📅 Data: ${date}\n⏰ Horário: ${time}\n✂️ Serviço: ${serviceName}\n💈 Barbeiro: ${barberName}\n\nTe esperamos!\n\n✅ ADDEV Barbearia`,
       };
 
       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(messages[type])}`, '_blank');
@@ -767,7 +767,7 @@ export default function BarberPage() {
 
                 <div className="period-display">
                   <p className="auth-subtitle" style={{ margin: '1rem 0', fontSize: '1rem' }}>
-                    Per�odo: <strong style={{ color: 'var(--gold)' }}>{getPeriodLabel()}</strong>
+                    Período: <strong style={{ color: 'var(--gold)' }}>{getPeriodLabel()}</strong>
                   </p>
                 </div>
               </div>
@@ -918,7 +918,7 @@ export default function BarberPage() {
 
                 <div className="fluig-children-container">
                   {stats.filteredAppointments.length === 0 ? (
-                    <p className="no-appointments">Nenhum agendamento encontrado neste per�odo.</p>
+                    <p className="no-appointments">Nenhum agendamento encontrado neste período.</p>
                   ) : (
                     <table className="fluig-table-children">
                       <thead>
@@ -926,8 +926,8 @@ export default function BarberPage() {
                           <th>Status</th>
                           <th>Cliente</th>
                           <th>Data</th>
-                          <th>Hor�rio</th>
-                          <th>Servi�os</th>
+                          <th>Horário</th>
+                          <th>Serviços</th>
                           <th>Total</th>
                           <th>Seus Ganhos %</th>
                         </tr>
@@ -979,7 +979,7 @@ export default function BarberPage() {
 
                   {stats.filteredExtraPayments.length > 0 && (
                     <div style={{ marginTop: '1.25rem' }}>
-                      <h4 style={{ color: 'var(--gold)', marginBottom: '0.75rem' }}>Pagamentos extras do per�odo</h4>
+                      <h4 style={{ color: 'var(--gold)', marginBottom: '0.75rem' }}>Pagamentos extras do período</h4>
                       <table className="fluig-table-children">
                         <thead>
                           <tr>
@@ -1012,16 +1012,16 @@ export default function BarberPage() {
 
                   {stats.filteredPayrollPayments.length > 0 && (
                     <div style={{ marginTop: '1.25rem' }}>
-                      <h4 style={{ color: 'var(--gold)', marginBottom: '0.75rem' }}>Pagamentos de folha do per�odo</h4>
+                      <h4 style={{ color: 'var(--gold)', marginBottom: '0.75rem' }}>Pagamentos de folha do período</h4>
                       <table className="fluig-table-children">
                         <thead>
                           <tr>
                             <th>Data Pgto.</th>
-                            <th>Per�odo</th>
-                            <th>Sal�rio</th>
-                            <th>Comiss�o</th>
+                            <th>Período</th>
+                            <th>Salário</th>
+                            <th>Comissão</th>
                             <th>Vales</th>
-                            <th>L�quido</th>
+                            <th>Líquido</th>
                           </tr>
                         </thead>
                         <tbody>

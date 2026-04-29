@@ -76,7 +76,7 @@ export default function ProfilePage() {
     verificarAssinaturaAtiva(user);
     loadDependents(user.id);
 
-    // Busca permissoes atualizadas no backend e sincroniza sessao
+    // Busca permissões atualizadas no backend e sincroniza sessão
     fetch(`${API_URL}/users/${user.id}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
