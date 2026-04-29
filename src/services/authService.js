@@ -37,7 +37,6 @@ export function isTokenValid(token) {
  */
 export async function login(email, password) {
   const { data } = await api.post("/auth/login", {
-    ...(EXPECTED_BARBERSHOP_SLUG ? { slug: EXPECTED_BARBERSHOP_SLUG } : {}),
     email,
     password,
   });
@@ -176,14 +175,10 @@ export function saveSession(data) {
 }
 
 function isSessionForCurrentBarbershop() {
-  if (!EXPECTED_BARBERSHOP_SLUG) return true;
-
-  try {
-    const activeBarbershop = JSON.parse(localStorage.getItem("activeBarbershop") || "null");
-    return String(activeBarbershop?.slug || "") === EXPECTED_BARBERSHOP_SLUG;
-  } catch {
-    return false;
-  }
+  // Não invalidar automaticamente a sessão apenas porque `VITE_BARBERSHOP_SLUG`
+  // está definido no ambiente. Esse valor serve apenas para pré-seleção
+  // em deploys específicos, não para bloquear logins de outros tenants.
+  return true;
 }
 
 export function getSession() {
