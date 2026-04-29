@@ -78,6 +78,60 @@ const MANUAL_CLIENT_INITIAL_FORM = {
   confirmPassword: '',
 };
 
+const CANCELED_APPOINTMENT_STATUSES = new Set([
+  'cancelled',
+  'canceled',
+  'cancelado',
+  'cancelada',
+]);
+
+const normalizeStatusText = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+
+const isCanceledAppointmentStatus = (status) => {
+  const normalizedStatus = normalizeStatusText(status);
+  return (
+    CANCELED_APPOINTMENT_STATUSES.has(normalizedStatus) ||
+    normalizedStatus.startsWith('cancel') ||
+    normalizedStatus.includes('cancelad')
+  );
+};
+
+const isCanceledAppointment = (appointment) => isCanceledAppointmentStatus(appointment?.status);
+
+const getApiErrorMessage = (error) => {
+  const data = error?.response?.data;
+
+  if (Array.isArray(data)) return data.join(' ');
+  if (typeof data === 'string') return data;
+  if (Array.isArray(data?.message)) return data.message.join(' ');
+
+  return (
+    error?.originalMessage ||
+    data?.message ||
+    data?.error ||
+    data?.detail ||
+    data?.details ||
+    error?.message ||
+    ''
+  );
+};
+
+const isAlreadyCanceledAppointmentError = (error) => {
+  const normalizedMessage = normalizeStatusText(getApiErrorMessage(error));
+  return (
+    Number(error?.status || error?.response?.status) === 400 &&
+    normalizedMessage.includes('agendamento') &&
+    normalizedMessage.includes('ja esta cancelado')
+  );
+};
+
+const isSameId = (left, right) => String(left ?? '') === String(right ?? '');
+
 export default function AdminPage() {
   const navigate = useNavigate();
   const API_URL = API_BASE_URL;
@@ -744,7 +798,8 @@ export default function AdminPage() {
   useEffect(() => {
     const now = new Date();
     const today = now.toLocaleDateString('en-CA');
-    let filtered = [...appointments].sort((a, b) => {
+    const visibleAppointments = appointments.filter((apt) => !isCanceledAppointment(apt));
+    let filtered = [...visibleAppointments].sort((a, b) => {
       const dateA = new Date(`${a.date}T${a.time}`);
       const dateB = new Date(`${b.date}T${b.time}`);
       return dateA - dateB;
@@ -752,7 +807,7 @@ export default function AdminPage() {
     if (filter === 'today') filtered = filtered.filter(apt => apt.date === today);
     if (filter === 'upcoming') filtered = filtered.filter(apt => new Date(`${apt.date}T${apt.time}`) >= now);
     setFilteredAppointments(filtered);
-    setTodayAppointments(appointments.filter(apt => apt.date === today));
+    setTodayAppointments(visibleAppointments.filter(apt => apt.date === today));
   }, [appointments, filter]);
 
   const loadGallery = async () => {
@@ -906,7 +961,7 @@ export default function AdminPage() {
   }
 
   const getFilteredAppointments = () => {
-    let filtered = [...appointments];
+    let filtered = appointments.filter((appointment) => !isCanceledAppointment(appointment));
 
     if (isBarber) {
       const loggedInBarber = barbers.find(
@@ -1220,7 +1275,7 @@ export default function AdminPage() {
         ? appointmentPayments.items
         : [];
 
-    let filtered = [...payments];
+    let filtered = payments.filter((payment) => !isCanceledAppointment(payment?.appointment));
 
     if (!isAdmin && !isReceptionist) {
       const loggedInBarber = barbers.find(
@@ -2154,7 +2209,11 @@ export default function AdminPage() {
 
       setBarbers(barbersData);
       setEmployees(allEmployees);
-      setAppointments(appointmentsData);
+      setAppointments(
+        Array.isArray(appointmentsData)
+          ? appointmentsData.filter((appointment) => !isCanceledAppointment(appointment))
+          : [],
+      );
 
       const today = new Date();
       const toExpire = subscriptionItems.filter(
@@ -3362,9 +3421,24 @@ export default function AdminPage() {
     showConfirm('Deseja realmente cancelar este agendamento?', async () => {
       try {
         await deleteAppointment(id);
-        await loadData();
+        setAppointments((prev) => prev.filter((appointment) => !isSameId(appointment.id, id)));
+        setAppointmentPayments((prev) =>
+          Array.isArray(prev)
+            ? prev.filter((payment) => !isSameId(payment.appointmentId, id))
+            : prev,
+        );
         showToast('Agendamento cancelado com sucesso!', 'success');
       } catch (error) {
+        if (isAlreadyCanceledAppointmentError(error)) {
+          setAppointments((prev) => prev.filter((appointment) => !isSameId(appointment.id, id)));
+          setAppointmentPayments((prev) =>
+            Array.isArray(prev)
+              ? prev.filter((payment) => !isSameId(payment.appointmentId, id))
+              : prev,
+          );
+          return;
+        }
+
         showToast('Erro ao cancelar agendamento.', 'danger');
       }
     });
@@ -3423,8 +3497,23 @@ export default function AdminPage() {
           await deleteAppointment(payment.appointmentId);
         }
         setAppointmentPayments((prev) => prev.filter((p) => p.id !== payment.id));
+        if (payment.appointmentId) {
+          setAppointments((prev) =>
+            prev.filter((appointment) => !isSameId(appointment.id, payment.appointmentId)),
+          );
+        }
         showToast('Agendamento cancelado com sucesso!', 'success');
       } catch (error) {
+        if (isAlreadyCanceledAppointmentError(error)) {
+          setAppointmentPayments((prev) => prev.filter((p) => p.id !== payment.id));
+          if (payment.appointmentId) {
+            setAppointments((prev) =>
+              prev.filter((appointment) => !isSameId(appointment.id, payment.appointmentId)),
+            );
+          }
+          return;
+        }
+
         showToast('Erro ao cancelar agendamento.', 'danger');
       }
     });
@@ -3870,7 +3959,7 @@ export default function AdminPage() {
 
 
   const filteredAppointmentsAdmin = useMemo(() => {
-    let filtered = [...appointments];
+    let filtered = appointments.filter((apt) => !isCanceledAppointment(apt));
 
     if (isBarber) {
       const loggedInBarber = barbers.find(
