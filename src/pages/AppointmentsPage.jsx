@@ -134,6 +134,22 @@ const getSubscriptionUserId = (subscription) =>
       '',
   );
 
+function isCancelledStatus(status) {
+  const normalized = String(status || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
+  return (
+    normalized === 'cancelled' ||
+    normalized === 'canceled' ||
+    normalized === 'cancelado' ||
+    normalized === 'cancel' ||
+    normalized.startsWith('cancel')
+  );
+}
+
 const MONTHLY_BARBER_LOCK_DAYS = 30;
 const MONTHLY_BARBER_LOCK_MS = MONTHLY_BARBER_LOCK_DAYS * 24 * 60 * 60 * 1000;
 
@@ -2395,22 +2411,6 @@ export default function AppointmentsPage() {
       );
     }
   }, [appointmentToDelete, loadData, showToast, clearPaymentCache]);
-
-  const isCancelledStatus = (status) => {
-    const normalized = String(status || '')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .trim();
-    
-    return (
-      normalized === 'cancelled' ||
-      normalized === 'canceled' ||
-      normalized === 'cancelado' ||
-      normalized === 'cancel' ||
-      normalized.startsWith('cancel')
-    );
-  };
 
   const myAppointmentsBase = useMemo(() => {
     const now = new Date();
