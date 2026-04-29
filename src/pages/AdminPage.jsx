@@ -214,6 +214,7 @@ export default function AdminPage() {
     specialty: '',
     photo: '',
     salarioFixo: '',
+    commissionPercent: '',
     paymentFrequency: 'monthly',
     createUser: false,
     userEmail: '',
@@ -866,6 +867,13 @@ export default function AdminPage() {
     return 'monthly';
   };
 
+  const mapPaymentFrequencyToApi = (value) => {
+    const normalized = normalizePaymentFrequency(value);
+    if (normalized === 'weekly') return 'semanal';
+    if (normalized === 'biweekly') return 'quinzenal';
+    return 'mensal';
+  };
+
   const getPaymentFrequencyLabel = (value) => {
     const normalized = normalizePaymentFrequency(value);
     if (normalized === 'weekly') return 'Semanal';
@@ -1016,11 +1024,11 @@ export default function AdminPage() {
       await saveHomeInfo({
         ...nextHomeInfo,
         barberPaymentFrequency:
-          normalizePaymentFrequency(
+          mapPaymentFrequencyToApi(
             nextHomeInfo?.barberPaymentFrequency ?? barberPaymentFrequency ?? 'monthly',
           ),
         employeePaymentFrequency:
-          normalizePaymentFrequency(
+          mapPaymentFrequencyToApi(
             nextHomeInfo?.employeePaymentFrequency ?? employeePaymentFrequency ?? 'monthly',
           ),
       });
@@ -2523,6 +2531,7 @@ export default function AdminPage() {
         specialty: employee.role === 'admin' ? 'Administrador' : 'Recepcionista',
         photo: employee.photo || '',
         salarioFixo: employee.salarioFixo || '',
+        commissionPercent: '',
         paymentFrequency: normalizePaymentFrequency(employee.paymentFrequency),
         createUser: false,
         userEmail: employee.email || '',
@@ -2537,6 +2546,7 @@ export default function AdminPage() {
         specialty: barber.specialty,
         photo: barber.photo,
         salarioFixo: barber.salarioFixo || '',
+        commissionPercent: barber.commission_percent ?? barber.commissionPercent ?? '',
         paymentFrequency: normalizePaymentFrequency(barber.paymentFrequency),
         createUser: false,
         userEmail: '',
@@ -2552,6 +2562,7 @@ export default function AdminPage() {
         specialty: '',
         photo: '',
         salarioFixo: '',
+        commissionPercent: '',
         paymentFrequency: 'monthly',
         createUser: false,
         userEmail: '',
@@ -2572,6 +2583,7 @@ export default function AdminPage() {
       specialty: '',
       photo: '',
       salarioFixo: '',
+      commissionPercent: '',
       paymentFrequency: 'monthly',
       createUser: false,
       userEmail: '',
@@ -2586,6 +2598,12 @@ export default function AdminPage() {
     setBarberForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const parseCommissionPercent = (value) => {
+    const parsed = Number(String(value ?? '').replace(',', '.'));
+    if (Number.isNaN(parsed)) return 0;
+    return Math.max(0, Math.min(100, parsed));
+  };
+
   const handleSaveBarber = async (e) => {
     e.preventDefault();
     if (!isAdmin) {
@@ -2594,6 +2612,15 @@ export default function AdminPage() {
     }
     if (!barberForm.displayName.trim()) {
       showToast('O nome do funcionário é obrigatório.', 'danger');
+      return;
+    }
+    const shouldSaveBarber = barberForm.userRole === 'barber' || !barberForm.createUser;
+    const rawCommissionPercent = Number(String(barberForm.commissionPercent || 0).replace(',', '.'));
+    if (
+      shouldSaveBarber &&
+      (Number.isNaN(rawCommissionPercent) || rawCommissionPercent < 0 || rawCommissionPercent > 100)
+    ) {
+      showToast('A comissão deve ser um valor entre 0 e 100.', 'danger');
       return;
     }
     try {
@@ -2658,12 +2685,13 @@ export default function AdminPage() {
         const createdUser = await userResponse.json();
         userId = createdUser.id;
       }
-      if (barberForm.userRole === 'barber' || !barberForm.createUser) {
+      if (shouldSaveBarber) {
         const barberData = {
           displayName: barberForm.displayName,
           specialty: barberForm.specialty,
           photo: barberForm.photo,
           salarioFixo: parseFloat(barberForm.salarioFixo) || 0,
+          commission_percent: parseCommissionPercent(barberForm.commissionPercent),
           paymentFrequency: normalizePaymentFrequency(barberForm.paymentFrequency),
           serviceIds: barberForm.serviceIds || [],
 
@@ -3335,6 +3363,17 @@ export default function AdminPage() {
     }, 0);
   };
 
+  const getBarberCommissionPercent = (barberData) => {
+    const rawCommission = barberData?.commissionPercent ?? barberData?.commission_percent;
+    const parsedCommission = Number(rawCommission);
+
+    if (!Number.isNaN(parsedCommission) && parsedCommission >= 0) {
+      return Math.max(0, Math.min(100, parsedCommission));
+    }
+
+    return 50;
+  };
+
   const calculateBarberStatsbyBarber = (barberId) => {
     const barber = barbers.find((b) => b.id === barberId);
     const barberAppointments = getAppointmentsByBarber(barberId);
@@ -3345,7 +3384,7 @@ export default function AdminPage() {
       totalRevenue += aptTotal;
       totalServices += apt.services.length;
     });
-    const commissionPercent = barber?.commissionPercent || 50;
+    const commissionPercent = getBarberCommissionPercent(barber);
     const barberEarnings = (totalRevenue * commissionPercent) / 100;
     const shopEarnings = totalRevenue - barberEarnings;
     return {
@@ -3406,7 +3445,7 @@ export default function AdminPage() {
       totalRevenue += calculateTotal(apt.services || []);
     });
 
-    const commissionPercent = barberProfile?.commissionPercent || 50;
+    const commissionPercent = getBarberCommissionPercent(barberProfile);
     const barberEarnings = (totalRevenue * commissionPercent) / 100;
 
     return {
@@ -3430,7 +3469,7 @@ export default function AdminPage() {
       totalServices += apt.services.length;
     });
 
-    const commissionPercent = barberProfile?.commissionPercent || 50;
+    const commissionPercent = getBarberCommissionPercent(barberProfile);
     const barberEarnings = (totalRevenue * commissionPercent) / 100;
     const shopEarnings = totalRevenue - barberEarnings;
 
@@ -3671,7 +3710,7 @@ export default function AdminPage() {
       extraPaymentsTotal = extraPaymentsInPeriod.reduce((sum, p) => sum + (p.liquido || 0), 0);
     }
 
-    const commissionPercent = loggedInBarberProfile?.commissionPercent || 50;
+    const commissionPercent = getBarberCommissionPercent(loggedInBarberProfile);
     const barberEarnings = (totalRevenue * commissionPercent) / 100;
 
     return {
@@ -4306,10 +4345,22 @@ export default function AdminPage() {
     });
   };
 
+  const getPayrollAnchorDate = (monthStr) => {
+    const selectedDate = toDateStr(payrollDateFilter);
+    const selectedStart = toDateStr(payrollStartDate);
+    const selectedEnd = toDateStr(payrollEndDate);
+
+    if (selectedDate) return selectedDate;
+    if (selectedStart) return selectedStart;
+    if (selectedEnd) return selectedEnd;
+    return `${monthStr}-01`;
+  };
+
   const getPayrollPeriodDates = (period, monthStr) => {
     const normalizedPeriod = normalizePaymentFrequency(period);
     const [year, month] = monthStr.split('-').map(Number);
-    const now = new Date();
+    const anchorDate = new Date(`${getPayrollAnchorDate(monthStr)}T00:00:00`);
+
     if (normalizedPeriod === 'monthly') {
       const start = `${year}-${String(month).padStart(2, '0')}-01`;
       const lastDay = new Date(year, month, 0).getDate();
@@ -4317,22 +4368,16 @@ export default function AdminPage() {
       return { start, end };
     }
     if (normalizedPeriod === 'biweekly') {
-      const day = now.getMonth() + 1 === month && now.getFullYear() === year ? now.getDate() : 15;
-      if (day <= 15) {
-        return {
-          start: `${year}-${String(month).padStart(2, '0')}-01`,
-          end: `${year}-${String(month).padStart(2, '0')}-15`,
-        };
-      }
       const lastDay = new Date(year, month, 0).getDate();
+      const isFirstHalf = anchorDate.getDate() <= 15;
       return {
-        start: `${year}-${String(month).padStart(2, '0')}-16`,
-        end: `${year}-${String(month).padStart(2, '0')}-${lastDay}`,
+        start: `${year}-${String(month).padStart(2, '0')}-${isFirstHalf ? '01' : '16'}`,
+        end: `${year}-${String(month).padStart(2, '0')}-${String(isFirstHalf ? 15 : lastDay).padStart(2, '0')}`,
       };
     }
     if (normalizedPeriod === 'weekly') {
-      const monday = new Date(now);
-      monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+      const monday = new Date(anchorDate);
+      monday.setDate(anchorDate.getDate() - ((anchorDate.getDay() + 6) % 7));
       const sunday = new Date(monday);
       sunday.setDate(monday.getDate() + 6);
       return {
@@ -4414,9 +4459,10 @@ export default function AdminPage() {
     return baseRange;
   };
 
-  const isPayrollPaymentRecordedForRange = (payment, employeeId, start, end) => {
+  const isPayrollPaymentRecordedForRange = (payment, employeeId, period, start, end) => {
     if (!payment || isExtraPayment(payment)) return false;
     if (String(payment.employeeId) !== String(employeeId)) return false;
+    if (normalizePaymentFrequency(payment.period) !== normalizePaymentFrequency(period)) return false;
 
     const paymentStart = toDateStr(payment.periodStart);
     const paymentEnd = toDateStr(payment.periodEnd);
@@ -4425,31 +4471,151 @@ export default function AdminPage() {
 
     if (!paymentStart || !paymentEnd || !rangeStart || !rangeEnd) return false;
 
-    return paymentStart <= rangeEnd && paymentEnd >= rangeStart;
+    return paymentStart === rangeStart && paymentEnd === rangeEnd;
+  };
+
+  const getPayrollPaymentsInRange = (employeeId, period, start, end) => {
+    if (!Array.isArray(employeePayments)) return [];
+
+    return employeePayments.filter((payment) =>
+      isPayrollPaymentRecordedForRange(payment, employeeId, period, start, end),
+    );
+  };
+
+  const getPayrollPaidTotalInRange = (employeeId, period, start, end) => {
+    return getPayrollPaymentsInRange(employeeId, period, start, end).reduce(
+      (sum, payment) => sum + Number(payment.liquido || 0),
+      0,
+    );
+  };
+
+  const getServicePrice = (service) => {
+    const rawPrice =
+      service?.unitPrice ??
+      service?.price ??
+      service?.basePrice ??
+      service?.promotionalPrice ??
+      0;
+    const price = Number(
+      String(rawPrice)
+        .replace('R$', '')
+        .replace(/\./g, '')
+        .replace(',', '.'),
+    );
+    return Number.isNaN(price) ? 0 : price;
+  };
+
+  const getServiceCommissionPercent = (service, barberData) => {
+    const serviceCommission =
+      service?.commissionPercent ??
+      service?.comissionPercent ??
+      service?.commission_percent;
+    const parsedServiceCommission = Number(serviceCommission);
+
+    if (!Number.isNaN(parsedServiceCommission) && parsedServiceCommission > 0) {
+      return parsedServiceCommission;
+    }
+
+    return getBarberCommissionPercent(barberData);
+  };
+
+  const calculateAppointmentCommission = (appointment, fallbackAmount, barberData) => {
+    const appointmentServices = Array.isArray(appointment?.services) ? appointment.services : [];
+
+    if (appointmentServices.length > 0) {
+      return appointmentServices.reduce((sum, service) => {
+        const price = getServicePrice(service);
+        const commissionPercent = getServiceCommissionPercent(service, barberData);
+        return sum + (price * commissionPercent) / 100;
+      }, 0);
+    }
+
+    const commissionPercent = getBarberCommissionPercent(barberData);
+    return (Number(fallbackAmount || 0) * commissionPercent) / 100;
+  };
+
+  const getPaymentAppointmentId = (payment) => {
+    return payment?.appointmentId || payment?.appointment?.id || null;
+  };
+
+  const getAppointmentMatchesBarber = (appointment, barberData) => {
+    if (!appointment || !barberData) return false;
+
+    const appointmentBarberId = appointment.barberId || appointment.barber?.id;
+    const appointmentBarberName =
+      appointment.barberName || appointment.barber?.displayName || appointment.barber?.name;
+
+    return (
+      String(appointmentBarberId || '') === String(barberData.id || '') ||
+      String(appointmentBarberName || '') === String(barberData.displayName || barberData.name || '')
+    );
+  };
+
+  const getPaymentMatchesBarber = (payment, barberData) => {
+    if (!payment || !barberData) return false;
+
+    const paymentBarberId =
+      payment.barberId || payment.appointment?.barberId || payment.appointment?.barber?.id;
+    const paymentBarberName =
+      payment.barberName ||
+      payment.appointment?.barberName ||
+      payment.appointment?.barber?.displayName ||
+      payment.appointment?.barber?.name;
+
+    return (
+      String(paymentBarberId || '') === String(barberData.id || '') ||
+      String(paymentBarberName || '') === String(barberData.displayName || barberData.name || '')
+    );
   };
 
   const getBarberCommissionInPeriod = (barberId, start, end) => {
     if (!barberId || !start || !end) return 0;
     const barberData = barbers.find((b) => String(b.id) === String(barberId));
     if (!barberData) return 0;
-    const commissionPercent = Number(barberData.commissionPercent) || 50;
-    const relevantPayments = normalizedAppointmentPayments.filter((p) => {
-      const paymentBarberId = p?.appointment?.barber?.id;
-      const paymentBarberName = p?.appointment?.barber?.displayName;
-      if (
-        String(paymentBarberId) !== String(barberId) &&
-        paymentBarberName !== barberData.displayName
-      )
-        return false;
-      if (p.commissionPaid === true) return false;
-      const d = getAppointmentPaymentDate(p);
-      return d >= start && d <= end;
+
+    const commissionByAppointmentKey = new Map();
+
+    normalizedAppointmentPayments.filter(isSettledAppointmentPayment).forEach((payment) => {
+      if (!getPaymentMatchesBarber(payment, barberData)) return;
+      const d = getAppointmentPaymentDate(payment);
+      if (d < start || d > end) return;
+
+      const appointment = payment.appointment || getAppointmentByPayment(payment);
+      const key = getPaymentAppointmentId(payment) || `payment:${payment.id}`;
+      const commission = calculateAppointmentCommission(
+        appointment,
+        payment.amount,
+        barberData,
+      );
+      commissionByAppointmentKey.set(key, commission);
     });
-    const total = relevantPayments.reduce(
-      (sum, p) => sum + (parseFloat(p.amount) || 0),
+
+    appointments.forEach((appointment) => {
+      if (String(appointment.status || '').toLowerCase() !== 'completed') return;
+      if (!getAppointmentMatchesBarber(appointment, barberData)) return;
+
+      const d = toDateStr(appointment.startAt || appointment.date || appointment.appointmentDate);
+      if (d < start || d > end) return;
+
+      const key = appointment.id || `appointment:${d}:${barberId}`;
+      if (commissionByAppointmentKey.has(key)) return;
+
+      commissionByAppointmentKey.set(
+        key,
+        calculateAppointmentCommission(
+          appointment,
+          calculateTotal(appointment.services || []),
+          barberData,
+        ),
+      );
+    });
+
+    const total = Array.from(commissionByAppointmentKey.values()).reduce(
+      (sum, commission) => sum + Number(commission || 0),
       0,
     );
-    return parseFloat(((total * commissionPercent) / 100).toFixed(2));
+
+    return parseFloat(total.toFixed(2));
   };
 
   const getValesInPeriod = (employeeId, start, end) => {
@@ -4606,7 +4772,7 @@ export default function AdminPage() {
         employeeId: employee.id,
         employeeName: employee.name,
         paymentType: 'extra',
-        period: 'monthly',
+        period: mapPaymentFrequencyToApi('monthly'),
         periodStart: paymentDate,
         periodEnd: paymentDate,
         salarioFixo: amount,
@@ -4646,12 +4812,9 @@ export default function AdminPage() {
 
   const checkAlreadyPaidInPeriod = (employeeId, period, monthStr) => {
     const { start, end } = getEffectivePayrollRange(period, monthStr);
+    const payments = getPayrollPaymentsInRange(employeeId, period, start, end);
 
-    return (
-      employeePayments.find(
-        (p) => isPayrollPaymentRecordedForRange(p, employeeId, start, end),
-      ) || null
-    );
+    return payments.length > 0 ? payments[0] : null;
   };
 
   const handleMarkPayrollPaid = async (employee, barberData) => {
@@ -4659,6 +4822,13 @@ export default function AdminPage() {
     const { start, end } = getEffectivePayrollRange(period, payrollMonthFilter);
     const barberId = barberData?.id;
     const fallbackErrorMessage = 'N\u00e3o foi poss\u00edvel registrar o pagamento deste funcion\u00e1rio.';
+    const existingPayment = checkAlreadyPaidInPeriod(employee.id, period, payrollMonthFilter);
+
+    if (existingPayment) {
+      showToast('Este funcionário já possui pagamento registrado neste período.', 'info');
+      return;
+    }
+
     const commission = barberId ? getBarberCommissionInPeriod(barberId, start, end) : 0;
     const vales = getValesInPeriod(employee.id, start, end);
     const totalExtraPayments = getExtraPaymentsInPeriod(employee.id, start, end).reduce(
@@ -4667,19 +4837,15 @@ export default function AdminPage() {
     );
     const totalVales = vales.reduce((s, v) => s + v.valor, 0);
     const salarioFixo = parseFloat(barberData?.salarioFixo ?? employee.salarioFixo ?? 0) || 0;
-    const liquido = salarioFixo + commission + totalExtraPayments - totalVales;
+    const totalDue = salarioFixo + commission + totalExtraPayments - totalVales;
+    const alreadyPaidTotal = getPayrollPaidTotalInRange(employee.id, period, start, end);
+    const liquido = Math.max(totalDue - alreadyPaidTotal, 0);
 
-    const existingPayment = checkAlreadyPaidInPeriod(employee.id, period, payrollMonthFilter);
-
-    if (existingPayment) {
-      showToast('Este funcionário já possui pagamento registrado no período selecionado.', 'info');
+    if (liquido <= 0) {
+      showToast('Este funcionario nao possui valor pendente no periodo selecionado.', 'info');
       return;
     }
-    const periodLabel =
-      period === 'weekly' ? 'semana' : period === 'biweekly' ? 'quinzena' : 'mês';
-    const confirmMsg = existingPayment
-      ? `⚠️ ${employee.name} já recebeu R$ ${parseFloat(existingPayment.liquido).toFixed(2)} nessa ${periodLabel} (pago em ${new Date(existingPayment.paidAt).toLocaleDateString('pt-BR')}).\n\nTem certeza que deseja registrar um segundo pagamento de R$ ${liquido.toFixed(2)}?`
-      : `Confirmar pagamento de R$ ${liquido.toFixed(2)} para ${employee.name}?`;
+    const confirmMsg = `Confirmar pagamento de R$ ${liquido.toFixed(2)} para ${employee.name}?`;
 
     showConfirm(confirmMsg, async () => {
       try {
@@ -4687,7 +4853,7 @@ export default function AdminPage() {
           employeeId: employee.id,
           employeeName: employee.name,
           paymentType: 'payroll',
-          period,
+          period: mapPaymentFrequencyToApi(period),
           periodStart: start,
           periodEnd: end,
           salarioFixo,
@@ -4730,34 +4896,6 @@ export default function AdminPage() {
           }
         }
 
-        if (barberId) {
-          const toMark = normalizedAppointmentPayments.filter((p) => {
-            if (String(p.barberId) !== String(barberId) && p.barberName !== barberData?.name)
-              return false;
-            if (p.status !== 'paid' || p.commissionPaid === true) return false;
-            const d = getAppointmentPaymentDate(p);
-            return d >= start && d <= end;
-          });
-          const commissionResponses = await Promise.all(
-            toMark.map((p) =>
-              fetch(`${API_URL}/appointmentPayments/${p.id}`, {
-                method: 'PATCH',
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ commissionPaid: true }),
-              }),
-            ),
-          );
-
-          if (commissionResponses.some((response) => !response.ok)) {
-            throw new Error(
-              'Pagamento registrado, mas n\u00e3o foi poss\u00edvel atualizar o resumo das comiss\u00f5es.',
-            );
-          }
-        }
-
         await loadPayrollData();
         showToast(`Pagamento de ${employee.name} registrado com sucesso!`, 'success');
       } catch (error) {
@@ -4780,11 +4918,6 @@ export default function AdminPage() {
       const barberData = barbers.find((b) => String(b.userId) === String(emp.id));
       const period = getConfiguredPayrollFrequency(emp, barberData);
       const { start, end } = getEffectivePayrollRange(period, payrollMonthFilter);
-      const alreadyPaid = employeePayments.some(
-        (payment) => isPayrollPaymentRecordedForRange(payment, emp.id, start, end),
-      );
-
-      if (alreadyPaid) return sum;
 
       const commission = barberData ? getBarberCommissionInPeriod(barberData.id, start, end) : 0;
       const totalVales = getValesInPeriod(emp.id, start, end).reduce((acc, vale) => acc + vale.valor, 0);
@@ -4793,7 +4926,9 @@ export default function AdminPage() {
         0,
       );
       const salarioFixo = parseFloat(barberData?.salarioFixo ?? emp.salarioFixo ?? 0) || 0;
-      const liquido = salarioFixo + commission + totalExtraPayments - totalVales;
+      const totalDue = salarioFixo + commission + totalExtraPayments - totalVales;
+      const alreadyPaidTotal = getPayrollPaidTotalInRange(emp.id, period, start, end);
+      const liquido = Math.max(totalDue - alreadyPaidTotal, 0);
 
       return sum + liquido;
     }, 0);
@@ -4807,7 +4942,7 @@ export default function AdminPage() {
         const period = getConfiguredPayrollFrequency(employee, barberData);
         const { start, end } = getEffectivePayrollRange(period, payrollMonthFilter);
 
-        return isPayrollPaymentRecordedForRange(payment, employee.id, start, end);
+        return isPayrollPaymentRecordedForRange(payment, employee.id, period, start, end);
       })
       .reduce((sum, payment) => sum + parseFloat(payment.liquido || 0), 0);
 
@@ -6413,20 +6548,21 @@ export default function AdminPage() {
 
                         const salarioFixo =
                           parseFloat(barberData?.salarioFixo ?? emp.salarioFixo ?? 0) || 0;
-                        const liquido = salarioFixo + commission + totalExtraPayments - totalVales;
-                        const isExp = payrollExpandedId === emp.id;
-
-                        const alreadyPaid = !!checkAlreadyPaidInPeriod(
+                        const totalDue = salarioFixo + commission + totalExtraPayments - totalVales;
+                        const alreadyPaidTotal = getPayrollPaidTotalInRange(emp.id, period, start, end);
+                        const saldoPendente = Math.max(totalDue - alreadyPaidTotal, 0);
+                        const alreadyPaidRecord = !!checkAlreadyPaidInPeriod(
                           emp.id,
                           period,
                           payrollMonthFilter,
                         );
-                        const displaySalarioFixo = alreadyPaid ? 0 : salarioFixo;
-                        const displayCommission = alreadyPaid ? 0 : commission;
-                        const displayExtraPayments = alreadyPaid ? 0 : totalExtraPayments;
-                        const displayVales = alreadyPaid ? 0 : totalVales;
-                        const displayLiquido = alreadyPaid ? 0 : liquido;
-                        const displayValesList = alreadyPaid ? [] : vales;
+                        const isExp = payrollExpandedId === emp.id;
+                        const displaySalarioFixo = salarioFixo;
+                        const displayCommission = commission;
+                        const displayExtraPayments = totalExtraPayments;
+                        const displayVales = totalVales;
+                        const displayLiquido = saldoPendente;
+                        const displayValesList = vales;
 
                         return (
                           <React.Fragment key={emp.id}>
@@ -6509,24 +6645,17 @@ export default function AdminPage() {
                               </td>
 
                               <td className="payroll-td payroll-td--center">
-                                {alreadyPaid ? (
-                                  <div
-                                    style={{
-                                      display: 'flex',
-                                      flexDirection: 'column',
-                                      alignItems: 'center',
-                                      gap: '6px',
-                                    }}
-                                  >
-                                    <span className="payroll-paid-badge">✅ Pago</span>
-                                  </div>
-                                ) : (
+                                {alreadyPaidRecord ? (
+                                  <span className="payroll-paid-badge">Pagamento já realizado</span>
+                                ) : saldoPendente > 0 ? (
                                   <button
                                     onClick={() => handleMarkPayrollPaid(emp, barberData)}
                                     className="payroll-pay-btn"
                                   >
                                     Pagar
                                   </button>
+                                ) : (
+                                  <span className="payroll-paid-badge">Pago neste período</span>
                                 )}
                               </td>
                             </tr>
@@ -8534,7 +8663,7 @@ export default function AdminPage() {
                     (p) => (p.appointment?.barber?.displayName || 'Sem barbeiro') === barberName,
                   );
                   const barberObj = barbers.find((b) => b.displayName === barberName);
-                  const commissionPercent = barberObj?.commissionPercent || 50;
+                  const commissionPercent = getBarberCommissionPercent(barberObj);
 
                   const paidOnly = barberPayments.filter((p) => {
                     const isPlanCovered =
@@ -9628,6 +9757,22 @@ export default function AdminPage() {
                 value={barberForm.salarioFixo}
                 onChange={(e) => handleBarberFormChange('salarioFixo', e.target.value)}
               />
+
+              {barberForm.userRole === 'barber' && !editingBarber?.isUserOnly && (
+                <label className="input-field">
+                  <span className="input-field__label">Comissão (%)</span>
+                  <input
+                    className="input-field__control"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    placeholder="Ex: 50.00"
+                    value={barberForm.commissionPercent}
+                    onChange={(e) => handleBarberFormChange('commissionPercent', e.target.value)}
+                  />
+                </label>
+              )}
 
               <div style={{ marginBottom: '1rem' }}>
                 <label className="form-label">Frequência de Pagamento</label>

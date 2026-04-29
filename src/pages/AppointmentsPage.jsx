@@ -117,6 +117,23 @@ const getSubscriptionMonthlyBarberSetAt = (subscription) =>
     'monthlyBarberSetAt',
   ]);
 
+const isTruthyPlanFlag = (value) =>
+  value === true || String(value ?? '').trim().toLowerCase() === 'true';
+
+const isActiveSubscriptionStatus = (status) =>
+  ['active', 'trialing', 'approved', 'paid'].includes(String(status ?? '').toLowerCase());
+
+const getSubscriptionUserId = (subscription) =>
+  String(
+    subscription?.userId ??
+      subscription?.user_id ??
+      subscription?.clientId ??
+      subscription?.client_id ??
+      subscription?.user?.id ??
+      subscription?.client?.id ??
+      '',
+  );
+
 const MONTHLY_BARBER_LOCK_DAYS = 30;
 const MONTHLY_BARBER_LOCK_MS = MONTHLY_BARBER_LOCK_DAYS * 24 * 60 * 60 * 1000;
 
@@ -425,13 +442,11 @@ export default function AppointmentsPage() {
 
     const currentUserId = String(currentUser?.id ?? '');
     const hasBackendSubscription = userSubscriptions.some((sub) => {
-      const subscriptionUserId = String(sub?.userId ?? sub?.user?.id ?? '');
-      const subscriptionStatus = String(sub?.status ?? '').toLowerCase();
-      return subscriptionUserId === currentUserId && subscriptionStatus === 'active';
+      const subscriptionUserId = getSubscriptionUserId(sub);
+      return subscriptionUserId === currentUserId && isActiveSubscriptionStatus(sub?.status);
     });
 
-    const stripeStatus = String(stripeActiveSubscription?.status ?? '').toLowerCase();
-    const hasStripeSubscription = stripeStatus === 'active' || stripeStatus === 'trialing';
+    const hasStripeSubscription = isActiveSubscriptionStatus(stripeActiveSubscription?.status);
 
     return hasBackendSubscription || hasStripeSubscription;
   }, [userSubscriptions, stripeActiveSubscription?.status, currentUser?.id, bookingForDependent, bookingForUser]);
@@ -704,9 +719,8 @@ export default function AppointmentsPage() {
     const currentUserId = String(currentUser.id);
     return (
       userSubscriptions.find((sub) => {
-        const subscriptionUserId = String(sub?.userId ?? sub?.user?.id ?? '');
-        const subscriptionStatus = String(sub?.status ?? '').toLowerCase();
-        return subscriptionUserId === currentUserId && subscriptionStatus === 'active';
+        const subscriptionUserId = getSubscriptionUserId(sub);
+        return subscriptionUserId === currentUserId && isActiveSubscriptionStatus(sub?.status);
       }) || null
     );
   }, [currentUser?.id, userSubscriptions]);
@@ -775,11 +789,6 @@ export default function AppointmentsPage() {
     let cancelled = false;
 
     const loadActivePlanFeatures = async () => {
-      if (!activeSubscriptionForCoverage?.planId) {
-        setActiveSubscriptionPlanFeatures([]);
-        return;
-      }
-
       if (Array.isArray(activeSubscriptionForCoverage?.plan?.features)) {
         setActiveSubscriptionPlanFeatures(activeSubscriptionForCoverage.plan.features);
         return;
@@ -790,8 +799,15 @@ export default function AppointmentsPage() {
         return;
       }
 
+      const planId = activeSubscriptionForCoverage?.planId || activeSubscriptionForCoverage?.plan_id;
+
+      if (!planId) {
+        setActiveSubscriptionPlanFeatures([]);
+        return;
+      }
+
       try {
-        const response = await api.get(`/subscription-plans/${activeSubscriptionForCoverage.planId}`);
+        const response = await api.get(`/subscription-plans/${planId}`);
         const features = Array.isArray(response?.data?.features) ? response.data.features : [];
         if (!cancelled) {
           setActiveSubscriptionPlanFeatures(features);
@@ -810,6 +826,7 @@ export default function AppointmentsPage() {
     };
   }, [
     activeSubscriptionForCoverage?.planId,
+    activeSubscriptionForCoverage?.plan_id,
     activeSubscriptionForCoverage?.plan?.features,
     activeSubscriptionForCoverage?.features,
   ]);
@@ -825,6 +842,7 @@ export default function AppointmentsPage() {
 
   const coveredPlanServices = useMemo(() => {
     const byId = new Set();
+    const byName = new Set();
 
     const planFeatures =
       activeSubscriptionForCoverage?.plan?.features ||
@@ -833,7 +851,7 @@ export default function AppointmentsPage() {
       [];
 
     if (!hasActiveSubscription || !planFeatures.length) {
-      return { byId };
+      return { byId, byName };
     }
 
     planFeatures.forEach((feature) => {
@@ -842,27 +860,71 @@ export default function AppointmentsPage() {
       if (feature.startsWith(PLAN_SERVICE_FEATURE_PREFIX)) {
         const parts = feature.split('::');
         const serviceId = parts[1];
+        const serviceName = parts.slice(2).join('::');
 
         if (serviceId) byId.add(String(serviceId));
+        if (serviceName) byName.add(normalizeFeatureText(serviceName));
         return;
       }
     });
 
-    return { byId };
+    return { byId, byName };
   }, [
     hasActiveSubscription,
     activeSubscriptionForCoverage,
     activeSubscriptionPlanFeatures,
   ]);
 
+  useEffect(() => {
+    console.log('[AppointmentsPage] plan coverage debug', {
+      hasActiveSubscription,
+      activeSubscriptionForCoverage,
+      activeSubscriptionPlanFeatures,
+      coveredPlanServices: {
+        byId: Array.from(coveredPlanServices.byId),
+        byName: Array.from(coveredPlanServices.byName),
+      },
+    });
+  }, [
+    hasActiveSubscription,
+    activeSubscriptionForCoverage,
+    activeSubscriptionPlanFeatures,
+    coveredPlanServices,
+  ]);
+
   const isServiceCoveredByPlan = useCallback(
     (service) => {
       if (!hasActiveSubscription || !service) return false;
 
-      const serviceId = service.id != null ? String(service.id) : '';
-      return !!serviceId && coveredPlanServices.byId.has(serviceId);
+      if (isTruthyPlanFlag(service.covered_by_plan) || isTruthyPlanFlag(service.coveredByPlan)) {
+        return true;
+      }
+
+      const serviceId = service.id ?? service.serviceId ?? service.service_id;
+      if (serviceId != null && coveredPlanServices.byId.has(String(serviceId))) {
+        return true;
+      }
+
+      const serviceName = normalizeFeatureText(service.name || service.serviceName || service.service_name);
+      return !!serviceName && coveredPlanServices.byName.has(serviceName);
     },
     [hasActiveSubscription, coveredPlanServices],
+  );
+
+  const mapServicesWithPlanCoverage = useCallback(
+    (selectedServices = []) =>
+      selectedServices.map((service) => {
+        const coveredByPlan = isServiceCoveredByPlan(service);
+
+        return {
+          ...service,
+          covered_by_plan: coveredByPlan,
+          coveredByPlan,
+          serviceCoveredByPlan: coveredByPlan,
+          originalBasePrice: service.basePrice,
+        };
+      }),
+    [isServiceCoveredByPlan],
   );
   useEffect(() => {
     if (!activeSubscriptionForBarberLock) {
@@ -1756,24 +1818,26 @@ export default function AppointmentsPage() {
           return;
         }
 
-        const allServicePrice = calculateTotal(bookingData.services);
+        const servicesWithPlanCoverage = mapServicesWithPlanCoverage(bookingData.services);
+        const allServicePrice = calculateTotal(servicesWithPlanCoverage);
         const payableServices = hasActiveSubscription
-          ? bookingData.services.filter((service) => !isServiceCoveredByPlan(service))
-          : bookingData.services;
+          ? servicesWithPlanCoverage.filter((service) => !service.coveredByPlan)
+          : servicesWithPlanCoverage;
         const coveredServices = hasActiveSubscription
-          ? bookingData.services
-              .filter((service) => isServiceCoveredByPlan(service))
+          ? servicesWithPlanCoverage
+              .filter((service) => service.coveredByPlan)
               .map((service) => service.name || service.serviceName)
           : [];
         const servicePrice = calculateTotal(payableServices);
         const allSelectedServicesCoveredByPlan =
           hasActiveSubscription &&
-          Array.isArray(bookingData.services) &&
-          bookingData.services.length > 0 &&
+          Array.isArray(servicesWithPlanCoverage) &&
+          servicesWithPlanCoverage.length > 0 &&
           payableServices.length === 0;
 
         setPendingBookingData({
           ...bookingData,
+          services: servicesWithPlanCoverage,
           date: dateStr,
           servicePrice,
           originalServicePrice: allServicePrice,
@@ -1798,6 +1862,7 @@ export default function AppointmentsPage() {
       loadData,
       calculateTotal,
       isServiceCoveredByPlan,
+      mapServicesWithPlanCoverage,
       isAdmin,
       hasActiveSubscription,
       hasLocalActiveSubscription,
@@ -1959,6 +2024,9 @@ export default function AppointmentsPage() {
         barberId: pendingBookingData.barberId,
         barberName: pendingBookingData.barberName,
         services: pendingBookingData.services,
+        servicesCoveredByPlan: pendingBookingData.coveredServices || [],
+        hasPlanCoveredServices: (pendingBookingData.coveredServices || []).length > 0,
+        serviceCoveredByPlan: pendingBookingData.serviceCoveredByPlan === true,
         date: pendingBookingData.date,
         time: pendingBookingData.time,
         client: activeClient.name,
@@ -1988,6 +2056,10 @@ export default function AppointmentsPage() {
         userName: activeClient.name,
         amount: 0,
         serviceName: serviceNames,
+        services: pendingBookingData.services,
+        servicesCoveredByPlan: pendingBookingData.coveredServices || [],
+        hasPlanCoveredServices: (pendingBookingData.coveredServices || []).length > 0,
+        serviceCoveredByPlan: pendingBookingData.serviceCoveredByPlan === true,
         barberName: pendingBookingData.barberName,
         appointmentDate: pendingBookingData.date,
         appointmentTime: pendingBookingData.time,
@@ -2098,6 +2170,9 @@ export default function AppointmentsPage() {
             barberId: pendingBookingData.barberId,
             barberName: pendingBookingData.barberName,
             services: pendingBookingData.services,
+            servicesCoveredByPlan: pendingBookingData.coveredServices || [],
+            hasPlanCoveredServices: (pendingBookingData.coveredServices || []).length > 0,
+            serviceCoveredByPlan: pendingBookingData.serviceCoveredByPlan === true,
             date: pendingBookingData.date,
             time: pendingBookingData.time,
             client: activeClient.name,
@@ -2126,6 +2201,9 @@ export default function AppointmentsPage() {
               serviceName: serviceNames,
               services: pendingBookingData.services,
               servicePrice: purchaseData.servicePrice || 0,
+              servicesCoveredByPlan: pendingBookingData.coveredServices || [],
+              hasPlanCoveredServices: (pendingBookingData.coveredServices || []).length > 0,
+              serviceCoveredByPlan: pendingBookingData.serviceCoveredByPlan === true,
               barberName: pendingBookingData.barberName,
               appointmentDate: pendingBookingData.date,
               appointmentTime: pendingBookingData.time,
@@ -2172,6 +2250,9 @@ export default function AppointmentsPage() {
             barberId: pendingBookingData.barberId,
             barberName: pendingBookingData.barberName,
             services: pendingBookingData.services,
+            servicesCoveredByPlan: pendingBookingData.coveredServices || [],
+            hasPlanCoveredServices: (pendingBookingData.coveredServices || []).length > 0,
+            serviceCoveredByPlan: pendingBookingData.serviceCoveredByPlan === true,
             date: pendingBookingData.date,
             time: pendingBookingData.time,
             client: activeClient.name,
@@ -2197,6 +2278,11 @@ export default function AppointmentsPage() {
             userName: activeClient.name,
             amount: purchaseData.finalTotal,
             serviceName: serviceNames,
+            services: pendingBookingData.services,
+            servicePrice: purchaseData.servicePrice || 0,
+            servicesCoveredByPlan: pendingBookingData.coveredServices || [],
+            hasPlanCoveredServices: (pendingBookingData.coveredServices || []).length > 0,
+            serviceCoveredByPlan: pendingBookingData.serviceCoveredByPlan === true,
             barberName: pendingBookingData.barberName,
             appointmentDate: pendingBookingData.date,
             appointmentTime: pendingBookingData.time,
@@ -3083,15 +3169,30 @@ export default function AppointmentsPage() {
                             return null;
                           }
 
+                          const barberServices = Array.isArray(barberWithPhoto.serviceIds)
+                            ? services.filter((s) =>
+                                barberWithPhoto.serviceIds.some(
+                                  (serviceId) => normalizeId(serviceId) === normalizeId(s.id),
+                                ),
+                              )
+                            : [];
+
+                          const barberServicesWithPlanCoverage =
+                            mapServicesWithPlanCoverage(barberServices);
+
+                          barberServicesWithPlanCoverage.forEach((service) => {
+                            console.log('[AppointmentsPage] service passed to BarberCard', {
+                              barberId: barber.id,
+                              barberName: barberWithPhoto.displayName || barberWithPhoto.name,
+                              service,
+                            });
+                          });
+
                           return (
                             <BarberCard
                               key={barber.id}
                               barber={barberWithPhoto}
-                              services={
-                                Array.isArray(barberWithPhoto.serviceIds)
-                                  ? services.filter((s) => barberWithPhoto.serviceIds.includes(s.id))
-                                  : []
-                              }
+                              services={barberServicesWithPlanCoverage}
                               selectedDate={selectedDate}
                               barberId={barber.id}
                               getBookedSlots={getBookedSlots}
@@ -3468,6 +3569,7 @@ export default function AppointmentsPage() {
         onConfirm={handleProductsConfirm}
         hasActiveSubscription={hasActiveSubscription}
         serviceCoveredByPlan={pendingBookingData?.serviceCoveredByPlan || false}
+        coveredServices={pendingBookingData?.coveredServices || []}
         servicePrice={pendingBookingData?.servicePrice || 0}
         serviceName={pendingBookingData?.services?.map((s) => s.name).join(', ') || ''}
         onUpdateStock={handleUpdateStock}
