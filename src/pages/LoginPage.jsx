@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useGoogleLogin } from '@react-oauth/google';
 import BaseLayout from '../components/layout/BaseLayout';
@@ -19,6 +19,15 @@ export default function LoginPage() {
 
   
   const [pendingUser, setPendingUser] = useState(null);
+
+  // Se a sessão foi invalidada por conta do status da barbearia, exibe aviso
+  useEffect(() => {
+    const reason = localStorage.getItem('loginBlockReason');
+    if (reason) {
+      setToast({ show: true, message: reason, type: 'danger' });
+      localStorage.removeItem('loginBlockReason');
+    }
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -87,7 +96,7 @@ export default function LoginPage() {
     if (user.role === 'super_admin') {
       navigate('/super-admin');
     } else if (user.role === 'admin' || user.isAdmin === true) {
-      navigate('/home');
+      navigate('/admin');
     } else if (user.role === 'barber') {
       navigate('/home');
     } else {

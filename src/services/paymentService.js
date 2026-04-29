@@ -434,44 +434,85 @@ export const buscarAssinaturaAtiva = async (currentUser) => {
     return null;
   }
 };
-// export const buscarAssinaturaAtiva = async (planId, currentUser) => {
 
-//   try {
+export const buscarAssinaturaAtivaBarbearias = async (emailOrUser) => {
+  try {
+    const email = typeof emailOrUser === 'string'
+      ? emailOrUser
+      : emailOrUser?.email;
 
-//     const [resActive, resPending] = await Promise.all([
-//       api.get(`/subscriptions/${planId}`, {
-//         headers: {
-//           Authorization: `Bearer ${token}`,
-//         },
-//       })
-//     ]);
+    if (!email) return null;
 
-//     // const todas = [...resActive.data.plan, ...resPending.data.plan];
-//     const hoje = new Date();
+    const stripeResponse = await api.get('/stripe/platform-subscriptions/by-email', {
+      params: { email },
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+    });
 
-//     const valida = () => {
+    const subscriptions = stripeResponse.data?.subscriptions || [];
 
-//       if (currentUser.id !== resActive.data.userId) {
-//         return false;
-//       }
+    if (!subscriptions.length) return null;
 
-//       if (!resActive.data.nextBillingAt) {
-//         return false;
-//       }
-//       return new Date(resActive.data.nextBillingAt) > hoje;
-//     }
+    const activeSubscriptions = subscriptions.filter((subscription) =>
+      isActiveStripeSubscriptionStatus(subscription?.status)
+    );
 
-//     // const valida = todas.find(s => {
-//     //   if (!s.nextBillingDate) return false;
-//     //   return new Date(s.nextBillingDate) > hoje;
-//     // });
+    if (!activeSubscriptions.length) return null;
 
-//     return valida || null;
-//   } catch (error) {
-//     console.error('Erro ao buscar assinatura ativa:', error);
-//     return null;
-//   }
-// };
+    const statusPriority = {
+      active: 5,
+      trialing: 4,
+      past_due: 3,
+      unpaid: 2,
+      incomplete: 1,
+      incomplete_expired: 0,
+      canceled: -1,
+      ended: -2,
+    };
+
+    const selectedSubscription = [...activeSubscriptions].sort((a, b) => {
+      const aPriority = statusPriority[a.status] ?? -99;
+      const bPriority = statusPriority[b.status] ?? -99;
+
+      if (bPriority !== aPriority) return bPriority - aPriority;
+
+      return (b.created || 0) - (a.created || 0);
+    })[0];
+
+    const stripeCreated = selectedSubscription?.created
+      ? new Date(selectedSubscription.created * 1000).toISOString()
+      : null;
+
+    const plan = selectedSubscription?.plan || {};
+
+    return {
+      id: selectedSubscription.subscriptionId,
+      subscriptionId: selectedSubscription.subscriptionId,
+      status: selectedSubscription.status,
+      productId: selectedSubscription.productId || null,
+      priceId: selectedSubscription.priceId || null,
+
+      planName: plan.name || 'Plano',
+      price: plan.amount ?? null,
+      amount: plan.amount ?? null,
+      currency: plan.currency || null,
+      interval: plan.interval || null,
+
+      nextBillingDate: selectedSubscription.currentPeriodEnd
+        ? new Date(selectedSubscription.currentPeriodEnd * 1000).toISOString()
+        : adicionarUmMes(stripeCreated),
+
+      startDate: stripeCreated,
+      paymentMethod: 'stripe',
+      cancelAtPeriodEnd: !!selectedSubscription?.cancelAtPeriodEnd,
+      planDetails: plan,
+    };
+  } catch (error) {
+    console.error('Erro ao buscar assinatura ativa da barbearia:', error);
+    return null;
+  }
+};
 
 export const buscarTodasAssinaturas = async () => {
   try {
