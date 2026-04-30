@@ -10760,7 +10760,13 @@ export default function AdminPage() {
                 <label className="form-label">Serviço vinculado (opcional)</label>
                 <select
                   value={benefitServiceId}
-                  onChange={(e) => setBenefitServiceId(e.target.value)}
+                  onChange={(e) => {
+                    const selectedServiceId = e.target.value;
+                    setBenefitServiceId(selectedServiceId);
+                    if (selectedServiceId) {
+                      setBenefitForm('');
+                    }
+                  }}
                   className="form-input"
                   style={{
                     width: '100%',
@@ -10786,31 +10792,32 @@ export default function AdminPage() {
                   Ao selecionar um serviço, ele será coberto pelo plano no agendamento.
                 </p>
               </div>
-              <div>
-                <label className="form-label">Descrição do Benefício</label>
-                <textarea
-                  value={benefitForm}
-                  onChange={(e) => setBenefitForm(e.target.value)}
-                  placeholder="Ex.: 2 cortes por mês | Brinde especial | Desconto em produtos"
-                  required={!benefitServiceId}
-                  disabled={!!benefitServiceId}
-                  rows="3"
-                  className="form-textarea"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    background: benefitServiceId ? '#121212' : '#1a1a1a',
-                    border: '1px solid #333',
-                    borderRadius: '8px',
-                    color: benefitServiceId ? '#666' : '#fff',
-                    fontSize: '0.95rem',
-                    resize: 'vertical',
-                  }}
-                />
-                <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '6px' }}>
-                  Evite quebras de linha e espaços duplicados – eles serão removidos automaticamente.
-                </p>
-              </div>
+              {!benefitServiceId && (
+                <div>
+                  <label className="form-label">Descrição do Benefício</label>
+                  <textarea
+                    value={benefitForm}
+                    onChange={(e) => setBenefitForm(e.target.value)}
+                    placeholder="Ex.: 2 cortes por mês | Brinde especial | Desconto em produtos"
+                    required
+                    rows="3"
+                    className="form-textarea"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: '#1a1a1a',
+                      border: '1px solid #333',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontSize: '0.95rem',
+                      resize: 'vertical',
+                    }}
+                  />
+                  <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '6px' }}>
+                    Evite quebras de linha e espaços duplicados – eles serão removidos automaticamente.
+                  </p>
+                </div>
+              )}
               <div className="modal-actions">
                 <Button type="button" onClick={closeBenefitModal}>
                   Cancelar
