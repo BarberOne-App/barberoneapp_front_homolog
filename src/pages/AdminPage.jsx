@@ -3313,20 +3313,14 @@ export default function AdminPage() {
       0,
     );
 
-    const localDateTime = new Date(`${offScheduleForm.date}T${offScheduleForm.time}:00`);
-    const startAtUTC = localDateTime.toISOString();
-
     try {
       setOffScheduleSaving(true);
-
-      const utcDate = startAtUTC.split('T')[0];            // "2026-04-02"
-      const utcTime = startAtUTC.split('T')[1].slice(0, 5); // "22:00"
 
       const createdAppointment = await createAppointment({
         barberId: selectedBarber.id,
         clientId: selectedClient.id,
-        date: utcDate,
-        time: utcTime,
+        date: offScheduleForm.date,
+        time: offScheduleForm.time,
         notes: offScheduleForm.notes?.trim() || '',
         services: mappedServices,
         products: [],
@@ -3346,7 +3340,14 @@ export default function AdminPage() {
         method: 'local',
       });
 
-      setAppointments((prev) => [createdAppointment, ...prev]);
+      setAppointments((prev) => [
+        {
+          ...createdAppointment,
+          date: createdAppointment.date || offScheduleForm.date,
+          time: createdAppointment.time || offScheduleForm.time,
+        },
+        ...prev,
+      ]);
       await loadData();
       closeOffScheduleModal();
       showToast('Agendamento fora do horário registrado com sucesso!', 'success');
@@ -7315,16 +7316,19 @@ export default function AdminPage() {
                           const isConfirmed = apt.status === 'confirmed';
 
                           // Formatação da data e hora
-                          const formattedDate = appointmentDate
-                            ? appointmentDate.toLocaleDateString('pt-BR')
-                            : 'Data não informada';
-                          const formattedTime = appointmentDate
-                            ? appointmentDate.toLocaleTimeString('pt-BR', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              // timeZone: 'UTC',
-                            })
-                            : 'Horário não informado';
+                          const formattedDate = apt.date
+                            ? new Date(`${apt.date}T00:00:00`).toLocaleDateString('pt-BR')
+                            : appointmentDate
+                              ? appointmentDate.toLocaleDateString('pt-BR')
+                              : 'Data não informada';
+                          const formattedTime = apt.time
+                            ? String(apt.time).slice(0, 5)
+                            : appointmentDate
+                              ? appointmentDate.toLocaleTimeString('pt-BR', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                              : 'Horário não informado';
 
                           // Nome do cliente (pode estar em apt.client.name ou apt.clientName)
                           const clientName = apt.client?.name || apt.clientName || 'Cliente';
