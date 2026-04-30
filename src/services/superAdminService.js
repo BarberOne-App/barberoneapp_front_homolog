@@ -27,3 +27,10 @@ export async function updateBarbershopStatus(id, status, reason = null) {
   });
   return data;
 }
+
+export async function resetUserPassword(userId, newPassword = undefined) {
+  const body = {};
+  if (newPassword !== undefined) body.newPassword = newPassword;
+  const { data } = await api.patch(`/super-admin/users/${userId}/password`, body);
+  return data;
+}

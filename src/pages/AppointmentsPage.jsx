@@ -126,12 +126,12 @@ const isActiveSubscriptionStatus = (status) =>
 const getSubscriptionUserId = (subscription) =>
   String(
     subscription?.userId ??
-      subscription?.user_id ??
-      subscription?.clientId ??
-      subscription?.client_id ??
-      subscription?.user?.id ??
-      subscription?.client?.id ??
-      '',
+    subscription?.user_id ??
+    subscription?.clientId ??
+    subscription?.client_id ??
+    subscription?.user?.id ??
+    subscription?.client?.id ??
+    '',
   );
 
 function isCancelledStatus(status) {
@@ -180,11 +180,23 @@ export default function AppointmentsPage() {
   const SAO_PAULO_TIME_ZONE = 'America/Sao_Paulo';
   const selectedPlan = JSON.parse(localStorage.getItem('selectedPlan'));
   const currentUserPlan = JSON.parse(localStorage.getItem('currentUser'));
-  
+
   const navigate = useNavigate();
   const location = useLocation();
   const currentUserRef = useRef(getSession());
   const currentUser = currentUserRef.current;
+  const [activeSubscription, setActiveSubscription] = useState(null);
+
+  // const verificarAssinaturaAtiva = async (currentUser) => {
+  //   try {
+  //     const assinatura = await buscarAssinaturaAtiva(currentUser.email);
+  //     setActiveSubscription(assinatura);
+  //   } catch (error) {
+  //     setActiveSubscription(null);
+  //   }
+  // };
+
+  // console.log(activeSubscription);
 
   const [view, setView] = useState('calendar');
   const [selectedDate, setSelectedDate] = useState(null);
@@ -281,7 +293,7 @@ export default function AppointmentsPage() {
               paymentMethod: 'credito',
               isRecurring: selectedPlan.isRecurring ?? true,
               autoRenewal: selectedPlan.autoRenewal ?? true,
-              mp_preapproval_id: preapprovalId,
+              mp_preapproval_id: "null",
             });
 
             console.log(subscription);
@@ -319,11 +331,11 @@ export default function AppointmentsPage() {
 
   const activeClient = bookingForDependent
     ? {
-        id: `dep_${bookingForDependent.id}`,
-        name: bookingForDependent.name,
-        isDependent: true,
-        dependentId: bookingForDependent.id,
-      }
+      id: `dep_${bookingForDependent.id}`,
+      name: bookingForDependent.name,
+      isDependent: true,
+      dependentId: bookingForDependent.id,
+    }
     : bookingForUser || currentUser;
 
   const calculateBlockedDurationMinutes = useCallback((durationMinutes = 30) => {
@@ -405,19 +417,19 @@ export default function AppointmentsPage() {
         const aptEnd = apt?.endAt
           ? new Date(apt.endAt)
           : new Date(
-              aptStart.getTime() +
-                calculateBlockedDurationMinutes(
-                  Array.isArray(apt?.services)
-                    ? apt.services.reduce((total, service) => {
-                        const raw =
-                          service?.durationMinutes ?? service?.duration ?? service?.duration_minutes;
-                        const parsed = Number(raw);
-                        return total + (Number.isFinite(parsed) && parsed > 0 ? parsed : 30);
-                      }, 0)
-                    : 30,
-                ) *
-                  60_000,
-            );
+            aptStart.getTime() +
+            calculateBlockedDurationMinutes(
+              Array.isArray(apt?.services)
+                ? apt.services.reduce((total, service) => {
+                  const raw =
+                    service?.durationMinutes ?? service?.duration ?? service?.duration_minutes;
+                  const parsed = Number(raw);
+                  return total + (Number.isFinite(parsed) && parsed > 0 ? parsed : 30);
+                }, 0)
+                : 30,
+            ) *
+            60_000,
+          );
 
         if (Number.isNaN(aptEnd.getTime())) return false;
 
@@ -705,27 +717,6 @@ export default function AppointmentsPage() {
     });
   };
 
-  // const isDateBlocked = (dateStr, barberId = null) => {
-  //   return blockedDates.some((blocked) => {
-  //     const matchDate = blocked.date === dateStr;
-  //     const matchBarber = !blocked.barberId || blocked.barberId === barberId;
-  //     const isDayBlock = !blocked.startTime;
-  //     return matchDate && matchBarber && isDayBlock;
-  //   });
-  // };
-
-  // const isDateBlockedForAll = (dateStr) => {
-  //   return blockedDates.some((blocked) => blocked.date === dateStr && !blocked.barberId && !blocked.startTime);
-  // };
-
-  // const getBlockedTimeSlots = (dateStr, barberId = null) => {
-  //   return blockedDates.filter((blocked) => {
-  //     const matchDate = blocked.date === dateStr;
-  //     const matchBarber = !blocked.barberId || blocked.barberId === barberId;
-  //     return matchDate && matchBarber && blocked.startTime && blocked.endTime;
-  //   });
-  // };
-
   useEffect(() => {
     if (location.state?.preSelectedService) {
       const preSelected = location.state.preSelectedService;
@@ -759,8 +750,13 @@ export default function AppointmentsPage() {
 
       try {
         const subscription = await buscarAssinaturaAtiva(currentUser);
-        if (!cancelled) {
-          setStripeActiveSubscription(subscription || null);
+        if (subscription.status === 'active' || subscription.status === 'trialing') {
+          cancelled = true;
+          setStripeActiveSubscription(subscription);
+        } else {
+          cancelled = false;
+          setStripeActiveSubscription(null);
+          return;
         }
       } catch (error) {
         if (!cancelled) {
@@ -770,17 +766,19 @@ export default function AppointmentsPage() {
     };
 
     loadStripeActiveSubscription();
-
     return () => {
       cancelled = true;
     };
   }, [currentUser?.email]);
 
+  console.log(stripeActiveSubscription);
+
   const activeSubscriptionForCoverage = useMemo(() => {
     return activeUserSubscription || stripeActiveSubscription || null;
   }, [activeUserSubscription, stripeActiveSubscription]);
 
-  const activeSubscriptionForBarberLock = activeUserSubscription;
+  const activeSubscriptionForBarberLock = activeUserSubscription || null;
+
   const hasLocalActiveSubscription = !!activeSubscriptionForBarberLock;
   const localMonthlyBarberId = getSubscriptionMonthlyBarberId(activeSubscriptionForBarberLock);
   const localMonthlyBarber = useMemo(() => {
@@ -1009,15 +1007,15 @@ export default function AppointmentsPage() {
     console.log('[AppointmentsPage] Monthly barber lock debug:', {
       activeSubscriptionForBarberLock: activeSubscriptionForBarberLock
         ? {
-            id: activeSubscriptionForBarberLock.id,
-            userId: activeSubscriptionForBarberLock.userId,
-            status: activeSubscriptionForBarberLock.status,
-            monthly_barber_id: activeSubscriptionForBarberLock.monthly_barber_id,
-            monthlyBarberId: activeSubscriptionForBarberLock.monthlyBarberId,
-            monthly_barber_set_at: activeSubscriptionForBarberLock.monthly_barber_set_at,
-            monthlyBarberSetAt: activeSubscriptionForBarberLock.monthlyBarberSetAt,
-            monthlyBarberSetDate: activeSubscriptionForBarberLock.monthlyBarberSetDate,
-          }
+          id: activeSubscriptionForBarberLock.id,
+          userId: activeSubscriptionForBarberLock.userId,
+          status: activeSubscriptionForBarberLock.status,
+          monthly_barber_id: activeSubscriptionForBarberLock.monthly_barber_id,
+          monthlyBarberId: activeSubscriptionForBarberLock.monthlyBarberId,
+          monthly_barber_set_at: activeSubscriptionForBarberLock.monthly_barber_set_at,
+          monthlyBarberSetAt: activeSubscriptionForBarberLock.monthlyBarberSetAt,
+          monthlyBarberSetDate: activeSubscriptionForBarberLock.monthlyBarberSetDate,
+        }
         : null,
       monthlyBarberLockInfo,
       hasLocalActiveSubscription,
@@ -1053,47 +1051,210 @@ export default function AppointmentsPage() {
     visibleBarbers,
   ]);
 
+  const ensureLocalSubscriptionForBarberLock = useCallback(async () => {
+    if (activeUserSubscription) {
+      return activeUserSubscription;
+    }
+
+    if (!stripeActiveSubscription || !currentUser?.id || !currentUser?.email) {
+      return null;
+    }
+
+    const planId =
+      stripeActiveSubscription.planId ||
+      stripeActiveSubscription.plan_id ||
+      stripeActiveSubscription.metadata?.planId ||
+      stripeActiveSubscription.metadata?.plan_id ||
+      selectedPlan?.id ||
+      null;
+
+    const planName =
+      stripeActiveSubscription.planName ||
+      stripeActiveSubscription.plan_name ||
+      stripeActiveSubscription.metadata?.planName ||
+      stripeActiveSubscription.metadata?.plan_name ||
+      selectedPlan?.name ||
+      'Plano ativo';
+
+    const planPrice =
+      stripeActiveSubscription.planPrice ||
+      stripeActiveSubscription.plan_price ||
+      stripeActiveSubscription.amount ||
+      stripeActiveSubscription.price ||
+      selectedPlan?.price ||
+      0;
+
+    if (!planId) {
+      throw new Error('Assinatura ativa encontrada na Stripe, mas não foi possível identificar o plano.');
+    }
+
+    const created = await criarAssinatura({
+      userId: currentUser.id,
+      userName: currentUser.name,
+      planId,
+      planName,
+      planPrice,
+      amount: planPrice,
+      status: 'active',
+      paymentMethod: 'credito',
+      isRecurring: true,
+      autoRenewal: true,
+      stripeSubscriptionId:
+        stripeActiveSubscription.id ||
+        stripeActiveSubscription.subscriptionId ||
+        stripeActiveSubscription.stripe_subscription_id,
+    });
+
+    const localSubscription = created?.data || created;
+
+    setUserSubscriptions((prev) => {
+      const list = Array.isArray(prev) ? prev : [];
+
+      const alreadyExists = list.some(
+        (sub) => normalizeId(sub.id) === normalizeId(localSubscription.id),
+      );
+
+      if (alreadyExists) return list;
+
+      return [localSubscription, ...list];
+    });
+
+    return localSubscription;
+  }, [
+    activeUserSubscription,
+    stripeActiveSubscription,
+    currentUser?.id,
+    currentUser?.name,
+    currentUser?.email,
+    selectedPlan?.id,
+    selectedPlan?.name,
+    selectedPlan?.price,
+  ]);
+
   const setMonthlyBarber = useCallback(
     async (barberId, barberName) => {
-      if (!activeUserSubscription) return true;
-
       try {
-        await api.patch(`/subscriptions/${activeUserSubscription.id}`, {
+        const localSubscription = await ensureLocalSubscriptionForBarberLock();
+
+        if (!localSubscription?.id) {
+          return true;
+        }
+
+        await api.patch(`/subscriptions/${localSubscription.id}`, {
           monthlyBarberId: barberId,
         });
+
+        const updatedSubscription = {
+          ...localSubscription,
+          monthlyBarberId: barberId,
+          monthly_barber_id: barberId,
+          monthlyBarberName: barberName,
+          monthly_barber_name: barberName,
+          monthlyBarberSetAt: new Date().toISOString(),
+          monthly_barber_set_at: new Date().toISOString(),
+        };
+
+        setUserSubscriptions((prev) =>
+          Array.isArray(prev)
+            ? prev.map((sub) =>
+              normalizeId(sub.id) === normalizeId(localSubscription.id)
+                ? updatedSubscription
+                : sub,
+            )
+            : [updatedSubscription],
+        );
 
         setIsBarberLocked(true);
         setLockedBarberId(barberId);
         setLockedBarberName(barberName);
+        setSelectedBarberId(barberId);
 
         setToast({
           show: true,
           message: `${barberName} é seu barbeiro fixo no plano!`,
           type: 'success',
         });
+
         return true;
       } catch (error) {
         setToast({
           show: true,
-          message: extractAppointmentErrorMessage(error),
+          message: extractAppointmentErrorMessage(
+            error,
+            'Não foi possível vincular o barbeiro fixo ao plano.',
+          ),
           type: 'danger',
         });
+
         return false;
       }
     },
-    [activeUserSubscription],
+    [ensureLocalSubscriptionForBarberLock],
   );
+
+  // const setMonthlyBarber = useCallback(
+  //   async (barberId, barberName) => {
+  //     if (!activeUserSubscription) return true;
+
+  //     try {
+  //       await api.patch(`/subscriptions/${activeUserSubscription.id}`, {
+  //         monthlyBarberId: barberId,
+  //       });
+
+  //       setIsBarberLocked(true);
+  //       setLockedBarberId(barberId);
+  //       setLockedBarberName(barberName);
+
+  //       setToast({
+  //         show: true,
+  //         message: `${barberName} é seu barbeiro fixo no plano!`,
+  //         type: 'success',
+  //       });
+  //       return true;
+  //     } catch (error) {
+  //       setToast({
+  //         show: true,
+  //         message: extractAppointmentErrorMessage(error),
+  //         type: 'danger',
+  //       });
+  //       return false;
+  //     }
+  //   },
+  //   [activeUserSubscription],
+  // );
+
+
+  // const ensureMonthlyBarberLock = useCallback(
+  //   async (barberId, barberName) => {
+  //     if (isAdmin || !activeUserSubscription || shouldApplyMonthlyBarberLock) return;
+
+  //     const locked = await setMonthlyBarber(barberId, barberName);
+  //     if (!locked) {
+  //       throw new Error('Não foi possível vincular o barbeiro fixo ao plano.');
+  //     }
+  //   },
+  //   [isAdmin, activeUserSubscription, shouldApplyMonthlyBarberLock, setMonthlyBarber],
+  // );
 
   const ensureMonthlyBarberLock = useCallback(
     async (barberId, barberName) => {
-      if (isAdmin || !activeUserSubscription || shouldApplyMonthlyBarberLock) return;
+      if (isAdmin || shouldApplyMonthlyBarberLock) return;
+
+      if (!activeUserSubscription && !stripeActiveSubscription) return;
 
       const locked = await setMonthlyBarber(barberId, barberName);
+
       if (!locked) {
         throw new Error('Não foi possível vincular o barbeiro fixo ao plano.');
       }
     },
-    [isAdmin, activeUserSubscription, shouldApplyMonthlyBarberLock, setMonthlyBarber],
+    [
+      isAdmin,
+      activeUserSubscription,
+      stripeActiveSubscription,
+      shouldApplyMonthlyBarberLock,
+      setMonthlyBarber,
+    ],
   );
 
   const loadData = useCallback(async () => {
@@ -1247,87 +1408,6 @@ export default function AppointmentsPage() {
       setLoading(false);
     }
   }, [token, currentUser?.id, canScheduleForOthers]);
-
-  // const loadData = useCallback(async () => {
-  //   try {
-  //     const [barbersData, servicesData, productsData, appointmentsData] = await Promise.all([
-  //       getBarbers(),
-  //       getAllServices(),
-  //       fetch(`${API_URL}/products`, {
-  //         headers: {
-  //           Authorization: `Bearer ${token}`,
-  //         }
-  //       }).then((res) => res.json()),
-  //       getAppointments(),
-  //     ]);
-
-  //     const res = await fetch(`${API_URL}/subscriptions`, {
-  //       headers: {
-  //         Authorization: `Bearer ${token}`,
-  //       }
-  //     });
-
-  //     const subscription = await res.json();
-  //     const usersResponse = await fetch(`${API_URL}/users`, {
-  //       headers: {
-  //         Authorization: `Bearer ${token}`,
-  //       }
-  //     });
-
-  //     const allUsers2 = await usersResponse.json();
-  //     const allUsersArray = allUsers2.items || [];
-  //     console.log(allUsersArray);
-
-  //     const validBarbers = barbersData.filter((barber) => {
-  //       if (!barber.userId) return true;
-  //       const user = allUsers2.items.find((u) => u.id === barber.userId);
-
-  //       return !user || user.role === 'barber';
-  //     });
-
-  //     setBarbers(validBarbers);
-  //     setServices(servicesData);
-  //     setProducts(productsData);
-  //     setAppointments(appointmentsData);
-  //     setUserSubscriptions(subscription.items);
-  //     setAllUsers(allUsersArray);
-  //     console.log(allUsers);
-
-  //     let deps = [];
-  //     try {
-  //       const depsRes = await fetch(`${API_URL}/dependents?parentId=${currentUser?.id}`, {
-  //         headers: { authorization: `Bearer ${token}` },
-  //       });
-  //       if (depsRes.ok) {
-  //         deps = await depsRes.json();
-  //         setUserDependents(deps);
-  //       }
-  //     } catch (e) { }
-
-  //     const depIds = deps.map(d => `dep_${d.id}`);
-
-  //     const userAppointments = appointmentsData.filter((apt) =>
-  //       apt.clientId === currentUser?.id
-  //       || depIds.includes(apt.clientId)
-  //     );
-
-  //     const paymentsMap = {};
-  //     for (const apt of userAppointments) {
-  //       try {
-  //         const payment = await buscarPagamentoAgendamento(apt.id);
-  //         if (payment) paymentsMap[apt.id] = payment;
-  //       } catch (error) {
-  //         console.error(`Erro ao buscar pagamento ${apt.id}`, error);
-  //       }
-  //     }
-  //     setAppointmentPayments(paymentsMap);
-  //   } catch (error) {
-  //     console.error('Erro ao carregar dados:', error);
-  //     isFetchingPayments.current = false;
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // }, [currentUser?.id]);
 
   const handleUpdateStock = useCallback(async (productId, quantity) => {
     try {
@@ -1515,10 +1595,10 @@ export default function AppointmentsPage() {
       );
       const fallbackTime = appointmentOnDate.startAt
         ? new Date(appointmentOnDate.startAt).toLocaleTimeString('pt-BR', {
-            hour: '2-digit',
-            minute: '2-digit',
-            timeZone: SAO_PAULO_TIME_ZONE,
-          })
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: SAO_PAULO_TIME_ZONE,
+        })
         : '';
 
       setExistingAppointment({
@@ -1617,83 +1697,6 @@ export default function AppointmentsPage() {
     },
     [appointments, getAppointmentBlockedDurationMinutes],
   );
-
-  // const getBookedSlots = useCallback((barberId, date) => {
-  //   if (!date) return [];
-  //   const dateStr = date.toLocaleDateString('pt-BR');
-
-  //   return appointments
-  //     .filter((apt) => apt.barberId === barberId && new Date(apt.startAt).toLocaleDateString("pt-BR") === dateStr)
-  //     .flatMap((apt) => {
-  //       let totalDuration = 30;
-  //       if (Array.isArray(apt.services) && apt.services.length > 0) {
-  //         totalDuration = apt.services.reduce((sum, s) => {
-  //           return sum + (s.durationMinutes || 30);
-  //         }, 0);
-  //       }
-
-  //       const slots = Math.ceil(totalDuration / 30);
-  //       const result = [];
-  //       const time = new Date(apt.startAt).toLocaleTimeString('pt-BR', {
-  //         hour: '2-digit',
-  //         minute: '2-digit',
-  //         timeZone: 'UTC',
-  //       });
-  //       let [h, m] = time.split(':').map(Number);
-
-  //       for (let i = 0; i < slots; i++) {
-  //         const hh = String(h).padStart(2, '0');
-  //         const mm = String(m).padStart(2, '0');
-  //         result.push(`${hh}:${mm}`);
-
-  //         m += 30;
-  //         if (m >= 60) {
-  //           m = 0;
-  //           h += 1;
-  //         }
-  //       }
-
-  //       return result;
-  //     });
-  // }, [appointments]);
-
-  // const getAvailableTimes = useCallback((barberId, date) => {
-  //   if (!date) return [];
-  //   const allTimes = generateTimes(30);
-  //   const dateStr = date.toLocaleDateString('en-CA');
-  //   const bookedTimes = getBookedSlots(barberId, date);
-  //   const blockedSlots = getBlockedTimeSlots(dateStr, barberId);
-
-  //   const today = new Date();
-  //   const isToday = dateStr === today.toLocaleDateString('en-CA');
-
-  //   const timeToMinutes = (t) => {
-  //     const [h, m] = t.split(':').map(Number);
-  //     return h * 60 + m;
-  //   };
-
-  //   return allTimes.filter(time => {
-  //     if (bookedTimes.includes(time)) return false;
-
-  //     if (isToday) {
-  //       const slotMinutes = timeToMinutes(time);
-  //       const nowMinutes = today.getHours() * 60 + today.getMinutes();
-  //       if (slotMinutes <= nowMinutes) return false;
-  //     }
-
-  //     if (blockedSlots.length > 0) {
-  //       const slotMinutes = timeToMinutes(time);
-  //       const isBlocked = blockedSlots.some(blocked => {
-  //         const start = timeToMinutes(blocked.startTime);
-  //         const end = timeToMinutes(blocked.endTime);
-  //         return slotMinutes >= start && slotMinutes <= end;
-  //       });
-  //       if (isBlocked) return false;
-  //     }
-
-  //     return true;
-  //   });
-  // }, [appointments, blockedDates]);
 
   const getAvailableTimes = useCallback(
     (barberId, date, durationMinutes = 30) => {
@@ -1816,8 +1819,9 @@ export default function AppointmentsPage() {
 
         if (
           !isAdmin &&
-          hasLocalActiveSubscription &&
+          (activeUserSubscription || stripeActiveSubscription) &&
           !shouldApplyMonthlyBarberLock &&
+          !getSubscriptionMonthlyBarberId(activeUserSubscription) &&
           !bookingForDependent &&
           !bookingForUser &&
           !hasShownMonthlyBarberNotice.current
@@ -1848,8 +1852,8 @@ export default function AppointmentsPage() {
           : servicesWithPlanCoverage;
         const coveredServices = hasActiveSubscription
           ? servicesWithPlanCoverage
-              .filter((service) => service.coveredByPlan)
-              .map((service) => service.name || service.serviceName)
+            .filter((service) => service.coveredByPlan)
+            .map((service) => service.name || service.serviceName)
           : [];
         const servicePrice = calculateTotal(payableServices);
         const allSelectedServicesCoveredByPlan =
@@ -1930,8 +1934,9 @@ export default function AppointmentsPage() {
     (bookingData) => {
       const requiresMonthlyLockConfirm =
         !isAdmin &&
-        hasLocalActiveSubscription &&
+        (activeUserSubscription || stripeActiveSubscription) &&
         !shouldApplyMonthlyBarberLock &&
+        !getSubscriptionMonthlyBarberId(activeUserSubscription) &&
         !bookingForDependent &&
         !bookingForUser;
 
@@ -1945,7 +1950,8 @@ export default function AppointmentsPage() {
     },
     [
       isAdmin,
-      hasLocalActiveSubscription,
+      activeUserSubscription,
+      stripeActiveSubscription,
       shouldApplyMonthlyBarberLock,
       bookingForDependent,
       bookingForUser,
@@ -2027,9 +2033,13 @@ export default function AppointmentsPage() {
 
       setBookingInProgress(true);
 
-      if (activeUserSubscription && !isAdmin) {
+      if ((activeUserSubscription || stripeActiveSubscription) && !isAdmin) {
         await ensureMonthlyBarberLock(pendingBookingData.barberId, pendingBookingData.barberName);
       }
+
+      // if (activeUserSubscription && !isAdmin) {
+      //   await ensureMonthlyBarberLock(pendingBookingData.barberId, pendingBookingData.barberName);
+      // }
 
       const selectedDependent = bookingForDependent
         ? dependentsForBooking.find((dep) => dep.id === bookingForDependent.id)
@@ -2056,10 +2066,10 @@ export default function AppointmentsPage() {
         clientId: responsibleId,
         ...(bookingForDependent
           ? {
-              isDependent: true,
-              dependentName: bookingForDependent.name,
-              dependentId: bookingForDependent.id,
-            }
+            isDependent: true,
+            dependentName: bookingForDependent.name,
+            dependentId: bookingForDependent.id,
+          }
           : {}),
         products: [],
         notes: pendingBookingData.observation || '',
@@ -2137,7 +2147,7 @@ export default function AppointmentsPage() {
     activeUserSubscription,
     isBarberLocked,
     isAdmin,
-      ensureMonthlyBarberLock,
+    ensureMonthlyBarberLock,
     clearPaymentCache,
   ]);
 
@@ -2161,7 +2171,11 @@ export default function AppointmentsPage() {
         if (payNow) {
           setBookingInProgress(true);
 
-          if (activeUserSubscription && !isAdmin) {
+          // if (activeUserSubscription && !isAdmin) {
+          //   await ensureMonthlyBarberLock(pendingBookingData.barberId, pendingBookingData.barberName);
+          // }
+
+          if ((activeUserSubscription || stripeActiveSubscription) && !isAdmin) {
             await ensureMonthlyBarberLock(pendingBookingData.barberId, pendingBookingData.barberName);
           }
 
@@ -2202,10 +2216,10 @@ export default function AppointmentsPage() {
             clientId: responsibleId,
             ...(bookingForDependent
               ? {
-                  isDependent: true,
-                  dependentName: bookingForDependent.name,
-                  dependentId: bookingForDependent.id,
-                }
+                isDependent: true,
+                dependentName: bookingForDependent.name,
+                dependentId: bookingForDependent.id,
+              }
               : {}),
             products: purchaseData.products,
             notes: pendingBookingData.observation || '',
@@ -2243,9 +2257,13 @@ export default function AppointmentsPage() {
         } else {
           setBookingInProgress(true);
 
-          if (activeUserSubscription && !isAdmin) {
+          if ((activeUserSubscription || stripeActiveSubscription) && !isAdmin) {
             await ensureMonthlyBarberLock(pendingBookingData.barberId, pendingBookingData.barberName);
           }
+
+          // if (activeUserSubscription && !isAdmin) {
+          //   await ensureMonthlyBarberLock(pendingBookingData.barberId, pendingBookingData.barberName);
+          // }
 
           const response = await axios.get(`${API_URL}/dependents`, {
             headers: {
@@ -2282,10 +2300,10 @@ export default function AppointmentsPage() {
             clientId: responsibleId,
             ...(bookingForDependent
               ? {
-                  isDependent: true,
-                  dependentName: bookingForDependent.name,
-                  dependentId: bookingForDependent.id,
-                }
+                isDependent: true,
+                dependentName: bookingForDependent.name,
+                dependentId: bookingForDependent.id,
+              }
               : {}),
             products: purchaseData.products,
             notes: pendingBookingData.observation || '',
@@ -3194,22 +3212,22 @@ export default function AppointmentsPage() {
 
                           const barberServices = Array.isArray(barberWithPhoto.serviceIds)
                             ? services.filter((s) =>
-                                barberWithPhoto.serviceIds.some(
-                                  (serviceId) => normalizeId(serviceId) === normalizeId(s.id),
-                                ),
-                              )
+                              barberWithPhoto.serviceIds.some(
+                                (serviceId) => normalizeId(serviceId) === normalizeId(s.id),
+                              ),
+                            )
                             : [];
 
                           const barberServicesWithPlanCoverage =
                             mapServicesWithPlanCoverage(barberServices);
 
-                          barberServicesWithPlanCoverage.forEach((service) => {
-                            console.log('[AppointmentsPage] service passed to BarberCard', {
-                              barberId: barber.id,
-                              barberName: barberWithPhoto.displayName || barberWithPhoto.name,
-                              service,
-                            });
-                          });
+                          // barberServicesWithPlanCoverage.forEach((service) => {
+                          //   console.log('[AppointmentsPage] service passed to BarberCard', {
+                          //     barberId: barber.id,
+                          //     barberName: barberWithPhoto.displayName || barberWithPhoto.name,
+                          //     service,
+                          //   });
+                          // });
 
                           return (
                             <BarberCard
@@ -3249,7 +3267,7 @@ export default function AppointmentsPage() {
 
           {view === 'myAppointments' && (
             <div className="appointments__list">
-              
+
 
               <div
                 className="appointments-filter-tabs"
@@ -3348,27 +3366,27 @@ export default function AppointmentsPage() {
 
                         const servicesTotal = Array.isArray(apt.services)
                           ? apt.services.reduce((sum, s) => {
-                              const price =
-                                typeof s.unitPrice === 'string'
-                                  ? parseFloat(
-                                      s.unitPrice.replace(/R\$/g, '').replace(/,/g, '.').trim(),
-                                    ) || 0
-                                  : s.unitPrice || 0;
-                              return sum + price;
-                            }, 0)
+                            const price =
+                              typeof s.unitPrice === 'string'
+                                ? parseFloat(
+                                  s.unitPrice.replace(/R\$/g, '').replace(/,/g, '.').trim(),
+                                ) || 0
+                                : s.unitPrice || 0;
+                            return sum + price;
+                          }, 0)
                           : 0;
 
                         const productsTotal =
                           apt.products && apt.products.length > 0
                             ? apt.products.reduce((sum, p) => {
-                                const price =
-                                  typeof p.unitPrice === 'string'
-                                    ? parseFloat(
-                                        p.unitPrice.replace(/R\$/g, '').replace(/,/g, '.').trim(),
-                                      ) || 0
-                                    : p.unitPrice || 0;
-                                return sum + price * (p.quantity || 1);
-                              }, 0)
+                              const price =
+                                typeof p.unitPrice === 'string'
+                                  ? parseFloat(
+                                    p.unitPrice.replace(/R\$/g, '').replace(/,/g, '.').trim(),
+                                  ) || 0
+                                  : p.unitPrice || 0;
+                              return sum + price * (p.quantity || 1);
+                            }, 0)
                             : 0;
 
                         const allServicesCoveredByPlan =
@@ -3609,11 +3627,11 @@ export default function AppointmentsPage() {
         appointmentDetails={
           pendingBookingData
             ? {
-                barberName: pendingBookingData.barberName,
-                date: pendingBookingData.dateFormatted,
-                time: pendingBookingData.time,
-                serviceName: pendingBookingData.services.map((s) => s.name).join(', '),
-              }
+              barberName: pendingBookingData.barberName,
+              date: pendingBookingData.dateFormatted,
+              time: pendingBookingData.time,
+              serviceName: pendingBookingData.services.map((s) => s.name).join(', '),
+            }
             : null
         }
         purchaseData={purchaseData}

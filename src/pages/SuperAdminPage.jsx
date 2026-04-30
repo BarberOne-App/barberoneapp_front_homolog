@@ -9,6 +9,7 @@ import {
     getBarbershopUsers,
     getSuperAdminDashboard,
     updateBarbershopStatus,
+    resetUserPassword,
 } from '../services/superAdminService';
 import './SuperAdminPage.css';
 
@@ -105,6 +106,7 @@ export default function SuperAdminPage() {
     const [selectedBarbershop, setSelectedBarbershop] = useState(null);
     const [selectedBarbershopUsers, setSelectedBarbershopUsers] = useState([]);
     const [detailsLoading, setDetailsLoading] = useState(false);
+    const [resettingUserId, setResettingUserId] = useState(null);
     const [statusReasonModal, setStatusReasonModal] = useState({
         open: false,
         barbershopId: null,
@@ -402,6 +404,26 @@ export default function SuperAdminPage() {
     const closeDetails = () => {
         setSelectedBarbershop(null);
         setSelectedBarbershopUsers([]);
+    };
+
+    const handleResetPassword = async (user) => {
+        if (!window.confirm(`Redefinir senha de ${user.name || user.email}?`)) return;
+        const maybe = window.prompt('Informe a nova senha (deixe vazio para gerar automática):', '');
+        try {
+            setResettingUserId(user.id);
+            const res = await resetUserPassword(user.id, maybe && maybe.length > 0 ? maybe : undefined);
+            const shown = res?.password;
+            if (shown) {
+                alert(`Senha redefinida. Senha temporária: ${shown}`);
+            } else {
+                alert('Senha redefinida com sucesso.');
+            }
+            showToast(`Senha de ${user.name || user.email} redefinida com sucesso.`, 'success');
+        } catch (err) {
+            showToast('Erro ao redefinir senha.', 'danger');
+        } finally {
+            setResettingUserId(null);
+        }
     };
 
     const handleLogout = () => {
@@ -860,6 +882,7 @@ export default function SuperAdminPage() {
                                                         <th>Telefone</th>
                                                         <th>Role</th>
                                                         <th>Criação</th>
+                                                        <th>Ações</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -870,6 +893,16 @@ export default function SuperAdminPage() {
                                                             <td>{user.phone || '-'}</td>
                                                             <td>{user.role}</td>
                                                             <td>{formatDate(user.created_at)}</td>
+                                                            <td>
+                                                                <button
+                                                                    className="super-admin-btn super-admin-btn--ghost"
+                                                                    type="button"
+                                                                    onClick={() => handleResetPassword(user)}
+                                                                    disabled={resettingUserId === user.id}
+                                                                >
+                                                                    {resettingUserId === user.id ? 'Resetando...' : 'Resetar senha'}
+                                                                </button>
+                                                            </td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
