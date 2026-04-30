@@ -3313,20 +3313,14 @@ export default function AdminPage() {
       0,
     );
 
-    const localDateTime = new Date(`${offScheduleForm.date}T${offScheduleForm.time}:00`);
-    const startAtUTC = localDateTime.toISOString();
-
     try {
       setOffScheduleSaving(true);
-
-      const utcDate = startAtUTC.split('T')[0];            // "2026-04-02"
-      const utcTime = startAtUTC.split('T')[1].slice(0, 5); // "22:00"
 
       const createdAppointment = await createAppointment({
         barberId: selectedBarber.id,
         clientId: selectedClient.id,
-        date: utcDate,
-        time: utcTime,
+        date: offScheduleForm.date,
+        time: offScheduleForm.time,
         notes: offScheduleForm.notes?.trim() || '',
         services: mappedServices,
         products: [],
@@ -3346,7 +3340,14 @@ export default function AdminPage() {
         method: 'local',
       });
 
-      setAppointments((prev) => [createdAppointment, ...prev]);
+      setAppointments((prev) => [
+        {
+          ...createdAppointment,
+          date: createdAppointment.date || offScheduleForm.date,
+          time: createdAppointment.time || offScheduleForm.time,
+        },
+        ...prev,
+      ]);
       await loadData();
       closeOffScheduleModal();
       showToast('Agendamento fora do horário registrado com sucesso!', 'success');
@@ -7315,16 +7316,19 @@ export default function AdminPage() {
                           const isConfirmed = apt.status === 'confirmed';
 
                           // Formatação da data e hora
-                          const formattedDate = appointmentDate
-                            ? appointmentDate.toLocaleDateString('pt-BR')
-                            : 'Data não informada';
-                          const formattedTime = appointmentDate
-                            ? appointmentDate.toLocaleTimeString('pt-BR', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              // timeZone: 'UTC',
-                            })
-                            : 'Horário não informado';
+                          const formattedDate = apt.date
+                            ? new Date(`${apt.date}T00:00:00`).toLocaleDateString('pt-BR')
+                            : appointmentDate
+                              ? appointmentDate.toLocaleDateString('pt-BR')
+                              : 'Data não informada';
+                          const formattedTime = apt.time
+                            ? String(apt.time).slice(0, 5)
+                            : appointmentDate
+                              ? appointmentDate.toLocaleTimeString('pt-BR', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                              : 'Horário não informado';
 
                           // Nome do cliente (pode estar em apt.client.name ou apt.clientName)
                           const clientName = apt.client?.name || apt.clientName || 'Cliente';
@@ -10760,7 +10764,13 @@ export default function AdminPage() {
                 <label className="form-label">Serviço vinculado (opcional)</label>
                 <select
                   value={benefitServiceId}
-                  onChange={(e) => setBenefitServiceId(e.target.value)}
+                  onChange={(e) => {
+                    const selectedServiceId = e.target.value;
+                    setBenefitServiceId(selectedServiceId);
+                    if (selectedServiceId) {
+                      setBenefitForm('');
+                    }
+                  }}
                   className="form-input"
                   style={{
                     width: '100%',
@@ -10786,31 +10796,32 @@ export default function AdminPage() {
                   Ao selecionar um serviço, ele será coberto pelo plano no agendamento.
                 </p>
               </div>
-              <div>
-                <label className="form-label">Descrição do Benefício</label>
-                <textarea
-                  value={benefitForm}
-                  onChange={(e) => setBenefitForm(e.target.value)}
-                  placeholder="Ex.: 2 cortes por mês | Brinde especial | Desconto em produtos"
-                  required={!benefitServiceId}
-                  disabled={!!benefitServiceId}
-                  rows="3"
-                  className="form-textarea"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    background: benefitServiceId ? '#121212' : '#1a1a1a',
-                    border: '1px solid #333',
-                    borderRadius: '8px',
-                    color: benefitServiceId ? '#666' : '#fff',
-                    fontSize: '0.95rem',
-                    resize: 'vertical',
-                  }}
-                />
-                <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '6px' }}>
-                  Evite quebras de linha e espaços duplicados – eles serão removidos automaticamente.
-                </p>
-              </div>
+              {!benefitServiceId && (
+                <div>
+                  <label className="form-label">Descrição do Benefício</label>
+                  <textarea
+                    value={benefitForm}
+                    onChange={(e) => setBenefitForm(e.target.value)}
+                    placeholder="Ex.: 2 cortes por mês | Brinde especial | Desconto em produtos"
+                    required
+                    rows="3"
+                    className="form-textarea"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: '#1a1a1a',
+                      border: '1px solid #333',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontSize: '0.95rem',
+                      resize: 'vertical',
+                    }}
+                  />
+                  <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '6px' }}>
+                    Evite quebras de linha e espaços duplicados – eles serão removidos automaticamente.
+                  </p>
+                </div>
+              )}
               <div className="modal-actions">
                 <Button type="button" onClick={closeBenefitModal}>
                   Cancelar
