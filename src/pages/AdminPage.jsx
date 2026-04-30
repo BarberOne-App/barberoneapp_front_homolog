@@ -85,6 +85,19 @@ const CANCELED_APPOINTMENT_STATUSES = new Set([
   'cancelada',
 ]);
 
+const APPOINTMENT_CANCELLATION_REASONS = {
+  no_show: {
+    status: 'no_show',
+    label: 'Não compareceu',
+    reason: 'Cliente não compareceu',
+  },
+  client_cancelled: {
+    status: 'cancelled',
+    label: 'Cliente cancelou',
+    reason: 'Cliente cancelou',
+  },
+};
+
 const normalizeStatusText = (value) =>
   String(value || '')
     .normalize('NFD')
@@ -102,6 +115,48 @@ const isCanceledAppointmentStatus = (status) => {
 };
 
 const isCanceledAppointment = (appointment) => isCanceledAppointmentStatus(appointment?.status);
+
+const getAppointmentStatusLabel = (appointment) => {
+  const normalizedStatus = normalizeStatusText(appointment?.status);
+
+  if (normalizedStatus === 'no_show') return 'Não compareceu';
+  if (appointment?.cancellationReasonLabel) return appointment.cancellationReasonLabel;
+  if (appointment?.cancellationReason === 'Cliente não compareceu') return 'Não compareceu';
+  if (appointment?.cancellationReason === 'Cliente cancelou') return 'Cliente cancelou';
+  if (isCanceledAppointmentStatus(appointment?.status)) return 'Cancelado';
+  if (normalizedStatus === 'completed') return 'Finalizado';
+  if (normalizedStatus === 'confirmed') return 'Confirmado';
+
+  return 'Pendente';
+};
+
+const getAppointmentStatusClassName = (appointment) => {
+  const normalizedStatus = normalizeStatusText(appointment?.status);
+
+  if (normalizedStatus === 'completed') return 'status-completed';
+  if (normalizedStatus === 'confirmed') return 'status-confirmed';
+  if (normalizedStatus === 'no_show') return 'status-no-show';
+  if (
+    isCanceledAppointmentStatus(appointment?.status)
+  ) {
+    return 'status-cancelled';
+  }
+
+  return 'status-pending';
+};
+
+const isCancellationReasonAppointment = (appointment) => {
+  const normalizedStatus = normalizeStatusText(appointment?.status);
+  return (
+    normalizedStatus === 'no_show' ||
+    appointment?.cancellationReason === 'Cliente cancelou' ||
+    appointment?.cancellationReasonLabel === 'Cliente cancelou' ||
+    appointment?.cancellationReasonLabel === 'Cliente Cancelou'
+  );
+};
+
+const isClosedAppointmentStatus = (appointment) =>
+  isCancellationReasonAppointment(appointment) || isCanceledAppointment(appointment);
 
 const getApiErrorMessage = (error) => {
   const data = error?.response?.data;
@@ -159,6 +214,12 @@ export default function AdminPage() {
   const [subscriptions, setSubscriptions] = useState([]);
   const [confirmCancelSub, setConfirmCancelSub] = useState(null);
   const [confirmModal, setConfirmModal] = useState({ open: false, message: '', onConfirm: null });
+  const [cancelAppointmentModal, setCancelAppointmentModal] = useState({
+    open: false,
+    appointmentId: null,
+    reasonKey: 'no_show',
+    saving: false,
+  });
   const [subscriptionSearch, setSubscriptionSearch] = useState('');
   const [subscriptionSearchType, setSubscriptionSearchType] = useState('name');
   const [blockedDates, setBlockedDates] = useState([]);
@@ -2216,11 +2277,7 @@ export default function AdminPage() {
 
       setBarbers(barbersData);
       setEmployees(allEmployees);
-      setAppointments(
-        Array.isArray(appointmentsData)
-          ? appointmentsData.filter((appointment) => !isCanceledAppointment(appointment))
-          : [],
-      );
+      setAppointments(Array.isArray(appointmentsData) ? appointmentsData : []);
 
       const today = new Date();
       const toExpire = subscriptionItems.filter(
@@ -3425,31 +3482,99 @@ export default function AdminPage() {
     }
   };
 
-  const handleDeleteAppointment = (id) => {
-    showConfirm('Deseja realmente cancelar este agendamento?', async () => {
+  const closeCancelAppointmentModal = () => {
+    setCancelAppointmentModal({
+      open: false,
+      appointmentId: null,
+      reasonKey: 'no_show',
+      saving: false,
+    });
+  };
+
+  const cancelAppointmentAsCancelled = async (id) => {
+    const payload = {
+      status: 'cancelled',
+      canceledAt: new Date().toISOString(),
+    };
+
+    const updatedAppointment = await updateAppointment(id, payload);
+
+    setAppointments((prev) =>
+      prev.map((appointment) =>
+        isSameId(appointment.id, id)
+          ? { ...appointment, ...updatedAppointment, ...payload }
+          : appointment,
+      ),
+    );
+
+    await loadData();
+  };
+
+  const handleDeleteAppointment = async (id) => {
+    const appointment = appointments.find((apt) => isSameId(apt.id, id));
+
+    if (!appointment) {
+      showToast('Agendamento não encontrado.', 'danger');
+      return;
+    }
+
+    if (!canCompleteAppointment(appointment)) {
       try {
-        await deleteAppointment(id);
-        setAppointments((prev) => prev.filter((appointment) => !isSameId(appointment.id, id)));
-        setAppointmentPayments((prev) =>
-          Array.isArray(prev)
-            ? prev.filter((payment) => !isSameId(payment.appointmentId, id))
-            : prev,
-        );
+        await cancelAppointmentAsCancelled(id);
         showToast('Agendamento cancelado com sucesso!', 'success');
       } catch (error) {
-        if (isAlreadyCanceledAppointmentError(error)) {
-          setAppointments((prev) => prev.filter((appointment) => !isSameId(appointment.id, id)));
-          setAppointmentPayments((prev) =>
-            Array.isArray(prev)
-              ? prev.filter((payment) => !isSameId(payment.appointmentId, id))
-              : prev,
-          );
-          return;
-        }
-
+        console.error('Erro ao cancelar agendamento:', error);
         showToast('Erro ao cancelar agendamento.', 'danger');
       }
+      return;
+    }
+
+    setCancelAppointmentModal({
+      open: true,
+      appointmentId: id,
+      reasonKey: 'no_show',
+      saving: false,
     });
+  };
+
+  const confirmCancelAppointment = async () => {
+    const reasonConfig =
+      APPOINTMENT_CANCELLATION_REASONS[cancelAppointmentModal.reasonKey] ||
+      APPOINTMENT_CANCELLATION_REASONS.no_show;
+
+    if (!cancelAppointmentModal.appointmentId) return;
+
+    try {
+      setCancelAppointmentModal((prev) => ({ ...prev, saving: true }));
+
+      const payload = {
+        status: reasonConfig.status,
+        cancellationReason: reasonConfig.reason,
+        cancellationReasonLabel: reasonConfig.label,
+        canceledAt: new Date().toISOString(),
+      };
+
+      const updatedAppointment = await updateAppointment(
+        cancelAppointmentModal.appointmentId,
+        payload,
+      );
+
+      setAppointments((prev) =>
+        prev.map((appointment) =>
+          isSameId(appointment.id, cancelAppointmentModal.appointmentId)
+            ? { ...appointment, ...updatedAppointment, ...payload }
+            : appointment,
+        ),
+      );
+
+      await loadData();
+      closeCancelAppointmentModal();
+      showToast(`Agendamento marcado como "${reasonConfig.label}".`, 'success');
+    } catch (error) {
+      console.error('Erro ao cancelar agendamento:', error);
+      showToast('Erro ao cancelar agendamento.', 'danger');
+      setCancelAppointmentModal((prev) => ({ ...prev, saving: false }));
+    }
   };
 
   const handleMarkAsPaid = async (payment, method) => {
@@ -4031,7 +4156,7 @@ export default function AdminPage() {
 
 
   const filteredAppointmentsAdmin = useMemo(() => {
-    let filtered = appointments.filter((apt) => !isCanceledAppointment(apt));
+    let filtered = [...appointments];
 
     if (isBarber) {
       const loggedInBarber = barbers.find(
@@ -6496,6 +6621,7 @@ export default function AdminPage() {
                                 <tbody>
                                   {barberAppointments.map((apt) => {
                                     const aptTotal = calculateTotal(apt.services);
+                                    const isClosedAppointment = isClosedAppointmentStatus(apt);
                                     return (
                                       <tr
                                         key={apt.id}
@@ -6504,15 +6630,11 @@ export default function AdminPage() {
                                         }
                                       >
                                         <td>
-                                          {apt.status === 'confirmed' ? (
-                                            <span className="status-badge status-confirmed">
-                                              Confirmado
-                                            </span>
-                                          ) : (
-                                            <span className="status-badge status-pending">
-                                              Pendente
-                                            </span>
-                                          )}
+                                          <span
+                                            className={`status-badge ${getAppointmentStatusClassName(apt)}`}
+                                          >
+                                            {getAppointmentStatusLabel(apt)}
+                                          </span>
                                         </td>
                                         <td>
                                           <strong>{apt.client.name}</strong>
@@ -6584,7 +6706,7 @@ export default function AdminPage() {
                                         </td>
                                         <td>
                                           <div className="fluig-actions-buttons">
-                                            {apt.status !== 'confirmed' && (
+                                            {!isClosedAppointment && apt.status !== 'confirmed' && (
                                               <button
                                                 onClick={() => handleConfirmAppointment(apt.id)}
                                                 className="action-btn btn-confirm"
@@ -6598,7 +6720,7 @@ export default function AdminPage() {
                                             >
                                               Editar
                                             </button>
-                                            {apt.status !== 'confirmed' && (
+                                            {!isClosedAppointment && apt.status !== 'confirmed' && (
                                               <button
                                                 onClick={() => openChangeBarberModal(apt)}
                                                 className="action-btn btn-transfer"
@@ -6609,12 +6731,14 @@ export default function AdminPage() {
                                             {/* <button onClick={() => sendWhatsApp(apt.id, 'confirm')} className="action-btn btn-whatsapp">
                                               WhatsApp
                                             </button> */}
-                                            <button
-                                              onClick={() => handleDeleteAppointment(apt.id)}
-                                              className="action-btn btn-cancel"
-                                            >
-                                              Cancelar
-                                            </button>
+                                            {!isClosedAppointment && (
+                                              <button
+                                                onClick={() => handleDeleteAppointment(apt.id)}
+                                                className="action-btn btn-cancel"
+                                              >
+                                                Cancelar
+                                              </button>
+                                            )}
                                           </div>
                                         </td>
                                       </tr>
@@ -7311,6 +7435,7 @@ export default function AdminPage() {
                         {filteredAppointmentsAdmin.map((apt) => {
                           const appointmentDate = getAppointmentStartDate(apt);
                           const canComplete = canCompleteAppointment(apt);
+                          const isClosedAppointment = isClosedAppointmentStatus(apt);
                           const isPast = canComplete;
                           const isCompleted = apt.status === 'completed';
                           const isConfirmed = apt.status === 'confirmed';
@@ -7414,17 +7539,15 @@ export default function AdminPage() {
                                 </span>
                               </td>
                               <td>
-                                {isCompleted ? (
-                                  <span className="status-badge status-completed">Finalizado</span>
-                                ) : isConfirmed ? (
-                                  <span className="status-badge status-confirmed">Confirmado</span>
-                                ) : (
-                                  <span className="status-badge status-pending">Pendente</span>
-                                )}
+                                <span
+                                  className={`status-badge ${getAppointmentStatusClassName(apt)}`}
+                                >
+                                  {getAppointmentStatusLabel(apt)}
+                                </span>
                               </td>
                               <td>
                                 <div className="barber-table-actions">
-                                  {!isCompleted && (
+                                  {!isCompleted && !isClosedAppointment && (
                                     <>
                                       {!isConfirmed && (
                                         <button onClick={() => handleConfirmAppointment(apt.id)} className="action-btn-table btn-confirm-table">
@@ -11648,6 +11771,103 @@ export default function AdminPage() {
       )}
 
       {toast.show && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
+
+      {cancelAppointmentModal.open && (
+        <div className="modal-overlay" onClick={closeCancelAppointmentModal}>
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '440px' }}
+          >
+            <h2>Cancelar agendamento</h2>
+            <p className="modal-subtitle">
+              Selecione o motivo do cancelamento. Esse status ficará salvo no agendamento.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {Object.entries(APPOINTMENT_CANCELLATION_REASONS).map(([key, option]) => (
+                <label
+                  key={key}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.65rem',
+                    background:
+                      cancelAppointmentModal.reasonKey === key
+                        ? 'rgba(255,122,26,0.12)'
+                        : '#111',
+                    border:
+                      cancelAppointmentModal.reasonKey === key
+                        ? '1px solid rgba(255,122,26,0.55)'
+                        : '1px solid #2a2a2a',
+                    borderRadius: '8px',
+                    padding: '0.85rem 1rem',
+                    color: '#fff',
+                    cursor: cancelAppointmentModal.saving ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="cancelAppointmentReason"
+                    value={key}
+                    checked={cancelAppointmentModal.reasonKey === key}
+                    disabled={cancelAppointmentModal.saving}
+                    onChange={(e) =>
+                      setCancelAppointmentModal((prev) => ({
+                        ...prev,
+                        reasonKey: e.target.value,
+                      }))
+                    }
+                  />
+                  <span>{option.reason}</span>
+                </label>
+              ))}
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                gap: '0.75rem',
+                justifyContent: 'flex-end',
+                marginTop: '1.5rem',
+              }}
+            >
+              <button
+                type="button"
+                onClick={closeCancelAppointmentModal}
+                disabled={cancelAppointmentModal.saving}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #333',
+                  color: '#a8a8a8',
+                  borderRadius: '8px',
+                  padding: '8px 18px',
+                  cursor: cancelAppointmentModal.saving ? 'not-allowed' : 'pointer',
+                  fontSize: '0.9rem',
+                }}
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                onClick={confirmCancelAppointment}
+                disabled={cancelAppointmentModal.saving}
+                style={{
+                  background: '#e74c3c',
+                  border: 'none',
+                  color: '#fff',
+                  borderRadius: '8px',
+                  padding: '8px 18px',
+                  cursor: cancelAppointmentModal.saving ? 'not-allowed' : 'pointer',
+                  fontWeight: 700,
+                  fontSize: '0.9rem',
+                  opacity: cancelAppointmentModal.saving ? 0.7 : 1,
+                }}
+              >
+                {cancelAppointmentModal.saving ? 'Salvando...' : 'Confirmar cancelamento'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {confirmModal.open && (
         <div
