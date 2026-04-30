@@ -541,6 +541,67 @@ export default function BarberPage() {
     }, 0);
   };
 
+  const getBarberCommissionPercent = () => {
+    const rawCommission = barberProfile?.commissionPercent ?? barberProfile?.commission_percent;
+    const parsedCommission = Number(rawCommission);
+
+    if (!Number.isNaN(parsedCommission) && parsedCommission >= 0) {
+      return Math.max(0, Math.min(100, parsedCommission));
+    }
+
+    return 50;
+  };
+
+  const getServiceCommissionPercent = (service) => {
+    const serviceCommission =
+      service?.commissionPercent ??
+      service?.comissionPercent ??
+      service?.commission_percent;
+    const parsedServiceCommission = Number(serviceCommission);
+
+    if (!Number.isNaN(parsedServiceCommission) && parsedServiceCommission >= 0) {
+      return Math.max(0, Math.min(100, parsedServiceCommission));
+    }
+
+    return getBarberCommissionPercent();
+  };
+
+  const calculateAppointmentCommission = (appointment, fallbackAmount) => {
+    const appointmentCommission = Number(appointment?.commissionAmount);
+    if (!Number.isNaN(appointmentCommission) && appointmentCommission >= 0) {
+      return appointmentCommission;
+    }
+
+    const services = Array.isArray(appointment?.services) ? appointment.services : [];
+
+    if (services.length > 0) {
+      return services.reduce((sum, service) => {
+        const serviceCommissionAmount = Number(service?.commissionAmount);
+        if (!Number.isNaN(serviceCommissionAmount) && serviceCommissionAmount >= 0) {
+          return sum + serviceCommissionAmount;
+        }
+
+        const rawUnitPrice =
+          service?.unitPrice ??
+          service?.price ??
+          service?.basePrice ??
+          service?.unit_price ??
+          0;
+        const normalizedPrice = Number(
+          String(rawUnitPrice).replace(/[R$\s]/g, '').replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.'),
+        );
+        const quantity = Number(service?.quantity ?? 1);
+        const unitPrice = Number.isNaN(normalizedPrice) ? 0 : normalizedPrice;
+        const safeQuantity = Number.isNaN(quantity) || quantity <= 0 ? 1 : quantity;
+        const commissionPercent = getServiceCommissionPercent(service);
+
+        return sum + (unitPrice * safeQuantity * commissionPercent) / 100;
+      }, 0);
+    }
+
+    return (Number(fallbackAmount || 0) * getBarberCommissionPercent()) / 100;
+  };
+
   const getPeriodLabel = () => {
     const { start, end, frequency } = getCurrentEarningsPeriodRange();
 
@@ -557,24 +618,27 @@ export default function BarberPage() {
     const filteredPayrollPayments = getFilteredPayrollPaymentsByPeriod();
     let pendingRevenue = 0;
     let paidRevenue = 0;
+    let pendingBarberEarnings = 0;
+    let paidBarberEarnings = 0;
     let totalServices = 0;
-    const commissionPercent = barberProfile?.commissionPercent || 50;
+    const commissionPercent = getBarberCommissionPercent();
 
     filtered.forEach(apt => {
       const services = Array.isArray(apt?.services) ? apt.services : [];
       const aptTotal = calculateTotal(services);
+      const aptCommission = calculateAppointmentCommission(apt, aptTotal);
       const isConfirmed = isConfirmedStatus(apt?.status);
 
       if (isConfirmed) {
         paidRevenue += aptTotal;
+        paidBarberEarnings += aptCommission;
         totalServices += services.length;
       } else {
         pendingRevenue += aptTotal;
+        pendingBarberEarnings += aptCommission;
       }
     });
 
-    const pendingBarberEarnings = (pendingRevenue * commissionPercent) / 100;
-    const paidBarberEarnings = (paidRevenue * commissionPercent) / 100;
     const totalBarberEarnings = pendingBarberEarnings + paidBarberEarnings;
     const totalRevenue = pendingRevenue + paidRevenue;
     const barberEarnings = paidBarberEarnings;
@@ -938,7 +1002,7 @@ export default function BarberPage() {
                           const isConfirmed = normalizedStatus === 'confirmed' || normalizedStatus === 'confirmado';
                           const services = Array.isArray(apt?.services) ? apt.services : [];
                           const aptTotal = calculateTotal(services);
-                          const barberEarning = (aptTotal * stats.commissionPercent) / 100;
+                          const barberEarning = calculateAppointmentCommission(apt, aptTotal);
 
                           const appointmentDateTime = getAppointmentStartDate(apt);
                           const serviceNames = getAppointmentServiceNames(apt);
