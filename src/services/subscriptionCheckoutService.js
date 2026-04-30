@@ -21,7 +21,7 @@ export const createLocalTestSubscription = async (plan, currentUser) => {
     amount: planPrice,
     isRecurring: true,
     autoRenewal: true,
-    paymentMethod: 'teste_local',
+    paymentMethod: 'local',
   };
 
   try {
@@ -55,17 +55,9 @@ export const startSubscriptionFlow = async (plan, currentUser) => {
   localStorage.setItem('selectedPlan', JSON.stringify(planWithRecurring));
   localStorage.setItem('currentUser', JSON.stringify(currentUser));
 
-  const subscriptionUrl = getSubscriptionPaymentLink(plan);
-
-  if (subscriptionUrl) {
-    window.location.href = subscriptionUrl;
-    return { type: 'redirect' };
-  }
-
   if (plan?.stripePriceId) {
     const session = await createStripeSubscriptionCheckoutSession({
       planId: plan.id,
-      email: currentUser.email,
     });
 
     if (!session?.url) {
@@ -73,6 +65,13 @@ export const startSubscriptionFlow = async (plan, currentUser) => {
     }
 
     window.location.href = session.url;
+    return { type: 'redirect' };
+  }
+
+  const subscriptionUrl = getSubscriptionPaymentLink(plan);
+
+  if (subscriptionUrl) {
+    window.location.href = subscriptionUrl;
     return { type: 'redirect' };
   }
 

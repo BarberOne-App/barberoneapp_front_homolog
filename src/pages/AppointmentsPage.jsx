@@ -1509,7 +1509,7 @@ export default function AppointmentsPage() {
 
     const appointmentOnDate = getClientOrDependentAppointmentOnDate(date);
 
-    if (appointmentOnDate) {
+    if (hasActiveSubscription && appointmentOnDate) {
       const matchedBarber = barbers.find(
         (barber) => normalizeId(barber.id) === normalizeId(appointmentOnDate.barberId),
       );
@@ -3679,7 +3679,7 @@ export default function AppointmentsPage() {
             </div>
             <div className="modal-body">
               <p style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>
-                Você já possui um agendamento para esta data:
+                Seu plano ativo já possui um agendamento para esta data:
               </p>
               <div
                 style={{
@@ -3709,7 +3709,7 @@ export default function AppointmentsPage() {
                 </div>
               </div>
               <p style={{ marginBottom: '1.5rem', color: '#999' }}>
-                Gostaria de reagendar ou cancelar este agendamento?
+                Para seguir usando a limitação do plano, reagende ou cancele este agendamento.
               </p>
               <div
                 style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}

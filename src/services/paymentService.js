@@ -28,6 +28,17 @@ function isActiveStripeSubscriptionStatus(status) {
   return ['active', 'trialing'].includes(normalizedStatus);
 }
 
+function getSubscriptionUserId(subscription) {
+  return normalizeId(
+    subscription?.userId ??
+      subscription?.user_id ??
+      subscription?.clientId ??
+      subscription?.client_id ??
+      subscription?.user?.id ??
+      subscription?.client?.id,
+  );
+}
+
 function calcularDiasAtraso(nextBillingDate) {
   const hoje = new Date();
   const dataCobranca = new Date(nextBillingDate);
@@ -397,9 +408,13 @@ export const buscarAssinaturaAtiva = async (currentUser) => {
           : Array.isArray(localResponse)
             ? localResponse
             : [];
-        const activeLocalSubscription = localSubscriptions.find(
-          (subscription) => String(subscription?.status || '').toLowerCase() === 'active',
-        );
+        const activeLocalSubscription = localSubscriptions.find((subscription) => {
+          const subscriptionUserId = getSubscriptionUserId(subscription);
+          return (
+            subscriptionUserId === normalizeId(userId) &&
+            String(subscription?.status || '').toLowerCase() === 'active'
+          );
+        });
 
         if (!activeLocalSubscription) return getStoredLocalSubscription();
 
