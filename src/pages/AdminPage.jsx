@@ -1699,14 +1699,21 @@ export default function AdminPage() {
               30,
             ),
           ),
+          commissionPercent: Math.max(
+            0,
+            Math.min(
+              100,
+              parseNumberValue(
+                getMappedValue(row, ['comissao', 'comissionpercent', 'commissionpercent']),
+              ),
+            ),
+          ),
           comissionPercent: Math.max(
             0,
             Math.min(
               100,
-              Math.round(
-                parseNumberValue(
-                  getMappedValue(row, ['comissao', 'comissionpercent', 'commissionpercent']),
-                ),
+              parseNumberValue(
+                getMappedValue(row, ['comissao', 'comissionpercent', 'commissionpercent']),
               ),
             ),
           ),
@@ -3607,18 +3614,76 @@ export default function AdminPage() {
     return 50;
   };
 
+  const getServicePrice = (service) => {
+    const rawPrice =
+      service?.unitPrice ??
+      service?.price ??
+      service?.basePrice ??
+      service?.promotionalPrice ??
+      0;
+    const price = Number(
+      String(rawPrice)
+        .replace('R$', '')
+        .replace(/\./g, '')
+        .replace(',', '.'),
+    );
+    return Number.isNaN(price) ? 0 : price;
+  };
+
+  const getServiceCommissionPercent = (service, barberData) => {
+    const serviceCommission =
+      service?.commissionPercent ??
+      service?.comissionPercent ??
+      service?.commission_percent;
+    const parsedServiceCommission = Number(serviceCommission);
+
+    if (!Number.isNaN(parsedServiceCommission) && parsedServiceCommission >= 0) {
+      return Math.max(0, Math.min(100, parsedServiceCommission));
+    }
+
+    return getBarberCommissionPercent(barberData);
+  };
+
+  const calculateAppointmentCommission = (appointment, fallbackAmount, barberData) => {
+    const appointmentCommission = Number(appointment?.commissionAmount);
+    if (!Number.isNaN(appointmentCommission) && appointmentCommission >= 0) {
+      return appointmentCommission;
+    }
+
+    const appointmentServices = Array.isArray(appointment?.services) ? appointment.services : [];
+
+    if (appointmentServices.length > 0) {
+      return appointmentServices.reduce((sum, service) => {
+        const serviceCommissionAmount = Number(service?.commissionAmount);
+        if (!Number.isNaN(serviceCommissionAmount) && serviceCommissionAmount >= 0) {
+          return sum + serviceCommissionAmount;
+        }
+
+        const price = getServicePrice(service);
+        const quantity = Number(service?.quantity ?? 1);
+        const safeQuantity = Number.isNaN(quantity) || quantity <= 0 ? 1 : quantity;
+        const commissionPercent = getServiceCommissionPercent(service, barberData);
+        return sum + (price * safeQuantity * commissionPercent) / 100;
+      }, 0);
+    }
+
+    const commissionPercent = getBarberCommissionPercent(barberData);
+    return (Number(fallbackAmount || 0) * commissionPercent) / 100;
+  };
+
   const calculateBarberStatsbyBarber = (barberId) => {
     const barber = barbers.find((b) => b.id === barberId);
     const barberAppointments = getAppointmentsByBarber(barberId);
     let totalRevenue = 0;
     let totalServices = 0;
+    let barberEarnings = 0;
     barberAppointments.forEach((apt) => {
       const aptTotal = calculateTotal(apt.services);
       totalRevenue += aptTotal;
       totalServices += apt.services.length;
+      barberEarnings += calculateAppointmentCommission(apt, aptTotal, barber);
     });
     const commissionPercent = getBarberCommissionPercent(barber);
-    const barberEarnings = (totalRevenue * commissionPercent) / 100;
     const shopEarnings = totalRevenue - barberEarnings;
     return {
       totalRevenue,
@@ -3673,13 +3738,15 @@ export default function AdminPage() {
 
 
     let totalRevenue = 0;
+    let barberEarnings = 0;
 
     filtered.forEach((apt) => {
-      totalRevenue += calculateTotal(apt.services || []);
+      const aptTotal = calculateTotal(apt.services || []);
+      totalRevenue += aptTotal;
+      barberEarnings += calculateAppointmentCommission(apt, aptTotal, barberProfile);
     });
 
     const commissionPercent = getBarberCommissionPercent(barberProfile);
-    const barberEarnings = (totalRevenue * commissionPercent) / 100;
 
     return {
       totalRevenue,
@@ -3695,15 +3762,16 @@ export default function AdminPage() {
     const filtered = getFilteredAppointmentsByPeriod();
     let totalRevenue = 0;
     let totalServices = 0;
+    let barberEarnings = 0;
 
     filtered.forEach((apt) => {
       const aptTotal = calculateTotal(apt.services);
       totalRevenue += aptTotal;
       totalServices += apt.services.length;
+      barberEarnings += calculateAppointmentCommission(apt, aptTotal, barberProfile);
     });
 
     const commissionPercent = getBarberCommissionPercent(barberProfile);
-    const barberEarnings = (totalRevenue * commissionPercent) / 100;
     const shopEarnings = totalRevenue - barberEarnings;
 
     return {
@@ -3944,7 +4012,10 @@ export default function AdminPage() {
     }
 
     const commissionPercent = getBarberCommissionPercent(loggedInBarberProfile);
-    const barberEarnings = (totalRevenue * commissionPercent) / 100;
+    const barberEarnings = filtered.reduce((sum, apt) => {
+      const aptTotal = calculateTotal(apt.services || []);
+      return sum + calculateAppointmentCommission(apt, aptTotal, loggedInBarberProfile);
+    }, 0);
 
     return {
       totalRevenue,
@@ -4524,6 +4595,7 @@ export default function AdminPage() {
         name: serviceForm.name,
         basePrice: parsedPrice,
         promotionalPrice: parsedPromotionalPrice || 0,
+        commissionPercent: parsedCommissionPercent,
         comissionPercent: parsedCommissionPercent,
         covered_by_plan: serviceForm.coveredByPlan,
         imageUrl:
@@ -4720,51 +4792,6 @@ export default function AdminPage() {
       (sum, payment) => sum + Number(payment.liquido || 0),
       0,
     );
-  };
-
-  const getServicePrice = (service) => {
-    const rawPrice =
-      service?.unitPrice ??
-      service?.price ??
-      service?.basePrice ??
-      service?.promotionalPrice ??
-      0;
-    const price = Number(
-      String(rawPrice)
-        .replace('R$', '')
-        .replace(/\./g, '')
-        .replace(',', '.'),
-    );
-    return Number.isNaN(price) ? 0 : price;
-  };
-
-  const getServiceCommissionPercent = (service, barberData) => {
-    const serviceCommission =
-      service?.commissionPercent ??
-      service?.comissionPercent ??
-      service?.commission_percent;
-    const parsedServiceCommission = Number(serviceCommission);
-
-    if (!Number.isNaN(parsedServiceCommission) && parsedServiceCommission > 0) {
-      return parsedServiceCommission;
-    }
-
-    return getBarberCommissionPercent(barberData);
-  };
-
-  const calculateAppointmentCommission = (appointment, fallbackAmount, barberData) => {
-    const appointmentServices = Array.isArray(appointment?.services) ? appointment.services : [];
-
-    if (appointmentServices.length > 0) {
-      return appointmentServices.reduce((sum, service) => {
-        const price = getServicePrice(service);
-        const commissionPercent = getServiceCommissionPercent(service, barberData);
-        return sum + (price * commissionPercent) / 100;
-      }, 0);
-    }
-
-    const commissionPercent = getBarberCommissionPercent(barberData);
-    return (Number(fallbackAmount || 0) * commissionPercent) / 100;
   };
 
   const getPaymentAppointmentId = (payment) => {
@@ -5631,7 +5658,11 @@ export default function AdminPage() {
                       <tbody>
                         {statsForEarnings.filteredAppointments.map((apt) => {
                           const aptTotal = calculateTotal(apt.services);
-                          const barberEarning = (aptTotal * statsForEarnings.commissionPercent) / 100;
+                          const barberEarning = calculateAppointmentCommission(
+                            apt,
+                            aptTotal,
+                            barberProfile,
+                          );
                           const aptDate = new Date(apt.startAt);
                           const formattedDate = aptDate.toLocaleDateString('pt-BR');
                           const formattedTime = aptDate.toLocaleTimeString('pt-BR', {
@@ -8910,7 +8941,28 @@ export default function AdminPage() {
                     (sum, p) => sum + parseFloat(p.amount || 0),
                     0,
                   );
-                  const barberEarnings = (totalRevenue * commissionPercent) / 100;
+                  const barberEarnings = paidOnly.reduce((sum, payment) => {
+                    const appointment = payment.appointmentId
+                      ? appointments.find(
+                        (apt) =>
+                          apt.id?.toString() === payment.appointmentId?.toString(),
+                      )
+                      : appointments.find(
+                        (apt) =>
+                          apt.clientId === payment.userId &&
+                          apt.date === payment.appointmentDate &&
+                          apt.time === payment.appointmentTime,
+                      );
+
+                    return (
+                      sum +
+                      calculateAppointmentCommission(
+                        appointment,
+                        parseFloat(payment.amount || 0),
+                        barberObj,
+                      )
+                    );
+                  }, 0);
                   const shopEarnings = totalRevenue - barberEarnings;
                   const planCount = barberPayments.length - paidOnly.length;
 
@@ -9062,7 +9114,11 @@ export default function AdminPage() {
                                     const planOnly = isPlanCovered && !hasProducts;
                                     const rowComm = isPlanCovered
                                       ? 0
-                                      : (serviceVal * commissionPercent) / 100;
+                                      : calculateAppointmentCommission(
+                                        appointment,
+                                        serviceVal,
+                                        barberObj,
+                                      );
 
                                     return (
                                       <tr key={payment.id}>
