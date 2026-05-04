@@ -4913,13 +4913,6 @@ export default function AdminPage() {
     );
   };
 
-  const getPayrollPaidTotalInRange = (employeeId, period, start, end) => {
-    return getPayrollPaymentsInRange(employeeId, period, start, end).reduce(
-      (sum, payment) => sum + Number(payment.liquido || 0),
-      0,
-    );
-  };
-
   const getPaymentAppointmentId = (payment) => {
     return payment?.appointmentId || payment?.appointment?.id || null;
   };
@@ -5196,21 +5189,14 @@ export default function AdminPage() {
     }
   };
 
-  const checkAlreadyPaidInPeriod = (employeeId, period, monthStr) => {
-    const { start, end } = getEffectivePayrollRange(period, monthStr);
-    const payments = getPayrollPaymentsInRange(employeeId, period, start, end);
-
-    return payments.length > 0 ? payments[0] : null;
-  };
-
   const handleMarkPayrollPaid = async (employee, barberData) => {
     const period = getConfiguredPayrollFrequency(employee, barberData);
     const { start, end } = getEffectivePayrollRange(period, payrollMonthFilter);
     const barberId = barberData?.id;
     const fallbackErrorMessage = 'N\u00e3o foi poss\u00edvel registrar o pagamento deste funcion\u00e1rio.';
-    const existingPayment = checkAlreadyPaidInPeriod(employee.id, period, payrollMonthFilter);
+    const canPay = employee?.podePagar === true;
 
-    if (existingPayment) {
+    if (!canPay) {
       showToast('Este funcionário já possui pagamento registrado neste período.', 'info');
       return;
     }
@@ -5224,8 +5210,7 @@ export default function AdminPage() {
     const totalVales = vales.reduce((s, v) => s + v.valor, 0);
     const salarioFixo = parseFloat(barberData?.salarioFixo ?? employee.salarioFixo ?? 0) || 0;
     const totalDue = salarioFixo + commission + totalExtraPayments - totalVales;
-    const alreadyPaidTotal = getPayrollPaidTotalInRange(employee.id, period, start, end);
-    const liquido = Math.max(totalDue - alreadyPaidTotal, 0);
+    const liquido = Number(employee?.liquido ?? totalDue) || 0;
 
     if (liquido <= 0) {
       showToast('Este funcionário não possui valor pendente no período selecionado.', 'info');
@@ -5301,22 +5286,8 @@ export default function AdminPage() {
     );
 
     const pending = eligibleEmployees.reduce((sum, emp) => {
-      const barberData = barbers.find((b) => String(b.userId) === String(emp.id));
-      const period = getConfiguredPayrollFrequency(emp, barberData);
-      const { start, end } = getEffectivePayrollRange(period, payrollMonthFilter);
-
-      const commission = barberData ? getBarberCommissionInPeriod(barberData.id, start, end) : 0;
-      const totalVales = getValesInPeriod(emp.id, start, end).reduce((acc, vale) => acc + vale.valor, 0);
-      const totalExtraPayments = getExtraPaymentsInPeriod(emp.id, start, end).reduce(
-        (acc, payment) => acc + Number(payment.liquido || 0),
-        0,
-      );
-      const salarioFixo = parseFloat(barberData?.salarioFixo ?? emp.salarioFixo ?? 0) || 0;
-      const totalDue = salarioFixo + commission + totalExtraPayments - totalVales;
-      const alreadyPaidTotal = getPayrollPaidTotalInRange(emp.id, period, start, end);
-      const liquido = Math.max(totalDue - alreadyPaidTotal, 0);
-
-      return sum + liquido;
+      const liquido = Number(emp.liquido || 0);
+      return emp.podePagar === true && liquido > 0 ? sum + liquido : sum;
     }, 0);
 
     const paid = employeePayments
@@ -6938,13 +6909,8 @@ export default function AdminPage() {
                         const salarioFixo =
                           parseFloat(barberData?.salarioFixo ?? emp.salarioFixo ?? 0) || 0;
                         const totalDue = salarioFixo + commission + totalExtraPayments - totalVales;
-                        const alreadyPaidTotal = getPayrollPaidTotalInRange(emp.id, period, start, end);
-                        const saldoPendente = Math.max(totalDue - alreadyPaidTotal, 0);
-                        const alreadyPaidRecord = !!checkAlreadyPaidInPeriod(
-                          emp.id,
-                          period,
-                          payrollMonthFilter,
-                        );
+                        const saldoPendente = Number(emp.liquido ?? totalDue) || 0;
+                        const canPay = emp.podePagar === true && saldoPendente > 0;
                         const isExp = payrollExpandedId === emp.id;
                         const displaySalarioFixo = salarioFixo;
                         const displayCommission = commission;
@@ -7034,9 +7000,7 @@ export default function AdminPage() {
                               </td>
 
                               <td className="payroll-td payroll-td--center">
-                                {alreadyPaidRecord ? (
-                                  <span className="payroll-paid-badge">Pagamento já realizado</span>
-                                ) : saldoPendente > 0 ? (
+                                {canPay ? (
                                   <button
                                     onClick={() => handleMarkPayrollPaid(emp, barberData)}
                                     className="payroll-pay-btn"
