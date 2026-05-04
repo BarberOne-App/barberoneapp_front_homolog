@@ -523,14 +523,21 @@ export default function AppointmentsPage() {
   const getUpcomingReminders = useMemo(() => {
     const now = new Date();
     const dependentLookupIds = buildDependentLookupIds(userDependents);
+    const activeReminderStatuses = new Set(['scheduled', 'confirmed']);
     const userAppointments = appointments.filter((apt) => {
       if (!isAppointmentFromCurrentUser(apt, currentUser?.id, dependentLookupIds)) {
         return false;
       }
-      // Filter out cancelled appointments
-      if (isCancelledStatus(apt.status) || String(apt.status || '').toLowerCase() === 'no_show') {
+
+      const appointmentStatus = String(apt.status || '').toLowerCase().trim();
+      if (
+        isCancelledStatus(appointmentStatus) ||
+        appointmentStatus === 'no_show' ||
+        !activeReminderStatuses.has(appointmentStatus)
+      ) {
         return false;
       }
+
       return true;
     });
     const future = userAppointments.filter((apt) => {
