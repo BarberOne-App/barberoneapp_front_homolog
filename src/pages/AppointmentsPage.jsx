@@ -221,6 +221,7 @@ export default function AppointmentsPage() {
   const [bookingInProgress, setBookingInProgress] = useState(false);
   const [pixLoading, setPixLoading] = useState(false);
   const [postPaymentLoading, setPostPaymentLoading] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
   const [observation, setObservation] = useState('');
   const [expandedObsId, setExpandedObsId] = useState(null);
   const [isBarberLocked, setIsBarberLocked] = useState(false);
@@ -2405,6 +2406,9 @@ export default function AppointmentsPage() {
   }, []);
 
   const handleDeleteConfirm = useCallback(async () => {
+    setIsCanceling(true);
+    setShowConfirmModal(false);
+
     try {
       clearPaymentCache(appointmentToDelete);
       await deleteAppointment(appointmentToDelete);
@@ -2416,6 +2420,8 @@ export default function AppointmentsPage() {
         extractAppointmentErrorMessage(error, 'Não foi possível cancelar este agendamento.'),
         'danger',
       );
+    } finally {
+      setIsCanceling(false);
     }
   }, [appointmentToDelete, loadData, showToast, clearPaymentCache]);
 
@@ -3774,6 +3780,16 @@ export default function AppointmentsPage() {
             <div className="booking-spinner"></div>
             <h2>Pagamento confirmado</h2>
             <p>Atualizando seus agendamentos...</p>
+          </div>
+        </div>
+      )}
+
+      {isCanceling && (
+        <div className="booking-overlay">
+          <div className="booking-overlay-content">
+            <div className="booking-spinner"></div>
+            <h2>Cancelando agendamento...</h2>
+            <p>Aguarde enquanto atualizamos seus agendamentos.</p>
           </div>
         </div>
       )}
