@@ -16,8 +16,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-
-  
   const [pendingUser, setPendingUser] = useState(null);
 
   // Se a sessão foi invalidada por conta do status da barbearia, exibe aviso
@@ -56,26 +54,25 @@ export default function LoginPage() {
     onSuccess: async (tokenResponse) => {
       setGoogleLoading(true);
       try {
-        const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+        const authResult = await loginWithGoogle({
+          accessToken: tokenResponse.access_token,
         });
 
-        const googleUser = await res.json();
-
-        const user = googleUser.email;
-        // const user = await loginWithGoogle(googleUser);
-
-        const profileComplete = "";
-          // googleUser.name || (user.cpf && user.phone && user.birthDate && user.barbershops?.length);
-
-        if (!profileComplete) {
-          setPendingUser({ name: googleUser.name, email: googleUser.email, picture: googleUser.picture });
+        if (authResult.requiresProfileCompletion) {
+          setPendingUser({
+            accessToken: tokenResponse.access_token,
+            user: authResult.user,
+          });
         } else {
-          // navigateByRole(user);
+          navigateByRole(authResult.user);
         }
       } catch (error) {
-        console.error('Erro no login com Google:', error);
-        setToast({ show: true, message: 'Erro ao fazer login com Google. Tente novamente.', type: 'danger' });
+        const msg =
+          error.response?.data?.message ||
+          (Array.isArray(error.response?.data) ? error.response.data.join(', ') : null) ||
+          error.message ||
+          'Erro ao fazer login com Google. Tente novamente.';
+        setToast({ show: true, message: msg, type: 'danger' });
       } finally {
         setGoogleLoading(false);
       }
@@ -86,10 +83,9 @@ export default function LoginPage() {
     },
   });
 
-  
-  const handleProfileComplete = (updatedUser) => {
+  const handleProfileComplete = (authResult) => {
     setPendingUser(null);
-    // navigateByRole(updatedUser);
+    navigateByRole(authResult.user || authResult);
   };
 
   const navigateByRole = (user) => {
@@ -140,8 +136,7 @@ export default function LoginPage() {
               {loading ? 'Entrando...' : 'Entrar'}
             </Button>
           </form>
-    {/* COMENTADO AQUI A PARADA DO GOOGLE POR ENQUANTO */}
-          {/* <div className="auth-divider">
+          <div className="auth-divider">
             <span>ou</span>
           </div>
 
@@ -158,7 +153,7 @@ export default function LoginPage() {
               <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
             </svg>
             {googleLoading ? 'Entrando com Google...' : 'Continuar com Google'}
-          </button> */}
+          </button>
 
           <p className="auth-footer">
             Não tem uma conta?{' '}
@@ -179,10 +174,8 @@ export default function LoginPage() {
     
       {pendingUser && (
         <CompleteProfileModal
-          // user={pendingUser}
-          name={pendingUser.name}
-          email={pendingUser.email}
-          picture={pendingUser.picture}
+          accessToken={pendingUser.accessToken}
+          user={pendingUser.user}
           onComplete={handleProfileComplete}
         />
       )}
