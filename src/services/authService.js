@@ -71,50 +71,34 @@ export async function login(email, password) {
   return data.user;
 }
 
-/**
- * Login com Google — registra como cliente caso o usuário ainda não exista.
- * Usa a rota de registro de cliente do backend real.
- * Se o usuário já existir, tenta login normal (precisará da senha — fluxo limitado sem suporte OAuth no backend).
- */
-export async function loginWithGoogle(name, email, slug) {
-  // Tenta registrar como novo cliente (sem senha — fluxo parcial)
-  // TODO: implementar rota OAuth no backend para suporte completo ao Google
-  try {
-    const { data } = await api.post("/auth/register/client-google", {
-      slug: slug,
-      name: name,
-      email: email,
-      password: crypto.randomUUID().slice(0, 12), // senha temporária
-      phone: null,
-    });
+export async function loginWithGoogle(payload) {
+  const { accessToken, slug, profileData } = payload || {};
+  const { data } = await api.post("/auth/google", {
+    accessToken,
+    slug: slug || import.meta.env.VITE_BARBERSHOP_SLUG || undefined,
+    profileData,
+  });
 
-    const barbershop = data.barbershop || data.user?.barbershop || (Array.isArray(data.user?.barbershops) ? data.user.barbershops[0] : null);
-    const status = String(barbershop?.status || '').toLowerCase();
-    if (status === 'inactive' || status === 'blocked') {
-      const label = status === 'blocked' ? 'bloqueada' : 'inativa';
-      throw { response: { data: { message: `Login bloqueado: a barbearia está ${label}. Entre em contato com o suporte.` } } };
-    }
-
-    saveSession(data);
-
-    if (shouldCheckHomeInfo(data.user)) {
-      try {
-        await api.get('/home-info');
-      } catch (err) {
-        logout();
-        const message = err?.response?.data?.message || (Array.isArray(err?.response?.data) ? err.response.data.join(', ') : null) || 'Acesso indisponível para esta barbearia';
-        throw { response: { data: { message } } };
-      }
-    }
-
-    return data.user;
-  } catch (error) {
-    // Se já existe (409 conflict), tenta carregar dados via /auth/me com token existente
-    if (error.response?.status === 409) {
-      throw new Error("Usuário já cadastrado. Faça login com email e senha.");
-    }
-    throw error;
+  const barbershop = data.currentBarbershop || data.barbershop || data.user?.barbershop || (Array.isArray(data.user?.barbershops) ? data.user.barbershops[0] : null);
+  const status = String(barbershop?.status || '').toLowerCase();
+  if (status === 'inactive' || status === 'blocked') {
+    const label = status === 'blocked' ? 'bloqueada' : 'inativa';
+    throw { response: { data: { message: `Login bloqueado: a barbearia está ${label}. Entre em contato com o suporte.` } } };
   }
+
+  saveSession(data);
+
+  if (!data.requiresProfileCompletion && barbershop && shouldCheckHomeInfo(data.user)) {
+    try {
+      await api.get('/home-info');
+    } catch (err) {
+      logout();
+      const message = err?.response?.data?.message || (Array.isArray(err?.response?.data) ? err.response.data.join(', ') : null) || 'Acesso indisponível para esta barbearia';
+      throw { response: { data: { message } } };
+    }
+  }
+
+  return data;
 }
 
 /**
