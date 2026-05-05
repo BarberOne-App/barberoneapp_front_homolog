@@ -78,12 +78,7 @@ const MANUAL_CLIENT_INITIAL_FORM = {
   confirmPassword: '',
 };
 
-const CANCELED_APPOINTMENT_STATUSES = new Set([
-  'cancelled',
-  'canceled',
-  'cancelado',
-  'cancelada',
-]);
+const CANCELED_APPOINTMENT_STATUSES = new Set(['cancelled', 'canceled', 'cancelado', 'cancelada']);
 
 const APPOINTMENT_CANCELLATION_REASONS = {
   no_show: {
@@ -136,9 +131,7 @@ const getAppointmentStatusClassName = (appointment) => {
   if (normalizedStatus === 'completed') return 'status-completed';
   if (normalizedStatus === 'confirmed') return 'status-confirmed';
   if (normalizedStatus === 'no_show') return 'status-no-show';
-  if (
-    isCanceledAppointmentStatus(appointment?.status)
-  ) {
+  if (isCanceledAppointmentStatus(appointment?.status)) {
     return 'status-cancelled';
   }
 
@@ -200,7 +193,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (currentUser) {
       if (currentUser.role === 'admin' || currentUser.isAdmin === true) {
-        setActiveTab('homeInfo');  // ou a aba que desejar para admin
+        setActiveTab('homeInfo'); // ou a aba que desejar para admin
       } else {
         setActiveTab('agendamentos');
       }
@@ -265,7 +258,15 @@ export default function AdminPage() {
     );
 
     return barberProfile || matchedBarber || null;
-  }, [barbers, barberProfile, currentUser?.barberId, currentUser?.email, currentUser?.id, currentUser?.isAdmin, currentUser?.role]);
+  }, [
+    barbers,
+    barberProfile,
+    currentUser?.barberId,
+    currentUser?.email,
+    currentUser?.id,
+    currentUser?.isAdmin,
+    currentUser?.role,
+  ]);
   const loggedInBarberReferenceIds = useMemo(() => {
     return Array.from(
       new Set(
@@ -279,7 +280,12 @@ export default function AdminPage() {
           .map((value) => String(value)),
       ),
     );
-  }, [loggedInBarberProfile?.id, loggedInBarberProfile?.userId, currentUser?.barberId, currentUser?.id]);
+  }, [
+    loggedInBarberProfile?.id,
+    loggedInBarberProfile?.userId,
+    currentUser?.barberId,
+    currentUser?.id,
+  ]);
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
@@ -549,11 +555,7 @@ export default function AdminPage() {
     if (!year || !month || !day) return null;
 
     const date = new Date(year, month - 1, day);
-    if (
-      date.getFullYear() !== year ||
-      date.getMonth() !== month - 1 ||
-      date.getDate() !== day
-    ) {
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
       return null;
     }
 
@@ -819,7 +821,11 @@ export default function AdminPage() {
       category: 'Agendamentos',
       icon: '🗓️',
     },
-    manageOffScheduleAppointments: { label: 'Agendar Fora do Horário', category: 'Agendamentos', icon: '⏰' },
+    manageOffScheduleAppointments: {
+      label: 'Agendar Fora do Horário',
+      category: 'Agendamentos',
+      icon: '⏰',
+    },
     manageBenefits: {
       label: 'Gerenciamento de Planos',
       category: 'Configurações',
@@ -865,10 +871,11 @@ export default function AdminPage() {
       const dateB = new Date(`${b.date}T${b.time}`);
       return dateA - dateB;
     });
-    if (filter === 'today') filtered = filtered.filter(apt => apt.date === today);
-    if (filter === 'upcoming') filtered = filtered.filter(apt => new Date(`${apt.date}T${apt.time}`) >= now);
+    if (filter === 'today') filtered = filtered.filter((apt) => apt.date === today);
+    if (filter === 'upcoming')
+      filtered = filtered.filter((apt) => new Date(`${apt.date}T${apt.time}`) >= now);
     setFilteredAppointments(filtered);
-    setTodayAppointments(visibleAppointments.filter(apt => apt.date === today));
+    setTodayAppointments(visibleAppointments.filter((apt) => apt.date === today));
   }, [appointments, filter]);
 
   const loadGallery = async () => {
@@ -971,7 +978,7 @@ export default function AdminPage() {
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
 
     return s.slice(0, 10);
-  };
+  }
 
   function getAppointmentPaymentDate(payment) {
     return (
@@ -989,7 +996,9 @@ export default function AdminPage() {
   }
 
   const normalizePaymentFrequency = (value) => {
-    const normalized = String(value || '').trim().toLowerCase();
+    const normalized = String(value || '')
+      .trim()
+      .toLowerCase();
     if (normalized === 'weekly' || normalized === 'semanal') return 'weekly';
     if (normalized === 'biweekly' || normalized === 'quinzenal') return 'biweekly';
     if (normalized === 'monthly' || normalized === 'mensal') return 'monthly';
@@ -1104,10 +1113,14 @@ export default function AdminPage() {
         ...prev,
         ...savedHomeInfo,
         barberPaymentFrequency: normalizePaymentFrequency(savedHomeInfo?.barberPaymentFrequency),
-        employeePaymentFrequency: normalizePaymentFrequency(savedHomeInfo?.employeePaymentFrequency),
+        employeePaymentFrequency: normalizePaymentFrequency(
+          savedHomeInfo?.employeePaymentFrequency,
+        ),
       }));
       setBarberPaymentFrequency(normalizePaymentFrequency(savedHomeInfo?.barberPaymentFrequency));
-      setEmployeePaymentFrequency(normalizePaymentFrequency(savedHomeInfo?.employeePaymentFrequency));
+      setEmployeePaymentFrequency(
+        normalizePaymentFrequency(savedHomeInfo?.employeePaymentFrequency),
+      );
       showToast('Informações da home atualizadas com sucesso!', 'success');
     } catch (error) {
       console.error('Erro ao salvar informações da home:', error);
@@ -1152,14 +1165,12 @@ export default function AdminPage() {
     try {
       await saveHomeInfo({
         ...nextHomeInfo,
-        barberPaymentFrequency:
-          mapPaymentFrequencyToApi(
-            nextHomeInfo?.barberPaymentFrequency ?? barberPaymentFrequency ?? 'monthly',
-          ),
-        employeePaymentFrequency:
-          mapPaymentFrequencyToApi(
-            nextHomeInfo?.employeePaymentFrequency ?? employeePaymentFrequency ?? 'monthly',
-          ),
+        barberPaymentFrequency: mapPaymentFrequencyToApi(
+          nextHomeInfo?.barberPaymentFrequency ?? barberPaymentFrequency ?? 'monthly',
+        ),
+        employeePaymentFrequency: mapPaymentFrequencyToApi(
+          nextHomeInfo?.employeePaymentFrequency ?? employeePaymentFrequency ?? 'monthly',
+        ),
       });
     } catch (error) {
       console.error('Erro ao salvar informações da home:', error);
@@ -1261,7 +1272,9 @@ export default function AdminPage() {
   };
 
   const formatWhatsAppNumber = (value) => {
-    const cleaned = String(value || '').replace(/\D/g, '').slice(0, 11);
+    const cleaned = String(value || '')
+      .replace(/\D/g, '')
+      .slice(0, 11);
 
     if (cleaned.length <= 2) return cleaned;
     if (cleaned.length <= 7) return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
@@ -1270,7 +1283,9 @@ export default function AdminPage() {
   };
 
   const formatCpfDisplay = (value) => {
-    const digits = String(value || '').replace(/\D/g, '').slice(0, 11);
+    const digits = String(value || '')
+      .replace(/\D/g, '')
+      .slice(0, 11);
     if (digits.length !== 11) return value || '—';
     return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
   };
@@ -1291,7 +1306,9 @@ export default function AdminPage() {
   };
 
   const formatCpfInput = (value) => {
-    const digits = String(value || '').replace(/\D/g, '').slice(0, 11);
+    const digits = String(value || '')
+      .replace(/\D/g, '')
+      .slice(0, 11);
     if (digits.length <= 3) return digits;
     if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
     if (digits.length <= 9) {
@@ -1302,7 +1319,9 @@ export default function AdminPage() {
   };
 
   const formatPhoneInput = (value) => {
-    const digits = String(value || '').replace(/\D/g, '').slice(0, 11);
+    const digits = String(value || '')
+      .replace(/\D/g, '')
+      .slice(0, 11);
     if (digits.length <= 2) return digits;
     if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
     return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
@@ -1624,33 +1643,28 @@ export default function AdminPage() {
     setImportingUsers(true);
     try {
       const rows = await readExcelRows(file);
-      const preparedRows = rows
-        .map((row, index) => {
-          const email = String(getMappedValue(row, ['email', 'mail']))
-            .trim()
-            .toLowerCase();
-          const phone = String(getMappedValue(row, ['telefone', 'phone', 'celular']))
-            .trim();
-          const cpf = String(getMappedValue(row, ['cpf'])).replace(/\D/g, '');
+      const preparedRows = rows.map((row, index) => {
+        const email = String(getMappedValue(row, ['email', 'mail']))
+          .trim()
+          .toLowerCase();
+        const phone = String(getMappedValue(row, ['telefone', 'phone', 'celular'])).trim();
+        const cpf = String(getMappedValue(row, ['cpf'])).replace(/\D/g, '');
 
-          return {
-            rowNumber: index + 2,
-            name: String(getMappedValue(row, ['nome', 'name', 'usuario'])).trim(),
-            email,
-            phone,
-            cpf,
-            role: 'client',
-            isAdmin: false,
-          };
-        });
+        return {
+          rowNumber: index + 2,
+          name: String(getMappedValue(row, ['nome', 'name', 'usuario'])).trim(),
+          email,
+          phone,
+          cpf,
+          role: 'client',
+          isAdmin: false,
+        };
+      });
 
       const mappedRows = preparedRows;
 
       if (!mappedRows.length) {
-        showToast(
-          'Nenhuma linha encontrada no Excel para importar.',
-          'danger',
-        );
+        showToast('Nenhuma linha encontrada no Excel para importar.', 'danger');
         return;
       }
 
@@ -1675,8 +1689,12 @@ export default function AdminPage() {
       const errorMessage =
         typeof apiError === 'string'
           ? apiError
-          : apiError?.message || apiError?.error || error?.message || 'Erro ao importar clientes por Excel.';
-      const errorDetails = typeof apiError === 'string' ? '' : formatImportUserErrors(apiError?.errors);
+          : apiError?.message ||
+            apiError?.error ||
+            error?.message ||
+            'Erro ao importar clientes por Excel.';
+      const errorDetails =
+        typeof apiError === 'string' ? '' : formatImportUserErrors(apiError?.errors);
       showToast(
         `${errorMessage}${errorDetails}`,
         getImportUsersToastType(apiStatus, apiError?.success),
@@ -1757,7 +1775,7 @@ export default function AdminPage() {
             1,
             Math.round(
               parseNumberValue(getMappedValue(row, ['duracao', 'duration', 'durationminutes'])) ||
-              30,
+                30,
             ),
           ),
           commissionPercent: Math.max(
@@ -1980,10 +1998,7 @@ export default function AdminPage() {
       ? clientIdRaw.toString().replace('dep_', '')
       : null;
     const dependentId =
-      appointment?.dependentId ||
-      appointment?.dependent?.id ||
-      dependentIdFromClient ||
-      null;
+      appointment?.dependentId || appointment?.dependent?.id || dependentIdFromClient || null;
     const dependent =
       appointment?.dependent ||
       allDependents.find((dep) => dependentId && dep.id?.toString() === dependentId.toString()) ||
@@ -2103,9 +2118,9 @@ export default function AdminPage() {
       const serviceName =
         Array.isArray(appointment.services) && appointment.services.length > 0
           ? appointment.services
-            .map((s) => s?.serviceName || s?.name)
-            .filter(Boolean)
-            .join(', ')
+              .map((s) => s?.serviceName || s?.name)
+              .filter(Boolean)
+              .join(', ')
           : appointment.serviceName || 'Serviço';
 
       const dependentInfo = getAppointmentDependentInfo(appointment);
@@ -2266,7 +2281,9 @@ export default function AdminPage() {
       );
 
       const subscriptionStatusMap = {};
-      const subscriptionItems = Array.isArray(subscriptionsData?.items) ? subscriptionsData.items : [];
+      const subscriptionItems = Array.isArray(subscriptionsData?.items)
+        ? subscriptionsData.items
+        : [];
       if (subscriptionItems.length) {
         subscriptionItems.forEach((sub) => {
           if (sub.status === 'active') {
@@ -2294,8 +2311,8 @@ export default function AdminPage() {
       const updatedSubs =
         toExpire.length > 0
           ? subscriptionItems.map((s) =>
-            toExpire.find((e) => e.id === s.id) ? { ...s, status: 'cancelled' } : s,
-          )
+              toExpire.find((e) => e.id === s.id) ? { ...s, status: 'cancelled' } : s,
+            )
           : subscriptionItems;
 
       const subsWithCpf = updatedSubs.map((sub) => {
@@ -2771,17 +2788,14 @@ export default function AdminPage() {
       return;
     }
     try {
-      await fetch(
-        `${API_URL}/users/${selectedUserPermissions.id}/permissions`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ permissions: editingPermissions }),
+      await fetch(`${API_URL}/users/${selectedUserPermissions.id}/permissions`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
-      );
+        body: JSON.stringify({ permissions: editingPermissions }),
+      });
       await loadData();
       showToast('Permissões atualizadas com sucesso!', 'success');
       closePermissionsModal();
@@ -2882,7 +2896,9 @@ export default function AdminPage() {
       return;
     }
     const shouldSaveBarber = barberForm.userRole === 'barber' || !barberForm.createUser;
-    const rawCommissionPercent = Number(String(barberForm.commissionPercent || 0).replace(',', '.'));
+    const rawCommissionPercent = Number(
+      String(barberForm.commissionPercent || 0).replace(',', '.'),
+    );
     if (
       shouldSaveBarber &&
       (Number.isNaN(rawCommissionPercent) || rawCommissionPercent < 0 || rawCommissionPercent > 100)
@@ -3243,10 +3259,7 @@ export default function AdminPage() {
       }
 
       if (!canCompleteAppointment(appointment)) {
-        showToast(
-          'Só é possível finalizar no horário ou após o horário do atendimento.',
-          'danger',
-        );
+        showToast('Só é possível finalizar no horário ou após o horário do atendimento.', 'danger');
         return;
       }
 
@@ -3447,9 +3460,10 @@ export default function AdminPage() {
   const confirmCancelSubscription = async () => {
     const sub = confirmCancelSub;
     setConfirmCancelSub(null);
-    const expDate = sub.currentCycle?.periodEnd || sub.nextBillingDate
-      ? new Date(sub.currentCycle?.periodEnd || sub.nextBillingDate).toLocaleDateString('pt-BR')
-      : 'data não definida';
+    const expDate =
+      sub.currentCycle?.periodEnd || sub.nextBillingDate
+        ? new Date(sub.currentCycle?.periodEnd || sub.nextBillingDate).toLocaleDateString('pt-BR')
+        : 'data não definida';
     try {
       await fetch(`${API_URL}/stripe/subscriptions/${sub.subscriptionId || sub.id}/cancel`, {
         method: 'PATCH',
@@ -3742,25 +3756,14 @@ export default function AdminPage() {
 
   const getServicePrice = (service) => {
     const rawPrice =
-      service?.unitPrice ??
-      service?.price ??
-      service?.basePrice ??
-      service?.promotionalPrice ??
-      0;
-    const price = Number(
-      String(rawPrice)
-        .replace('R$', '')
-        .replace(/\./g, '')
-        .replace(',', '.'),
-    );
+      service?.unitPrice ?? service?.price ?? service?.basePrice ?? service?.promotionalPrice ?? 0;
+    const price = Number(String(rawPrice).replace('R$', '').replace(/\./g, '').replace(',', '.'));
     return Number.isNaN(price) ? 0 : price;
   };
 
   const getServiceCommissionPercent = (service, barberData) => {
     const serviceCommission =
-      service?.commissionPercent ??
-      service?.comissionPercent ??
-      service?.commission_percent;
+      service?.commissionPercent ?? service?.comissionPercent ?? service?.commission_percent;
     const parsedServiceCommission = Number(serviceCommission);
 
     if (!Number.isNaN(parsedServiceCommission) && parsedServiceCommission >= 0) {
@@ -3860,9 +3863,6 @@ export default function AdminPage() {
   const filtered = getFilteredAppointmentsByPeriod();
 
   const statsbyPeriod = useMemo(() => {
-
-
-
     let totalRevenue = 0;
     let barberEarnings = 0;
 
@@ -3917,12 +3917,12 @@ export default function AdminPage() {
     return payments.filter((payment) => {
       const paymentDate = new Date(
         payment.appointmentDate ||
-        payment.appointment?.startAt ||
-        payment.appointment?.endAt ||
-        payment.createdAt ||
-        payment.date ||
-        payment.startDate ||
-        payment.nextPaymentDate,
+          payment.appointment?.startAt ||
+          payment.appointment?.endAt ||
+          payment.createdAt ||
+          payment.date ||
+          payment.startDate ||
+          payment.nextPaymentDate,
       );
       return (
         paymentDate.getFullYear() === parseInt(year) &&
@@ -4080,7 +4080,6 @@ export default function AdminPage() {
     });
   };
 
-
   const statsForEarnings = useMemo(() => {
     const now = new Date();
     let start = new Date();
@@ -4106,24 +4105,26 @@ export default function AdminPage() {
       end = new Date();
     }
 
-    let filtered = appointments.filter(apt => {
+    let filtered = appointments.filter((apt) => {
       if (!apt.startAt) return false;
       const aptDate = new Date(apt.startAt);
       return aptDate >= start && aptDate <= end;
     });
 
     if (!isAdmin && loggedInBarberProfile) {
-      filtered = filtered.filter((apt) => String(apt.barberId) === String(loggedInBarberProfile.id));
+      filtered = filtered.filter(
+        (apt) => String(apt.barberId) === String(loggedInBarberProfile.id),
+      );
     }
 
     let totalRevenue = 0;
-    filtered.forEach(apt => {
+    filtered.forEach((apt) => {
       totalRevenue += calculateTotal(apt.services);
     });
 
     let extraPaymentsTotal = 0;
     if (!isAdmin && loggedInBarberProfile) {
-      const extraPaymentsInPeriod = employeePayments.filter(payment => {
+      const extraPaymentsInPeriod = employeePayments.filter((payment) => {
         if (!isExtraPayment(payment)) return false;
         if (
           loggedInBarberReferenceIds.length > 0 &&
@@ -4150,10 +4151,18 @@ export default function AdminPage() {
       barberEarnings,
       shopEarnings: totalRevenue - barberEarnings,
       filteredAppointments: filtered,
-      extraPaymentsTotal,   // <-- novo campo
+      extraPaymentsTotal, // <-- novo campo
     };
-  }, [appointments, earningsFilter, customStartDate, customEndDate, isAdmin, loggedInBarberProfile, calculateTotal, employeePayments]);
-
+  }, [
+    appointments,
+    earningsFilter,
+    customStartDate,
+    customEndDate,
+    isAdmin,
+    loggedInBarberProfile,
+    calculateTotal,
+    employeePayments,
+  ]);
 
   const filteredAppointmentsAdmin = useMemo(() => {
     let filtered = [...appointments];
@@ -4179,7 +4188,9 @@ export default function AdminPage() {
       const [year, month] = selectedMonth.split('-');
       filtered = filtered.filter((apt) => {
         const aptDate = new Date(apt.startAt);
-        return aptDate.getFullYear() === parseInt(year) && aptDate.getMonth() + 1 === parseInt(month);
+        return (
+          aptDate.getFullYear() === parseInt(year) && aptDate.getMonth() + 1 === parseInt(month)
+        );
       });
     }
 
@@ -4460,10 +4471,8 @@ export default function AdminPage() {
 
         await loadPlans();
         showToast(
-          shouldDeactivate
-            ? 'Plano desativado com sucesso!'
-            : 'Plano ativado com sucesso!',
-          'success'
+          shouldDeactivate ? 'Plano desativado com sucesso!' : 'Plano ativado com sucesso!',
+          'success',
         );
       } catch (error) {
         console.error('Erro ao alterar status do plano:', error);
@@ -4478,25 +4487,28 @@ export default function AdminPage() {
       return;
     }
 
-    showConfirm(`Deseja realmente excluir o plano "${plan.name}"? Esta ação não pode ser desfeita.`, async () => {
-      try {
-        const response = await fetch(`${API_URL}/subscription-plans/${plan.id}`, {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
+    showConfirm(
+      `Deseja realmente excluir o plano "${plan.name}"? Esta ação não pode ser desfeita.`,
+      async () => {
+        try {
+          const response = await fetch(`${API_URL}/subscription-plans/${plan.id}`, {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
 
-        if (!response.ok) throw new Error('Falha ao excluir plano');
+          if (!response.ok) throw new Error('Falha ao excluir plano');
 
-        await loadPlans();
-        showToast('Plano excluído com sucesso!', 'success');
-      } catch (error) {
-        console.error('Erro ao excluir plano:', error);
-        showToast('Erro ao excluir plano. Verifique se não há assinaturas vinculadas.', 'danger');
-      }
-    });
+          await loadPlans();
+          showToast('Plano excluído com sucesso!', 'success');
+        } catch (error) {
+          console.error('Erro ao excluir plano:', error);
+          showToast('Erro ao excluir plano. Verifique se não há assinaturas vinculadas.', 'danger');
+        }
+      },
+    );
   };
 
   const closeBenefitModal = () => {
@@ -4554,7 +4566,7 @@ export default function AdminPage() {
         selectedPlanForBenefit.benefitIndex !== null
           ? 'Benefício atualizado com sucesso!'
           : 'Benefício adicionado com sucesso!',
-        'success'
+        'success',
       );
       closeBenefitModal();
     } catch (error) {
@@ -4684,10 +4696,10 @@ export default function AdminPage() {
       const parsedCommissionPercent = Number(serviceForm.commissionPercent);
       const currentServiceImage = String(
         serviceForm.image ||
-        editingService?.image ||
-        editingService?.imageUrl ||
-        editingService?.image_url ||
-        '',
+          editingService?.image ||
+          editingService?.imageUrl ||
+          editingService?.image_url ||
+          '',
       ).trim();
 
       if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
@@ -4761,12 +4773,16 @@ export default function AdminPage() {
         if (isActive) {
           const response = await deleteService(service.id);
           const updatedService = { ...service, active: false };
-          setServices((prev) => prev.map((item) => (item.id === service.id ? updatedService : item)));
+          setServices((prev) =>
+            prev.map((item) => (item.id === service.id ? updatedService : item)),
+          );
           showToast(response?.reason || 'Serviço desativado com sucesso!', 'success');
         } else {
           const response = await reactivateService(service.id);
           const updatedService = { ...service, active: true };
-          setServices((prev) => prev.map((item) => (item.id === service.id ? updatedService : item)));
+          setServices((prev) =>
+            prev.map((item) => (item.id === service.id ? updatedService : item)),
+          );
           showToast(response?.reason || 'Serviço reativado com sucesso!', 'success');
         }
       } catch (error) {
@@ -4819,6 +4835,48 @@ export default function AdminPage() {
     return { start: '', end: '' };
   };
 
+  const getPayrollMonthRange = (monthStr) => {
+    const [year, month] = String(monthStr || '')
+      .split('-')
+      .map(Number);
+
+    if (!year || !month) return { start: '', end: '' };
+
+    const start = `${year}-${String(month).padStart(2, '0')}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const end = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+    return { start, end };
+  };
+
+  const normalizeDateRange = (start, end) => {
+    if (start && end && start > end) {
+      return { start: end, end: start };
+    }
+
+    return { start, end };
+  };
+
+  const getPayrollFilterRange = (monthStr = payrollMonthFilter) => {
+    const monthRange = getPayrollMonthRange(monthStr);
+    const selectedDate = toDateStr(payrollDateFilter);
+    const selectedStart = toDateStr(payrollStartDate);
+    const selectedEnd = toDateStr(payrollEndDate);
+
+    if (selectedDate) {
+      return {
+        start: selectedDate,
+        end: selectedDate,
+      };
+    }
+
+    if (selectedStart || selectedEnd) {
+      return normalizeDateRange(selectedStart || monthRange.start, selectedEnd || monthRange.end);
+    }
+
+    return monthRange;
+  };
+
   const getConfiguredPayrollFrequency = (employee, barberData = null) => {
     if (employee?.role === 'barber') {
       return normalizePaymentFrequency(
@@ -4826,29 +4884,7 @@ export default function AdminPage() {
       );
     }
 
-    return normalizePaymentFrequency(
-      employeePaymentFrequency || employee?.paymentFrequency,
-    );
-  };
-
-  const doesPayrollPeriodMatchDateFilters = (periodStart, periodEnd) => {
-    if (!periodStart || !periodEnd) return false;
-
-    const start = toDateStr(periodStart);
-    const end = toDateStr(periodEnd);
-
-    if (payrollDateFilter) {
-      const selectedDate = toDateStr(payrollDateFilter);
-      return selectedDate >= start && selectedDate <= end;
-    }
-
-    if (payrollStartDate || payrollEndDate) {
-      const filterStart = toDateStr(payrollStartDate) || start;
-      const filterEnd = toDateStr(payrollEndDate) || end;
-      return start <= filterEnd && end >= filterStart;
-    }
-
-    return true;
+    return normalizePaymentFrequency(employeePaymentFrequency || employee?.paymentFrequency);
   };
 
   const clearPayrollDateFilters = () => {
@@ -4890,29 +4926,6 @@ export default function AdminPage() {
     return baseRange;
   };
 
-  const isPayrollPaymentRecordedForRange = (payment, employeeId, period, start, end) => {
-    if (!payment || isExtraPayment(payment)) return false;
-    if (String(payment.employeeId) !== String(employeeId)) return false;
-    if (normalizePaymentFrequency(payment.period) !== normalizePaymentFrequency(period)) return false;
-
-    const paymentStart = toDateStr(payment.periodStart);
-    const paymentEnd = toDateStr(payment.periodEnd);
-    const rangeStart = toDateStr(start);
-    const rangeEnd = toDateStr(end);
-
-    if (!paymentStart || !paymentEnd || !rangeStart || !rangeEnd) return false;
-
-    return paymentStart === rangeStart && paymentEnd === rangeEnd;
-  };
-
-  const getPayrollPaymentsInRange = (employeeId, period, start, end) => {
-    if (!Array.isArray(employeePayments)) return [];
-
-    return employeePayments.filter((payment) =>
-      isPayrollPaymentRecordedForRange(payment, employeeId, period, start, end),
-    );
-  };
-
   const getPaymentAppointmentId = (payment) => {
     return payment?.appointmentId || payment?.appointment?.id || null;
   };
@@ -4926,7 +4939,8 @@ export default function AdminPage() {
 
     return (
       String(appointmentBarberId || '') === String(barberData.id || '') ||
-      String(appointmentBarberName || '') === String(barberData.displayName || barberData.name || '')
+      String(appointmentBarberName || '') ===
+        String(barberData.displayName || barberData.name || '')
     );
   };
 
@@ -4961,11 +4975,7 @@ export default function AdminPage() {
 
       const appointment = payment.appointment || getAppointmentByPayment(payment);
       const key = getPaymentAppointmentId(payment) || `payment:${payment.id}`;
-      const commission = calculateAppointmentCommission(
-        appointment,
-        payment.amount,
-        barberData,
-      );
+      const commission = calculateAppointmentCommission(appointment, payment.amount, barberData);
       commissionByAppointmentKey.set(key, commission);
     });
 
@@ -5092,6 +5102,162 @@ export default function AdminPage() {
     );
   }
 
+  const normalizePayrollMatchValue = (value) => {
+    return String(value || '')
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ')
+      .toLowerCase();
+  };
+
+  const getPayrollEmployeeMatchData = (employee, barberData = null) => {
+    if (!employee) return { ids: [], names: [], contacts: [] };
+
+    const ids = [
+      employee.id,
+      employee.userId,
+      employee.barberId,
+      barberData?.id,
+      barberData?.userId,
+    ]
+      .filter(Boolean)
+      .map((value) => String(value));
+
+    const names = [employee.name, employee.displayName, barberData?.name, barberData?.displayName]
+      .filter(Boolean)
+      .map(normalizePayrollMatchValue);
+
+    const contacts = [employee.email, employee.cpf, barberData?.email, barberData?.cpf]
+      .filter(Boolean)
+      .map(normalizePayrollMatchValue);
+
+    return {
+      ids: Array.from(new Set(ids)),
+      names: Array.from(new Set(names)),
+      contacts: Array.from(new Set(contacts)),
+    };
+  };
+
+  const doPayrollNamesMatch = (paymentNames, employeeNames) => {
+    return paymentNames.some((paymentName) =>
+      employeeNames.some((employeeName) => {
+        if (!paymentName || !employeeName) return false;
+        if (paymentName === employeeName) return true;
+
+        const shortestNameLength = Math.min(paymentName.length, employeeName.length);
+        if (shortestNameLength < 6) return false;
+
+        return paymentName.startsWith(employeeName) || employeeName.startsWith(paymentName);
+      }),
+    );
+  };
+
+  const doesPayrollPaymentOverlapRange = (payment, start, end) => {
+    if (!start || !end) return false;
+
+    const periodStart = toDateStr(payment?.periodStart);
+    const periodEnd = toDateStr(payment?.periodEnd || periodStart);
+    const paidAt = toDateStr(payment?.paidAt);
+    const createdAt = toDateStr(payment?.createdAt);
+    const hasPeriod = Boolean(periodStart && periodEnd);
+    const periodOverlaps = hasPeriod && periodStart <= end && periodEnd >= start;
+    const paidAtInRange = Boolean(paidAt && paidAt >= start && paidAt <= end);
+    const createdAtInRange = Boolean(createdAt && createdAt >= start && createdAt <= end);
+
+    return periodOverlaps || paidAtInRange || (!hasPeriod && createdAtInRange);
+  };
+
+  const doesPayrollPaymentBelongToEmployee = (payment, employee, barberData = null) => {
+    if (!employee) return true;
+
+    const { ids, names, contacts } = getPayrollEmployeeMatchData(employee, barberData);
+    const paymentIds = [
+      payment?.employeeId,
+      payment?.userId,
+      payment?.barberId,
+      payment?.employee?.id,
+      payment?.barber?.id,
+      payment?.barber?.userId,
+    ]
+      .filter(Boolean)
+      .map((value) => String(value));
+    const paymentNames = [
+      payment?.employeeName,
+      payment?.employee?.name,
+      payment?.employee?.displayName,
+      payment?.barberName,
+      payment?.barber?.name,
+      payment?.barber?.displayName,
+    ]
+      .filter(Boolean)
+      .map(normalizePayrollMatchValue);
+    const paymentContacts = [
+      payment?.employeeEmail,
+      payment?.email,
+      payment?.cpf,
+      payment?.employee?.email,
+      payment?.employee?.cpf,
+      payment?.barber?.email,
+      payment?.barber?.cpf,
+    ]
+      .filter(Boolean)
+      .map(normalizePayrollMatchValue);
+
+    return (
+      paymentIds.some((id) => ids.includes(id)) ||
+      paymentContacts.some((contact) => contacts.includes(contact)) ||
+      doPayrollNamesMatch(paymentNames, names)
+    );
+  };
+
+  const isPayrollPaymentInRange = (payment, employee, barberData, start, end) => {
+    if (!payment || isExtraPayment(payment)) return false;
+    if (!doesPayrollPaymentBelongToEmployee(payment, employee, barberData)) return false;
+
+    return doesPayrollPaymentOverlapRange(payment, start, end);
+  };
+
+  const getPayrollPaymentsOverlappingRange = (employee, barberData, start, end) => {
+    if (!Array.isArray(employeePayments)) return [];
+
+    return employeePayments.filter((payment) =>
+      isPayrollPaymentInRange(payment, employee, barberData, start, end),
+    );
+  };
+
+  const hasPayrollPaymentInRange = (employee, barberData, start, end) => {
+    return getPayrollPaymentsOverlappingRange(employee, barberData, start, end).length > 0;
+  };
+
+  const getEmployeePayrollTotalsForRange = (employee, barberData, start, end) => {
+    const commission = barberData ? getBarberCommissionInPeriod(barberData.id, start, end) : 0;
+    const vales = getValesInPeriod(employee.id, start, end);
+    const totalVales = vales.reduce((s, v) => s + Number(v.valor || 0), 0);
+    const totalExtraPayments = getExtraPaymentsInPeriod(employee.id, start, end).reduce(
+      (s, payment) => s + Number(payment.liquido || 0),
+      0,
+    );
+    const salarioFixo = Number(barberData?.salarioFixo ?? employee.salarioFixo ?? 0) || 0;
+    const bruto = salarioFixo + commission + totalExtraPayments - totalVales;
+    const paid = getPayrollPaymentsOverlappingRange(employee, barberData, start, end).reduce(
+      (s, payment) => s + Number(payment.liquido || 0),
+      0,
+    );
+    const pending = Math.max(bruto - paid, 0);
+
+    return {
+      salarioFixo,
+      commission,
+      vales,
+      totalVales,
+      totalExtraPayments,
+      bruto,
+      paid,
+      pending,
+    };
+  };
+
   const getFilteredExtraPayments = () => {
     if (!Array.isArray(employeePayments)) return [];
 
@@ -5192,25 +5358,33 @@ export default function AdminPage() {
   const handleMarkPayrollPaid = async (employee, barberData) => {
     const period = getConfiguredPayrollFrequency(employee, barberData);
     const { start, end } = getEffectivePayrollRange(period, payrollMonthFilter);
+    const { start: calculationStart, end: calculationEnd } =
+      getPayrollFilterRange(payrollMonthFilter);
     const barberId = barberData?.id;
-    const fallbackErrorMessage = 'N\u00e3o foi poss\u00edvel registrar o pagamento deste funcion\u00e1rio.';
-    const canPay = employee?.podePagar === true;
+    const fallbackErrorMessage =
+      'N\u00e3o foi poss\u00edvel registrar o pagamento deste funcion\u00e1rio.';
+    const alreadyPaidInRange =
+      getPayrollPaymentsOverlappingRange(employee, barberData, calculationStart, calculationEnd)
+        .length > 0;
 
-    if (!canPay) {
+    if (alreadyPaidInRange) {
       showToast('Este funcionário já possui pagamento registrado neste período.', 'info');
       return;
     }
 
-    const commission = barberId ? getBarberCommissionInPeriod(barberId, start, end) : 0;
-    const vales = getValesInPeriod(employee.id, start, end);
-    const totalExtraPayments = getExtraPaymentsInPeriod(employee.id, start, end).reduce(
-      (sum, payment) => sum + Number(payment.liquido || 0),
-      0,
-    );
+    const commission = barberId
+      ? getBarberCommissionInPeriod(barberId, calculationStart, calculationEnd)
+      : 0;
+    const vales = getValesInPeriod(employee.id, calculationStart, calculationEnd);
+    const totalExtraPayments = getExtraPaymentsInPeriod(
+      employee.id,
+      calculationStart,
+      calculationEnd,
+    ).reduce((sum, payment) => sum + Number(payment.liquido || 0), 0);
     const totalVales = vales.reduce((s, v) => s + v.valor, 0);
     const salarioFixo = parseFloat(barberData?.salarioFixo ?? employee.salarioFixo ?? 0) || 0;
     const totalDue = salarioFixo + commission + totalExtraPayments - totalVales;
-    const liquido = Number(employee?.liquido ?? totalDue) || 0;
+    const liquido = Math.max(totalDue, 0);
 
     if (liquido <= 0) {
       showToast('Este funcionário não possui valor pendente no período selecionado.', 'info');
@@ -5251,19 +5425,18 @@ export default function AdminPage() {
         }
 
         for (const v of vales) {
-          const valeDeleteResponse = await fetch(
-            `${API_URL}/employeeVales/${v.id}`,
-            {
-              method: 'DELETE',
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
+          const valeDeleteResponse = await fetch(`${API_URL}/employeeVales/${v.id}`, {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
             },
-          );
+          });
 
           if (!valeDeleteResponse.ok) {
-            throw new Error('Pagamento registrado, mas n\u00e3o foi poss\u00edvel atualizar os vales.');
+            throw new Error(
+              'Pagamento registrado, mas n\u00e3o foi poss\u00edvel atualizar os vales.',
+            );
           }
         }
 
@@ -5284,24 +5457,36 @@ export default function AdminPage() {
     const eligibleEmployees = employees.filter(
       (emp) => emp.role === 'barber' || emp.role === 'receptionist' || emp.role === 'admin',
     );
+    const { start, end } = getPayrollFilterRange(payrollMonthFilter);
+
+    const payrollPaymentsInFilter = employeePayments.filter((payment) => {
+      if (isExtraPayment(payment)) return false;
+
+      const employeeExists = eligibleEmployees.some(
+        (emp) => String(emp.id) === String(payment.employeeId),
+      );
+
+      if (!employeeExists) return false;
+
+      return isPayrollPaymentInRange(payment, null, null, start, end);
+    });
+
+    const paid = payrollPaymentsInFilter.reduce(
+      (sum, payment) => sum + Number(payment.liquido || 0),
+      0,
+    );
 
     const pending = eligibleEmployees.reduce((sum, emp) => {
-      const liquido = Number(emp.liquido || 0);
-      return emp.podePagar === true && liquido > 0 ? sum + liquido : sum;
+      const barberData = barbers.find((b) => String(b.userId) === String(emp.id));
+      const { pending: employeePending } = getEmployeePayrollTotalsForRange(
+        emp,
+        barberData,
+        start,
+        end,
+      );
+
+      return sum + employeePending;
     }, 0);
-
-    const paid = employeePayments
-      .filter((payment) => {
-        const employee = eligibleEmployees.find((emp) => String(emp.id) === String(payment.employeeId));
-        if (!employee) return false;
-
-        const barberData = barbers.find((b) => String(b.userId) === String(employee.id));
-        const period = getConfiguredPayrollFrequency(employee, barberData);
-        const { start, end } = getEffectivePayrollRange(period, payrollMonthFilter);
-
-        return isPayrollPaymentRecordedForRange(payment, employee.id, period, start, end);
-      })
-      .reduce((sum, payment) => sum + parseFloat(payment.liquido || 0), 0);
 
     return {
       pending,
@@ -5312,16 +5497,11 @@ export default function AdminPage() {
 
   const filteredPayrollHistory = [...employeePayments]
     .filter((payment) => {
-      if (payrollMonthFilter) {
-        const [year, month] = payrollMonthFilter.split('-').map(Number);
-        const dateRef = payment.paidAt || payment.periodStart;
-        const date = new Date(dateRef);
-        if (date.getFullYear() !== year || date.getMonth() + 1 !== month) {
-          return false;
-        }
-      }
+      if (isExtraPayment(payment)) return false;
 
-      return doesPayrollPeriodMatchDateFilters(payment.periodStart, payment.periodEnd);
+      const { start, end } = getPayrollFilterRange(payrollMonthFilter);
+
+      return isPayrollPaymentInRange(payment, null, null, start, end);
     })
     .sort((a, b) => new Date(b.paidAt) - new Date(a.paidAt));
 
@@ -5376,17 +5556,30 @@ export default function AdminPage() {
   };
 
   const getPaymentMethodValue = (payment) => {
-    return String(payment?.paymentMethod || payment?.method || '').toLowerCase().trim();
+    return String(payment?.paymentMethod || payment?.method || '')
+      .toLowerCase()
+      .trim();
   };
 
   const getPaymentTypeLabel = (payment) => {
     const method = getPaymentMethodValue(payment);
-    const isPlanCovered = payment?.status === 'plan_covered' || payment?.status === 'plancovered' || method === 'subscription';
+    const isPlanCovered =
+      payment?.status === 'plan_covered' ||
+      payment?.status === 'plancovered' ||
+      method === 'subscription';
 
     if (isPlanCovered) return 'Plano';
     if (method === 'local' || payment?.status === 'pendinglocal') return 'No Local';
     if (method === 'pix') return 'PIX';
-    if (method === 'credito' || method === 'crédito' || method === 'debito' || method === 'débito' || method === 'cartao' || method === 'cartão') return 'Cartão';
+    if (
+      method === 'credito' ||
+      method === 'crédito' ||
+      method === 'debito' ||
+      method === 'débito' ||
+      method === 'cartao' ||
+      method === 'cartão'
+    )
+      return 'Cartão';
     if (method === 'dinheiro') return 'Dinheiro';
     return 'Avulso';
   };
@@ -5400,11 +5593,20 @@ export default function AdminPage() {
 
     const method = getPaymentMethodValue(payment);
     const isPlanCovered =
-      payment?.status === 'plan_covered' || payment?.status === 'plancovered' || method === 'subscription';
+      payment?.status === 'plan_covered' ||
+      payment?.status === 'plancovered' ||
+      method === 'subscription';
 
     if (isPlanCovered) return 'Plano';
     if (method === 'pix') return 'Online via PIX';
-    if (method === 'credito' || method === 'crédito' || method === 'debito' || method === 'débito' || method === 'cartao' || method === 'cartão') {
+    if (
+      method === 'credito' ||
+      method === 'crédito' ||
+      method === 'debito' ||
+      method === 'débito' ||
+      method === 'cartao' ||
+      method === 'cartão'
+    ) {
       return 'Online via cartão';
     }
     if (method === 'local' || payment?.status === 'pendinglocal') return 'Pagamento local';
@@ -5417,10 +5619,7 @@ export default function AdminPage() {
     .filter((u) => {
       if (!userSearch.trim()) return true;
       const q = userSearch.toLowerCase();
-      return (
-        (u.name || '').toLowerCase().includes(q) ||
-        (u.email || '').toLowerCase().includes(q)
-      );
+      return (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
     })
     .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
@@ -5447,7 +5646,6 @@ export default function AdminPage() {
               </button> */}
             </div>
           </div>
-
 
           <div className="appointments-tabs">
             {/* Abas visíveis para todos (inclusive barbeiros) */}
@@ -5573,10 +5771,6 @@ export default function AdminPage() {
             )}
           </div>
 
-
-
-
-
           {canManageGallery && activeTab === 'gallery' && (
             <div className="tab-content gallery-admin-container">
               <div className="gallery-section-header">
@@ -5666,14 +5860,26 @@ export default function AdminPage() {
           {canAccessEarnings && activeTab === 'earnings' && (
             <div className="earnings-section">
               <div className="earnings-filters">
-                <div className="appointments-tabs" style={{ marginBottom: '1rem', borderBottom: 'none' }}>
-                  <button onClick={() => setEarningsFilter('week')} className={`tab-btn ${earningsFilter === 'week' ? 'tab-btn--active' : ''}`}>
+                <div
+                  className="appointments-tabs"
+                  style={{ marginBottom: '1rem', borderBottom: 'none' }}
+                >
+                  <button
+                    onClick={() => setEarningsFilter('week')}
+                    className={`tab-btn ${earningsFilter === 'week' ? 'tab-btn--active' : ''}`}
+                  >
                     Semana Atual
                   </button>
-                  <button onClick={() => setEarningsFilter('month')} className={`tab-btn ${earningsFilter === 'month' ? 'tab-btn--active' : ''}`}>
+                  <button
+                    onClick={() => setEarningsFilter('month')}
+                    className={`tab-btn ${earningsFilter === 'month' ? 'tab-btn--active' : ''}`}
+                  >
                     Mês Atual
                   </button>
-                  <button onClick={() => setEarningsFilter('custom')} className={`tab-btn ${earningsFilter === 'custom' ? 'tab-btn--active' : ''}`}>
+                  <button
+                    onClick={() => setEarningsFilter('custom')}
+                    className={`tab-btn ${earningsFilter === 'custom' ? 'tab-btn--active' : ''}`}
+                  >
                     Período Personalizado
                   </button>
                 </div>
@@ -5682,11 +5888,21 @@ export default function AdminPage() {
                   <div className="custom-date-filters">
                     <div className="date-input-group">
                       <label className="form-label">Data Inicial</label>
-                      <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} className="form-select" />
+                      <input
+                        type="date"
+                        value={customStartDate}
+                        onChange={(e) => setCustomStartDate(e.target.value)}
+                        className="form-select"
+                      />
                     </div>
                     <div className="date-input-group">
                       <label className="form-label">Data Final</label>
-                      <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} className="form-select" />
+                      <input
+                        type="date"
+                        value={customEndDate}
+                        onChange={(e) => setCustomEndDate(e.target.value)}
+                        className="form-select"
+                      />
                     </div>
                   </div>
                 )}
@@ -5702,13 +5918,19 @@ export default function AdminPage() {
                 <div className="fluig-row-parent" style={{ cursor: 'default' }}>
                   <div className="fluig-barber-info">
                     <img
-                      src={barberProfile?.photo || `https://i.pravatar.cc/150?img=${barberProfile?.id}`}
+                      src={
+                        barberProfile?.photo || `https://i.pravatar.cc/150?img=${barberProfile?.id}`
+                      }
                       alt={barberProfile?.name}
                       className="fluig-barber-photo"
                     />
                     <div className="fluig-barber-details">
-                      <h3 className="fluig-barber-name">{barberProfile?.name || currentUser?.name}</h3>
-                      <p className="fluig-barber-specialty">{barberProfile?.specialty || 'Barbeiro'}</p>
+                      <h3 className="fluig-barber-name">
+                        {barberProfile?.name || currentUser?.name}
+                      </h3>
+                      <p className="fluig-barber-specialty">
+                        {barberProfile?.specialty || 'Barbeiro'}
+                      </p>
                     </div>
                   </div>
 
@@ -5719,19 +5941,30 @@ export default function AdminPage() {
                     </div>
                     <div className="stat-item">
                       <span className="stat-label">Faturamento Total</span>
-                      <span className="stat-value stat-value-highlight">R$ {statsForEarnings.totalRevenue.toFixed(2)}</span>
+                      <span className="stat-value stat-value-highlight">
+                        R$ {statsForEarnings.totalRevenue.toFixed(2)}
+                      </span>
                     </div>
                     <div className="stat-item">
                       <span className="stat-label">Pagamentos Extras</span>
-                      <span className="stat-value stat-value-highlight"> R$ {statsForEarnings.extraPaymentsTotal?.toFixed(2) || '0,00'}</span>
+                      <span className="stat-value stat-value-highlight">
+                        {' '}
+                        R$ {statsForEarnings.extraPaymentsTotal?.toFixed(2) || '0,00'}
+                      </span>
                     </div>
                     <div className="stat-item">
-                      <span className="stat-label">Comissão ({statsForEarnings.commissionPercent}%)</span>
-                      <span className="stat-value stat-value-success">R$ {statsForEarnings.barberEarnings.toFixed(2)}</span>
+                      <span className="stat-label">
+                        Comissão ({statsForEarnings.commissionPercent}%)
+                      </span>
+                      <span className="stat-value stat-value-success">
+                        R$ {statsForEarnings.barberEarnings.toFixed(2)}
+                      </span>
                     </div>
                     <div className="stat-item">
                       <span className="stat-label">Barbearia</span>
-                      <span className="stat-value">R$ {statsForEarnings.shopEarnings.toFixed(2)}</span>
+                      <span className="stat-value">
+                        R$ {statsForEarnings.shopEarnings.toFixed(2)}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -5778,7 +6011,9 @@ export default function AdminPage() {
                                   <span className="status-badge status-pending">Pendente</span>
                                 )}
                               </td>
-                              <td><strong>{apt.client.name}</strong></td>
+                              <td>
+                                <strong>{apt.client.name}</strong>
+                              </td>
                               <td>{formattedDate}</td>
                               <td>
                                 <span className="appointment-time">{formattedTime}</span>
@@ -5786,7 +6021,9 @@ export default function AdminPage() {
                               <td>
                                 <div className="services-list">
                                   {apt.services.map((s, idx) => (
-                                    <span key={idx} className="service-pill">{s.serviceName}</span>
+                                    <span key={idx} className="service-pill">
+                                      {s.serviceName}
+                                    </span>
                                   ))}
                                 </div>
                               </td>
@@ -5812,159 +6049,226 @@ export default function AdminPage() {
 
               {isAdmin && (
                 <>
-                <div
-                  style={{
-                    background: '#1a1a1a',
-                    border: '1px solid #2a2a2a',
-                    borderRadius: '10px',
-                    padding: '1rem',
-                    marginBottom: '1.25rem',
-                  }}
-                >
-                  <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--gold)', fontSize: '1rem' }}>
-                    Formas de pagamento no agendamento
-                  </h3>
-                  <p style={{ margin: '0 0 0.9rem 0', color: '#a8a8a8', fontSize: '0.85rem' }}>
-                    Marque para ocultar no agendamento. Apenas administradores podem alterar.
-                  </p>
-
-                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
-                      <input
-                        type="checkbox"
-                        checked={hiddenBookingPaymentMethods.includes('cartao')}
-                        disabled={savingPaymentVisibility}
-                        onChange={() => handleToggleBookingPaymentVisibility('cartao')}
-                      />
-                      Ocultar Pagar no Cartão
-                    </label>
-
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
-                      <input
-                        type="checkbox"
-                        checked={hiddenBookingPaymentMethods.includes('pix')}
-                        disabled={savingPaymentVisibility}
-                        onChange={() => handleToggleBookingPaymentVisibility('pix')}
-                      />
-                      Ocultar Pagar no Pix
-                    </label>
-
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
-                      <input
-                        type="checkbox"
-                        checked={hiddenBookingPaymentMethods.includes('local')}
-                        disabled={savingPaymentVisibility}
-                        onChange={() => handleToggleBookingPaymentVisibility('local')}
-                      />
-                      Ocultar Pagar no Local
-                    </label>
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                    gap: '1rem',
-                    marginBottom: '1.25rem',
-                  }}
-                >
                   <div
                     style={{
                       background: '#1a1a1a',
                       border: '1px solid #2a2a2a',
                       borderRadius: '10px',
                       padding: '1rem',
+                      marginBottom: '1.25rem',
                     }}
                   >
                     <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--gold)', fontSize: '1rem' }}>
-                      Frequência de pagamento - Barbeiros
+                      Formas de pagamento no agendamento
                     </h3>
                     <p style={{ margin: '0 0 0.9rem 0', color: '#a8a8a8', fontSize: '0.85rem' }}>
-                      Defina a recorrência padrão de pagamento dos barbeiros.
+                      Marque para ocultar no agendamento. Apenas administradores podem alterar.
                     </p>
 
                     <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
+                      <label
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          color: '#fff',
+                        }}
+                      >
                         <input
-                          type="radio"
-                          name="barber-payment-frequency"
-                          checked={barberPaymentFrequency === 'weekly'}
-                          onChange={() => handleBarberPaymentFrequencyChange('weekly')}
+                          type="checkbox"
+                          checked={hiddenBookingPaymentMethods.includes('cartao')}
+                          disabled={savingPaymentVisibility}
+                          onChange={() => handleToggleBookingPaymentVisibility('cartao')}
                         />
-                        Semanal
+                        Ocultar Pagar no Cartão
                       </label>
 
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
+                      <label
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          color: '#fff',
+                        }}
+                      >
                         <input
-                          type="radio"
-                          name="barber-payment-frequency"
-                          checked={barberPaymentFrequency === 'biweekly'}
-                          onChange={() => handleBarberPaymentFrequencyChange('biweekly')}
+                          type="checkbox"
+                          checked={hiddenBookingPaymentMethods.includes('pix')}
+                          disabled={savingPaymentVisibility}
+                          onChange={() => handleToggleBookingPaymentVisibility('pix')}
                         />
-                        Quinzenal
+                        Ocultar Pagar no Pix
                       </label>
 
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
+                      <label
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          color: '#fff',
+                        }}
+                      >
                         <input
-                          type="radio"
-                          name="barber-payment-frequency"
-                          checked={barberPaymentFrequency === 'monthly'}
-                          onChange={() => handleBarberPaymentFrequencyChange('monthly')}
+                          type="checkbox"
+                          checked={hiddenBookingPaymentMethods.includes('local')}
+                          disabled={savingPaymentVisibility}
+                          onChange={() => handleToggleBookingPaymentVisibility('local')}
                         />
-                        Mensal
+                        Ocultar Pagar no Local
                       </label>
                     </div>
                   </div>
 
                   <div
                     style={{
-                      background: '#1a1a1a',
-                      border: '1px solid #2a2a2a',
-                      borderRadius: '10px',
-                      padding: '1rem',
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                      gap: '1rem',
+                      marginBottom: '1.25rem',
                     }}
                   >
-                    <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--gold)', fontSize: '1rem' }}>
-                      Frequência de pagamento - Outros funcionários
-                    </h3>
-                    <p style={{ margin: '0 0 0.9rem 0', color: '#a8a8a8', fontSize: '0.85rem' }}>
-                      Defina a recorrência padrão de pagamento dos demais funcionários.
-                    </p>
+                    <div
+                      style={{
+                        background: '#1a1a1a',
+                        border: '1px solid #2a2a2a',
+                        borderRadius: '10px',
+                        padding: '1rem',
+                      }}
+                    >
+                      <h3
+                        style={{ margin: '0 0 0.5rem 0', color: 'var(--gold)', fontSize: '1rem' }}
+                      >
+                        Frequência de pagamento - Barbeiros
+                      </h3>
+                      <p style={{ margin: '0 0 0.9rem 0', color: '#a8a8a8', fontSize: '0.85rem' }}>
+                        Defina a recorrência padrão de pagamento dos barbeiros.
+                      </p>
 
-                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
-                        <input
-                          type="radio"
-                          name="employee-payment-frequency"
-                          checked={employeePaymentFrequency === 'weekly'}
-                          onChange={() => handleEmployeePaymentFrequencyChange('weekly')}
-                        />
-                        Semanal
-                      </label>
+                      <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            color: '#fff',
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="barber-payment-frequency"
+                            checked={barberPaymentFrequency === 'weekly'}
+                            onChange={() => handleBarberPaymentFrequencyChange('weekly')}
+                          />
+                          Semanal
+                        </label>
 
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
-                        <input
-                          type="radio"
-                          name="employee-payment-frequency"
-                          checked={employeePaymentFrequency === 'biweekly'}
-                          onChange={() => handleEmployeePaymentFrequencyChange('biweekly')}
-                        />
-                        Quinzenal
-                      </label>
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            color: '#fff',
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="barber-payment-frequency"
+                            checked={barberPaymentFrequency === 'biweekly'}
+                            onChange={() => handleBarberPaymentFrequencyChange('biweekly')}
+                          />
+                          Quinzenal
+                        </label>
 
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
-                        <input
-                          type="radio"
-                          name="employee-payment-frequency"
-                          checked={employeePaymentFrequency === 'monthly'}
-                          onChange={() => handleEmployeePaymentFrequencyChange('monthly')}
-                        />
-                        Mensal
-                      </label>
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            color: '#fff',
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="barber-payment-frequency"
+                            checked={barberPaymentFrequency === 'monthly'}
+                            onChange={() => handleBarberPaymentFrequencyChange('monthly')}
+                          />
+                          Mensal
+                        </label>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        background: '#1a1a1a',
+                        border: '1px solid #2a2a2a',
+                        borderRadius: '10px',
+                        padding: '1rem',
+                      }}
+                    >
+                      <h3
+                        style={{ margin: '0 0 0.5rem 0', color: 'var(--gold)', fontSize: '1rem' }}
+                      >
+                        Frequência de pagamento - Outros funcionários
+                      </h3>
+                      <p style={{ margin: '0 0 0.9rem 0', color: '#a8a8a8', fontSize: '0.85rem' }}>
+                        Defina a recorrência padrão de pagamento dos demais funcionários.
+                      </p>
+
+                      <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            color: '#fff',
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="employee-payment-frequency"
+                            checked={employeePaymentFrequency === 'weekly'}
+                            onChange={() => handleEmployeePaymentFrequencyChange('weekly')}
+                          />
+                          Semanal
+                        </label>
+
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            color: '#fff',
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="employee-payment-frequency"
+                            checked={employeePaymentFrequency === 'biweekly'}
+                            onChange={() => handleEmployeePaymentFrequencyChange('biweekly')}
+                          />
+                          Quinzenal
+                        </label>
+
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            color: '#fff',
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="employee-payment-frequency"
+                            checked={employeePaymentFrequency === 'monthly'}
+                            onChange={() => handleEmployeePaymentFrequencyChange('monthly')}
+                          />
+                          Mensal
+                        </label>
+                      </div>
                     </div>
                   </div>
-                </div>
                 </>
               )}
 
@@ -5972,12 +6276,16 @@ export default function AdminPage() {
                 <div className="form-section">
                   <h3 className="section-subtitle">Banner de Início</h3>
                   <div style={{ marginTop: '0.9rem' }}>
-                    <label className="form-label" style={{ marginBottom: '0.4rem', display: 'block' }}>
+                    <label
+                      className="form-label"
+                      style={{ marginBottom: '0.4rem', display: 'block' }}
+                    >
                       Imagens do carrossel
                     </label>
 
                     <p style={{ color: '#777', fontSize: '0.78rem', marginBottom: '0.55rem' }}>
-                      A ordem define o clique do banner na Home: 1a imagem = Planos, 2a = Servicos, 3a = Agendamentos.
+                      A ordem define o clique do banner na Home: 1a imagem = Planos, 2a = Servicos,
+                      3a = Agendamentos.
                     </p>
 
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -6039,7 +6347,9 @@ export default function AdminPage() {
                           opacity: heroCarouselUploading ? 0.6 : 1,
                         }}
                       >
-                        {heroCarouselUploading ? '⏳ Enviando...' : '📤 Enviar imagens para carrossel'}
+                        {heroCarouselUploading
+                          ? '⏳ Enviando...'
+                          : '📤 Enviar imagens para carrossel'}
                       </label>
                       <input
                         id="hero-carousel-upload"
@@ -6059,70 +6369,72 @@ export default function AdminPage() {
                     </div>
 
                     <div style={{ marginTop: '0.6rem', display: 'grid', gap: '0.45rem' }}>
-                      {(Array.isArray(homeInfo.heroImages) ? homeInfo.heroImages : []).map((imageUrl, index) => (
-                        <div
-                          key={`${imageUrl}-${index}`}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            background: '#161616',
-                            border: '1px solid #292929',
-                            borderRadius: 8,
-                            padding: '6px 8px',
-                            width: '100%',
-                            minWidth: 0,
-                          }}
-                        >
-                          <img
-                            src={imageUrl}
-                            alt={`Banner ${index + 1}`}
+                      {(Array.isArray(homeInfo.heroImages) ? homeInfo.heroImages : []).map(
+                        (imageUrl, index) => (
+                          <div
+                            key={`${imageUrl}-${index}`}
                             style={{
-                              width: 42,
-                              height: 32,
-                              objectFit: 'cover',
-                              borderRadius: 4,
-                              flexShrink: 0,
-                            }}
-                          />
-                          <span
-                            style={{
-                              color: '#9f9f9f',
-                              fontSize: '0.73rem',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              flex: 1,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.5rem',
+                              background: '#161616',
+                              border: '1px solid #292929',
+                              borderRadius: 8,
+                              padding: '6px 8px',
+                              width: '100%',
                               minWidth: 0,
                             }}
-                            title={imageUrl}
                           >
-                            {imageUrl}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              try {
-                                await removeHeroImageFromCarousel(index);
-                              } catch {
-                                // erro ja tratado em persistHomeInfo
-                              }
-                            }}
-                            style={{
-                              background: 'transparent',
-                              color: '#ef4444',
-                              border: '1px solid #ef444466',
-                              borderRadius: 6,
-                              padding: '4px 8px',
-                              cursor: 'pointer',
-                              fontSize: '0.75rem',
-                              flexShrink: 0,
-                            }}
-                          >
-                            Remover
-                          </button>
-                        </div>
-                      ))}
+                            <img
+                              src={imageUrl}
+                              alt={`Banner ${index + 1}`}
+                              style={{
+                                width: 42,
+                                height: 32,
+                                objectFit: 'cover',
+                                borderRadius: 4,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <span
+                              style={{
+                                color: '#9f9f9f',
+                                fontSize: '0.73rem',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                flex: 1,
+                                minWidth: 0,
+                              }}
+                              title={imageUrl}
+                            >
+                              {imageUrl}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await removeHeroImageFromCarousel(index);
+                                } catch {
+                                  // erro ja tratado em persistHomeInfo
+                                }
+                              }}
+                              style={{
+                                background: 'transparent',
+                                color: '#ef4444',
+                                border: '1px solid #ef444466',
+                                borderRadius: 6,
+                                padding: '4px 8px',
+                                cursor: 'pointer',
+                                fontSize: '0.75rem',
+                                flexShrink: 0,
+                              }}
+                            >
+                              Remover
+                            </button>
+                          </div>
+                        ),
+                      )}
                     </div>
                   </div>
                 </div>
@@ -6253,7 +6565,8 @@ export default function AdminPage() {
                       style={{
                         height: '2px',
                         width: '100%',
-                        background: 'linear-gradient(90deg, #ffb627 0%, rgba(255, 182, 39, 0.35) 100%)',
+                        background:
+                          'linear-gradient(90deg, #ffb627 0%, rgba(255, 182, 39, 0.35) 100%)',
                         borderRadius: '999px',
                         marginBottom: '1.2rem',
                       }}
@@ -6323,90 +6636,100 @@ export default function AdminPage() {
                 </div>
 
                 {false && (
-                <div className="form-section" style={{ marginTop: '2rem' }}>
-                  <h3 className="section-subtitle">Configurações de pagamento</h3>
-
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                      gap: '1rem',
-                      marginTop: '1rem',
-                    }}
-                  >
-                    <div
-                      style={{
-                        background: '#1a1a1a',
-                        border: '1px solid #2a2a2a',
-                        borderRadius: '10px',
-                        padding: '1rem',
-                      }}
-                    >
-                      <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--gold)', fontSize: '1rem' }}>
-                        Frequência de pagamento - Barbeiros
-                      </h4>
-                      <p style={{ margin: '0 0 0.9rem 0', color: '#a8a8a8', fontSize: '0.85rem' }}>
-                        Campo preparado para futura integração com a API usando `barberPaymentFrequency`.
-                      </p>
-
-                      <select
-                        value={homeInfo.barberPaymentFrequency || 'monthly'}
-                        onChange={(e) =>
-                          handleHomeInfoChange('barberPaymentFrequency', e.target.value)
-                        }
-                        style={{
-                          width: '100%',
-                          padding: '0.9rem 1rem',
-                          borderRadius: '10px',
-                          border: '1px solid #1f1f1f',
-                          background: '#0e0e0e',
-                          color: '#f5f5f5',
-                          fontSize: '1rem',
-                        }}
-                      >
-                        <option value="weekly">Semanal</option>
-                        <option value="biweekly">Quinzenal</option>
-                        <option value="monthly">Mensal</option>
-                      </select>
-                    </div>
+                  <div className="form-section" style={{ marginTop: '2rem' }}>
+                    <h3 className="section-subtitle">Configurações de pagamento</h3>
 
                     <div
                       style={{
-                        background: '#1a1a1a',
-                        border: '1px solid #2a2a2a',
-                        borderRadius: '10px',
-                        padding: '1rem',
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                        gap: '1rem',
+                        marginTop: '1rem',
                       }}
                     >
-                      <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--gold)', fontSize: '1rem' }}>
-                        Frequência de pagamento - Outros funcionários
-                      </h4>
-                      <p style={{ margin: '0 0 0.9rem 0', color: '#a8a8a8', fontSize: '0.85rem' }}>
-                        Campo preparado para futura integração com a API usando `employeePaymentFrequency`.
-                      </p>
-
-                      <select
-                        value={homeInfo.employeePaymentFrequency || 'monthly'}
-                        onChange={(e) =>
-                          handleHomeInfoChange('employeePaymentFrequency', e.target.value)
-                        }
+                      <div
                         style={{
-                          width: '100%',
-                          padding: '0.9rem 1rem',
+                          background: '#1a1a1a',
+                          border: '1px solid #2a2a2a',
                           borderRadius: '10px',
-                          border: '1px solid #1f1f1f',
-                          background: '#0e0e0e',
-                          color: '#f5f5f5',
-                          fontSize: '1rem',
+                          padding: '1rem',
                         }}
                       >
-                        <option value="weekly">Semanal</option>
-                        <option value="biweekly">Quinzenal</option>
-                        <option value="monthly">Mensal</option>
-                      </select>
+                        <h4
+                          style={{ margin: '0 0 0.5rem 0', color: 'var(--gold)', fontSize: '1rem' }}
+                        >
+                          Frequência de pagamento - Barbeiros
+                        </h4>
+                        <p
+                          style={{ margin: '0 0 0.9rem 0', color: '#a8a8a8', fontSize: '0.85rem' }}
+                        >
+                          Campo preparado para futura integração com a API usando
+                          `barberPaymentFrequency`.
+                        </p>
+
+                        <select
+                          value={homeInfo.barberPaymentFrequency || 'monthly'}
+                          onChange={(e) =>
+                            handleHomeInfoChange('barberPaymentFrequency', e.target.value)
+                          }
+                          style={{
+                            width: '100%',
+                            padding: '0.9rem 1rem',
+                            borderRadius: '10px',
+                            border: '1px solid #1f1f1f',
+                            background: '#0e0e0e',
+                            color: '#f5f5f5',
+                            fontSize: '1rem',
+                          }}
+                        >
+                          <option value="weekly">Semanal</option>
+                          <option value="biweekly">Quinzenal</option>
+                          <option value="monthly">Mensal</option>
+                        </select>
+                      </div>
+
+                      <div
+                        style={{
+                          background: '#1a1a1a',
+                          border: '1px solid #2a2a2a',
+                          borderRadius: '10px',
+                          padding: '1rem',
+                        }}
+                      >
+                        <h4
+                          style={{ margin: '0 0 0.5rem 0', color: 'var(--gold)', fontSize: '1rem' }}
+                        >
+                          Frequência de pagamento - Outros funcionários
+                        </h4>
+                        <p
+                          style={{ margin: '0 0 0.9rem 0', color: '#a8a8a8', fontSize: '0.85rem' }}
+                        >
+                          Campo preparado para futura integração com a API usando
+                          `employeePaymentFrequency`.
+                        </p>
+
+                        <select
+                          value={homeInfo.employeePaymentFrequency || 'monthly'}
+                          onChange={(e) =>
+                            handleHomeInfoChange('employeePaymentFrequency', e.target.value)
+                          }
+                          style={{
+                            width: '100%',
+                            padding: '0.9rem 1rem',
+                            borderRadius: '10px',
+                            border: '1px solid #1f1f1f',
+                            background: '#0e0e0e',
+                            color: '#f5f5f5',
+                            fontSize: '1rem',
+                          }}
+                        >
+                          <option value="weekly">Semanal</option>
+                          <option value="biweekly">Quinzenal</option>
+                          <option value="monthly">Mensal</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
-                </div>
                 )}
 
                 <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
@@ -6457,12 +6780,12 @@ export default function AdminPage() {
                     const stats = barberData
                       ? calculateBarberStatsbyBarber(barberData.id)
                       : {
-                        appointmentsCount: 0,
-                        totalRevenue: 0,
-                        commissionPercent: 0,
-                        barberEarnings: 0,
-                        shopEarnings: 0,
-                      };
+                          appointmentsCount: 0,
+                          totalRevenue: 0,
+                          commissionPercent: 0,
+                          barberEarnings: 0,
+                          shopEarnings: 0,
+                        };
 
                     return (
                       <div key={employee.id} className="fluig-table-parent">
@@ -6517,54 +6840,54 @@ export default function AdminPage() {
                           </div>
 
                           <div className="employee-admin-right">
-                          {barberData && (
-                            <div className="fluig-barber-stats employee-admin-stats">
-                              <div className="stat-item">
-                                <span className="stat-label">Atendimentos</span>
-                                <span className="stat-value">{stats.appointmentsCount}</span>
+                            {barberData && (
+                              <div className="fluig-barber-stats employee-admin-stats">
+                                <div className="stat-item">
+                                  <span className="stat-label">Atendimentos</span>
+                                  <span className="stat-value">{stats.appointmentsCount}</span>
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )}
 
-                          {isAdmin && (
-                            <div className="fluig-parent-actions employee-admin-actions">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openPermissionsModal(employee);
-                                }}
-                                className="fluig-btn fluig-btn-permissions"
-                              >
-                                🔐 Permissões
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (barberData) {
-                                    openBarberModal(null, barberData);
-                                  } else {
-                                    openBarberModal(employee, null);
-                                  }
-                                }}
-                                className="fluig-btn fluig-btn-edit"
-                              >
-                                Editar
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (barberData) {
-                                    handleDeleteBarber(barberData.id, false);
-                                  } else {
-                                    handleDeleteBarber(employee.id, true);
-                                  }
-                                }}
-                                className="fluig-btn fluig-btn-delete"
-                              >
-                                Excluir
-                              </button>
-                            </div>
-                          )}
+                            {isAdmin && (
+                              <div className="fluig-parent-actions employee-admin-actions">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openPermissionsModal(employee);
+                                  }}
+                                  className="fluig-btn fluig-btn-permissions"
+                                >
+                                  🔐 Permissões
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (barberData) {
+                                      openBarberModal(null, barberData);
+                                    } else {
+                                      openBarberModal(employee, null);
+                                    }
+                                  }}
+                                  className="fluig-btn fluig-btn-edit"
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (barberData) {
+                                      handleDeleteBarber(barberData.id, false);
+                                    } else {
+                                      handleDeleteBarber(employee.id, true);
+                                    }
+                                  }}
+                                  className="fluig-btn fluig-btn-delete"
+                                >
+                                  Excluir
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -6897,20 +7220,22 @@ export default function AdminPage() {
                       .map((emp) => {
                         const barberData = barbers.find((b) => String(b.userId) === String(emp.id));
                         const period = getConfiguredPayrollFrequency(emp, barberData);
-                        const { start, end } = getEffectivePayrollRange(period, payrollMonthFilter);
-                        const commission = barberData
-                          ? getBarberCommissionInPeriod(barberData.id, start, end)
-                          : 0;
-                        const vales = getValesInPeriod(emp.id, start, end);
-                        const totalVales = vales.reduce((s, v) => s + v.valor, 0);
-                        const totalExtraPayments = getExtraPaymentsInPeriod(emp.id, start, end)
-                          .reduce((sum, payment) => sum + Number(payment.liquido || 0), 0);
-
-                        const salarioFixo =
-                          parseFloat(barberData?.salarioFixo ?? emp.salarioFixo ?? 0) || 0;
-                        const totalDue = salarioFixo + commission + totalExtraPayments - totalVales;
-                        const saldoPendente = Number(emp.liquido ?? totalDue) || 0;
-                        const canPay = emp.podePagar === true && saldoPendente > 0;
+                        const { start, end } = getPayrollFilterRange(payrollMonthFilter);
+                        const {
+                          salarioFixo,
+                          commission,
+                          vales,
+                          totalVales,
+                          totalExtraPayments,
+                          pending: saldoPendente,
+                        } = getEmployeePayrollTotalsForRange(emp, barberData, start, end);
+                        const alreadyPaidInDisplayedPeriod = hasPayrollPaymentInRange(
+                          emp,
+                          barberData,
+                          start,
+                          end,
+                        );
+                        const canPay = saldoPendente > 0 && !alreadyPaidInDisplayedPeriod;
                         const isExp = payrollExpandedId === emp.id;
                         const displaySalarioFixo = salarioFixo;
                         const displayCommission = commission;
@@ -6948,7 +7273,10 @@ export default function AdminPage() {
                                       fontSize: '0.95rem',
                                     }}
                                   >
-                                    {String(emp.name || '?').trim().charAt(0).toUpperCase()}
+                                    {String(emp.name || '?')
+                                      .trim()
+                                      .charAt(0)
+                                      .toUpperCase()}
                                   </div>
                                   <div>
                                     <div className="payroll-employee-name">{emp.name}</div>
@@ -7067,38 +7395,38 @@ export default function AdminPage() {
                       </thead>
                       <tbody>
                         {filteredPayrollHistory.map((p) => (
-                            <tr key={p.id} className="payroll-history-row">
-                              <td className="payroll-td payroll-td--name">{p.employeeName}</td>
-                              <td className="payroll-td payroll-td--center">
-                                <span className="payroll-frequency-badge">
-                                  {getPaymentFrequencyLabel(p.period)}
-                                </span>
-                              </td>
-                              <td className="payroll-td payroll-td--center payroll-td--muted">
-                                {p.periodStart?.split('-').reverse().join('/')} →{' '}
-                                {p.periodEnd?.split('-').reverse().join('/')}
-                              </td>
-                              <td className="payroll-td payroll-td--right payroll-value--green">
-                                R$ {parseFloat(p.salarioFixo || 0).toFixed(2)}
-                              </td>
-                              <td className="payroll-td payroll-td--right payroll-value--blue">
-                                R$ {parseFloat(p.commission || 0).toFixed(2)}
-                              </td>
-                              <td className="payroll-td payroll-td--right payroll-value--red">
-                                - R$ {parseFloat(p.totalVales || 0).toFixed(2)}
-                              </td>
-                              <td className="payroll-td payroll-td--right">
-                                <span
-                                  className={`payroll-liquido${parseFloat(p.liquido) >= 0 ? ' payroll-liquido--positive' : ' payroll-liquido--negative'}`}
-                                >
-                                  R$ {parseFloat(p.liquido || 0).toFixed(2)}
-                                </span>
-                              </td>
-                              <td className="payroll-td payroll-td--center payroll-td--muted">
-                                {new Date(p.paidAt).toLocaleDateString('pt-BR')}
-                              </td>
-                            </tr>
-                          ))}
+                          <tr key={p.id} className="payroll-history-row">
+                            <td className="payroll-td payroll-td--name">{p.employeeName}</td>
+                            <td className="payroll-td payroll-td--center">
+                              <span className="payroll-frequency-badge">
+                                {getPaymentFrequencyLabel(p.period)}
+                              </span>
+                            </td>
+                            <td className="payroll-td payroll-td--center payroll-td--muted">
+                              {p.periodStart?.split('-').reverse().join('/')} →{' '}
+                              {p.periodEnd?.split('-').reverse().join('/')}
+                            </td>
+                            <td className="payroll-td payroll-td--right payroll-value--green">
+                              R$ {parseFloat(p.salarioFixo || 0).toFixed(2)}
+                            </td>
+                            <td className="payroll-td payroll-td--right payroll-value--blue">
+                              R$ {parseFloat(p.commission || 0).toFixed(2)}
+                            </td>
+                            <td className="payroll-td payroll-td--right payroll-value--red">
+                              - R$ {parseFloat(p.totalVales || 0).toFixed(2)}
+                            </td>
+                            <td className="payroll-td payroll-td--right">
+                              <span
+                                className={`payroll-liquido${parseFloat(p.liquido) >= 0 ? ' payroll-liquido--positive' : ' payroll-liquido--negative'}`}
+                              >
+                                R$ {parseFloat(p.liquido || 0).toFixed(2)}
+                              </span>
+                            </td>
+                            <td className="payroll-td payroll-td--center payroll-td--muted">
+                              {new Date(p.paidAt).toLocaleDateString('pt-BR')}
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
@@ -7250,8 +7578,6 @@ export default function AdminPage() {
             </div>
           )}
 
-
-
           {canManageAgendamentos && activeTab === 'agendamentos' && (
             <div className="manage-barbers">
               <div className="manage-barbers-header">
@@ -7280,7 +7606,9 @@ export default function AdminPage() {
                   )}
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}
+                >
                   <label htmlFor="agendamentos-month-select" className="agendamentos-filter-label">
                     Período
                   </label>
@@ -7362,7 +7690,10 @@ export default function AdminPage() {
                   </div>
                 )}
 
-                {(appointmentDateFilter || appointmentStartDate || appointmentEndDate || selectedBarberFilter !== 'all') && (
+                {(appointmentDateFilter ||
+                  appointmentStartDate ||
+                  appointmentEndDate ||
+                  selectedBarberFilter !== 'all') && (
                   <div className="filter-group">
                     <button onClick={clearAppointmentFilters} className="clear-filters-btn">
                       Limpar Filtros
@@ -7380,173 +7711,195 @@ export default function AdminPage() {
                 ) : (
                   <div className="fluig-table-parent" style={{ marginTop: '1.5rem' }}>
                     <div className="agendamentos-table-scroll">
-                    <table className="fluig-table-children">
-                      <thead>
-                        <tr>
-                          <th>Cliente</th>
-                          <th>Barbeiro</th>
-                          <th>Para</th>
-                          <th>Data</th>
-                          <th>Horário</th>
-                          <th>Serviços</th>
-                          <th>Telefone</th>
-                          <th>Pagamento</th>
-                          <th>Status</th>
-                          <th>Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredAppointmentsAdmin.map((apt) => {
-                          const appointmentDate = getAppointmentStartDate(apt);
-                          const canComplete = canCompleteAppointment(apt);
-                          const isClosedAppointment = isClosedAppointmentStatus(apt);
-                          const isPast = canComplete;
-                          const isCompleted = apt.status === 'completed';
-                          const isConfirmed = apt.status === 'confirmed';
+                      <table className="fluig-table-children">
+                        <thead>
+                          <tr>
+                            <th>Cliente</th>
+                            <th>Barbeiro</th>
+                            <th>Para</th>
+                            <th>Data</th>
+                            <th>Horário</th>
+                            <th>Serviços</th>
+                            <th>Telefone</th>
+                            <th>Pagamento</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredAppointmentsAdmin.map((apt) => {
+                            const appointmentDate = getAppointmentStartDate(apt);
+                            const canComplete = canCompleteAppointment(apt);
+                            const isClosedAppointment = isClosedAppointmentStatus(apt);
+                            const isPast = canComplete;
+                            const isCompleted = apt.status === 'completed';
+                            const isConfirmed = apt.status === 'confirmed';
 
-                          // Formatação da data e hora
-                          const formattedDate = apt.date
-                            ? new Date(`${apt.date}T00:00:00`).toLocaleDateString('pt-BR')
-                            : appointmentDate
-                              ? appointmentDate.toLocaleDateString('pt-BR')
-                              : 'Data não informada';
-                          const formattedTime = apt.time
-                            ? String(apt.time).slice(0, 5)
-                            : appointmentDate
-                              ? appointmentDate.toLocaleTimeString('pt-BR', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })
-                              : 'Horário não informado';
+                            // Formatação da data e hora
+                            const formattedDate = apt.date
+                              ? new Date(`${apt.date}T00:00:00`).toLocaleDateString('pt-BR')
+                              : appointmentDate
+                                ? appointmentDate.toLocaleDateString('pt-BR')
+                                : 'Data não informada';
+                            const formattedTime = apt.time
+                              ? String(apt.time).slice(0, 5)
+                              : appointmentDate
+                                ? appointmentDate.toLocaleTimeString('pt-BR', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })
+                                : 'Horário não informado';
 
-                          // Nome do cliente (pode estar em apt.client.name ou apt.clientName)
-                          const clientName = apt.client?.name || apt.clientName || 'Cliente';
-                          const barberName =
-                            apt.barber?.displayName || apt.barberName || 'Sem barbeiro';
-                          const dependentLabel = apt.dependent?.name || apt.dependentName || '';
+                            // Nome do cliente (pode estar em apt.client.name ou apt.clientName)
+                            const clientName = apt.client?.name || apt.clientName || 'Cliente';
+                            const barberName =
+                              apt.barber?.displayName || apt.barberName || 'Sem barbeiro';
+                            const dependentLabel = apt.dependent?.name || apt.dependentName || '';
 
-                          // Telefone do cliente
-                          const clientPhone = apt.client?.phone || apt.clientPhone || '-';
-                          const paymentLabel = getAppointmentPaymentMethodLabel(apt.id);
+                            // Telefone do cliente
+                            const clientPhone = apt.client?.phone || apt.clientPhone || '-';
+                            const paymentLabel = getAppointmentPaymentMethodLabel(apt.id);
 
-                          // Lista de serviços (cada serviço pode ter serviceName ou name)
-                          const serviceNames = Array.isArray(apt.services)
-                            ? apt.services.map(s => s.serviceName || s.name).filter(Boolean)
-                            : [];
+                            // Lista de serviços (cada serviço pode ter serviceName ou name)
+                            const serviceNames = Array.isArray(apt.services)
+                              ? apt.services.map((s) => s.serviceName || s.name).filter(Boolean)
+                              : [];
 
-                          return (
-                            <tr key={apt.id} className={`${isCompleted ? 'row-completed' : ''} ${isPast && !isCompleted ? 'row-past' : ''} ${isConfirmed ? 'row-confirmed' : ''}`}>
-                              <td><strong>{clientName}</strong></td>
-                              <td>{barberName}</td>
-                              <td>
-                                {dependentLabel ? (
+                            return (
+                              <tr
+                                key={apt.id}
+                                className={`${isCompleted ? 'row-completed' : ''} ${isPast && !isCompleted ? 'row-past' : ''} ${isConfirmed ? 'row-confirmed' : ''}`}
+                              >
+                                <td>
+                                  <strong>{clientName}</strong>
+                                </td>
+                                <td>{barberName}</td>
+                                <td>
+                                  {dependentLabel ? (
+                                    <span
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        background: 'rgba(255,122,26,0.12)',
+                                        color: '#ff7a1a',
+                                        border: '1px solid rgba(255,122,26,0.35)',
+                                        borderRadius: '20px',
+                                        padding: '2px 9px',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 700,
+                                      }}
+                                    >
+                                      👤 {dependentLabel}
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: '#ddd', fontWeight: 600 }}>
+                                      {clientName}
+                                    </span>
+                                  )}
+                                </td>
+                                <td>{formattedDate}</td>
+                                <td>
+                                  <span className="appointment-time">{formattedTime}</span>
+                                </td>
+                                <td>
+                                  <div className="services-list-compact">
+                                    {serviceNames.length > 0 ? (
+                                      serviceNames.map((name, idx) => (
+                                        <div key={idx} className="service-item-compact">
+                                          {name}
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <span className="no-services">—</span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td>
+                                  <span className="client-phone">{clientPhone}</span>
+                                </td>
+                                <td>
                                   <span
                                     style={{
                                       display: 'inline-flex',
                                       alignItems: 'center',
                                       gap: '4px',
-                                      background: 'rgba(255,122,26,0.12)',
-                                      color: '#ff7a1a',
-                                      border: '1px solid rgba(255,122,26,0.35)',
                                       borderRadius: '20px',
                                       padding: '2px 9px',
                                       fontSize: '0.75rem',
                                       fontWeight: 700,
+                                      color:
+                                        paymentLabel === 'Pagamento local'
+                                          ? '#e5b84a'
+                                          : paymentLabel === 'Online via PIX'
+                                            ? '#2ecc71'
+                                            : paymentLabel === 'Online via cartão'
+                                              ? '#4ea1ff'
+                                              : paymentLabel === 'Plano'
+                                                ? '#d4af37'
+                                                : '#888',
+                                      border: '1px solid currentColor',
+                                      background: 'rgba(255,255,255,0.03)',
+                                      whiteSpace: 'nowrap',
                                     }}
                                   >
-                                    👤 {dependentLabel}
+                                    {paymentLabel}
                                   </span>
-                                ) : (
-                                  <span style={{ color: '#ddd', fontWeight: 600 }}>{clientName}</span>
-                                )}
-                              </td>
-                              <td>{formattedDate}</td>
-                              <td><span className="appointment-time">{formattedTime}</span></td>
-                              <td>
-                                <div className="services-list-compact">
-                                  {serviceNames.length > 0 ? (
-                                    serviceNames.map((name, idx) => (
-                                      <div key={idx} className="service-item-compact">{name}</div>
-                                    ))
-                                  ) : (
-                                    <span className="no-services">—</span>
-                                  )}
-                                </div>
-                              </td>
-                              <td><span className="client-phone">{clientPhone}</span></td>
-                              <td>
-                                <span
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    borderRadius: '20px',
-                                    padding: '2px 9px',
-                                    fontSize: '0.75rem',
-                                    fontWeight: 700,
-                                    color:
-                                      paymentLabel === 'Pagamento local'
-                                        ? '#e5b84a'
-                                        : paymentLabel === 'Online via PIX'
-                                          ? '#2ecc71'
-                                          : paymentLabel === 'Online via cartão'
-                                            ? '#4ea1ff'
-                                            : paymentLabel === 'Plano'
-                                              ? '#d4af37'
-                                              : '#888',
-                                    border: '1px solid currentColor',
-                                    background: 'rgba(255,255,255,0.03)',
-                                    whiteSpace: 'nowrap',
-                                  }}
-                                >
-                                  {paymentLabel}
-                                </span>
-                              </td>
-                              <td>
-                                <span
-                                  className={`status-badge ${getAppointmentStatusClassName(apt)}`}
-                                >
-                                  {getAppointmentStatusLabel(apt)}
-                                </span>
-                              </td>
-                              <td>
-                                <div className="barber-table-actions">
-                                  {!isCompleted && !isClosedAppointment && (
-                                    <>
-                                      {!isConfirmed && (
-                                        <button onClick={() => handleConfirmAppointment(apt.id)} className="action-btn-table btn-confirm-table">
-                                          Confirmar
+                                </td>
+                                <td>
+                                  <span
+                                    className={`status-badge ${getAppointmentStatusClassName(apt)}`}
+                                  >
+                                    {getAppointmentStatusLabel(apt)}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div className="barber-table-actions">
+                                    {!isCompleted && !isClosedAppointment && (
+                                      <>
+                                        {!isConfirmed && (
+                                          <button
+                                            onClick={() => handleConfirmAppointment(apt.id)}
+                                            className="action-btn-table btn-confirm-table"
+                                          >
+                                            Confirmar
+                                          </button>
+                                        )}
+                                        <button
+                                          onClick={() => sendWhatsApp(apt.id, 'confirm')}
+                                          className="action-btn-table btn-whatsapp-table"
+                                        >
+                                          💬 Mensagem
                                         </button>
-                                      )}
-                                      <button onClick={() => sendWhatsApp(apt.id, 'confirm')} className="action-btn-table btn-whatsapp-table">
-                                        💬 Mensagem
-                                      </button>
-                                      <button onClick={() => handleDeleteAppointment(apt.id)} className="action-btn-table btn-cancel-table">
-                                        Cancelar
-                                      </button>
-                                      {isConfirmed && canComplete && (
-                                        <button onClick={() => handleCompleteAppointment(apt.id)} className="action-btn-table btn-complete-table">
-                                          ✅ Concluir
+                                        <button
+                                          onClick={() => handleDeleteAppointment(apt.id)}
+                                          className="action-btn-table btn-cancel-table"
+                                        >
+                                          Cancelar
                                         </button>
-                                      )}
-                                    </>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                                        {isConfirmed && canComplete && (
+                                          <button
+                                            onClick={() => handleCompleteAppointment(apt.id)}
+                                            className="action-btn-table btn-complete-table"
+                                          >
+                                            ✅ Concluir
+                                          </button>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 )}
               </div>
             </div>
           )}
-
-
-
 
           {activeTab === 'products' && hasPermission('manageProducts') && (
             <div className="products-section">
@@ -7888,14 +8241,21 @@ export default function AdminPage() {
                             fontSize: '0.75rem',
                             fontWeight: 700,
                             letterSpacing: '0.4px',
-                            color: plan.active ? '#22c55e' : '#f59e0b'
+                            color: plan.active ? '#22c55e' : '#f59e0b',
                           }}
                         >
                           {plan.active ? 'ATIVO' : 'DESATIVADO'}
                         </span>
                       </div>
                       {isAdmin && (
-                        <div style={{ padding: '0.35rem 1rem 0.75rem 1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <div
+                          style={{
+                            padding: '0.35rem 1rem 0.75rem 1rem',
+                            display: 'flex',
+                            gap: '0.5rem',
+                            flexWrap: 'wrap',
+                          }}
+                        >
                           <button
                             onClick={() => openPlanModal(plan)}
                             className="fluig-btn fluig-btn-edit"
@@ -7911,7 +8271,7 @@ export default function AdminPage() {
                               padding: '4px 8px',
                               background: plan.active ? '#f59e0b22' : '#22c55e22',
                               color: plan.active ? '#f59e0b' : '#22c55e',
-                              border: `1px solid ${plan.active ? '#f59e0b66' : '#22c55e66'}`
+                              border: `1px solid ${plan.active ? '#f59e0b66' : '#22c55e66'}`,
                             }}
                           >
                             {plan.active ? 'Desativar plano' : 'Ativar plano'}
@@ -7928,9 +8288,14 @@ export default function AdminPage() {
                       <div className="benefits-list">
                         {plan.features && plan.features.length > 0 ? (
                           plan.features.map((benefit, idx) => (
-
                             <div key={idx} className="benefit-item">
-                              <div style={{ wordBreak: 'break-word', whiteSpace: 'normal', display: 'inline-block' }}>
+                              <div
+                                style={{
+                                  wordBreak: 'break-word',
+                                  whiteSpace: 'normal',
+                                  display: 'inline-block',
+                                }}
+                              >
                                 <span className="benefit-icon">✓</span>{' '}
                                 {formatBenefitLabel(benefit)}
                               </div>
@@ -8032,8 +8397,8 @@ export default function AdminPage() {
                 <div className="settings-card" style={{ marginBottom: '16px' }}>
                   <h2>Stripe Connect</h2>
                   <p className="settings-description">
-                    Conecte a conta Stripe desta barbearia para receber pagamentos com
-                    repasse automatico.
+                    Conecte a conta Stripe desta barbearia para receber pagamentos com repasse
+                    automatico.
                   </p>
 
                   {stripeConnectLoading ? (
@@ -8045,12 +8410,19 @@ export default function AdminPage() {
                         <strong>{stripeConnectStatus?.accountId || 'não criada'}</strong>
                       </p>
                       <p style={{ margin: '0 0 6px 0', color: '#ddd' }}>
-                        Pode cobrar: <strong>{stripeConnectStatus?.chargesEnabled ? 'Sim' : 'Não'}</strong>
+                        Pode cobrar:{' '}
+                        <strong>{stripeConnectStatus?.chargesEnabled ? 'Sim' : 'Não'}</strong>
                       </p>
                       <p style={{ margin: '0 0 6px 0', color: '#ddd' }}>
-                        Pode sacar: <strong>{stripeConnectStatus?.payoutsEnabled ? 'Sim' : 'Não'}</strong>
+                        Pode sacar:{' '}
+                        <strong>{stripeConnectStatus?.payoutsEnabled ? 'Sim' : 'Não'}</strong>
                       </p>
-                      <p style={{ margin: 0, color: stripeConnectIsConnected ? '#4caf50' : '#ff9800' }}>
+                      <p
+                        style={{
+                          margin: 0,
+                          color: stripeConnectIsConnected ? '#4caf50' : '#ff9800',
+                        }}
+                      >
                         {stripeConnectIsConnected
                           ? 'Stripe Connect pronto para pagamentos avulsos.'
                           : 'Finalize o onboarding para habilitar pagamentos.'}
@@ -8059,7 +8431,9 @@ export default function AdminPage() {
                   )}
 
                   {isAdmin && (
-                    <div style={{ display: 'flex', gap: '10px', marginTop: '16px', flexWrap: 'wrap' }}>
+                    <div
+                      style={{ display: 'flex', gap: '10px', marginTop: '16px', flexWrap: 'wrap' }}
+                    >
                       <Button
                         onClick={() => openStripeConnectOnboarding(true)}
                         disabled={stripeConnectActionLoading || stripeConnectIsConnected}
@@ -8377,11 +8751,11 @@ export default function AdminPage() {
                           (s.status === 'active' || s.status === 'cancel_pending') &&
                           (subscriptionSearchType === 'name'
                             ? (s.userName || '')
-                              .toLowerCase()
-                              .includes(subscriptionSearch.toLowerCase())
+                                .toLowerCase()
+                                .includes(subscriptionSearch.toLowerCase())
                             : (s.userCpf || '')
-                              .replace(/\D/g, '')
-                              .includes(subscriptionSearch.replace(/\D/g, ''))),
+                                .replace(/\D/g, '')
+                                .includes(subscriptionSearch.replace(/\D/g, ''))),
                       ).length
                     }{' '}
                     resultado(s)
@@ -8418,19 +8792,19 @@ export default function AdminPage() {
                         </td>
                       </tr>
                     ) : subscriptions
-                      .filter((s) => s.status === 'active' || s.status === 'cancel_pending')
-                      .filter((s) => {
-                        if (!subscriptionSearch.trim()) return true;
-                        if (subscriptionSearchType === 'name') {
-                          return (s.user.name || '')
-                            .toLowerCase()
-                            .includes(subscriptionSearch.toLowerCase());
-                        } else {
-                          return (s.userCpf || '')
-                            .replace(/\D/g, '')
-                            .includes(subscriptionSearch.replace(/\D/g, ''));
-                        }
-                      }).length === 0 ? (
+                        .filter((s) => s.status === 'active' || s.status === 'cancel_pending')
+                        .filter((s) => {
+                          if (!subscriptionSearch.trim()) return true;
+                          if (subscriptionSearchType === 'name') {
+                            return (s.user.name || '')
+                              .toLowerCase()
+                              .includes(subscriptionSearch.toLowerCase());
+                          } else {
+                            return (s.userCpf || '')
+                              .replace(/\D/g, '')
+                              .includes(subscriptionSearch.replace(/\D/g, ''));
+                          }
+                        }).length === 0 ? (
                       <tr>
                         <td
                           colSpan="6"
@@ -8486,8 +8860,10 @@ export default function AdminPage() {
                               R$ {parseFloat(sub.plan.price || 0).toFixed(2)}
                             </td>
                             <td style={{ color: 'var(--text-gray)', fontSize: '0.85rem' }}>
-                              {(sub.currentCycle?.periodEnd || sub.nextBillingDate)
-                                ? new Date(sub.currentCycle?.periodEnd || sub.nextBillingDate).toLocaleDateString('pt-BR')
+                              {sub.currentCycle?.periodEnd || sub.nextBillingDate
+                                ? new Date(
+                                    sub.currentCycle?.periodEnd || sub.nextBillingDate,
+                                  ).toLocaleDateString('pt-BR')
                                 : 'N/A'}
                             </td>
                             <td>
@@ -8827,9 +9203,7 @@ export default function AdminPage() {
                               <td>
                                 {new Date(payment.appointment.startAt).toLocaleDateString('pt-BR')}
                               </td>
-                              <td>
-                                {getPendingPaymentDisplayTime(payment)}
-                              </td>
+                              <td>{getPendingPaymentDisplayTime(payment)}</td>
                               <td>
                                 {payment.user.name}
                                 {payment.noShow && (
@@ -9035,15 +9409,14 @@ export default function AdminPage() {
                   const barberEarnings = paidOnly.reduce((sum, payment) => {
                     const appointment = payment.appointmentId
                       ? appointments.find(
-                        (apt) =>
-                          apt.id?.toString() === payment.appointmentId?.toString(),
-                      )
+                          (apt) => apt.id?.toString() === payment.appointmentId?.toString(),
+                        )
                       : appointments.find(
-                        (apt) =>
-                          apt.clientId === payment.userId &&
-                          apt.date === payment.appointmentDate &&
-                          apt.time === payment.appointmentTime,
-                      );
+                          (apt) =>
+                            apt.clientId === payment.userId &&
+                            apt.date === payment.appointmentDate &&
+                            apt.time === payment.appointmentTime,
+                        );
 
                     return (
                       sum +
@@ -9168,22 +9541,22 @@ export default function AdminPage() {
                                     const tipo = isPlanCovered
                                       ? 'plano'
                                       : paymentMethodValue === 'local' ||
-                                        payment.status === 'pendinglocal'
+                                          payment.status === 'pendinglocal'
                                         ? 'local'
                                         : 'avulso';
 
                                     const appointment = payment.appointmentId
                                       ? appointments.find(
-                                        (apt) =>
-                                          apt.id?.toString() ===
-                                          payment.appointmentId?.toString(),
-                                      )
+                                          (apt) =>
+                                            apt.id?.toString() ===
+                                            payment.appointmentId?.toString(),
+                                        )
                                       : appointments.find(
-                                        (apt) =>
-                                          apt.clientId === payment.userId &&
-                                          apt.date === payment.appointmentDate &&
-                                          apt.time === payment.appointmentTime,
-                                      );
+                                          (apt) =>
+                                            apt.clientId === payment.userId &&
+                                            apt.date === payment.appointmentDate &&
+                                            apt.time === payment.appointmentTime,
+                                        );
                                     const productsList =
                                       appointment?.products?.filter((pr) => pr && pr.productName) ||
                                       [];
@@ -9192,11 +9565,11 @@ export default function AdminPage() {
                                       const price =
                                         typeof prod.unitPrice === 'string'
                                           ? parseFloat(
-                                            prod.unitPrice
-                                              .replace(/R\$/g, '')
-                                              .replace(/,/g, '.')
-                                              .trim(),
-                                          ) || 0
+                                              prod.unitPrice
+                                                .replace(/R\$/g, '')
+                                                .replace(/,/g, '.')
+                                                .trim(),
+                                            ) || 0
                                           : prod.unitPrice || 0;
                                       return s + price * (prod.quantity || 1);
                                     }, 0);
@@ -9206,18 +9579,18 @@ export default function AdminPage() {
                                     const rowComm = isPlanCovered
                                       ? 0
                                       : calculateAppointmentCommission(
-                                        appointment,
-                                        serviceVal,
-                                        barberObj,
-                                      );
+                                          appointment,
+                                          serviceVal,
+                                          barberObj,
+                                        );
 
                                     return (
                                       <tr key={payment.id}>
                                         <td>
                                           {payment.appointment?.startAt
                                             ? new Date(
-                                              payment.appointment.startAt,
-                                            ).toLocaleDateString('pt-BR')
+                                                payment.appointment.startAt,
+                                              ).toLocaleDateString('pt-BR')
                                             : '—'}
                                         </td>
                                         <td>
@@ -9312,9 +9685,7 @@ export default function AdminPage() {
                                           )}
                                         </td>
                                         <td>
-                                          <PaymentBadge
-                                            method={paymentMethodValue}
-                                          />
+                                          <PaymentBadge method={paymentMethodValue} />
                                         </td>
                                         <td>
                                           <span
@@ -9325,21 +9696,21 @@ export default function AdminPage() {
                                               fontWeight: 600,
                                               ...(tipo === 'plano'
                                                 ? {
-                                                  background: '#d4af3722',
-                                                  color: '#d4af37',
-                                                  border: '1px solid #d4af3744',
-                                                }
+                                                    background: '#d4af3722',
+                                                    color: '#d4af37',
+                                                    border: '1px solid #d4af3744',
+                                                  }
                                                 : tipo === 'local'
                                                   ? {
-                                                    background: '#3498db22',
-                                                    color: '#3498db',
-                                                    border: '1px solid #3498db44',
-                                                  }
+                                                      background: '#3498db22',
+                                                      color: '#3498db',
+                                                      border: '1px solid #3498db44',
+                                                    }
                                                   : {
-                                                    background: '#ff7a1a22',
-                                                    color: '#ff7a1a',
-                                                    border: '1px solid #ff7a1a44',
-                                                  }),
+                                                      background: '#ff7a1a22',
+                                                      color: '#ff7a1a',
+                                                      border: '1px solid #ff7a1a44',
+                                                    }),
                                             }}
                                           >
                                             {tipo === 'plano'
@@ -9652,11 +10023,7 @@ export default function AdminPage() {
                   >
                     {importingUsers ? 'Importando...' : 'Importar Clientes (Excel)'}
                   </button>
-                  <button
-                    type="button"
-                    onClick={openManualClientModal}
-                    className="btn-add-barber"
-                  >
+                  <button type="button" onClick={openManualClientModal} className="btn-add-barber">
                     Cadastrar Cliente
                   </button>
                   <input
@@ -9682,157 +10049,156 @@ export default function AdminPage() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid #2a2a2a' }}>
-                      {['Nome', 'E-mail', 'CPF', 'Telefone', 'Aniversário', 'Função', 'Ações'].map((h) => (
-                        <th
-                          key={h}
-                          style={{
-                            color: '#888',
-                            fontWeight: 600,
-                            padding: '10px 12px',
-                            textAlign: 'left',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {h}
-                        </th>
-                      ))}
+                      {['Nome', 'E-mail', 'CPF', 'Telefone', 'Aniversário', 'Função', 'Ações'].map(
+                        (h) => (
+                          <th
+                            key={h}
+                            style={{
+                              color: '#888',
+                              fontWeight: 600,
+                              padding: '10px 12px',
+                              textAlign: 'left',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {h}
+                          </th>
+                        ),
+                      )}
                     </tr>
                   </thead>
                   <tbody>
                     {filteredAdminUsers.map((user) => (
-                        <tr
-                          key={user.id}
-                          style={{
-                            borderBottom: '1px solid #1e1e1e',
-                            transition: 'background 0.15s',
-                          }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = '#161616')}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      <tr
+                        key={user.id}
+                        style={{
+                          borderBottom: '1px solid #1e1e1e',
+                          transition: 'background 0.15s',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = '#161616')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <td data-label="Nome" style={{ padding: '12px 12px', color: '#fff' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            {user.picture ? (
+                              <img
+                                src={user.picture}
+                                alt=""
+                                style={{
+                                  width: 32,
+                                  height: 32,
+                                  borderRadius: '50%',
+                                  objectFit: 'cover',
+                                }}
+                              />
+                            ) : (
+                              <div
+                                style={{
+                                  width: 32,
+                                  height: 32,
+                                  borderRadius: '50%',
+                                  background: '#2a2a2a',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: '#ff7a1a',
+                                  fontWeight: 700,
+                                  fontSize: '0.85rem',
+                                }}
+                              >
+                                {(user.name || '?')[0].toUpperCase()}
+                              </div>
+                            )}
+                            <span>{user.name || '—'}</span>
+                          </div>
+                        </td>
+                        <td data-label="E-mail" style={{ padding: '12px 12px', color: '#a8a8a8' }}>
+                          {user.email || '—'}
+                        </td>
+                        <td
+                          data-label="CPF"
+                          style={{ padding: '12px 12px', color: '#a8a8a8', whiteSpace: 'nowrap' }}
                         >
-                          <td data-label="Nome" style={{ padding: '12px 12px', color: '#fff' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              {user.picture ? (
-                                <img
-                                  src={user.picture}
-                                  alt=""
-                                  style={{
-                                    width: 32,
-                                    height: 32,
-                                    borderRadius: '50%',
-                                    objectFit: 'cover',
-                                  }}
-                                />
-                              ) : (
-                                <div
-                                  style={{
-                                    width: 32,
-                                    height: 32,
-                                    borderRadius: '50%',
-                                    background: '#2a2a2a',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: '#ff7a1a',
-                                    fontWeight: 700,
-                                    fontSize: '0.85rem',
-                                  }}
-                                >
-                                  {(user.name || '?')[0].toUpperCase()}
-                                </div>
-                              )}
-                              <span>{user.name || '—'}</span>
-                            </div>
-                          </td>
-                          <td
-                            data-label="E-mail"
-                            style={{ padding: '12px 12px', color: '#a8a8a8' }}
+                          {formatCpfDisplay(user.cpf)}
+                        </td>
+                        <td
+                          data-label="Telefone"
+                          style={{ padding: '12px 12px', color: '#a8a8a8', whiteSpace: 'nowrap' }}
+                        >
+                          {formatPhoneDisplay(user.phone)}
+                        </td>
+                        <td
+                          data-label="Aniversário"
+                          style={{ padding: '12px 12px', color: '#a8a8a8' }}
+                        >
+                          {formatUserBirthDayMonth(user)}
+                        </td>
+                        <td data-label="Função" style={{ padding: '12px 12px' }}>
+                          <span
+                            style={{
+                              background:
+                                user.role === 'admin' || user.isAdmin
+                                  ? 'rgba(255,122,26,0.15)'
+                                  : user.role === 'barber'
+                                    ? 'rgba(100,200,100,0.12)'
+                                    : 'rgba(100,150,255,0.12)',
+                              color:
+                                user.role === 'admin' || user.isAdmin
+                                  ? '#ff7a1a'
+                                  : user.role === 'barber'
+                                    ? '#6dc96d'
+                                    : '#7aadff',
+                              borderRadius: '6px',
+                              padding: '3px 10px',
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                            }}
                           >
-                            {user.email || '—'}
-                          </td>
-                          <td
-                            data-label="CPF"
-                            style={{ padding: '12px 12px', color: '#a8a8a8', whiteSpace: 'nowrap' }}
+                            {user.role === 'admin' || user.isAdmin
+                              ? 'Admin'
+                              : user.role === 'barber'
+                                ? 'Barbeiro'
+                                : user.role === 'receptionist'
+                                  ? 'Recepcionista'
+                                  : 'Cliente'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 12px' }}>
+                          <button
+                            onClick={() => openResetPasswordModal(user)}
+                            style={{
+                              background: 'rgba(255,122,26,0.12)',
+                              border: '1px solid rgba(255,122,26,0.3)',
+                              color: '#ff7a1a',
+                              borderRadius: '7px',
+                              padding: '6px 14px',
+                              cursor: 'pointer',
+                              fontSize: '0.8rem',
+                              fontWeight: 600,
+                              transition: 'all 0.15s',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = 'rgba(255,122,26,0.22)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = 'rgba(255,122,26,0.12)';
+                            }}
                           >
-                            {formatCpfDisplay(user.cpf)}
-                          </td>
-                          <td
-                            data-label="Telefone"
-                            style={{ padding: '12px 12px', color: '#a8a8a8', whiteSpace: 'nowrap' }}
-                          >
-                            {formatPhoneDisplay(user.phone)}
-                          </td>
-                          <td
-                            data-label="Aniversário"
-                            style={{ padding: '12px 12px', color: '#a8a8a8' }}
-                          >
-                            {formatUserBirthDayMonth(user)}
-                          </td>
-                          <td data-label="Função" style={{ padding: '12px 12px' }}>
-                            <span
-                              style={{
-                                background:
-                                  user.role === 'admin' || user.isAdmin
-                                    ? 'rgba(255,122,26,0.15)'
-                                    : user.role === 'barber'
-                                      ? 'rgba(100,200,100,0.12)'
-                                      : 'rgba(100,150,255,0.12)',
-                                color:
-                                  user.role === 'admin' || user.isAdmin
-                                    ? '#ff7a1a'
-                                    : user.role === 'barber'
-                                      ? '#6dc96d'
-                                      : '#7aadff',
-                                borderRadius: '6px',
-                                padding: '3px 10px',
-                                fontSize: '0.78rem',
-                                fontWeight: 600,
-                              }}
-                            >
-                              {user.role === 'admin' || user.isAdmin
-                                ? 'Admin'
-                                : user.role === 'barber'
-                                  ? 'Barbeiro'
-                                  : user.role === 'receptionist'
-                                    ? 'Recepcionista'
-                                    : 'Cliente'}
-                            </span>
-                          </td>
-                          <td style={{ padding: '12px 12px' }}>
-                            <button
-                              onClick={() => openResetPasswordModal(user)}
-                              style={{
-                                background: 'rgba(255,122,26,0.12)',
-                                border: '1px solid rgba(255,122,26,0.3)',
-                                color: '#ff7a1a',
-                                borderRadius: '7px',
-                                padding: '6px 14px',
-                                cursor: 'pointer',
-                                fontSize: '0.8rem',
-                                fontWeight: 600,
-                                transition: 'all 0.15s',
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = 'rgba(255,122,26,0.22)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = 'rgba(255,122,26,0.12)';
-                              }}
-                            >
-                              Redefinir Senha
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                            Redefinir Senha
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
                     {filteredAdminUsers.length === 0 && (
-                        <tr>
-                          <td
-                            colSpan={7}
-                            style={{ padding: '2rem', textAlign: 'center', color: '#555' }}
-                          >
-                            Nenhum usuário encontrado.
-                          </td>
-                        </tr>
-                      )}
+                      <tr>
+                        <td
+                          colSpan={7}
+                          style={{ padding: '2rem', textAlign: 'center', color: '#555' }}
+                        >
+                          Nenhum usuário encontrado.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -9873,16 +10239,13 @@ export default function AdminPage() {
                   onClick={() => handleUsersPageChange(usersPage + 1)}
                   disabled={usersLoadingPage || usersPage >= usersTotalPages}
                   style={{
-                    background:
-                      usersPage >= usersTotalPages ? '#1a1a1a' : 'rgba(255,122,26,0.12)',
+                    background: usersPage >= usersTotalPages ? '#1a1a1a' : 'rgba(255,122,26,0.12)',
                     border: '1px solid rgba(255,122,26,0.3)',
                     color: usersPage >= usersTotalPages ? '#555' : '#ff7a1a',
                     borderRadius: '7px',
                     padding: '8px 14px',
                     cursor:
-                      usersLoadingPage || usersPage >= usersTotalPages
-                        ? 'not-allowed'
-                        : 'pointer',
+                      usersLoadingPage || usersPage >= usersTotalPages ? 'not-allowed' : 'pointer',
                     fontSize: '0.82rem',
                     fontWeight: 600,
                   }}
@@ -10905,7 +11268,8 @@ export default function AdminPage() {
                     }}
                   />
                   <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '6px' }}>
-                    Evite quebras de linha e espaços duplicados – eles serão removidos automaticamente.
+                    Evite quebras de linha e espaços duplicados – eles serão removidos
+                    automaticamente.
                   </p>
                 </div>
               )}
@@ -10964,7 +11328,8 @@ export default function AdminPage() {
               </label>
 
               <p style={{ margin: '0', color: '#9a9a9a', fontSize: '0.82rem', lineHeight: 1.4 }}>
-                Quando ativado, o sistema gera produto, preço mensal e link de assinatura direto na conta Connect.
+                Quando ativado, o sistema gera produto, preço mensal e link de assinatura direto na
+                conta Connect.
               </p>
 
               <div className="modal-actions">
@@ -11419,9 +11784,7 @@ export default function AdminPage() {
               }}
             >
               <div>
-                <h2 style={{ color: '#fff', fontSize: '1.05rem', margin: 0 }}>
-                  Cadastrar Cliente
-                </h2>
+                <h2 style={{ color: '#fff', fontSize: '1.05rem', margin: 0 }}>Cadastrar Cliente</h2>
                 <p style={{ color: '#888', fontSize: '0.8rem', margin: '4px 0 0' }}>
                   Crie um acesso de cliente usando o mesmo cadastro publico.
                 </p>
@@ -11756,9 +12119,7 @@ export default function AdminPage() {
                     alignItems: 'center',
                     gap: '0.65rem',
                     background:
-                      cancelAppointmentModal.reasonKey === key
-                        ? 'rgba(255,122,26,0.12)'
-                        : '#111',
+                      cancelAppointmentModal.reasonKey === key ? 'rgba(255,122,26,0.12)' : '#111',
                     border:
                       cancelAppointmentModal.reasonKey === key
                         ? '1px solid rgba(255,122,26,0.55)'
