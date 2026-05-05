@@ -1,38 +1,27 @@
 import { useState } from 'react';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
-import api from '../services/api';
-import { saveSession } from '../services/authService';
 import './CompleteProfileModal.css';
 import { loginWithGoogle } from '../services/authService';
-import { useNavigate } from 'react-router-dom';
 
 const BARBERSHOPS_OPTIONS = [
-  { id: '001', name: 'Barbearia Rodrigues', slug: 'barberone' },
-  // { id: '002', name: 'Barbearia Lucas' },
-  // { id: '003', name: 'Barbearia Abilton' },
-  // { id: '004', name: 'barberone' },
+  {
+    id: 'env',
+    name: import.meta.env.VITE_BARBERSHOP_NAME || 'Barbearia Rodrigues',
+    slug: import.meta.env.VITE_BARBERSHOP_SLUG || 'barberone',
+  },
 ];
 
-export default function CompleteProfileModal({ name, email, picture, onComplete }) {
-  const navigate = useNavigate();
+export default function CompleteProfileModal({ accessToken, user, onComplete }) {
+  const name = user?.name || '';
+  const picture = user?.photoUrl || '';
   const [cpf, setCpf] = useState('');
   const [phone, setPhone] = useState('');
   const [birthDate, setBirthDate] = useState('');
-  const [barbershop, setBarbershop] = useState('');
+  const [barbershop, setBarbershop] = useState(import.meta.env.VITE_BARBERSHOP_SLUG || '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const navigateByRole = (user) => {
-    if (user.role === 'admin' || user.isAdmin === true) {
-      navigate('/home');
-    } else if (user.role === 'barber') {
-      navigate('/home');
-    } else {
-      navigate('/home');
-    }
-  };
 
   const isValidCPF = (cpf) => {
     const clean = cpf.replace(/\D/g, '');
@@ -88,31 +77,28 @@ export default function CompleteProfileModal({ name, email, picture, onComplete 
       return;
     }
 
-    let slug = "";
-
     setIsSubmitting(true);
     try {
       const selectedBarbershop = BARBERSHOPS_OPTIONS.find((b) => b.slug === barbershop);
-      slug = selectedBarbershop ? selectedBarbershop.slug : "";
-      const updatedUser = {
-        name,
-        email,
-        cpf: cleanCPF,
-        phone: cleanPhone,
-        birthDate,
-        barbershops: selectedBarbershop ? [selectedBarbershop] : [],
-        password,
-        profileComplete: true,
-      };
-      await api.put(`/users/${user.id}`, updatedUser);
-      saveSession(updatedUser);
-      onComplete(updatedUser);
+      const authResult = await loginWithGoogle({
+        accessToken,
+        slug: selectedBarbershop?.slug || barbershop,
+        profileData: {
+          cpf: cleanCPF,
+          phone: cleanPhone,
+          birthDate,
+          password,
+        },
+      });
+      onComplete(authResult);
     } catch (err) {
-      setError('Erro ao salvar dados. Tente novamente.');
+      const message =
+        err.response?.data?.message ||
+        (Array.isArray(err.response?.data) ? err.response.data.join(', ') : null) ||
+        'Erro ao salvar dados. Tente novamente.';
+      setError(message);
     } finally {
       setIsSubmitting(false);
-      const user = await loginWithGoogle(name, email, slug);
-      navigateByRole(user);
     }
   };
 
@@ -182,7 +168,7 @@ export default function CompleteProfileModal({ name, email, picture, onComplete 
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Mínimo 4 caracteres"
-            minLength={6}
+            minLength={4}
           />
           <Button type="submit" fullWidth disabled={isSubmitting}>
             {isSubmitting ? 'Salvando...' : 'Salvar e continuar'}

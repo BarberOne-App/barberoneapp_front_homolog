@@ -233,6 +233,7 @@ export default function AppointmentsPage() {
   const [bookingInProgress, setBookingInProgress] = useState(false);
   const [pixLoading, setPixLoading] = useState(false);
   const [postPaymentLoading, setPostPaymentLoading] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
   const [observation, setObservation] = useState('');
   const [expandedObsId, setExpandedObsId] = useState(null);
   const [isBarberLocked, setIsBarberLocked] = useState(false);
@@ -535,14 +536,21 @@ export default function AppointmentsPage() {
   const getUpcomingReminders = useMemo(() => {
     const now = new Date();
     const dependentLookupIds = buildDependentLookupIds(userDependents);
+    const activeReminderStatuses = new Set(['scheduled', 'confirmed']);
     const userAppointments = appointments.filter((apt) => {
       if (!isAppointmentFromCurrentUser(apt, currentUser?.id, dependentLookupIds)) {
         return false;
       }
-      // Filter out cancelled appointments
-      if (isCancelledStatus(apt.status) || String(apt.status || '').toLowerCase() === 'no_show') {
+
+      const appointmentStatus = String(apt.status || '').toLowerCase().trim();
+      if (
+        isCancelledStatus(appointmentStatus) ||
+        appointmentStatus === 'no_show' ||
+        !activeReminderStatuses.has(appointmentStatus)
+      ) {
         return false;
       }
+
       return true;
     });
     const future = userAppointments.filter((apt) => {
@@ -2416,6 +2424,9 @@ export default function AppointmentsPage() {
   }, []);
 
   const handleDeleteConfirm = useCallback(async () => {
+    setIsCanceling(true);
+    setShowConfirmModal(false);
+
     try {
       clearPaymentCache(appointmentToDelete);
       await deleteAppointment(appointmentToDelete);
@@ -2427,6 +2438,8 @@ export default function AppointmentsPage() {
         extractAppointmentErrorMessage(error, 'Não foi possível cancelar este agendamento.'),
         'danger',
       );
+    } finally {
+      setIsCanceling(false);
     }
   }, [appointmentToDelete, loadData, showToast, clearPaymentCache]);
 
@@ -3785,6 +3798,16 @@ export default function AppointmentsPage() {
             <div className="booking-spinner"></div>
             <h2>Pagamento confirmado</h2>
             <p>Atualizando seus agendamentos...</p>
+          </div>
+        </div>
+      )}
+
+      {isCanceling && (
+        <div className="booking-overlay">
+          <div className="booking-overlay-content">
+            <div className="booking-spinner"></div>
+            <h2>Cancelando agendamento...</h2>
+            <p>Aguarde enquanto atualizamos seus agendamentos.</p>
           </div>
         </div>
       )}
