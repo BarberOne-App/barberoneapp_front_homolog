@@ -71,6 +71,14 @@
   margin-bottom: 1rem;
 }
 
+.auth-logo {
+  display: block;
+  width: min(100%, 260px);
+  height: auto;
+  margin: 0 auto 18px;
+  object-fit: contain;
+}
+
 .auth-title,
 .auth__title {
   font-size: 24px;
@@ -2427,6 +2435,9 @@
 }
 
 .benefits-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   min-height: 100px;
   margin-bottom: 20px;
 }
@@ -2436,10 +2447,11 @@
   justify-content: space-between;
   align-items: center;
   gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 10px 12px;
   background: rgba(255, 255, 255, 0.03);
   border-radius: 8px;
-  margin-bottom: 8px;
   transition: background 0.2s ease;
 }
 

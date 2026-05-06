@@ -4296,6 +4296,7 @@ export default function AdminPage() {
   );
 
   const BENEFIT_SERVICE_PREFIX = 'SERVICO_INCLUSO::';
+  const BENEFIT_DESCRIPTION_MAX_LENGTH = 120;
 
   const sanitizeBenefitText = (value) => {
     if (typeof value !== 'string') return '';
@@ -4534,6 +4535,14 @@ export default function AdminPage() {
 
     if (!selectedService && !cleaned) {
       showToast('Digite um benefício válido ou selecione um serviço.', 'danger');
+      return;
+    }
+
+    if (!selectedService && cleaned.length > BENEFIT_DESCRIPTION_MAX_LENGTH) {
+      showToast(
+        `A descriÃ§Ã£o deve ter no mÃ¡ximo ${BENEFIT_DESCRIPTION_MAX_LENGTH} caracteres.`,
+        'danger',
+      );
       return;
     }
 
@@ -8289,13 +8298,7 @@ export default function AdminPage() {
                         {plan.features && plan.features.length > 0 ? (
                           plan.features.map((benefit, idx) => (
                             <div key={idx} className="benefit-item">
-                              <div
-                                style={{
-                                  wordBreak: 'break-word',
-                                  whiteSpace: 'normal',
-                                  display: 'inline-block',
-                                }}
-                              >
+                              <div className="benefit-text">
                                 <span className="benefit-icon">✓</span>{' '}
                                 {formatBenefitLabel(benefit)}
                               </div>
@@ -11251,7 +11254,10 @@ export default function AdminPage() {
                   <label className="form-label">Descrição do Benefício</label>
                   <textarea
                     value={benefitForm}
-                    onChange={(e) => setBenefitForm(e.target.value)}
+                    onChange={(e) =>
+                      setBenefitForm(e.target.value.slice(0, BENEFIT_DESCRIPTION_MAX_LENGTH))
+                    }
+                    maxLength={BENEFIT_DESCRIPTION_MAX_LENGTH}
                     placeholder="Ex.: 2 cortes por mês | Brinde especial | Desconto em produtos"
                     required
                     rows="3"
@@ -11270,6 +11276,17 @@ export default function AdminPage() {
                   <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '6px' }}>
                     Evite quebras de linha e espaços duplicados – eles serão removidos
                     automaticamente.
+                  </p>
+                  <p
+                    style={{
+                      fontSize: '0.75rem',
+                      color:
+                        benefitForm.length >= BENEFIT_DESCRIPTION_MAX_LENGTH ? '#f59e0b' : '#888',
+                      marginTop: '4px',
+                      textAlign: 'right',
+                    }}
+                  >
+                    {benefitForm.length}/{BENEFIT_DESCRIPTION_MAX_LENGTH} caracteres
                   </p>
                 </div>
               )}
