@@ -7,6 +7,7 @@ import Button from '../components/ui/Button';
 import Toast from '../components/ui/Toast';
 import CompleteProfileModal from '../pages/CompleteProfileModal';
 import { login, loginWithGoogle } from '../services/authService';
+import barberOneLogo from '../assets/barberone-logo.svg';
 import './AuthPages.css';
 
 export default function LoginPage() {
@@ -109,6 +110,7 @@ export default function LoginPage() {
       <section className="auth">
         <div className="auth-card">
           <div className="auth-header">
+            <img src={barberOneLogo} alt="BarberOne" className="auth-logo" />
             <h1 className="auth-title">Bem-vindo de volta</h1>
             <p className="auth-subtitle">Faça login para acessar sua conta</p>
           </div>
