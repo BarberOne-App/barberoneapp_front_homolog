@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getSession } from '../../services/authService';
 import { getHomeInfo } from '../../services/settingsService.js';
-import logoImg from '../../assets/barbearia-rodrigues.png';
+import logoImg from '../../assets/barberone-logo.svg';
 import { FaWhatsapp } from 'react-icons/fa';
 import './Header.css';
 
@@ -107,7 +107,7 @@ export default function Header() {
   return (
     <header className="header">
       <a href="/" className="header__logo-link" onClick={handleLogoClick}>
-        <img src={logoImg} alt="Barbearia Rodrigues" className="header__logo-img" />
+        <img src={logoImg} alt="BarberOne" className="header__logo-img" />
       </a>
 
       <button

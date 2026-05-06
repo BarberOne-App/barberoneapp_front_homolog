@@ -20,12 +20,16 @@
   text-decoration: none;
   display: flex;
   align-items: center;
+  justify-content: center;
   transition: all 0.3s;
+  flex-shrink: 0;
 }
 
 .header__logo-img {
-  height: 70px;
-  width: auto;
+  display: block;
+  width: clamp(160px, 18vw, 220px);
+  max-width: 100%;
+  height: auto;
   object-fit: contain;
 }
 
@@ -144,7 +148,8 @@
   }
 
   .header__logo-img {
-    height: 48px;
+    width: clamp(132px, 42vw, 172px);
+    height: auto;
   }
 
   .header__menu-btn {
