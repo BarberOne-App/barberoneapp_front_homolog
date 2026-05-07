@@ -7,7 +7,7 @@ import Button from '../components/ui/Button';
 import Toast from '../components/ui/Toast';
 import CompleteProfileModal from '../pages/CompleteProfileModal';
 import { login, loginWithGoogle } from '../services/authService';
-import barberOneLogo from '../assets/barberone-logo.svg';
+import barberOneLogo from '../assets/barberOne-logo.png';
 import './AuthPages.css';
 
 export default function LoginPage() {

@@ -16,6 +16,10 @@
   overflow-x: clip;
 }
 
+.header--no-logo {
+  justify-content: flex-end;
+}
+
 .header__logo-link {
   text-decoration: none;
   display: flex;
@@ -27,9 +31,9 @@
 
 .header__logo-img {
   display: block;
-  width: clamp(160px, 18vw, 220px);
+  width: auto;
   max-width: 100%;
-  height: auto;
+  height: clamp(54px, 6vw, 72px);
   object-fit: contain;
 }
 
@@ -148,8 +152,7 @@
   }
 
   .header__logo-img {
-    width: clamp(132px, 42vw, 172px);
-    height: auto;
+    height: 52px;
   }
 
   .header__menu-btn {
@@ -164,7 +167,7 @@
 
   .header__nav {
     position: fixed;
-    top: 62px;
+    top: 72px;
     left: 0;
     right: 0;
     width: 100%;

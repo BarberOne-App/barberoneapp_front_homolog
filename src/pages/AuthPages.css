@@ -73,7 +73,7 @@
 
 .auth-logo {
   display: block;
-  width: min(100%, 260px);
+  width: min(100%, 320px);
   height: auto;
   margin: 0 auto 18px;
   object-fit: contain;
@@ -221,6 +221,14 @@
   background: var(--gold-light);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+}
+
+.agendamentos-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .btn-edit,
@@ -5159,6 +5167,16 @@
 
   .manage-barbers-header button {
     width: 100%;
+  }
+
+  .agendamentos-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .agendamentos-header-actions .btn-add-barber {
+    flex: 1 1 180px;
+    width: auto;
   }
 
   .payroll-table-wrapper {
