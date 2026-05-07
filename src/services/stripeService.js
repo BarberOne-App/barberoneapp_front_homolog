@@ -18,13 +18,6 @@ export async function createStripePaymentIntent(payload) {
     }
   );
 
-  console.log('paymentIntentId:', data.paymentIntentId);
-  console.log('clientSecret:', data.clientSecret);
-  console.log(
-    'bate?',
-    data.clientSecret?.startsWith(data.paymentIntentId + '_secret_')
-  );
-
   return data;
 }
 

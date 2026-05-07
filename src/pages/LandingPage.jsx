@@ -12,6 +12,11 @@ const PLAN_LABELS = {
   premium: 'Plano Premium',
 };
 
+const PAYMENT_LINKS = {
+  basic: 'https://buy.stripe.com/test_fZucN65vRcI07OU0i2awo01',
+  premium: 'https://buy.stripe.com/test_14A8wQ9M7gYgedi1m6awo00',
+};
+
 const LandingPage = () => {
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
@@ -109,9 +114,9 @@ const LandingPage = () => {
       }
 
       // Caso não haja checkoutUrl, usar Payment Link de teste e prefill do email do admin
-      const PAYMENT_LINK = 'https://buy.stripe.com/test_14A8wQ9M7gYgedi1m6awo00';
+      const paymentLink = PAYMENT_LINKS[selectedPlan];
       const email = encodeURIComponent(payload.adminEmail || '');
-      const url = email ? `${PAYMENT_LINK}?prefilled_email=${email}` : PAYMENT_LINK;
+      const url = email ? `${paymentLink}?prefilled_email=${email}` : paymentLink;
       // Redireciona o usuário para o Payment Link (Stripe)
       window.location.href = url;
       return;

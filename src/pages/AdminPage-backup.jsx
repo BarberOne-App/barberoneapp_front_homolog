@@ -899,7 +899,6 @@ const barberNames = useMemo(() => {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
-      console.log(data);
       setBlockedDates(data);
     } catch (error) {
       console.error('Erro ao carregar dias bloqueados:', error);
@@ -1210,7 +1209,6 @@ const barberNames = useMemo(() => {
       }
 
       const data = await response.json();
-      console.log('✅ Planos carregados:', data);
       setPlans(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('❌ Erro ao carregar planos:', error);
@@ -1280,7 +1278,6 @@ const barberNames = useMemo(() => {
   }, [activeTab]);
   useEffect(() => {
     if (activeTab === 'benefits' && hasAdminVisibility && plans.length === 0) {
-      console.log('🔄 Carregando planos pela primeira vez...');
       loadPlans();
     }
   }, [activeTab, hasAdminVisibility, plans.length, loadPlans]);
@@ -2299,13 +2296,7 @@ const barberNames = useMemo(() => {
 
   const filtered = getFilteredAppointmentsByPeriod();
 
-  const statsbyPeriod = useMemo(() => {
-
-  console.log("Agendamentos Totais:", appointments.length);
-  console.log("Agendamentos Filtrados:", filtered.length);
-  console.log("Filtro Atual:", earningsFilter);
-  console.log("Perfil do Barbeiro:", barberProfile);
-  
+  const statsbyPeriod = useMemo(() => { 
 
   let totalRevenue = 0;
 

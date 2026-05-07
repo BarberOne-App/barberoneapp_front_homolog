@@ -269,10 +269,6 @@ export default function AppointmentsPage() {
     const preapprovalId =
       params.get('preapproval_id') || params.get('preapproval') || params.get('id');
 
-    //"e5ebbe29ae3d420dbc87648e4b9991bc";
-
-    console.log('PREAPPROVAL ID:', preapprovalId);
-
     if (preapprovalId) {
       fetch(`${API_URL}/assinatura/${preapprovalId}`, {
         headers: {
@@ -282,7 +278,6 @@ export default function AppointmentsPage() {
         .then((r) => r.json())
         .then(async (data) => {
           if (data.status == 'authorized') {
-            console.log('Entrou no if de autorização da assinatura:', data.status);
             const subscription = await criarAssinatura({
               userId: currentUserPlan.id,
               userName: currentUserPlan.name,
@@ -296,8 +291,6 @@ export default function AppointmentsPage() {
               autoRenewal: selectedPlan.autoRenewal ?? true,
               mp_preapproval_id: "null",
             });
-
-            console.log(subscription);
 
             localStorage.setItem('planId', JSON.stringify(subscription.data.id));
           }
@@ -778,8 +771,6 @@ export default function AppointmentsPage() {
       cancelled = true;
     };
   }, [currentUser?.email]);
-
-  console.log(stripeActiveSubscription);
 
   const activeSubscriptionForCoverage = useMemo(() => {
     return activeUserSubscription || stripeActiveSubscription || null;
@@ -1323,8 +1314,6 @@ export default function AppointmentsPage() {
           allUsersArray = [];
         }
       }
-
-      console.log('allUsersArray:', allUsersArray);
 
       const validBarbers = barbersData.filter((barber) => {
         if (!barber.userId) return true;
@@ -2082,10 +2071,6 @@ export default function AppointmentsPage() {
         products: [],
         notes: pendingBookingData.observation || '',
       };
-
-      console.log('bookingForUser', bookingForUser);
-      console.log('activeClient', activeClient);
-      console.log('newAppointment', newAppointment);
 
       const createdAppointment = await createAppointment(newAppointment);
 

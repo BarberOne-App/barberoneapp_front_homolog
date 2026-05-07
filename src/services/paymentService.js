@@ -103,8 +103,6 @@ export const buscarPlanoAssinatura = async (planId) => {
 
 export const criarAssinatura = async (dadosAssinatura) => {
 
-  console.log(dadosAssinatura);
-
   try {
     const assinatura = {
       userId: dadosAssinatura.userId,
