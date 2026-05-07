@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   getRedirectPath,
   hasValidSession,
@@ -373,6 +373,8 @@ const LandingPage = () => {
               <a href="https://www.barberoneapp.com" target="_blank" rel="noopener noreferrer">
                 www.barberoneapp.com
               </a>
+              <Link to="/privacy">Politica de Privacidade</Link>
+              <Link to="/terms">Termos de Servico</Link>
             </div>
           </div>
           <div className="copyright">
