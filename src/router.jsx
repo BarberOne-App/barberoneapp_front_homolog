@@ -10,12 +10,15 @@ import BarberPage from './pages/BarberPage.jsx';
 import SuperAdminPage from './pages/SuperAdminPage.jsx';
 import SuperAdminSetupPage from './pages/SuperAdminSetupPage.jsx';
 import StripeReturnPage from './pages/StripeReturnPage.jsx';
+import LegalPage from './pages/LegalPage.jsx';
 import ProfilePage from './components/ui/ProfilePage.jsx';
 
 const router = createBrowserRouter([
   { path: '/', element: <LandingPage /> },
   { path: '/home', element: <Home /> },
   { path: '/login', element: <LoginPage /> },
+  { path: '/privacy', element: <LegalPage type="privacy" /> },
+  { path: '/terms', element: <LegalPage type="terms" /> },
   { path: '/cadastro', element: <RegisterPage /> },
   { path: '/register', element: <RegisterPage /> },
   { path: '/agendamentos', element: <AppointmentsPage /> },
