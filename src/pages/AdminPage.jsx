@@ -849,6 +849,8 @@ export default function AdminPage() {
 
   const canManageGallery = hasPermission('manageGallery');
   const canManageAgendamentos = hasPermission('manageAgendamentos');
+  const canScheduleForOthers = hasPermission('scheduleForOthers');
+  const canManageOffScheduleAppointments = hasPermission('manageOffScheduleAppointments');
 
   const getFilteredEmployees = () => {
     if (categoryFilter === 'all') {
@@ -7591,10 +7593,19 @@ export default function AdminPage() {
             <div className="manage-barbers">
               <div className="manage-barbers-header">
                 <h2>Agendamentos</h2>
-                {(isAdmin || hasPermission('manageOffScheduleAppointments')) && (
-                  <button onClick={openOffScheduleModal} className="btn-add-barber">
-                    Registrar fora do horário
-                  </button>
+                {(canScheduleForOthers || canManageOffScheduleAppointments) && (
+                  <div className="agendamentos-header-actions">
+                    {canScheduleForOthers && (
+                      <button onClick={() => navigate('/appointments')} className="btn-add-barber">
+                        Registrar agendamento
+                      </button>
+                    )}
+                    {canManageOffScheduleAppointments && (
+                      <button onClick={openOffScheduleModal} className="btn-add-barber">
+                        Registrar fora do horário
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
 
