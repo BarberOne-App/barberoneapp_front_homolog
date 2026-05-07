@@ -624,6 +624,14 @@
   margin-top: 0.5rem;
 }
 
+.footer-links {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .footer-links a {
   color: white;
   opacity: 0.8;
@@ -885,5 +893,12 @@
 
   .modal-buttons button {
     width: 100%;
+  }
+
+  .footer-links {
+    justify-content: flex-start;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
   }
 }
