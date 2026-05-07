@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getSession } from '../../services/authService';
 import { getHomeInfo } from '../../services/settingsService.js';
-import logoImg from '../../assets/barberone-logo.svg';
+import rodriguesLogo from '../../assets/barbearia-rodrigues.png';
 import { FaWhatsapp } from 'react-icons/fa';
 import './Header.css';
 
@@ -17,9 +17,11 @@ const navItems = [
 
 export default function Header() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [whatsappHref, setWhatsappHref] = useState('https://wa.me/5585999999999');
+  const isLoginPage = location.pathname === '/login';
 
   useEffect(() => {
     const user = getSession();
@@ -105,10 +107,12 @@ export default function Header() {
   }, [menuOpen]);
 
   return (
-    <header className="header">
-      <a href="/" className="header__logo-link" onClick={handleLogoClick}>
-        <img src={logoImg} alt="BarberOne" className="header__logo-img" />
-      </a>
+    <header className={`header ${isLoginPage ? 'header--no-logo' : ''}`}>
+      {!isLoginPage && (
+        <a href="/home" className="header__logo-link" onClick={handleLogoClick}>
+          <img src={rodriguesLogo} alt="Barbearia Rodrigues" className="header__logo-img" />
+        </a>
+      )}
 
       <button
         className="header__menu-btn"
