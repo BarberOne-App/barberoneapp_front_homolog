@@ -1833,7 +1833,6 @@ export default function AdminPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
-      console.log(data);
       setBlockedDates(data);
     } catch (error) {
       console.error('Erro ao carregar dias bloqueados:', error);
@@ -2138,11 +2137,11 @@ export default function AdminPage() {
 
       let message;
       if (type === 'confirm') {
-        message = `Olá ${appointmentClientName}!\n\nEstamos entrando em contato para CONFIRMAR seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}\n👨‍🦰 Barbeiro: ${appointmentBarberName}${appointmentTargetLine}\n\nPor favor, responda esta mensagem para confirmar sua presença.`;
+        message = `Olá ${appointmentClientName}!\n\nEstamos entrando em contato para CONFIRMAR seu agendamento:\n\n Data: ${date}\n Horário: ${time}\n Serviço: ${serviceName}\n Barbeiro: ${appointmentBarberName}${appointmentTargetLine}\n\n.`;
       } else if (type === 'cancel') {
-        message = `Olá ${appointmentClientName}!\n\nInformamos que precisaremos realizar o CANCELAMENTO do seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}${appointmentTargetLine}\n\nNossas desculpas pelo transtorno. Entre em contato conosco para reagendar.`;
+        message = `Olá ${appointmentClientName}!\n\nInformamos que precisaremos realizar o CANCELAMENTO do seu agendamento:\n\n Data: ${date}\n Horário: ${time}\n Serviço: ${serviceName}${appointmentTargetLine}\n\nNossas desculpas pelo transtorno. Entre em contato conosco para reagendar.`;
       } else if (type === 'noshow') {
-        message = `Olá ${appointmentClientName}!\n\nNotamos que você não compareceu ao seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}${appointmentTargetLine}\n\nSentimos pela ausência. Entre em contato conosco para reagendar quando quiser.`;
+        message = `Olá ${appointmentClientName}!\n\nNotamos que você não compareceu ao seu agendamento:\n\n Data: ${date}\n Horário: ${time}\n Serviço: ${serviceName}${appointmentTargetLine}\n\nSentimos pela ausência. Entre em contato conosco para reagendar quando quiser.`;
       }
       const encodedMessage = encodeURIComponent(message);
       const whatsappUrl = `https://wa.me/${phone}?text=${encodedMessage}`;
@@ -2378,7 +2377,6 @@ export default function AdminPage() {
       }
 
       const data = await response.json();
-      console.log('✅ Planos carregados:', data);
       setPlans(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('❌ Erro ao carregar planos:', error);
@@ -2444,14 +2442,12 @@ export default function AdminPage() {
   }, [activeTab]);
   useEffect(() => {
     if (activeTab === 'benefits' && hasAdminVisibility && plans.length === 0) {
-      console.log('🔄 Carregando planos pela primeira vez...');
       loadPlans();
     }
   }, [activeTab, hasAdminVisibility, plans.length, loadPlans]);
 
   useEffect(() => {
     if (activeTab === 'products' && products.length === 0) {
-      console.log('🔄 Carregando produtos pela primeira vez...');
       loadProducts();
     }
   }, [activeTab, products.length, loadProducts]);
@@ -3235,9 +3231,9 @@ export default function AdminPage() {
             dependentInfo.isDependent && dependentInfo.dependentName
               ? ` Atendimento para ${dependentInfo.dependentName}, dependente de ${appointmentClientName}.`
               : '';
-          const message = `Olá ${appointmentClientName}! Seu agendamento foi confirmado.${appointmentTargetText} Obrigado pela preferência e confiança em nosso serviço! 😊✂️`;
-          const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-          window.open(whatsappUrl, '_blank');
+          // const message = `Olá ${appointmentClientName}! Seu agendamento foi confirmado.${appointmentTargetText} Obrigado pela preferência e confiança em nosso serviço! 😊✂️`;
+          // const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+          // window.open(whatsappUrl, '_blank');
         }
       } catch (whatsErr) {
         console.warn('Não foi possível abrir WhatsApp:', whatsErr);
@@ -8408,7 +8404,7 @@ export default function AdminPage() {
           {activeTab === 'terms' && hasPermission('manageSettings') && (
             <div className="settings-section">
               <div className="settings-container">
-                <div className="settings-card" style={{ marginBottom: '16px' }}>
+                {/* <div className="settings-card" style={{ marginBottom: '16px' }}>
                   <h2>Stripe Connect</h2>
                   <p className="settings-description">
                     Conecte a conta Stripe desta barbearia para receber pagamentos com repasse
@@ -8479,7 +8475,7 @@ export default function AdminPage() {
                       </Button>
                     </div>
                   )}
-                </div>
+                </div> */}
 
                 <div className="settings-card">
                   <h2>Termos e Documentos</h2>

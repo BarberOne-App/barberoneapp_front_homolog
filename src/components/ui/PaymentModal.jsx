@@ -27,9 +27,6 @@ function StripePaymentForm({
   const stripe = useStripe();
   const elements = useElements();
 
-  console.log('PK FRONT:', import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
-  console.log('clientSecret recebido:', clientSecret);
-
   const [processing, setProcessing] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState(null);
   const [showErrorToast, setShowErrorToast] = useState(false);
@@ -50,9 +47,7 @@ function StripePaymentForm({
   const rollbackAppointment = async (appointmentId) => {
     if (!appointmentId) return;
     try {
-      console.log('🔄 Desfazendo agendamento:', appointmentId);
       await deleteAppointment(appointmentId);
-      console.log('✅ Agendamento removido com sucesso');
     } catch (error) {
       console.error('⚠️ Erro ao remover agendamento:', error);
       // Não falhar por isso, o usuário já sabe que o pagamento falhou
@@ -227,8 +222,6 @@ function StripePaymentForm({
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    console.log('ANTES DO confirmPayment:', clientSecret);
-
     if (!isAppointmentPayment && !acceptedTerms) {
       setValidationToast({
         show: true,
@@ -269,7 +262,6 @@ function StripePaymentForm({
       }
 
       const result = await stripe.retrievePaymentIntent(clientSecret);
-      console.log('RETORNO retrievePaymentIntent:', result);
       const paymentIntent = result.paymentIntent;
 
       if (!paymentIntent) {

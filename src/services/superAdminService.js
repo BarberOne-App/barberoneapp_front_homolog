@@ -27,3 +27,20 @@ export async function updateBarbershopStatus(id, status, reason = null) {
   });
   return data;
 }
+
+export async function getSuperAdminUsers(params = {}) {
+  const { data } = await api.get('/super-admin/users', { params });
+  return data;
+}
+
+export async function updateSuperAdminUser(userId, payload = {}) {
+  const { data } = await api.patch(`/super-admin/users/${userId}`, payload);
+  return data;
+}
+
+export async function resetUserPassword(userId, newPassword = undefined) {
+  const body = {};
+  if (newPassword !== undefined) body.newPassword = newPassword;
+  const { data } = await api.patch(`/super-admin/users/${userId}/password`, body);
+  return data;
+}

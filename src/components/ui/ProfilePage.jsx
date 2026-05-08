@@ -72,7 +72,6 @@ export default function ProfilePage() {
     });
     setProfilePhoto(user.photoUrl || user.photo || null);
     loadUserPhoto(user.id);
-    // verificarAssinaturaAtiva(planId, user);
     verificarAssinaturaAtiva(user);
     loadDependents(user.id);
 
@@ -299,7 +298,6 @@ export default function ProfilePage() {
     }
   };
 
-
   const handleFileSelect = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -314,7 +312,6 @@ export default function ProfilePage() {
     }
     e.target.value = '';
   };
-
 
   const handleConfirmUpload = async () => {
     if (!pendingFile || !currentUser) return;

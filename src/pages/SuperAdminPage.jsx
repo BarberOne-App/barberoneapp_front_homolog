@@ -8,7 +8,10 @@ import {
     getBarbershopDetails,
     getBarbershopUsers,
     getSuperAdminDashboard,
+    getSuperAdminUsers,
+    updateSuperAdminUser,
     updateBarbershopStatus,
+    resetUserPassword,
 } from '../services/superAdminService';
 import './SuperAdminPage.css';
 
@@ -32,6 +35,7 @@ const SUBSCRIPTION_OPTIONS = [
 const PANEL_SECTIONS = [
     { key: 'dashboard', label: 'Dashboard' },
     { key: 'barbershops', label: 'Barbearias' },
+    { key: 'users', label: 'Usuários' },
     { key: 'subscriptions', label: 'Assinaturas' },
     { key: 'reports', label: 'Relatórios' },
 ];
@@ -44,6 +48,10 @@ const SECTION_CONTENT = {
     barbershops: {
         title: 'Gestão de Barbearias',
         subtitle: 'Filtre, visualize detalhes e atualize o status das barbearias.',
+    },
+    users: {
+        title: 'Gestão de Usuários',
+        subtitle: 'Acesse todas as contas e atualize email, telefone ou senha.',
     },
     subscriptions: {
         title: 'Gestão de Assinaturas',
@@ -88,10 +96,15 @@ export default function SuperAdminPage() {
     const [subscriptionsByShop, setSubscriptionsByShop] = useState({});
     const [dashboard, setDashboard] = useState(null);
     const [barbershops, setBarbershops] = useState([]);
+    const [users, setUsers] = useState([]);
     const [page, setPage] = useState(1);
     const [limit] = useState(15);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
+    const [usersPage, setUsersPage] = useState(1);
+    const [usersLimit] = useState(15);
+    const [usersTotalPages, setUsersTotalPages] = useState(1);
+    const [usersTotal, setUsersTotal] = useState(0);
 
     const [filters, setFilters] = useState({
         q: '',
@@ -101,16 +114,36 @@ export default function SuperAdminPage() {
         createdFrom: '',
         createdTo: '',
     });
+    const [userFilters, setUserFilters] = useState({
+        q: '',
+        role: '',
+    });
 
     const [selectedBarbershop, setSelectedBarbershop] = useState(null);
     const [selectedBarbershopUsers, setSelectedBarbershopUsers] = useState([]);
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [selectedUserForm, setSelectedUserForm] = useState({
+        email: '',
+        phone: '',
+        newPassword: '',
+    });
     const [detailsLoading, setDetailsLoading] = useState(false);
+    const [resettingUserId, setResettingUserId] = useState(null);
+    const [savingUserId, setSavingUserId] = useState(null);
+    const [usersLoading, setUsersLoading] = useState(false);
     const [statusReasonModal, setStatusReasonModal] = useState({
         open: false,
         barbershopId: null,
         barbershopName: '',
         nextStatus: null,
         reason: '',
+    });
+    const [resetPasswordModal, setResetPasswordModal] = useState({
+        open: false,
+        user: null,
+        newPassword: '',
+        generatedPassword: '',
+        isSubmitting: false,
     });
     const [toast, setToast] = useState({ show: false, type: 'success', message: '' });
 
@@ -288,6 +321,20 @@ export default function SuperAdminPage() {
         setTotalPages(Number(result?.totalPages || 1));
     }, [filters, page, limit]);
 
+    const loadUsers = useCallback(async (overrides = {}) => {
+        const params = {
+            page: overrides.page || usersPage,
+            limit: usersLimit,
+            q: overrides.q !== undefined ? overrides.q : (userFilters.q || undefined),
+            role: overrides.role !== undefined ? overrides.role : (userFilters.role || undefined),
+        };
+
+        const result = await getSuperAdminUsers(params);
+        setUsers(Array.isArray(result?.items) ? result.items : []);
+        setUsersTotal(Number(result?.total || 0));
+        setUsersTotalPages(Number(result?.totalPages || 1));
+    }, [userFilters, usersPage, usersLimit]);
+
     useEffect(() => {
         if (!ensureSuperAdmin()) return;
 
@@ -315,6 +362,34 @@ export default function SuperAdminPage() {
         };
     }, [ensureSuperAdmin, loadDashboard, loadBarbershops, showToast]);
 
+    useEffect(() => {
+        if (activeSection !== 'users') return;
+        if (!ensureSuperAdmin()) return;
+
+        let mounted = true;
+
+        (async () => {
+            try {
+                setUsersLoading(true);
+                await loadUsers();
+            } catch (error) {
+                if (!mounted) return;
+                showToast(
+                    error?.response?.data?.[0] ||
+                    error?.response?.data?.message ||
+                    'Não foi possível carregar os usuários.',
+                    'danger'
+                );
+            } finally {
+                if (mounted) setUsersLoading(false);
+            }
+        })();
+
+        return () => {
+            mounted = false;
+        };
+    }, [activeSection, ensureSuperAdmin, loadUsers, showToast]);
+
     const handleSearchSubmit = async (event) => {
         event.preventDefault();
         setPage(1);
@@ -325,6 +400,67 @@ export default function SuperAdminPage() {
             showToast('Erro ao aplicar filtros.', 'danger');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleUsersSearchSubmit = async (event) => {
+        event.preventDefault();
+        setUsersPage(1);
+        await loadUsers({ page: 1 });
+    };
+
+    const openEditUser = (user) => {
+        setSelectedUser(user);
+        setSelectedUserForm({
+            email: user?.email || '',
+            phone: user?.phone || '',
+            newPassword: '',
+        });
+    };
+
+    const closeEditUser = () => {
+        setSelectedUser(null);
+        setSelectedUserForm({
+            email: '',
+            phone: '',
+            newPassword: '',
+        });
+    };
+
+    const submitEditUser = async (event) => {
+        event.preventDefault();
+
+        if (!selectedUser) return;
+
+        try {
+            setSavingUserId(selectedUser.id);
+
+            const payload = {
+                email: String(selectedUserForm.email || '').trim(),
+                phone: String(selectedUserForm.phone || '').trim(),
+            };
+
+            const nextPassword = String(selectedUserForm.newPassword || '').trim();
+            if (nextPassword) {
+                payload.newPassword = nextPassword;
+            }
+
+            await updateSuperAdminUser(selectedUser.id, payload);
+            showToast(`Usuário ${selectedUser.name || selectedUser.email} atualizado com sucesso.`);
+            closeEditUser();
+
+            if (activeSection === 'users') {
+                await loadUsers();
+            }
+        } catch (error) {
+            showToast(
+                error?.response?.data?.[0] ||
+                error?.response?.data?.message ||
+                'Não foi possível atualizar o usuário.',
+                'danger'
+            );
+        } finally {
+            setSavingUserId(null);
         }
     };
 
@@ -402,6 +538,52 @@ export default function SuperAdminPage() {
     const closeDetails = () => {
         setSelectedBarbershop(null);
         setSelectedBarbershopUsers([]);
+    };
+
+    const openResetPasswordModal = (user) => {
+        setResetPasswordModal({
+            open: true,
+            user,
+            newPassword: '',
+            generatedPassword: '',
+            isSubmitting: false,
+        });
+    };
+
+    const closeResetPasswordModal = () => {
+        setResetPasswordModal({
+            open: false,
+            user: null,
+            newPassword: '',
+            generatedPassword: '',
+            isSubmitting: false,
+        });
+    };
+
+    const submitResetPasswordModal = async () => {
+        if (!resetPasswordModal.user) return;
+
+        try {
+            setResetPasswordModal((prev) => ({ ...prev, isSubmitting: true }));
+            const passwordToUse = resetPasswordModal.newPassword && resetPasswordModal.newPassword.trim().length > 0
+                ? resetPasswordModal.newPassword.trim()
+                : undefined;
+            const res = await resetUserPassword(resetPasswordModal.user.id, passwordToUse);
+            const generated = res?.password;
+            setResetPasswordModal((prev) => ({
+                ...prev,
+                generatedPassword: generated || '',
+                isSubmitting: false,
+            }));
+            showToast(`Senha de ${resetPasswordModal.user.name || resetPasswordModal.user.email} redefinida com sucesso.`, 'success');
+        } catch (err) {
+            setResetPasswordModal((prev) => ({ ...prev, isSubmitting: false }));
+            showToast('Erro ao redefinir senha.', 'danger');
+        }
+    };
+
+    const handleResetPassword = (user) => {
+        openResetPasswordModal(user);
     };
 
     const handleLogout = () => {
@@ -710,6 +892,134 @@ export default function SuperAdminPage() {
                         </section>
                     ) : null}
 
+                    {activeSection === 'users' ? (
+                        <section className="super-admin-section-block">
+                            <div className="super-admin-section-block__header">
+                                <div>
+                                    <h3>Usuários</h3>
+                                    <p>Liste todas as contas e atualize email, telefone ou senha.</p>
+                                </div>
+                            </div>
+
+                            <form className="super-admin-filters" onSubmit={handleUsersSearchSubmit}>
+                                <input
+                                    type="text"
+                                    placeholder="Buscar por nome, email, telefone ou CPF"
+                                    value={userFilters.q}
+                                    onChange={(e) => setUserFilters((prev) => ({ ...prev, q: e.target.value }))}
+                                />
+
+                                <select
+                                    value={userFilters.role}
+                                    onChange={(e) => setUserFilters((prev) => ({ ...prev, role: e.target.value }))}
+                                >
+                                    <option value="">Todos os papéis</option>
+                                    <option value="super_admin">Super Admin</option>
+                                    <option value="admin">Admin</option>
+                                    <option value="barber">Barbeiro</option>
+                                    <option value="receptionist">Recepcionista</option>
+                                    <option value="client">Cliente</option>
+                                </select>
+
+                                <button type="submit" className="super-admin-btn super-admin-btn--accent">
+                                    Buscar
+                                </button>
+                            </form>
+
+                            <div className="super-admin-table-wrap">
+                                <table className="super-admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Usuário</th>
+                                            <th>Contato</th>
+                                            <th>Papel</th>
+                                            <th>Barbearia atual</th>
+                                            <th>Criação</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {usersLoading ? (
+                                            <tr>
+                                                <td colSpan={6}>Carregando...</td>
+                                            </tr>
+                                        ) : users.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={6}>Nenhum usuário encontrado com os filtros atuais.</td>
+                                            </tr>
+                                        ) : (
+                                            users.map((user) => (
+                                                <tr key={user.id}>
+                                                    <td>
+                                                        <strong>{user.name}</strong>
+                                                        <small>ID: {user.id}</small>
+                                                    </td>
+                                                    <td>
+                                                        <strong>{user.email || '-'}</strong>
+                                                        <small>{user.phone || '-'}</small>
+                                                    </td>
+                                                    <td>
+                                                        <span className={`super-admin-status super-admin-status--${String(user.role || 'client').toLowerCase()}`}>
+                                                            {String(user.role || '-').replace('_', ' ')}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <strong>{user.barbershop?.name || '-'}</strong>
+                                                        <small>{user.barbershop?.slug || '-'}</small>
+                                                    </td>
+                                                    <td>{formatDate(user.createdAt)}</td>
+                                                    <td>
+                                                        <div className="super-admin-actions">
+                                                            <button
+                                                                type="button"
+                                                                className="super-admin-btn super-admin-btn--sm"
+                                                                onClick={() => openEditUser(user)}
+                                                            >
+                                                                Editar
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                className="super-admin-btn super-admin-btn--sm super-admin-btn--ghost"
+                                                                onClick={() => handleResetPassword(user)}
+                                                                disabled={resettingUserId === user.id}
+                                                            >
+                                                                {resettingUserId === user.id ? 'Resetando...' : 'Resetar senha'}
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <footer className="super-admin-pagination">
+                                <span>
+                                    Página {usersPage} de {usersTotalPages} | Total: {usersTotal}
+                                </span>
+                                <div>
+                                    <button
+                                        type="button"
+                                        className="super-admin-btn super-admin-btn--ghost"
+                                        disabled={usersPage <= 1}
+                                        onClick={() => setUsersPage((prev) => Math.max(1, prev - 1))}
+                                    >
+                                        Anterior
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="super-admin-btn super-admin-btn--ghost"
+                                        disabled={usersPage >= usersTotalPages}
+                                        onClick={() => setUsersPage((prev) => Math.min(usersTotalPages, prev + 1))}
+                                    >
+                                        Próxima
+                                    </button>
+                                </div>
+                            </footer>
+                        </section>
+                    ) : null}
+
                     {activeSection === 'subscriptions' ? (
                         <section className="super-admin-section-block">
                             <div className="super-admin-section-block__header">
@@ -860,6 +1170,7 @@ export default function SuperAdminPage() {
                                                         <th>Telefone</th>
                                                         <th>Role</th>
                                                         <th>Criação</th>
+                                                        <th>Ações</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -870,6 +1181,16 @@ export default function SuperAdminPage() {
                                                             <td>{user.phone || '-'}</td>
                                                             <td>{user.role}</td>
                                                             <td>{formatDate(user.created_at)}</td>
+                                                            <td>
+                                                                <button
+                                                                    className="super-admin-btn super-admin-btn--ghost"
+                                                                    type="button"
+                                                                    onClick={() => handleResetPassword(user)}
+                                                                    disabled={resettingUserId === user.id}
+                                                                >
+                                                                    {resettingUserId === user.id ? 'Resetando...' : 'Resetar senha'}
+                                                                </button>
+                                                            </td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
@@ -879,6 +1200,66 @@ export default function SuperAdminPage() {
                                 </section>
                             </>
                         )}
+                    </div>
+                </div>
+            ) : null}
+
+            {selectedUser ? (
+                <div className="super-admin-modal-overlay" onClick={closeEditUser}>
+                    <div className="super-admin-modal super-admin-modal--compact" onClick={(e) => e.stopPropagation()}>
+                        <header>
+                            <h3>Editar usuário</h3>
+                            <button className="super-admin-btn super-admin-btn--ghost" onClick={closeEditUser} type="button">
+                                Fechar
+                            </button>
+                        </header>
+
+                        <p>
+                            Ajuste os dados de <strong>{selectedUser.name}</strong> e salve as alterações.
+                        </p>
+
+                        <form onSubmit={submitEditUser}>
+                            <div className="super-admin-user-form-grid">
+                                <label className="super-admin-form-field">
+                                    <span>Email</span>
+                                    <input
+                                        type="email"
+                                        value={selectedUserForm.email}
+                                        onChange={(e) => setSelectedUserForm((prev) => ({ ...prev, email: e.target.value }))}
+                                        placeholder="usuario@exemplo.com"
+                                    />
+                                </label>
+
+                                <label className="super-admin-form-field">
+                                    <span>Telefone</span>
+                                    <input
+                                        type="text"
+                                        value={selectedUserForm.phone}
+                                        onChange={(e) => setSelectedUserForm((prev) => ({ ...prev, phone: e.target.value }))}
+                                        placeholder="Somente números"
+                                    />
+                                </label>
+
+                                <label className="super-admin-form-field super-admin-form-field--full">
+                                    <span>Nova senha</span>
+                                    <input
+                                        type="password"
+                                        value={selectedUserForm.newPassword}
+                                        onChange={(e) => setSelectedUserForm((prev) => ({ ...prev, newPassword: e.target.value }))}
+                                        placeholder="Deixe em branco para não alterar"
+                                    />
+                                </label>
+                            </div>
+
+                            <div className="super-admin-modal__actions">
+                                <button className="super-admin-btn super-admin-btn--ghost" onClick={closeEditUser} type="button">
+                                    Cancelar
+                                </button>
+                                <button className="super-admin-btn super-admin-btn--accent" type="submit" disabled={savingUserId === selectedUser.id}>
+                                    {savingUserId === selectedUser.id ? 'Salvando...' : 'Salvar alterações'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             ) : null}
@@ -920,6 +1301,77 @@ export default function SuperAdminPage() {
                                 Confirmar
                             </button>
                         </div>
+                    </div>
+                </div>
+            ) : null}
+
+            {resetPasswordModal.open ? (
+                <div className="super-admin-modal-overlay" onClick={closeResetPasswordModal}>
+                    <div className="super-admin-modal super-admin-modal--compact" onClick={(e) => e.stopPropagation()}>
+                        <header>
+                            <h3>Redefinir Senha</h3>
+                            <button className="super-admin-btn super-admin-btn--ghost" onClick={closeResetPasswordModal} type="button">
+                                Fechar
+                            </button>
+                        </header>
+
+                        {!resetPasswordModal.generatedPassword ? (
+                            <>
+                                <p>
+                                    Redefinir senha de <strong>{resetPasswordModal.user?.name || resetPasswordModal.user?.email}</strong>.
+                                </p>
+
+                                <div className="super-admin-form-field">
+                                    <span>Nova Senha (deixe vazio para gerar automaticamente)</span>
+                                    <input
+                                        type="text"
+                                        value={resetPasswordModal.newPassword}
+                                        onChange={(e) => setResetPasswordModal((prev) => ({ ...prev, newPassword: e.target.value }))}
+                                        placeholder="Ex.: Abc@1234"
+                                    />
+                                </div>
+
+                                <div className="super-admin-modal__actions">
+                                    <button className="super-admin-btn super-admin-btn--ghost" onClick={closeResetPasswordModal} type="button">
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        className="super-admin-btn super-admin-btn--accent"
+                                        onClick={submitResetPasswordModal}
+                                        disabled={resetPasswordModal.isSubmitting}
+                                        type="button"
+                                    >
+                                        {resetPasswordModal.isSubmitting ? 'Redefinindo...' : 'Confirmar'}
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <p>
+                                    Senha de <strong>{resetPasswordModal.user?.name || resetPasswordModal.user?.email}</strong> redefinida com sucesso!
+                                </p>
+
+                                <div className="super-admin-form-field">
+                                    <span>Senha Temporária</span>
+                                    <input
+                                        type="text"
+                                        readOnly
+                                        value={resetPasswordModal.generatedPassword}
+                                        style={{ backgroundColor: '#0a1220', cursor: 'text' }}
+                                    />
+                                </div>
+
+                                <p style={{ marginTop: '0.8rem', color: '#ffcfa8', fontSize: '0.9rem' }}>
+                                    Compartilhe esta senha com o usuário. Ele deverá alterá-la no primeiro acesso.
+                                </p>
+
+                                <div className="super-admin-modal__actions">
+                                    <button className="super-admin-btn super-admin-btn--accent" onClick={closeResetPasswordModal} type="button">
+                                        Concluído
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             ) : null}

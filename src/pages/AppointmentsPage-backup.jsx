@@ -32,9 +32,6 @@ export default function AppointmentsPage() {
   const selectedPlan = JSON.parse(localStorage.getItem('selectedPlan'));
   const currentUserPlan = JSON.parse(localStorage.getItem('currentUser'));
 
-  console.log('selectedPlan', selectedPlan);
-  console.log('currentUserPlan', currentUserPlan);
-
   const navigate = useNavigate();
   const location = useLocation();
   const currentUserRef = useRef(getSession());
@@ -93,10 +90,6 @@ export default function AppointmentsPage() {
 
     const preapprovalId = params.get('preapproval_id') || params.get('preapproval') || params.get('id');
 
-    //"e5ebbe29ae3d420dbc87648e4b9991bc";
-
-    console.log('PREAPPROVAL ID:', preapprovalId);
-
     if (preapprovalId) {
       fetch(`${import.meta.env.VITE_API_URL}/assinatura/${preapprovalId}`, {
         headers: {
@@ -119,8 +112,6 @@ export default function AppointmentsPage() {
               autoRenewal: selectedPlan.autoRenewal ?? true,
               mp_preapproval_id: preapprovalId
             });
-
-            console.log(subscription);
 
             localStorage.setItem('planId', JSON.stringify(subscription.data.id));
 
@@ -414,8 +405,6 @@ const getUpcomingReminders = useMemo(() => {
           allUsersArray = [];
         }
       }
-
-      console.log('allUsersArray:', allUsersArray);
 
       const validBarbers = barbersData.filter((barber) => {
         if (!barber.userId) return true;
@@ -1102,10 +1091,6 @@ const getUpcomingReminders = useMemo(() => {
         products: [],
         notes: pendingBookingData.observation || '',
       };
-
-      console.log('bookingForUser', bookingForUser);
-      console.log('activeClient', activeClient);
-      console.log('newAppointment', newAppointment);
 
       const createdAppointment = await createAppointment(newAppointment);
 
