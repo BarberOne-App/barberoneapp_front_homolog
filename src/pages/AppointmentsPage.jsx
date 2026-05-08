@@ -1677,6 +1677,9 @@ export default function AppointmentsPage() {
 
       return appointments
         .filter((apt) => {
+          const status = String(apt.status || '').toLowerCase();
+          if (status === 'cancelled' || status === 'no_show') return false;
+
           const sameBarber = normalizeId(apt.barberId) === normalizeId(barberId);
           const sameDate =
             normalizeDateStr(apt.endAt || apt.date || apt.startAt) === selectedDateStr;

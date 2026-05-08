@@ -2137,11 +2137,11 @@ export default function AdminPage() {
 
       let message;
       if (type === 'confirm') {
-        message = `Olá ${appointmentClientName}!\n\nEstamos entrando em contato para CONFIRMAR seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}\n👨‍🦰 Barbeiro: ${appointmentBarberName}${appointmentTargetLine}\n\nPor favor, responda esta mensagem para confirmar sua presença.`;
+        message = `Olá ${appointmentClientName}!\n\nEstamos entrando em contato para CONFIRMAR seu agendamento:\n\n Data: ${date}\n Horário: ${time}\n Serviço: ${serviceName}\n Barbeiro: ${appointmentBarberName}${appointmentTargetLine}\n\n.`;
       } else if (type === 'cancel') {
-        message = `Olá ${appointmentClientName}!\n\nInformamos que precisaremos realizar o CANCELAMENTO do seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}${appointmentTargetLine}\n\nNossas desculpas pelo transtorno. Entre em contato conosco para reagendar.`;
+        message = `Olá ${appointmentClientName}!\n\nInformamos que precisaremos realizar o CANCELAMENTO do seu agendamento:\n\n Data: ${date}\n Horário: ${time}\n Serviço: ${serviceName}${appointmentTargetLine}\n\nNossas desculpas pelo transtorno. Entre em contato conosco para reagendar.`;
       } else if (type === 'noshow') {
-        message = `Olá ${appointmentClientName}!\n\nNotamos que você não compareceu ao seu agendamento:\n\n📅 Data: ${date}\n🕐 Horário: ${time}\n✂️ Serviço: ${serviceName}${appointmentTargetLine}\n\nSentimos pela ausência. Entre em contato conosco para reagendar quando quiser.`;
+        message = `Olá ${appointmentClientName}!\n\nNotamos que você não compareceu ao seu agendamento:\n\n Data: ${date}\n Horário: ${time}\n Serviço: ${serviceName}${appointmentTargetLine}\n\nSentimos pela ausência. Entre em contato conosco para reagendar quando quiser.`;
       }
       const encodedMessage = encodeURIComponent(message);
       const whatsappUrl = `https://wa.me/${phone}?text=${encodedMessage}`;
@@ -3231,9 +3231,9 @@ export default function AdminPage() {
             dependentInfo.isDependent && dependentInfo.dependentName
               ? ` Atendimento para ${dependentInfo.dependentName}, dependente de ${appointmentClientName}.`
               : '';
-          const message = `Olá ${appointmentClientName}! Seu agendamento foi confirmado.${appointmentTargetText} Obrigado pela preferência e confiança em nosso serviço! 😊✂️`;
-          const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-          window.open(whatsappUrl, '_blank');
+          // const message = `Olá ${appointmentClientName}! Seu agendamento foi confirmado.${appointmentTargetText} Obrigado pela preferência e confiança em nosso serviço! 😊✂️`;
+          // const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+          // window.open(whatsappUrl, '_blank');
         }
       } catch (whatsErr) {
         console.warn('Não foi possível abrir WhatsApp:', whatsErr);
