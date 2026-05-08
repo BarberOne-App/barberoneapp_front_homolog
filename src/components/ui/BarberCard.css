@@ -183,6 +183,7 @@
   .barber-card__header {
     flex-direction: column;
     text-align: center;
+    cursor: pointer;
   }
 
   .barber-card__avatar {
@@ -196,5 +197,14 @@
 
   .times-grid {
     grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+  }
+
+  .barber-card:not(.barber-card--active) .barber-card__services,
+  .barber-card:not(.barber-card--active) .barber-card__times {
+    display: none;
+  }
+
+  .barber-card--active .barber-card__header {
+    border-color: rgba(255, 122, 26, 0.45);
   }
 }
