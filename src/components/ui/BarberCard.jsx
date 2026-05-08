@@ -372,12 +372,34 @@ export default function BarberCard({
     (service) => isPlanCoveredService(service),
   ).length;
 
+  const handleHeaderSelect = () => {
+    if (disabled) {
+      if (disabledReason && showToast) showToast(disabledReason, 'warning');
+      return;
+    }
+
+    onSelectBarber?.();
+  };
+
+  const handleHeaderKeyDown = (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    handleHeaderSelect();
+  };
+
   return (
     <div
       className={`barber-card ${isActive ? 'barber-card--active' : ''} ${disabled ? 'barber-card--disabled' : ''}`}
       aria-disabled={disabled}
     >
-      <div className="barber-card__header">
+      <div
+        className="barber-card__header"
+        onClick={handleHeaderSelect}
+        onKeyDown={handleHeaderKeyDown}
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        aria-expanded={isActive}
+      >
         {barber?.photo && !avatarError ? (
           <img
             src={barber.photo}
