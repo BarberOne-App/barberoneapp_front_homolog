@@ -1765,6 +1765,45 @@ export default function AppointmentsPage() {
     setToast({ show: false, message: '', type: 'success' });
   }, []);
 
+  const isPaymentFlowInProgress = bookingInProgress || pixLoading || postPaymentLoading;
+
+  useEffect(() => {
+    if (!isPaymentFlowInProgress) return;
+
+    const preventUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    const preventRefreshShortcut = (event) => {
+      const key = String(event.key || '').toLowerCase();
+      const isRefreshShortcut =
+        key === 'f5' || ((event.ctrlKey || event.metaKey) && key === 'r');
+
+      if (!isRefreshShortcut) return;
+
+      event.preventDefault();
+      showToast('Aguarde a conclusão do pagamento para sair desta tela.', 'warning');
+    };
+
+    const preventBackNavigation = (event) => {
+      event.preventDefault();
+      window.history.pushState(null, '', window.location.href);
+      showToast('Aguarde a conclusão do pagamento para sair desta tela.', 'warning');
+    };
+
+    window.history.pushState(null, '', window.location.href);
+    window.addEventListener('beforeunload', preventUnload);
+    window.addEventListener('keydown', preventRefreshShortcut);
+    window.addEventListener('popstate', preventBackNavigation);
+
+    return () => {
+      window.removeEventListener('beforeunload', preventUnload);
+      window.removeEventListener('keydown', preventRefreshShortcut);
+      window.removeEventListener('popstate', preventBackNavigation);
+    };
+  }, [isPaymentFlowInProgress, showToast]);
+
   const calculateTotal = useCallback((services) => {
     const total = services.reduce((sum, s) => {
       const priceStr = s.basePrice || 0;
@@ -3679,6 +3718,11 @@ export default function AppointmentsPage() {
         <PaymentModal
           isOpen={showPaymentModal}
           onClose={() => {
+            if (isPaymentFlowInProgress) {
+              showToast('Aguarde a conclusão do pagamento para fechar esta tela.', 'warning');
+              return;
+            }
+
             setShowPaymentModal(false);
             setSelectedAppointmentForPayment(null);
           }}
@@ -3761,8 +3805,21 @@ export default function AppointmentsPage() {
       )}
 
       {bookingInProgress && (
-        <div className="booking-overlay">
-          <div className="booking-overlay-content">
+        <div
+          className="booking-overlay"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          style={{ pointerEvents: 'auto' }}
+        >
+          <div
+            className="booking-overlay-content"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
             <div className="booking-spinner"></div>
             <h2>Processando Agendamento...</h2>
             <p>Aguarde enquanto confirmamos seu horário</p>
@@ -3771,8 +3828,21 @@ export default function AppointmentsPage() {
       )}
 
       {pixLoading && (
-        <div className="booking-overlay">
-          <div className="booking-overlay-content">
+        <div
+          className="booking-overlay"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          style={{ pointerEvents: 'auto' }}
+        >
+          <div
+            className="booking-overlay-content"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
             <div className="booking-spinner"></div>
             <h2>Gerando QR Code PIX...</h2>
             <p>Estamos preparando o pagamento, isso pode levar alguns segundos.</p>
@@ -3781,8 +3851,21 @@ export default function AppointmentsPage() {
       )}
 
       {postPaymentLoading && (
-        <div className="booking-overlay">
-          <div className="booking-overlay-content">
+        <div
+          className="booking-overlay"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          style={{ pointerEvents: 'auto' }}
+        >
+          <div
+            className="booking-overlay-content"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
             <div className="booking-spinner"></div>
             <h2>Pagamento confirmado</h2>
             <p>Atualizando seus agendamentos...</p>
