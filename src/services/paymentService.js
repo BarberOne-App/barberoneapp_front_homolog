@@ -176,8 +176,6 @@ export const marcarAssinaturaComoAtrasada = async (subscriptionId) => {
 
     const diasAtraso = calcularDiasAtraso(sub.nextBillingDate);
 
-
-
     const response = await api.patch(`/subscriptions/${subscriptionId}`, {
       status: 'overdue',
       daysOverdue: diasAtraso,
@@ -251,8 +249,6 @@ export const renovarAssinatura = async (subscriptionId, paymentData) => {
   try {
     const hoje = new Date();
     const proximaCobranca = obterProximaDataCobranca();
-
-
 
     const response = await api.patch(`/subscriptions/${subscriptionId}`,
       {
@@ -643,7 +639,7 @@ export const criarPagamentoAgendamento = async (dadosPagamento) => {
 
   try {
     const rawMethod = String(dadosPagamento.method || dadosPagamento.paymentMethod || 'local').toLowerCase();
-    const normalizedMethod = rawMethod === 'card' ? 'credito' : rawMethod;
+    const normalizedMethod = rawMethod === 'cartao' ? 'credito' : rawMethod;
     const normalizedStatus = String(dadosPagamento.status || 'pending').toLowerCase();
 
     const pagamento = {
@@ -730,8 +726,10 @@ export const buscarTodosPagamentosAgendamentos = async () => {
 
 export const atualizarPagamentoAgendamento = async (paymentId, dados) => {
   try {
-    const normalizedMethod =
-      dados?.method ?? dados?.paymentMethod ?? undefined;
+
+    const normalizedMethod = 'card' ? 'credito' : normalizedMethod;
+    // const normalizedMethod =
+    //   dados?.method ?? dados?.paymentMethod ?? undefined;
 
     const payload = {
       ...dados,

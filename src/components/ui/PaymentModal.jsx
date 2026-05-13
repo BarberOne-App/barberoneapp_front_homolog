@@ -129,17 +129,35 @@ function StripePaymentForm({
   };
 
   const persistSuccessfulPayment = async (paymentIntent) => {
-    const finalAmount = getFinalPrice();
+    const stripeIntentAmount = Number(paymentIntent?.amount_received ?? paymentIntent?.amount);
+    const finalAmount = Number.isFinite(stripeIntentAmount) && stripeIntentAmount > 0
+      ? stripeIntentAmount / 100
+      : getFinalPrice();
     const paymentMethod = normalizePaymentMethod();
 
     if (isAppointmentPayment) {
       // ✅ NOVO: Agendamento já foi criado no AppointmentsPage.jsx
-      // Apenas registrar a relação do pagamento com o agendamento existente
-      if (selectedPlan?.appointmentId) {
-        // Agendamento já foi criado ANTES do pagamento
+      // Apenas atualizar o pagamento com status 'paid'
+      if (selectedPlan?.paymentId) {
+        // 🔥 NOVO: Usar paymentId para atualizar o pagamento existente
+        await atualizarPagamentoAgendamento(selectedPlan.paymentId, {
+          status: 'paid',
+          paymentMethod,
+          paidAt: new Date().toISOString(),
+          amount: finalAmount,
+          paymentProvider: 'stripe',
+          stripePaymentIntentId: paymentIntent.id,
+          stripeStatus: paymentIntent.status,
+          cardData: {
+            brand: '',
+            lastDigits: '****',
+          },
+        });
+      } else if (selectedPlan?.appointmentId) {
+        // Fallback: se por algum motivo não temos paymentId, criar novo registro de pagamento
         await criarPagamentoAgendamento({
           ...selectedPlan.paymentData,
-          appointmentId: selectedPlan.appointmentId,  // ✅ ID já existe
+          appointmentId: selectedPlan.appointmentId,
           status: 'paid',
           paymentMethod,
           paidAt: new Date().toISOString(),
@@ -567,11 +585,11 @@ function MercadoPagoPixForm({
   };
 
   const persistPixApprovedPayment = async (mercadoPagoId) => {
-    if (selectedPlan?.needsCreation && selectedPlan?.appointmentData && selectedPlan?.paymentData) {
-      const createdAppointment = await createAppointment(selectedPlan.appointmentData);
-      await criarPagamentoAgendamento({
-        ...selectedPlan.paymentData,
-        appointmentId: createdAppointment.id,
+    
+    
+    if (selectedPlan?.paymentId) {
+      // 🔥 NOVO: Usar paymentId para atualizar o pagamento existente
+      await atualizarPagamentoAgendamento(selectedPlan.paymentId, {
         status: 'paid',
         paymentMethod: 'pix',
         paidAt: new Date().toISOString(),
@@ -587,6 +605,22 @@ function MercadoPagoPixForm({
       await criarPagamentoAgendamento({
         ...selectedPlan.paymentData,
         appointmentId: selectedPlan.appointmentId,
+        status: 'paid',
+        paymentMethod: 'pix',
+        paidAt: new Date().toISOString(),
+        amount: finalAmount,
+        paymentProvider: 'mercadopago',
+        mercadoPagoId,
+        mercadoPagoStatus: 'approved',
+      });
+      return;
+    }
+
+    if (selectedPlan?.needsCreation && selectedPlan?.appointmentData && selectedPlan?.paymentData) {
+      const createdAppointment = await createAppointment(selectedPlan.appointmentData);
+      await criarPagamentoAgendamento({
+        ...selectedPlan.paymentData,
+        appointmentId: createdAppointment.id,
         status: 'paid',
         paymentMethod: 'pix',
         paidAt: new Date().toISOString(),

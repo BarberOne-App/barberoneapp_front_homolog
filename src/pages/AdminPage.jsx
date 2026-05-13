@@ -2760,22 +2760,36 @@ export default function AdminPage() {
     }
     setResetPasswordLoading(true);
     try {
-      await fetch(`${API_URL}/users/${resetPasswordUser.id}`, {
+      const response = await fetch(`${API_URL}/users/${resetPasswordUser.id}`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          resetPassword: resetPasswordForm.newPassword,
+          resetPassword: true,
           newPassword: resetPasswordForm.newPassword,
         }),
       });
-    } catch (error) {
-      showToast('Erro ao redefinir senha.', 'danger');
-    } finally {
+      if (!response.ok) {
+        let message = 'Erro ao redefinir senha.';
+
+        try {
+          const errorData = await response.json();
+          message = errorData?.message || errorData?.error || message;
+        } catch {
+          const responseText = await response.text();
+          if (responseText) message = responseText;
+        }
+
+        throw new Error(message);
+      }
+
       showToast(`Senha de ${resetPasswordUser.name} redefinida com sucesso!`, 'success');
       closeResetPasswordModal();
+    } catch (error) {
+      showToast(error?.message || 'Erro ao redefinir senha.', 'danger');
+    } finally {
       setResetPasswordLoading(false);
     }
   };
