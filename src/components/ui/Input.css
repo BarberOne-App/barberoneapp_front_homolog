@@ -3,6 +3,8 @@
   flex-direction: column;
   gap: 8px;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .input-field__label {
@@ -13,6 +15,8 @@
 
 .input-field__control {
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding: 12px 14px;
   border-radius: 10px;
   border: 1px solid #1f1f1f;
