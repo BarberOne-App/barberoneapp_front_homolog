@@ -1,3 +1,62 @@
+.efi-card-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.efi-card-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+.efi-card-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.efi-card-field-full {
+  width: 100%;
+}
+
+.efi-card-field label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #d0d0d0;
+}
+
+.efi-card-field input,
+.efi-card-field select {
+  width: 100%;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid #343434;
+  background: #121212;
+  color: #f2f2f2;
+  padding: 0 12px;
+  font-size: 0.95rem;
+  outline: none;
+}
+
+.efi-card-field input:focus,
+.efi-card-field select:focus {
+  border-color: #ff7a1a;
+}
+
+.efi-card-brand {
+  font-size: 0.78rem;
+  color: #ffb27a;
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .efi-card-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .payment-modal-overlay {
   position: fixed;
   top: 0;
@@ -34,6 +93,7 @@
     opacity: 0;
     transform: translateY(-30px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -193,9 +253,12 @@
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4);
   }
+
   50% {
     box-shadow: 0 0 0 8px rgba(255, 193, 7, 0);
   }
@@ -251,9 +314,10 @@
 
 .card-form-row {
   display: grid;
-  grid-template-columns: 200px 1fr;  
+  grid-template-columns: 200px 1fr;
   gap: 16px;
 }
+
 .card-form-col {
   display: flex;
   flex-direction: column;
@@ -521,6 +585,7 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -583,10 +648,14 @@
 }
 
 @keyframes bounce {
-  0%, 80%, 100% {
+
+  0%,
+  80%,
+  100% {
     transform: scale(0.8);
     opacity: 0.5;
   }
+
   40% {
     transform: scale(1.2);
     opacity: 1;
@@ -594,9 +663,12 @@
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.7;
   }
@@ -816,6 +888,7 @@
     opacity: 0;
     transform: translateX(100%);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -1016,7 +1089,9 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 

@@ -13,7 +13,6 @@ import './PaymentModal.css';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
-
 function StripePaymentForm({
   isOpen,
   onClose,
@@ -585,8 +584,8 @@ function MercadoPagoPixForm({
   };
 
   const persistPixApprovedPayment = async (mercadoPagoId) => {
-    
-    
+
+
     if (selectedPlan?.paymentId) {
       // 🔥 NOVO: Usar paymentId para atualizar o pagamento existente
       await atualizarPagamentoAgendamento(selectedPlan.paymentId, {
@@ -1039,3 +1038,4 @@ export default function PaymentModal({
     </Elements>
   );
 }
+
