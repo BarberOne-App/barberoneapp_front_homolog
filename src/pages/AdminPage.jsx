@@ -4222,7 +4222,16 @@ export default function AdminPage() {
       filtered = filtered.filter((apt) => apt.barberId === selectedBarberFilter);
     }
 
-    filtered.sort((a, b) => new Date(b.startAt) - new Date(a.startAt));
+    filtered.sort((a, b) => {
+      const dateA = getAppointmentStartDate(a);
+      const dateB = getAppointmentStartDate(b);
+
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+
+      return dateA - dateB;
+    });
     return filtered;
   }, [
     appointments,
