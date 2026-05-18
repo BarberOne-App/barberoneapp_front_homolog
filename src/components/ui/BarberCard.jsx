@@ -204,6 +204,7 @@ export default function BarberCard({
   onBook,
   showToast,
   preSelectedService,
+  preSelectedTime = '',
   hasActiveSubscription = false,
   isServiceCoveredByPlan = () => false,
   isActive = false,
@@ -269,36 +270,23 @@ export default function BarberCard({
   };
 
   const totalDuration = getTotalDuration();
-  const slotsNeeded = Math.ceil(totalDuration / 30);
-
-  const bookedSlots = getBookedSlots(barberId, selectedDate) || [];
   const availableTimes =
     selectedServices.length > 0
       ? getAvailableTimes(barberId, selectedDate, totalDuration) || []
       : [];
 
-  const allTimes = generateTimes(30);
+  const allTimes = generateTimes(5);
 
   const isTimeAvailableForSelection = (time) => {
-    if (!slotsNeeded) return false;
-
-    const indexInAll = allTimes.indexOf(time);
-    if (indexInAll === -1) return false;
-
-    const slots = [];
-    for (let i = 0; i < slotsNeeded; i++) {
-      const t = allTimes[indexInAll + i];
-      if (!t) return false;
-      slots.push(t);
-    }
-
-    const hasConflict = slots.some((t) => bookedSlots.includes(t));
-    if (hasConflict) return false;
-
-    if (!availableTimes.includes(time)) return false;
-
-    return true;
+    return allTimes.includes(time) && availableTimes.includes(time);
   };
+
+  useEffect(() => {
+    if (!preSelectedTime || selectedServices.length === 0 || selectedTime) return;
+    if (isTimeAvailableForSelection(preSelectedTime)) {
+      setSelectedTime(preSelectedTime);
+    }
+  }, [preSelectedTime, selectedServices.length, selectedTime, availableTimes]);
 
   const handleConfirm = () => {
     if (disabled) {
