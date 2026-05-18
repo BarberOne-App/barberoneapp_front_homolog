@@ -5494,8 +5494,8 @@
 
 .calendar-slot-cell {
   border-right: 1px solid #252525;
-  padding: 0;
   position: relative;
+  padding: 0;
   min-height: 56px;
   background: #161616;
   overflow: visible;

@@ -306,6 +306,7 @@ export default function AppointmentsPage() {
   const [appointmentViewMode, setAppointmentViewMode] = useState('calendar');
   const [preSelectedService, setPreSelectedService] = useState(null);
   const [preSelectedTime, setPreSelectedTime] = useState('');
+  const [showFitServiceModal, setShowFitServiceModal] = useState(false);
   const [bookingInProgress, setBookingInProgress] = useState(false);
   const [pixLoading, setPixLoading] = useState(false);
   const [postPaymentLoading, setPostPaymentLoading] = useState(false);
@@ -354,6 +355,7 @@ export default function AppointmentsPage() {
     setSelectedDate(prefillDate);
     setSelectedBarberId(prefill.barberId);
     setPreSelectedTime(prefill.time);
+    setShowFitServiceModal(true);
     setToast({
       show: true,
       message: `Encaixe selecionado para ${prefill.time}. Escolha o cliente e o serviço.`,
@@ -434,7 +436,7 @@ export default function AppointmentsPage() {
   const calculateBlockedDurationMinutes = useCallback((durationMinutes = 30) => {
     const parsed = Number(durationMinutes);
     const realDuration = Number.isFinite(parsed) && parsed > 0 ? parsed : 30;
-    return Math.max(30, Math.ceil(realDuration / 30) * 30);
+    return Math.max(10, Math.ceil(realDuration / 10) * 10);
   }, []);
 
   useEffect(() => {
@@ -1673,6 +1675,8 @@ export default function AppointmentsPage() {
 
   const handleSelectDate = (date) => {
     setPreSelectedTime('');
+    setPreSelectedService(null);
+    setShowFitServiceModal(false);
 
     if (date > maxBookingDate) {
       const mes = maxBookingDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
@@ -1862,6 +1866,45 @@ export default function AppointmentsPage() {
     },
     [getBookedSlots, blockedDates, getWorkingHoursForDate, calculateBlockedDurationMinutes],
   );
+
+  const fitWindowBarber = useMemo(
+    () => barbers.find((barber) => normalizeId(barber.id) === normalizeId(selectedBarberId)) || null,
+    [barbers, selectedBarberId],
+  );
+
+  const fitWindowServices = useMemo(() => {
+    if (!fitWindowBarber || !selectedDate || !preSelectedTime) return [];
+
+    const barberServices = Array.isArray(fitWindowBarber.serviceIds)
+      ? services.filter((service) =>
+        fitWindowBarber.serviceIds.some(
+          (serviceId) => normalizeId(serviceId) === normalizeId(service.id),
+        ),
+      )
+      : [];
+
+    return mapServicesWithPlanCoverage(barberServices).filter((service) =>
+      getAvailableTimes(
+        fitWindowBarber.id,
+        selectedDate,
+        getServiceDurationMinutes(service),
+      ).includes(preSelectedTime),
+    );
+  }, [
+    fitWindowBarber,
+    selectedDate,
+    preSelectedTime,
+    services,
+    mapServicesWithPlanCoverage,
+    getAvailableTimes,
+    getServiceDurationMinutes,
+  ]);
+
+  const handleChooseFitWindowService = useCallback((service) => {
+    setPreSelectedService(service);
+    setShowFitServiceModal(false);
+    setSelectedBarberId(fitWindowBarber?.id || selectedBarberId);
+  }, [fitWindowBarber?.id, selectedBarberId]);
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ show: true, message, type });
@@ -3529,6 +3572,18 @@ export default function AppointmentsPage() {
 
                           const barberServicesWithPlanCoverage =
                             mapServicesWithPlanCoverage(barberServices);
+                          const shouldFilterByFitWindow =
+                            preSelectedTime &&
+                            normalizeId(selectedBarberId) === normalizeId(barber.id);
+                          const servicesAvailableForFitWindow = shouldFilterByFitWindow
+                            ? barberServicesWithPlanCoverage.filter((service) =>
+                              getAvailableTimes(
+                                barber.id,
+                                selectedDate,
+                                getServiceDurationMinutes(service),
+                              ).includes(preSelectedTime),
+                            )
+                            : barberServicesWithPlanCoverage;
 
                           // barberServicesWithPlanCoverage.forEach((service) => {
                           //   console.log('[AppointmentsPage] service passed to BarberCard', {
@@ -3542,7 +3597,7 @@ export default function AppointmentsPage() {
                             <BarberCard
                               key={barber.id}
                               barber={barberWithPhoto}
-                              services={barberServicesWithPlanCoverage}
+                              services={servicesAvailableForFitWindow}
                               selectedDate={selectedDate}
                               barberId={barber.id}
                               getBookedSlots={getBookedSlots}
@@ -3563,6 +3618,11 @@ export default function AppointmentsPage() {
                               showToast={showToast}
                               preSelectedService={preSelectedService}
                               preSelectedTime={
+                                normalizeId(selectedBarberId) === normalizeId(barber.id)
+                                  ? preSelectedTime
+                                  : ''
+                              }
+                              fitWindowTime={
                                 normalizeId(selectedBarberId) === normalizeId(barber.id)
                                   ? preSelectedTime
                                   : ''
@@ -4057,6 +4117,86 @@ export default function AppointmentsPage() {
           )}
         </div>
       </section>
+
+      {showFitServiceModal && preSelectedTime && selectedBarberId && (
+        <div className="modal-overlay" onClick={() => setShowFitServiceModal(false)}>
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '560px' }}
+          >
+            <div className="modal-header">
+              <h2>Servicos para o encaixe</h2>
+            </div>
+
+            <div className="modal-body">
+              <p style={{ color: '#a8a8a8', marginTop: 0 }}>
+                {fitWindowBarber?.displayName || fitWindowBarber?.name || 'Barbeiro'} -{' '}
+                {selectedDate?.toLocaleDateString('pt-BR')} - {preSelectedTime}
+              </p>
+
+              {fitWindowServices.length === 0 ? (
+                <p style={{ color: '#ff9800', marginBottom: 0 }}>
+                  Nenhum servico deste barbeiro cabe neste horario de encaixe.
+                </p>
+              ) : (
+                <div style={{ display: 'grid', gap: '0.75rem' }}>
+                  {fitWindowServices.map((service) => {
+                    const duration = getServiceDurationMinutes(service);
+                    const price = Number(
+                      service.basePrice ?? service.base_price ?? service.price ?? 0,
+                    );
+                    const safePrice = Number.isFinite(price) ? price : 0;
+
+                    return (
+                      <button
+                        key={service.id}
+                        type="button"
+                        onClick={() => handleChooseFitWindowService(service)}
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          gap: '1rem',
+                          background: '#111',
+                          border: '1px solid rgba(255,122,26,0.35)',
+                          color: '#fff',
+                          borderRadius: '8px',
+                          padding: '0.9rem 1rem',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                        }}
+                      >
+                        <span>
+                          <strong style={{ display: 'block' }}>{service.name}</strong>
+                          <small style={{ color: '#a8a8a8' }}>{duration} min</small>
+                        </span>
+                        <span style={{ color: '#ff7a1a', fontWeight: 700 }}>
+                          {safePrice.toLocaleString('pt-BR', {
+                            style: 'currency',
+                            currency: 'BRL',
+                          })}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.25rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowFitServiceModal(false)}
+                  className="btn-secondary"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ProductsModal
         isOpen={showProductsModal}
