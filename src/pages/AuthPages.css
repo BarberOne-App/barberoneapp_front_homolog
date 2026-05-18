@@ -5359,8 +5359,30 @@
   background: #1a1a1a;
   border: 1px solid #2a2a2a;
   border-radius: 12px;
-  overflow: hidden;
+  overflow: auto;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.calendar-active-day {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: #111;
+  border-bottom: 1px solid #2a2a2a;
+  color: #d4af37;
+  flex-wrap: wrap;
+}
+
+.calendar-active-day strong {
+  color: #fff;
+  font-size: 0.95rem;
+  text-transform: capitalize;
+}
+
+.calendar-active-day span {
+  color: #888;
+  font-size: 0.78rem;
 }
 
 .calendar-grid-header {
@@ -5442,6 +5464,7 @@
 .calendar-grid-row {
   display: grid;
   border-bottom: 1px solid #252525;
+  overflow: visible;
 }
 
 .calendar-grid-row:last-child {
@@ -5471,10 +5494,11 @@
 
 .calendar-slot-cell {
   border-right: 1px solid #252525;
-  padding: 0.25rem;
+  padding: 0;
   position: relative;
-  min-height: 60px;
+  min-height: 56px;
   background: #161616;
+  overflow: visible;
 }
 
 .calendar-slot-cell:last-child {
@@ -5486,13 +5510,49 @@
 }
 
 .calendar-appointment-card {
-  border-radius: 8px;
-  padding: 0.6rem;
+  border-radius: 6px;
+  padding: 0.22rem 0.45rem;
   cursor: pointer;
   transition: all 0.2s;
   border-left: 3px solid;
   position: relative;
   overflow: hidden;
+  z-index: 3;
+  box-sizing: border-box;
+  min-height: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+}
+
+.calendar-free-fit {
+  display: flex;
+  align-items: center;
+  padding: 0 0.45rem;
+  border: 1px dashed rgba(212, 175, 55, 0.28);
+  border-left: 3px solid rgba(212, 175, 55, 0.35);
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(212, 175, 55, 0.055),
+    rgba(212, 175, 55, 0.055) 6px,
+    rgba(212, 175, 55, 0.02) 6px,
+    rgba(212, 175, 55, 0.02) 12px
+  );
+  color: rgba(212, 175, 55, 0.86);
+  font-size: 0.64rem;
+  font-weight: 700;
+  line-height: 1;
+  overflow: hidden;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.calendar-free-fit:hover,
+.calendar-free-fit:focus-visible {
+  background: rgba(37, 211, 102, 0.12);
+  border-color: rgba(37, 211, 102, 0.55);
+  border-left-color: rgba(37, 211, 102, 0.8);
+  color: #4ade80;
+  outline: none;
 }
 
 .calendar-appointment-card:hover {
@@ -5516,6 +5576,45 @@
   font-weight: 700;
   opacity: 0.8;
   margin-bottom: 0.2rem;
+}
+
+.calendar-appointment-card .apt-inline-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  height: 100%;
+  width: 100%;
+  white-space: nowrap;
+}
+
+.calendar-appointment-card .apt-inline-summary .apt-time,
+.calendar-appointment-card .apt-inline-summary .apt-client,
+.calendar-appointment-card .apt-inline-summary .apt-service {
+  margin: 0;
+  min-width: 0;
+}
+
+.calendar-appointment-card .apt-inline-summary .apt-time {
+  flex-shrink: 0;
+  font-size: 0.64rem;
+  opacity: 0.9;
+}
+
+.calendar-appointment-card .apt-inline-summary .apt-client {
+  flex-shrink: 0;
+  max-width: 36%;
+  font-size: 0.72rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calendar-appointment-card .apt-inline-summary .apt-service {
+  flex: 1;
+  font-size: 0.66rem;
+  opacity: 0.86;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .calendar-appointment-card .apt-client {

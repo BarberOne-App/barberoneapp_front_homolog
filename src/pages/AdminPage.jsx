@@ -4308,24 +4308,107 @@ export default function AdminPage() {
   const getAppointmentDurationMinutes = (apt) => {
     if (Array.isArray(apt.services) && apt.services.length > 0) {
       return apt.services.reduce((sum, s) => {
-        const d = Number(s.durationMinutes ?? s.duration ?? 30);
-        return sum + (Number.isFinite(d) && d > 0 ? d : 30);
+        const d = Number(
+          s.durationMinutes ??
+          s.duration_minutes ??
+          s.duration ??
+          s.durationMinutesTotal ??
+          30,
+        );
+        const quantity = Number(s.quantity ?? 1);
+        const safeQuantity = Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
+        return sum + (Number.isFinite(d) && d > 0 ? d : 30) * safeQuantity;
       }, 0);
+    }
+
+    const startDate = getAppointmentStartDate(apt);
+    const endDate = apt?.endAt || apt?.end_at ? new Date(apt.endAt || apt.end_at) : null;
+
+    if (
+      startDate &&
+      endDate &&
+      !Number.isNaN(startDate.getTime()) &&
+      !Number.isNaN(endDate.getTime()) &&
+      endDate > startDate
+    ) {
+      return Math.max(5, Math.round((endDate.getTime() - startDate.getTime()) / 60000));
     }
     return 30;
   };
 
+  const calendarSlotHeight = 56;
+  const calendarStartMinutes = 8 * 60;
+  const calendarEndMinutes = 20 * 60;
+  const calendarBodyHeight = ((calendarEndMinutes - calendarStartMinutes) / 30) * calendarSlotHeight;
+
+  const getLocalDateKey = (date) =>
+    date && !Number.isNaN(date.getTime()) ? date.toLocaleDateString('en-CA') : '';
+
+  const calendarActiveDateKey = useMemo(() => {
+    if (appointmentDateFilter) return appointmentDateFilter;
+
+    const firstAppointment = filteredAppointmentsAdmin.find((apt) => getAppointmentStartDate(apt));
+    return firstAppointment ? getLocalDateKey(getAppointmentStartDate(firstAppointment)) : '';
+  }, [appointmentDateFilter, filteredAppointmentsAdmin]);
+
+  const calendarActiveDateLabel = useMemo(() => {
+    if (!calendarActiveDateKey) return '';
+
+    return new Date(`${calendarActiveDateKey}T00:00:00`).toLocaleDateString('pt-BR', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
+  }, [calendarActiveDateKey]);
+
+  const calendarBarbers = useMemo(() => {
+    if (selectedBarberFilter !== 'all') {
+      return barbers.filter((barber) => String(barber.id) === String(selectedBarberFilter));
+    }
+
+    if (isBarber && loggedInBarberProfile) {
+      return barbers.filter((barber) => String(barber.id) === String(loggedInBarberProfile.id));
+    }
+
+    return barbers;
+  }, [barbers, selectedBarberFilter, isBarber, loggedInBarberProfile]);
+
+  const minutesToTime = (minutes) => {
+    const safeMinutes = Math.max(0, Number(minutes) || 0);
+    const hh = String(Math.floor(safeMinutes / 60)).padStart(2, '0');
+    const mm = String(safeMinutes % 60).padStart(2, '0');
+    return `${hh}:${mm}`;
+  };
+
+  const handleFreeFitBooking = (barberId, date, startMinutes) => {
+    const dateKey = getLocalDateKey(date);
+    if (!dateKey || !barberId) return;
+
+    navigate('/appointments', {
+      state: {
+        appointmentPrefill: {
+          date: dateKey,
+          time: minutesToTime(startMinutes),
+          barberId,
+        },
+      },
+    });
+  };
+
   const calendarAppointmentsByBarber = useMemo(() => {
     const map = new Map();
-    barbers.forEach((barber) => map.set(barber.id, []));
+    calendarBarbers.forEach((barber) => map.set(barber.id, []));
 
     filteredAppointmentsAdmin.forEach((apt, index) => {
-      const barberId = apt.barberId;
+      const startDate = getAppointmentStartDate(apt);
+      if (!startDate || getLocalDateKey(startDate) !== calendarActiveDateKey) return;
+
+      const barberId = apt.barberId || apt.barber?.id;
       if (!map.has(barberId)) {
         map.set(barberId, []);
       }
 
-      const startDate = getAppointmentStartDate(apt);
       const startTime = startDate
         ? startDate.toLocaleTimeString('pt-BR', {
             hour: '2-digit',
@@ -4346,7 +4429,7 @@ export default function AdminPage() {
     });
 
     return map;
-  }, [filteredAppointmentsAdmin, barbers]);
+  }, [filteredAppointmentsAdmin, calendarBarbers, calendarActiveDateKey]);
 
   const calculateMonthlyTotals = () => {
     const pendingAppointments = filteredAppointmentPayments
@@ -8098,14 +8181,23 @@ export default function AdminPage() {
                     </p>
                   ) : (
                     <div className="calendar-grid-container" style={{ marginTop: '1.5rem' }}>
+                      <div className="calendar-active-day">
+                        <strong>{calendarActiveDateLabel || 'Dia não informado'}</strong>
+                        {!appointmentDateFilter && (
+                          <span>
+                            Exibindo o primeiro dia com agendamento. Use o filtro "Data Específica"
+                            para abrir outro dia.
+                          </span>
+                        )}
+                      </div>
                       <div
                         className="calendar-grid-header"
                         style={{
-                          gridTemplateColumns: `80px repeat(${barbers.length}, 1fr)`,
+                          gridTemplateColumns: `80px repeat(${calendarBarbers.length}, minmax(180px, 1fr))`,
                         }}
                       >
                         <div className="calendar-grid-corner">Horário</div>
-                        {barbers.map((barber) => {
+                        {calendarBarbers.map((barber) => {
                           const barberPhoto = barber.photo || barber.avatar || '';
                           const barberInitial =
                             String(barber.displayName || barber.name).trim().charAt(0).toUpperCase() || '?';
@@ -8135,8 +8227,8 @@ export default function AdminPage() {
                       </div>
                       <div className="calendar-grid-body">
                         {calendarTimeSlots.map((timeSlot) => {
-                          const slotDate = filteredAppointmentsAdmin[0]
-                            ? getAppointmentStartDate(filteredAppointmentsAdmin[0])
+                          const slotDate = calendarActiveDateKey
+                            ? new Date(`${calendarActiveDateKey}T00:00:00`)
                             : null;
                           const isPast = slotDate
                             ? (() => {
@@ -8152,28 +8244,30 @@ export default function AdminPage() {
                               key={timeSlot}
                               className={`calendar-grid-row ${isPast ? 'past-slot' : ''}`}
                               style={{
-                                gridTemplateColumns: `80px repeat(${barbers.length}, 1fr)`,
+                                gridTemplateColumns: `80px repeat(${calendarBarbers.length}, minmax(180px, 1fr))`,
                               }}
                             >
                               <div className="calendar-time-cell">{timeSlot}</div>
-                              {barbers.map((barber) => {
+                              {calendarBarbers.map((barber) => {
                                 const barberApts = calendarAppointmentsByBarber.get(barber.id) || [];
                                 const slotApts = barberApts.filter((apt) => {
                                   const [aptH, aptM] = apt.startTime.split(':').map(Number);
                                   const [slotH, slotM] = timeSlot.split(':').map(Number);
                                   const aptMinutes = aptH * 60 + aptM;
                                   const slotMinutes = slotH * 60 + slotM;
-                                  const durationSlots = Math.ceil(apt.duration / 30);
+                                  const slotEndMinutes = slotMinutes + 30;
                                   return (
-                                    slotMinutes >= aptMinutes &&
-                                    slotMinutes < aptMinutes + durationSlots * 30
+                                    aptMinutes < slotEndMinutes &&
+                                    aptMinutes + apt.duration > slotMinutes
                                   );
                                 });
 
                                 const isFirstSlot = (apt) => {
                                   const [aptH, aptM] = apt.startTime.split(':').map(Number);
                                   const [slotH, slotM] = timeSlot.split(':').map(Number);
-                                  return aptH === slotH && aptM === slotM;
+                                  const aptMinutes = aptH * 60 + aptM;
+                                  const slotMinutes = slotH * 60 + slotM;
+                                  return Math.floor(aptMinutes / 30) * 30 === slotMinutes;
                                 };
 
                                 return (
@@ -8189,28 +8283,109 @@ export default function AdminPage() {
                                         typeof apt.client === 'string'
                                           ? apt.client
                                           : apt.client?.name || apt.clientName || 'Cliente';
+                                      const [slotH, slotM] = timeSlot.split(':').map(Number);
+                                      const [aptH, aptM] = apt.startTime.split(':').map(Number);
+                                      const slotMinutes = slotH * 60 + slotM;
+                                      const aptMinutes = aptH * 60 + aptM;
+                                      const leadingFreeMinutes = Math.max(
+                                        0,
+                                        aptMinutes - slotMinutes,
+                                      );
+                                      const eventHeight = Math.max(
+                                        12,
+                                        (apt.duration / 30) * calendarSlotHeight,
+                                      );
+                                      const freeMinutesInSlot = Math.max(
+                                        0,
+                                        30 - leadingFreeMinutes - apt.duration,
+                                      );
+                                      const leadingFreeHeight =
+                                        leadingFreeMinutes > 0
+                                          ? (leadingFreeMinutes / 30) * calendarSlotHeight
+                                          : 0;
+                                      const freeHeight =
+                                        freeMinutesInSlot > 0
+                                          ? (freeMinutesInSlot / 30) * calendarSlotHeight
+                                          : 0;
 
                                       return (
+                                        <React.Fragment key={apt.id}>
+                                        {leadingFreeMinutes > 0 && (
+                                          <div
+                                            className="calendar-free-fit calendar-free-fit--before"
+                                            style={{ height: `${leadingFreeHeight}px` }}
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={() => handleFreeFitBooking(barber.id, aptDate, slotMinutes)}
+                                            onKeyDown={(event) => {
+                                              if (event.key === 'Enter' || event.key === ' ') {
+                                                event.preventDefault();
+                                                handleFreeFitBooking(barber.id, aptDate, slotMinutes);
+                                              }
+                                            }}
+                                          >
+                                            Encaixe livre · {leadingFreeMinutes} min
+                                          </div>
+                                        )}
                                         <div
-                                          key={apt.id}
                                           className={`calendar-appointment-card ${isAptPast ? 'past-appointment' : ''}`}
                                           style={{
                                             backgroundColor: apt.color.bg,
                                             color: apt.color.text,
                                             borderColor: apt.color.border,
                                             borderLeftColor: apt.color.border,
-                                            marginBottom: '0.25rem',
+                                            height: `${eventHeight}px`,
                                           }}
                                         >
-                                          <div className="apt-time">{apt.startTime}</div>
-                                          <div className="apt-client">{clientName}</div>
-                                          <div className="apt-service">{servicesNames}</div>
-                                          {apt.notes && (
+                                          {eventHeight <= 32 ? (
+                                            <div className="apt-inline-summary">
+                                              <span className="apt-time">{apt.startTime} · {apt.duration} min</span>
+                                              <span className="apt-client">{clientName}</span>
+                                              <span className="apt-service">{servicesNames || '-'}</span>
+                                            </div>
+                                          ) : (
+                                            <>
+                                              <div className="apt-time">{apt.startTime} · {apt.duration} min</div>
+                                              <div className="apt-client">{clientName}</div>
+                                            </>
+                                          )}
+                                          {eventHeight >= 28 && (
+                                            <div className="apt-service">{servicesNames}</div>
+                                          )}
+                                          {eventHeight >= 42 && apt.notes && (
                                             <div className="apt-observation">
                                               📝 {apt.notes}
                                             </div>
                                           )}
                                         </div>
+                                        {freeMinutesInSlot > 0 && (
+                                          <div
+                                            className="calendar-free-fit"
+                                            style={{ height: `${freeHeight}px` }}
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={() =>
+                                              handleFreeFitBooking(
+                                                barber.id,
+                                                aptDate,
+                                                aptMinutes + apt.duration,
+                                              )
+                                            }
+                                            onKeyDown={(event) => {
+                                              if (event.key === 'Enter' || event.key === ' ') {
+                                                event.preventDefault();
+                                                handleFreeFitBooking(
+                                                  barber.id,
+                                                  aptDate,
+                                                  aptMinutes + apt.duration,
+                                                );
+                                              }
+                                            }}
+                                          >
+                                            Encaixe livre · {freeMinutesInSlot} min
+                                          </div>
+                                        )}
+                                        </React.Fragment>
                                       );
                                     })}
                                   </div>

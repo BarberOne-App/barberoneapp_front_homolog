@@ -305,6 +305,7 @@ export default function AppointmentsPage() {
   const [appointmentFilter, setAppointmentFilter] = useState('current');
   const [appointmentViewMode, setAppointmentViewMode] = useState('calendar');
   const [preSelectedService, setPreSelectedService] = useState(null);
+  const [preSelectedTime, setPreSelectedTime] = useState('');
   const [bookingInProgress, setBookingInProgress] = useState(false);
   const [pixLoading, setPixLoading] = useState(false);
   const [postPaymentLoading, setPostPaymentLoading] = useState(false);
@@ -333,10 +334,33 @@ export default function AppointmentsPage() {
   const [showForWhomSelector, setShowForWhomSelector] = useState(false);
 
   const hasLoadedOnce = useRef(false);
+  const hasAppliedAppointmentPrefill = useRef(false);
   const hasShownMonthlyBarberNotice = useRef(false);
   const pendingStockUpdate = useRef([]);
   const paymentsCache = useRef({});
   const isFetchingPayments = useRef(false);
+
+  useEffect(() => {
+    if (hasAppliedAppointmentPrefill.current) return;
+
+    const prefill = location.state?.appointmentPrefill;
+    if (!prefill?.date || !prefill?.barberId || !prefill?.time) return;
+
+    const prefillDate = new Date(`${prefill.date}T00:00:00`);
+    if (Number.isNaN(prefillDate.getTime())) return;
+
+    hasAppliedAppointmentPrefill.current = true;
+    setView('calendar');
+    setSelectedDate(prefillDate);
+    setSelectedBarberId(prefill.barberId);
+    setPreSelectedTime(prefill.time);
+    setToast({
+      show: true,
+      message: `Encaixe selecionado para ${prefill.time}. Escolha o cliente e o serviço.`,
+      type: 'info',
+    });
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.pathname, location.state, navigate]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -741,14 +765,17 @@ export default function AppointmentsPage() {
 
   const generateSlotsForDuration = (startTime, durationMinutes = 30) => {
     const slots = [];
-    const totalSlots = calculateBlockedDurationMinutes(durationMinutes) / 30;
+    const slotStep = 5;
+    const parsedDuration = Number(durationMinutes);
+    const safeDuration = Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 30;
+    const totalSlots = Math.ceil(safeDuration / slotStep);
     let current = timeToMinutes(startTime);
 
     for (let i = 0; i < totalSlots; i++) {
       const hh = String(Math.floor(current / 60)).padStart(2, '0');
       const mm = String(current % 60).padStart(2, '0');
       slots.push(`${hh}:${mm}`);
-      current += 30;
+      current += slotStep;
     }
 
     return slots;
@@ -1645,6 +1672,8 @@ export default function AppointmentsPage() {
   }, []);
 
   const handleSelectDate = (date) => {
+    setPreSelectedTime('');
+
     if (date > maxBookingDate) {
       const mes = maxBookingDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
       showToast(`⛔ Agendamentos só são permitidos até ${mes}.`, 'warning');
@@ -1724,6 +1753,10 @@ export default function AppointmentsPage() {
   }, [getServiceDurationMinutes]);
 
   const getAppointmentBlockedDurationMinutes = useCallback((appointment) => {
+    if (Array.isArray(appointment?.services) && appointment.services.length > 0) {
+      return calculateTotalDuration(appointment.services);
+    }
+
     const start = appointment?.startAt ? new Date(appointment.startAt) : null;
     const end = appointment?.endAt ? new Date(appointment.endAt) : null;
 
@@ -1734,11 +1767,7 @@ export default function AppointmentsPage() {
       !Number.isNaN(end.getTime()) &&
       end > start
     ) {
-      return calculateBlockedDurationMinutes((end.getTime() - start.getTime()) / 60_000);
-    }
-
-    if (Array.isArray(appointment?.services) && appointment.services.length > 0) {
-      return calculateBlockedDurationMinutes(calculateTotalDuration(appointment.services));
+      return Math.max(5, Math.round((end.getTime() - start.getTime()) / 60_000));
     }
 
     return 30;
@@ -1778,7 +1807,9 @@ export default function AppointmentsPage() {
       if (!date) return [];
 
       const dateStr = normalizeDateStr(date);
-      const blockedDurationMinutes = calculateBlockedDurationMinutes(durationMinutes);
+      const parsedDuration = Number(durationMinutes);
+      const blockedDurationMinutes =
+        Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 30;
       const bookedTimes = getBookedSlots(barberId, date);
       const blockedSlots = getBlockedTimeSlots(dateStr, barberId);
       const workingHours = getWorkingHoursForDate(date);
@@ -1795,7 +1826,7 @@ export default function AppointmentsPage() {
       );
 
       const allTimes = [];
-      for (let current = startBoundary; current <= endBoundary; current += 30) {
+      for (let current = startBoundary; current <= endBoundary; current += 5) {
         const h = String(Math.floor(current / 60)).padStart(2, '0');
         const m = String(current % 60).padStart(2, '0');
         allTimes.push(`${h}:${m}`);
@@ -3508,6 +3539,11 @@ export default function AppointmentsPage() {
                               }
                               showToast={showToast}
                               preSelectedService={preSelectedService}
+                              preSelectedTime={
+                                normalizeId(selectedBarberId) === normalizeId(barber.id)
+                                  ? preSelectedTime
+                                  : ''
+                              }
                               hasActiveSubscription={hasActiveSubscription}
                               isServiceCoveredByPlan={isServiceCoveredByPlan}
                             />
