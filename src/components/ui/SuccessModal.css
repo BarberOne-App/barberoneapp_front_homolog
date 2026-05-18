@@ -82,14 +82,32 @@
   font-weight: 600;
 }
 
+.success-modal__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .success-modal__button {
   width: 100%;
   background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
   border: none;
 }
 
+.success-modal__button--whatsapp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #25d366 0%, #128c7e 100%);
+}
+
 .success-modal__button:hover {
   background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+}
+
+.success-modal__button--whatsapp:hover {
+  background: linear-gradient(135deg, #128c7e 0%, #075e54 100%);
 }
 
 @media (max-width: 768px) {

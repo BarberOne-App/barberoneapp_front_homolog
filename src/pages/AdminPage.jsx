@@ -7955,23 +7955,69 @@ export default function AdminPage() {
                 )}
               </div>
 
-              {/* TOGGLE VISUALIZAÇÃO */}
-              {filteredAppointmentsAdmin.length > 0 && (
-                <div className="calendar-view-toggle" style={{ marginTop: '1rem' }}>
-                  <button
-                    onClick={() => setAppointmentViewMode('list')}
-                    className={appointmentViewMode === 'list' ? 'active' : ''}
-                  >
-                    📋 Lista
-                  </button>
-                  <button
-                    onClick={() => setAppointmentViewMode('calendar')}
-                    className={appointmentViewMode === 'calendar' ? 'active' : ''}
-                  >
-                    📅 Calendário
-                  </button>
-                </div>
-              )}
+              {/* TABELA (copiada da BarberPage) */}
+              <div className="barber-appointments-section">
+                {filteredAppointmentsAdmin.length === 0 ? (
+                  <p className="calendar-empty">
+                    Nenhum agendamento encontrado para o período selecionado.
+                  </p>
+                ) : (
+                  <div className="fluig-table-parent" style={{ marginTop: '1.5rem' }}>
+                    <div className="agendamentos-table-scroll">
+                      <table className="fluig-table-children">
+                        <thead>
+                          <tr>
+                            <th>Cliente</th>
+                            <th>Barbeiro</th>
+                            <th>Para</th>
+                            <th>Data</th>
+                            <th>Horário</th>
+                            <th>Serviços</th>
+                            <th>Telefone</th>
+                            <th>Obs.</th>
+                            <th>Pagamento</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredAppointmentsAdmin.map((apt) => {
+                            const appointmentDate = getAppointmentStartDate(apt);
+                            const canComplete = canCompleteAppointment(apt);
+                            const isClosedAppointment = isClosedAppointmentStatus(apt);
+                            const isPast = canComplete;
+                            const isCompleted = apt.status === 'completed';
+                            const isConfirmed = apt.status === 'confirmed';
+
+                            // Formatação da data e hora
+                            const formattedDate = apt.date
+                              ? new Date(`${apt.date}T00:00:00`).toLocaleDateString('pt-BR')
+                              : appointmentDate
+                                ? appointmentDate.toLocaleDateString('pt-BR')
+                                : 'Data não informada';
+                            const formattedTime = apt.time
+                              ? String(apt.time).slice(0, 5)
+                              : appointmentDate
+                                ? appointmentDate.toLocaleTimeString('pt-BR', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })
+                                : 'Horário não informado';
+
+                            // Nome do cliente (pode estar em apt.client.name ou apt.clientName)
+                            const clientName = apt.client?.name || apt.clientName || 'Cliente';
+                            const barberName =
+                              apt.barber?.displayName || apt.barberName || 'Sem barbeiro';
+                            const dependentLabel = apt.dependent?.name || apt.dependentName || '';
+
+                            // Telefone do cliente
+                            const clientPhone = apt.client?.phone || apt.clientPhone || '-';
+                            const paymentLabel = getAppointmentPaymentMethodLabel(apt.id);
+
+                            // Lista de serviços (cada serviço pode ter serviceName ou name)
+                            const serviceNames = Array.isArray(apt.services)
+                              ? apt.services.map((s) => s.serviceName || s.name).filter(Boolean)
+                              : [];
 
               {/* VISUALIZAÇÃO LISTA */}
               {appointmentViewMode === 'list' && (
@@ -8124,19 +8170,93 @@ export default function AdminPage() {
                                     >
                                       {getAppointmentStatusLabel(apt)}
                                     </span>
-                                  </td>
-                                  <td>
-                                    <div className="barber-table-actions">
-                                      {!isCompleted && !isClosedAppointment && (
-                                        <>
-                                          {!isConfirmed && (
-                                            <button
-                                              onClick={() => handleConfirmAppointment(apt.id)}
-                                              className="action-btn-table btn-confirm-table"
-                                            >
-                                              Confirmar
-                                            </button>
-                                          )}
+                                  )}
+                                </td>
+                                <td>{formattedDate}</td>
+                                <td>
+                                  <span className="appointment-time">{formattedTime}</span>
+                                </td>
+                                <td>
+                                  <div className="services-list-compact">
+                                    {serviceNames.length > 0 ? (
+                                      serviceNames.map((name, idx) => (
+                                        <div key={idx} className="service-item-compact">
+                                          {name}
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <span className="no-services">—</span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td>
+                                  <span className="client-phone">{clientPhone}</span>
+                                </td>
+                                <td>
+                                  {apt.notes ? (
+                                    <div>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setExpandedObsId(
+                                            expandedObsId === apt.id ? null : apt.id,
+                                          );
+                                        }}
+                                        className="obs-btn"
+                                      >
+                                        Ver
+                                      </button>
+                                      {expandedObsId === apt.id && (
+                                        <div className="obs-card">
+                                          <div className="obs-card-label">Observação</div>
+                                          <div className="obs-card-text">{apt.notes}</div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="obs-empty">—</span>
+                                  )}
+                                </td>
+                                <td>
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      borderRadius: '20px',
+                                      padding: '2px 9px',
+                                      fontSize: '0.75rem',
+                                      fontWeight: 700,
+                                      color:
+                                        paymentLabel === 'Pagamento local'
+                                          ? '#e5b84a'
+                                          : paymentLabel === 'Online via PIX'
+                                            ? '#2ecc71'
+                                            : paymentLabel === 'Online via cartão'
+                                              ? '#4ea1ff'
+                                              : paymentLabel === 'Plano'
+                                                ? '#d4af37'
+                                                : '#888',
+                                      border: '1px solid currentColor',
+                                      background: 'rgba(255,255,255,0.03)',
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    {paymentLabel}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span
+                                    className={`status-badge ${getAppointmentStatusClassName(apt)}`}
+                                  >
+                                    {getAppointmentStatusLabel(apt)}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div className="barber-table-actions">
+                                    {!isCompleted && !isClosedAppointment && (
+                                      <>
+                                        {!isConfirmed && (
                                           <button
                                             onClick={() => sendWhatsApp(apt.id, 'confirm')}
                                             className="action-btn-table btn-whatsapp-table"
