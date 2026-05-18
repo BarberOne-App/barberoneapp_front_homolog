@@ -7760,6 +7760,7 @@ export default function AdminPage() {
                             <th>Horário</th>
                             <th>Serviços</th>
                             <th>Telefone</th>
+                            <th>Obs.</th>
                             <th>Pagamento</th>
                             <th>Status</th>
                             <th>Ações</th>
@@ -7856,6 +7857,31 @@ export default function AdminPage() {
                                 </td>
                                 <td>
                                   <span className="client-phone">{clientPhone}</span>
+                                </td>
+                                <td>
+                                  {apt.notes ? (
+                                    <div>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setExpandedObsId(
+                                            expandedObsId === apt.id ? null : apt.id,
+                                          );
+                                        }}
+                                        className="obs-btn"
+                                      >
+                                        Ver
+                                      </button>
+                                      {expandedObsId === apt.id && (
+                                        <div className="obs-card">
+                                          <div className="obs-card-label">Observação</div>
+                                          <div className="obs-card-text">{apt.notes}</div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="obs-empty">—</span>
+                                  )}
                                 </td>
                                 <td>
                                   <span
