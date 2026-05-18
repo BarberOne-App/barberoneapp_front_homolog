@@ -176,6 +176,80 @@ const getMonthlyBarberLockInfo = (subscription, now = new Date()) => {
   };
 };
 
+const sendAppointmentReceiptWhatsApp = (appointmentData, homeInfoData) => {
+  const {
+    barberName,
+    date,
+    time,
+    services = [],
+    products = [],
+    notes = '',
+    total = 0,
+    clientName = '',
+    isRescheduling = false,
+    paymentMethod = '',
+  } = appointmentData;
+
+  const barbershopName = homeInfoData?.aboutTitle || homeInfoData?.heroTitle || 'Barbearia';
+  const whatsappNumber = homeInfoData?.whatsappNumber || '';
+
+  const serviceList = Array.isArray(services)
+    ? services.map((s) => `• ${s.name || s.serviceName || 'Serviço'}`).join('\n')
+    : '• Serviço não informado';
+
+  const productList =
+    Array.isArray(products) && products.length > 0
+      ? products.map((p) => `• ${p.name || p.productName || 'Produto'} x${p.quantity || 1}`).join('\n')
+      : '';
+
+  const totalFormatted = typeof total === 'number' ? total.toFixed(2).replace('.', ',') : total;
+
+  let paymentText = '';
+  if (paymentMethod === 'local') paymentText = '💳 Pagamento no local';
+  else if (paymentMethod === 'pix') paymentText = '💳 Pagamento via PIX';
+  else if (paymentMethod === 'cartao') paymentText = '💳 Pagamento via Cartão';
+  else if (paymentMethod === 'subscription') paymentText = '✅ Coberto pelo plano';
+  else paymentText = '💳 Pagamento confirmado';
+
+  const message = `
+✅ *${isRescheduling ? 'REAGENDAMENTO' : 'AGENDAMENTO'} CONFIRMADO!*
+
+🏢 *${barbershopName}*
+👤 *Cliente:* ${clientName}
+✂️ *Barbeiro:* ${barberName}
+📅 *Data:* ${date}
+🕐 *Horário:* ${time}
+
+*SERVIÇOS:*
+${serviceList}
+${productList ? `\n*PRODUTOS:*\n${productList}` : ''}
+${notes ? `\n📝 *Observações:* ${notes}` : ''}
+
+*TOTAL:* R$ ${totalFormatted}
+${paymentText}
+
+Aguardamos você! 💈
+  `.trim();
+
+  const encodedMessage = encodeURIComponent(message);
+
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent
+  );
+
+  if (isMobile && whatsappNumber) {
+    window.location.href = `whatsapp://send?phone=${whatsappNumber.replace(/\D/g, '')}&text=${encodedMessage}`;
+  } else if (whatsappNumber) {
+    window.open(
+      `https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=${encodedMessage}`,
+      '_blank'
+    );
+  } else {
+    // Fallback: abrir WhatsApp web sem número específico
+    window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+  }
+};
+
 export default function AppointmentsPage() {
   const SAO_PAULO_TIME_ZONE = 'America/Sao_Paulo';
   const selectedPlan = JSON.parse(localStorage.getItem('selectedPlan'));
@@ -229,6 +303,7 @@ export default function AppointmentsPage() {
   const [stripeActiveSubscription, setStripeActiveSubscription] = useState(null);
   const [activeSubscriptionPlanFeatures, setActiveSubscriptionPlanFeatures] = useState([]);
   const [appointmentFilter, setAppointmentFilter] = useState('current');
+  const [appointmentViewMode, setAppointmentViewMode] = useState('calendar');
   const [preSelectedService, setPreSelectedService] = useState(null);
   const [bookingInProgress, setBookingInProgress] = useState(false);
   const [pixLoading, setPixLoading] = useState(false);
@@ -2165,6 +2240,22 @@ export default function AppointmentsPage() {
       setSelectedDate(null);
       setBookingForDependent(null);
       setView('myAppointments');
+
+      sendAppointmentReceiptWhatsApp(
+        {
+          barberName: pendingBookingData.barberName,
+          date: pendingBookingData.dateFormatted,
+          time: pendingBookingData.time,
+          services: pendingBookingData.services,
+          products: [],
+          notes: pendingBookingData.observation || '',
+          total: 0,
+          clientName: activeClient.name,
+          isRescheduling,
+          paymentMethod: 'subscription',
+        },
+        homeInfo
+      );
     } catch (error) {
       console.error('Erro:', error);
       showToast(extractAppointmentErrorMessage(error), 'danger');
@@ -2184,6 +2275,7 @@ export default function AppointmentsPage() {
     isAdmin,
     ensureMonthlyBarberLock,
     clearPaymentCache,
+    homeInfo,
   ]);
 
   const handlePaymentChoice = useCallback(
@@ -2407,6 +2499,22 @@ export default function AppointmentsPage() {
           setIsRescheduling(false);
           setSelectedDate(null);
           setView('myAppointments');
+
+          sendAppointmentReceiptWhatsApp(
+            {
+              barberName: pendingBookingData.barberName,
+              date: pendingBookingData.dateFormatted,
+              time: pendingBookingData.time,
+              services: pendingBookingData.services,
+              products: purchaseData.products,
+              notes: pendingBookingData.observation || '',
+              total: purchaseData.finalTotal,
+              clientName: activeClient.name,
+              isRescheduling,
+              paymentMethod: 'local',
+            },
+            homeInfo
+          );
         }
       } catch (error) {
         console.error('Erro:', error);
@@ -2429,21 +2537,41 @@ export default function AppointmentsPage() {
       activeUserSubscription,
       isAdmin,
       ensureMonthlyBarberLock,
+      homeInfo,
     ],
   );
 
   const handlePaymentSuccess = useCallback(async () => {
     setPostPaymentLoading(true);
     try {
+      const paymentData = selectedAppointmentForPayment;
       clearAllPaymentsCache();
       await loadData();
       setShowPaymentModal(false);
       setSelectedAppointmentForPayment(null);
       setView('myAppointments');
+
+      if (paymentData) {
+        sendAppointmentReceiptWhatsApp(
+          {
+            barberName: paymentData.barberName || '',
+            date: paymentData.appointmentDate || '',
+            time: paymentData.appointmentTime || '',
+            services: paymentData.services || [],
+            products: paymentData.products || [],
+            notes: '',
+            total: paymentData.amount || 0,
+            clientName: currentUser?.name || '',
+            isRescheduling: false,
+            paymentMethod: paymentData.paymentMethod || '',
+          },
+          homeInfo
+        );
+      }
     } finally {
       setPostPaymentLoading(false);
     }
-  }, [loadData, clearAllPaymentsCache]);
+  }, [loadData, clearAllPaymentsCache, homeInfo, selectedAppointmentForPayment, currentUser]);
 
   const handleDeleteClick = useCallback((id) => {
     setAppointmentToDelete(id);
@@ -2619,6 +2747,93 @@ export default function AppointmentsPage() {
       return dateB - dateA;
     });
   }, [myAppointments]);
+
+  // ============================================================
+  // VISUALIZAÇÃO EM CALENDÁRIO / AGENDA
+  // ============================================================
+  const APPOINTMENT_COLORS = [
+    { bg: 'rgba(125, 211, 252, 0.9)', text: '#0c4a6e', border: '#38bdf8' },
+    { bg: 'rgba(110, 231, 183, 0.9)', text: '#064e3b', border: '#34d399' },
+    { bg: 'rgba(253, 164, 175, 0.9)', text: '#881337', border: '#fb7185' },
+    { bg: 'rgba(253, 230, 138, 0.9)', text: '#78350f', border: '#fbbf24' },
+    { bg: 'rgba(196, 181, 253, 0.9)', text: '#4c1d95', border: '#a78bfa' },
+    { bg: 'rgba(251, 146, 60, 0.9)', text: '#7c2d12', border: '#f97316' },
+    { bg: 'rgba(167, 243, 208, 0.9)', text: '#065f46', border: '#6ee7b7' },
+    { bg: 'rgba(254, 215, 170, 0.9)', text: '#7c2d12', border: '#fdba74' },
+  ];
+
+  const getAppointmentColor = (index) =>
+    APPOINTMENT_COLORS[index % APPOINTMENT_COLORS.length];
+
+  const calendarTimeSlots = useMemo(() => {
+    const slots = [];
+    let hour = 8;
+    let minute = 0;
+    while (hour < 20 || (hour === 20 && minute === 0)) {
+      const h = String(hour).padStart(2, '0');
+      const m = String(minute).padStart(2, '0');
+      slots.push(`${h}:${m}`);
+      minute += 30;
+      if (minute >= 60) {
+        hour += 1;
+        minute = 0;
+      }
+    }
+    return slots;
+  }, []);
+
+  const now = new Date();
+
+  const isTimeSlotPast = useCallback(
+    (timeStr, appointmentDate) => {
+      if (!appointmentDate) return false;
+      const [h, m] = timeStr.split(':').map(Number);
+      const slotDate = new Date(appointmentDate);
+      slotDate.setHours(h, m, 0, 0);
+      return slotDate < now;
+    },
+    [],
+  );
+
+  const calendarAppointmentsByBarber = useMemo(() => {
+    const map = new Map();
+    barbers.forEach((barber) => map.set(barber.id, []));
+
+    sortedMyAppointments.forEach((apt, index) => {
+      const barberId = apt.barberId;
+      if (!map.has(barberId)) {
+        map.set(barberId, []);
+      }
+
+      const startDate = getAppointmentStartDate(apt);
+      const startTime = startDate
+        ? startDate.toLocaleTimeString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: SAO_PAULO_TIME_ZONE,
+          })
+        : apt.time || '00:00';
+
+      const duration = getAppointmentBlockedDurationMinutes(apt);
+      const color = getAppointmentColor(index);
+
+      map.get(barberId).push({
+        ...apt,
+        startTime,
+        duration,
+        color,
+        index,
+      });
+    });
+
+    return map;
+  }, [
+    sortedMyAppointments,
+    barbers,
+    getAppointmentBlockedDurationMinutes,
+    SAO_PAULO_TIME_ZONE,
+  ]);
+
   if (loading) {
     return (
       <BaseLayout>
@@ -3307,8 +3522,6 @@ export default function AppointmentsPage() {
 
           {view === 'myAppointments' && (
             <div className="appointments__list">
-
-
               <div
                 className="appointments-filter-tabs"
                 style={{
@@ -3344,297 +3557,442 @@ export default function AppointmentsPage() {
                   <p>Você não tem agendamentos.</p>
                 </div>
               ) : (
-                <div className="appointments-table-container">
-                  <table className="appointments-table">
-                    <colgroup>
-                      <col />
-                      <col />
-                      <col />
-                      <col />
-                      <col />
-                      <col />
-                      <col />
-                      <col />
-                      <col />
-                      <col />
-                      <col />
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th>Barbeiro</th>
-                        <th>Para</th>
-                        <th>Data</th>
-                        <th>Horário</th>
-                        <th>Serviços</th>
-                        <th>Obs.</th>
-                        <th>Produtos</th>
-                        <th>Total</th>
-                        <th>Status</th>
-                        <th>Pagamento</th>
-                        <th>Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedMyAppointments.map((apt) => {
-                        const payment = appointmentPayments[apt.id];
-                        const appointmentStatus = String(apt.status || '').toLowerCase();
-                        const isPending =
-                          payment &&
-                          (payment.status === 'pending' || payment.status === 'confirmed_unpaid');
-                        const isPendingLocal =
-                          payment && payment.status === 'pending' && payment.method === 'local';
-                        const isPaid = payment && payment.status === 'paid';
-                        const isPlanCovered =
-                          payment &&
-                          (payment.status === 'covered' ||
-                            payment.status === 'plancovered' ||
-                            payment.status === 'plan_covered' ||
-                            payment.paymentMethod === 'subscription');
-                        const paymentMethodRaw = String(
-                          payment?.method || payment?.paymentMethod || '',
-                        ).toLowerCase();
-                        const isLocalPayment =
-                          paymentMethodRaw === 'local' || paymentMethodRaw === 'pendinglocal';
+                <>
+                  <div className="calendar-view-toggle">
+                    <button
+                      onClick={() => setAppointmentViewMode('list')}
+                      className={appointmentViewMode === 'list' ? 'active' : ''}
+                    >
+                      📋 Lista
+                    </button>
+                    <button
+                      onClick={() => setAppointmentViewMode('calendar')}
+                      className={appointmentViewMode === 'calendar' ? 'active' : ''}
+                    >
+                      📅 Calendário
+                    </button>
+                  </div>
 
-                        const appointmentDate = new Date(apt.endAt);
-                        const formattedDate = appointmentDate.toLocaleDateString('pt-BR');
+                  {appointmentViewMode === 'list' && (
+                    <div className="appointments-table-container">
+                      <table className="appointments-table">
+                        <colgroup>
+                          <col />
+                          <col />
+                          <col />
+                          <col />
+                          <col />
+                          <col />
+                          <col />
+                          <col />
+                          <col />
+                          <col />
+                          <col />
+                        </colgroup>
+                        <thead>
+                          <tr>
+                            <th>Barbeiro</th>
+                            <th>Para</th>
+                            <th>Data</th>
+                            <th>Horário</th>
+                            <th>Serviços</th>
+                            <th>Obs.</th>
+                            <th>Produtos</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th>Pagamento</th>
+                            <th>Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sortedMyAppointments.map((apt) => {
+                            const payment = appointmentPayments[apt.id];
+                            const appointmentStatus = String(apt.status || '').toLowerCase();
+                            const isPending =
+                              payment &&
+                              (payment.status === 'pending' || payment.status === 'confirmed_unpaid');
+                            const isPendingLocal =
+                              payment && payment.status === 'pending' && payment.method === 'local';
+                            const isPaid = payment && payment.status === 'paid';
+                            const isPlanCovered =
+                              payment &&
+                              (payment.status === 'covered' ||
+                                payment.status === 'plancovered' ||
+                                payment.status === 'plan_covered' ||
+                                payment.paymentMethod === 'subscription');
+                            const paymentMethodRaw = String(
+                              payment?.method || payment?.paymentMethod || '',
+                            ).toLowerCase();
+                            const isLocalPayment =
+                              paymentMethodRaw === 'local' || paymentMethodRaw === 'pendinglocal';
 
-                        const time = new Date(apt.startAt).toLocaleTimeString('pt-BR', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        });
+                            const appointmentDate = new Date(apt.endAt);
+                            const formattedDate = appointmentDate.toLocaleDateString('pt-BR');
 
-                        const servicesTotal = Array.isArray(apt.services)
-                          ? apt.services.reduce((sum, s) => {
-                            const price =
-                              typeof s.unitPrice === 'string'
-                                ? parseFloat(
-                                  s.unitPrice.replace(/R\$/g, '').replace(/,/g, '.').trim(),
-                                ) || 0
-                                : s.unitPrice || 0;
-                            return sum + price;
-                          }, 0)
-                          : 0;
+                            const time = new Date(apt.startAt).toLocaleTimeString('pt-BR', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            });
 
-                        const productsTotal =
-                          apt.products && apt.products.length > 0
-                            ? apt.products.reduce((sum, p) => {
-                              const price =
-                                typeof p.unitPrice === 'string'
-                                  ? parseFloat(
-                                    p.unitPrice.replace(/R\$/g, '').replace(/,/g, '.').trim(),
-                                  ) || 0
-                                  : p.unitPrice || 0;
-                              return sum + price * (p.quantity || 1);
-                            }, 0)
-                            : 0;
+                            const servicesTotal = Array.isArray(apt.services)
+                              ? apt.services.reduce((sum, s) => {
+                                const price =
+                                  typeof s.unitPrice === 'string'
+                                    ? parseFloat(
+                                      s.unitPrice.replace(/R\$/g, '').replace(/,/g, '.').trim(),
+                                    ) || 0
+                                    : s.unitPrice || 0;
+                                return sum + price;
+                              }, 0)
+                              : 0;
 
-                        const allServicesCoveredByPlan =
-                          Array.isArray(apt.services) &&
-                          apt.services.length > 0 &&
-                          apt.services.every((service) =>
-                            isServiceCoveredByPlan({
-                              id: service.serviceId || service.id,
-                              name: service.serviceName || service.name,
-                            }),
-                          );
+                            const productsTotal =
+                              apt.products && apt.products.length > 0
+                                ? apt.products.reduce((sum, p) => {
+                                  const price =
+                                    typeof p.unitPrice === 'string'
+                                      ? parseFloat(
+                                        p.unitPrice.replace(/R\$/g, '').replace(/,/g, '.').trim(),
+                                      ) || 0
+                                      : p.unitPrice || 0;
+                                  return sum + price * (p.quantity || 1);
+                                }, 0)
+                                : 0;
 
-                        const shouldZeroByCoverage = allServicesCoveredByPlan && productsTotal === 0;
+                            const allServicesCoveredByPlan =
+                              Array.isArray(apt.services) &&
+                              apt.services.length > 0 &&
+                              apt.services.every((service) =>
+                                isServiceCoveredByPlan({
+                                  id: service.serviceId || service.id,
+                                  name: service.serviceName || service.name,
+                                }),
+                              );
 
-                        const effectiveServicesTotal =
-                          isPlanCovered || shouldZeroByCoverage ? 0 : servicesTotal;
-                        const total = effectiveServicesTotal + productsTotal;
+                            const shouldZeroByCoverage = allServicesCoveredByPlan && productsTotal === 0;
 
-                        let statusClass = 'pending';
-                        let statusText = 'Pendente';
+                            const effectiveServicesTotal =
+                              isPlanCovered || shouldZeroByCoverage ? 0 : servicesTotal;
+                            const total = effectiveServicesTotal + productsTotal;
 
-                        let paymentStatusClass = 'paid';
-                        let paymentStatusText = 'Pago';
+                            let statusClass = 'pending';
+                            let statusText = 'Pendente';
 
-                        if (isLocalPayment) {
-                          paymentStatusClass = 'pending-local';
-                          paymentStatusText = 'Local';
-                        }
+                            let paymentStatusClass = 'paid';
+                            let paymentStatusText = 'Pago';
 
-                        if (appointmentStatus === 'confirmed') {
-                          statusClass = 'confirmed';
-                          statusText = 'Confirmado';
-                        } else if (appointmentStatus === 'completed') {
-                          statusClass = 'completed';
-                          statusText = 'Finalizado';
-                        } else if (appointmentStatus === 'cancelled') {
-                          statusClass = 'cancelled';
-                          statusText = 'Cancelado';
-                        } else if (appointmentStatus === 'no_show') {
-                          statusClass = 'cancelled';
-                          statusText = 'Não Compareceu';
-                        }
+                            if (isLocalPayment) {
+                              paymentStatusClass = 'pending-local';
+                              paymentStatusText = 'Local';
+                            }
 
-                        const barber = barbers.find((b) => b.id === apt.barberId);
-                        const barberDisplayName =
-                          apt?.barber?.displayName || barber?.displayName || 'Barbeiro';
-                        const barberPhoto = barber?.photo || barber?.avatar || apt?.barber?.photo || '';
-                        const barberInitial =
-                          String(barberDisplayName).trim().charAt(0).toUpperCase() || '?';
-                        const showBarberPhoto = Boolean(barberPhoto) && !barberAvatarErrors[apt.id];
-                        // = barber
-                        //   ? barber.photo || barber.avatar || `https://i.pravatar.cc/150?img=${barber.id}`
-                        //   : `https://i.pravatar.cc/150?img=${apt.barberId}`;
+                            if (appointmentStatus === 'confirmed') {
+                              statusClass = 'confirmed';
+                              statusText = 'Confirmado';
+                            } else if (appointmentStatus === 'completed') {
+                              statusClass = 'completed';
+                              statusText = 'Finalizado';
+                            } else if (appointmentStatus === 'cancelled') {
+                              statusClass = 'cancelled';
+                              statusText = 'Cancelado';
+                            } else if (appointmentStatus === 'no_show') {
+                              statusClass = 'cancelled';
+                              statusText = 'Não Compareceu';
+                            }
 
-                        return (
-                          <tr key={apt.id}>
-                            <td data-label="Barbeiro">
-                              <div className="appointment-barber">
-                                {showBarberPhoto ? (
-                                  <img
-                                    src={barberPhoto}
-                                    alt={barberDisplayName}
-                                    className="appointment-barber-avatar"
-                                    onError={() =>
-                                      setBarberAvatarErrors((prev) => ({ ...prev, [apt.id]: true }))
-                                    }
-                                  />
-                                ) : (
-                                  <div className="appointment-barber-avatar appointment-barber-avatar--fallback">
-                                    {barberInitial}
+                            const barber = barbers.find((b) => b.id === apt.barberId);
+                            const barberDisplayName =
+                              apt?.barber?.displayName || barber?.displayName || 'Barbeiro';
+                            const barberPhoto = barber?.photo || barber?.avatar || apt?.barber?.photo || '';
+                            const barberInitial =
+                              String(barberDisplayName).trim().charAt(0).toUpperCase() || '?';
+                            const showBarberPhoto = Boolean(barberPhoto) && !barberAvatarErrors[apt.id];
+
+                            return (
+                              <tr key={apt.id}>
+                                <td data-label="Barbeiro">
+                                  <div className="appointment-barber">
+                                    {showBarberPhoto ? (
+                                      <img
+                                        src={barberPhoto}
+                                        alt={barberDisplayName}
+                                        className="appointment-barber-avatar"
+                                        onError={() =>
+                                          setBarberAvatarErrors((prev) => ({ ...prev, [apt.id]: true }))
+                                        }
+                                      />
+                                    ) : (
+                                      <div className="appointment-barber-avatar appointment-barber-avatar--fallback">
+                                        {barberInitial}
+                                      </div>
+                                    )}
+                                    <span className="appointment-barber-name">
+                                      {barberDisplayName}
+                                    </span>
                                   </div>
-                                )}
-                                <span className="appointment-barber-name">
-                                  {barberDisplayName}
-                                </span>
-                              </div>
-                            </td>
-                            <td data-label="Para">
-                              {apt.dependent ? (
-                                <span
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    background: 'rgba(255,122,26,0.12)',
-                                    color: '#ff7a1a',
-                                    border: '1px solid rgba(255,122,26,0.35)',
-                                    borderRadius: '20px',
-                                    padding: '2px 10px',
-                                    fontSize: '0.78rem',
-                                    fontWeight: 700,
-                                  }}
-                                >
-                                  👤 {apt.dependent.name}
-                                </span>
-                              ) : (
-                                <span style={{ color: '#666', fontSize: '0.82rem' }}>Você</span>
-                              )}
-                            </td>
-                            <td data-label="Data">
-                              <span className="appointment-date">{formattedDate}</span>
-                            </td>
-                            <td data-label="Horário">
-                              <span className="appointment-time">{time}</span>
-                            </td>
-                            <td data-label="Serviço">
-                              <div className="appointment-services">
-                                {Array.isArray(apt.services) ? (
-                                  apt.services.map((service, idx) => (
-                                    <div key={idx} className="appointment-service-item">
-                                      {service.serviceName}
-                                    </div>
-                                  ))
-                                ) : (
-                                  <div className="appointment-service-item">-</div>
-                                )}
-                              </div>
-                            </td>
-                            <td data-label="Obs.">
-                              {apt.notes ? (
-                                <div>
-                                  <button
-                                    onClick={() =>
-                                      setExpandedObsId(expandedObsId === apt.id ? null : apt.id)
-                                    }
-                                    style={{
-                                      background: 'rgba(212,175,55,0.12)',
-                                      border: '1px solid rgba(212,175,55,0.35)',
-                                      color: '#d4af37',
-                                      borderRadius: '20px',
-                                      padding: '3px 12px',
-                                      fontSize: '0.78rem',
-                                      cursor: 'pointer',
-                                      fontWeight: 600,
-                                      whiteSpace: 'nowrap',
-                                    }}
-                                  >
-                                    📝 Ver
-                                  </button>
-                                  {expandedObsId === apt.id && (
-                                    <div
+                                </td>
+                                <td data-label="Para">
+                                  {apt.dependent ? (
+                                    <span
                                       style={{
-                                        marginTop: 8,
-                                        background: 'rgba(212,175,55,0.07)',
-                                        border: '1px solid rgba(212,175,55,0.2)',
-                                        borderRadius: '8px',
-                                        padding: '8px 10px',
-                                        fontSize: '0.82rem',
-                                        color: '#d4c48a',
-                                        fontStyle: 'italic',
-                                        maxWidth: '200px',
-                                        lineHeight: '1.5',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        background: 'rgba(255,122,26,0.12)',
+                                        color: '#ff7a1a',
+                                        border: '1px solid rgba(255,122,26,0.35)',
+                                        borderRadius: '20px',
+                                        padding: '2px 10px',
+                                        fontSize: '0.78rem',
+                                        fontWeight: 700,
                                       }}
                                     >
-                                      {apt.notes}
-                                    </div>
+                                      👤 {apt.dependent.name}
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: '#666', fontSize: '0.82rem' }}>Você</span>
                                   )}
-                                </div>
-                              ) : (
-                                <span style={{ color: '#444', fontSize: '0.8rem' }}>—</span>
-                              )}
-                            </td>
-                            <td data-label="Produtos">
-                              <div className="appointment-products">
-                                {apt.products && apt.products.length > 0 ? (
-                                  apt.products.map((product, idx) => (
-                                    <div key={idx} className="appointment-product-item">
-                                      {product.productName} x{product.quantity}
+                                </td>
+                                <td data-label="Data">
+                                  <span className="appointment-date">{formattedDate}</span>
+                                </td>
+                                <td data-label="Horário">
+                                  <span className="appointment-time">{time}</span>
+                                </td>
+                                <td data-label="Serviço">
+                                  <div className="appointment-services">
+                                    {Array.isArray(apt.services) ? (
+                                      apt.services.map((service, idx) => (
+                                        <div key={idx} className="appointment-service-item">
+                                          {service.serviceName}
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <div className="appointment-service-item">-</div>
+                                    )}
+                                  </div>
+                                </td>
+                                <td data-label="Obs.">
+                                  {apt.notes ? (
+                                    <div>
+                                      <button
+                                        onClick={() =>
+                                          setExpandedObsId(expandedObsId === apt.id ? null : apt.id)
+                                        }
+                                        style={{
+                                          background: 'rgba(212,175,55,0.12)',
+                                          border: '1px solid rgba(212,175,55,0.35)',
+                                          color: '#d4af37',
+                                          borderRadius: '20px',
+                                          padding: '3px 12px',
+                                          fontSize: '0.78rem',
+                                          cursor: 'pointer',
+                                          fontWeight: 600,
+                                          whiteSpace: 'nowrap',
+                                        }}
+                                      >
+                                        📝 Ver
+                                      </button>
+                                      {expandedObsId === apt.id && (
+                                        <div
+                                          style={{
+                                            marginTop: 8,
+                                            background: 'rgba(212,175,55,0.07)',
+                                            border: '1px solid rgba(212,175,55,0.2)',
+                                            borderRadius: '8px',
+                                            padding: '8px 10px',
+                                            fontSize: '0.82rem',
+                                            color: '#d4c48a',
+                                            fontStyle: 'italic',
+                                            maxWidth: '200px',
+                                            lineHeight: '1.5',
+                                          }}
+                                        >
+                                          {apt.notes}
+                                        </div>
+                                      )}
                                     </div>
-                                  ))
-                                ) : (
-                                  <div className="appointment-product-item">-</div>
-                                )}
-                              </div>
-                            </td>
-                            <td data-label="Total">
-                              <span className="appointment-total">
-                                {total > 0 ? `R$ ${total.toFixed(2)}` : 'Grátis'}
+                                  ) : (
+                                    <span style={{ color: '#444', fontSize: '0.8rem' }}>—</span>
+                                  )}
+                                </td>
+                                <td data-label="Produtos">
+                                  <div className="appointment-products">
+                                    {apt.products && apt.products.length > 0 ? (
+                                      apt.products.map((product, idx) => (
+                                        <div key={idx} className="appointment-product-item">
+                                          {product.productName} x{product.quantity}
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <div className="appointment-product-item">-</div>
+                                    )}
+                                  </div>
+                                </td>
+                                <td data-label="Total">
+                                  <span className="appointment-total">
+                                    {total > 0 ? `R$ ${total.toFixed(2)}` : 'Grátis'}
+                                  </span>
+                                </td>
+                                <td data-label="Status" className="appointment-status-cell">
+                                  <span className={`appointment-status ${statusClass}`}>
+                                    {statusText}
+                                  </span>
+                                </td>
+                                <td data-label="Pagamento" className="appointment-status-cell">
+                                  <span className={`appointment-status ${paymentStatusClass}`}>
+                                    {paymentStatusText}
+                                  </span>
+                                </td>
+                                <td data-label="Ações" className="appointment-actions-cell">
+                                  <div className="appointment-actions">
+                                    {appointmentStatus !== 'completed' && (
+                                      <button
+                                        onClick={() => handleDeleteClick(apt.id)}
+                                        className="btn-action cancel"
+                                      >
+                                        Cancelar
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {appointmentViewMode === 'calendar' && (
+                    <div className="calendar-grid-container">
+                      <div
+                        className="calendar-grid-header"
+                        style={{
+                          gridTemplateColumns: `80px repeat(${barbers.length}, 1fr)`,
+                        }}
+                      >
+                        <div className="calendar-grid-corner">Horário</div>
+                        {barbers.map((barber) => {
+                          const barberPhoto = barber.photo || barber.avatar || '';
+                          const barberInitial =
+                            String(barber.displayName || barber.name).trim().charAt(0).toUpperCase() || '?';
+                          return (
+                            <div key={barber.id} className="calendar-grid-barber-header">
+                              {barberPhoto ? (
+                                <img
+                                  src={barberPhoto}
+                                  alt={barber.displayName || barber.name}
+                                  className="calendar-barber-photo"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : (
+                                <div className="calendar-barber-photo-fallback">
+                                  {barberInitial}
+                                </div>
+                              )}
+                              <span className="calendar-barber-name">
+                                {barber.displayName || barber.name}
                               </span>
-                            </td>
-                            <td data-label="Status" className="appointment-status-cell">
-                              <span className={`appointment-status ${statusClass}`}>
-                                {statusText}
-                              </span>
-                            </td>
-                            <td data-label="Pagamento" className="appointment-status-cell">
-                              <span className={`appointment-status ${paymentStatusClass}`}>
-                                {paymentStatusText}
-                              </span>
-                            </td>
-                            <td data-label="Ações" className="appointment-actions-cell">
-                              <div className="appointment-actions">
-                                {appointmentStatus !== 'completed' && (
-                                  <button
-                                    onClick={() => handleDeleteClick(apt.id)}
-                                    className="btn-action cancel"
-                                  >
-                                    Cancelar
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="calendar-grid-body">
+                        {calendarTimeSlots.map((timeSlot) => {
+                          const slotDate = sortedMyAppointments[0]
+                            ? getAppointmentStartDate(sortedMyAppointments[0])
+                            : null;
+                          const isPast = isTimeSlotPast(timeSlot, slotDate);
+
+                          return (
+                            <div
+                              key={timeSlot}
+                              className={`calendar-grid-row ${isPast ? 'past-slot' : ''}`}
+                              style={{
+                                gridTemplateColumns: `80px repeat(${barbers.length}, 1fr)`,
+                              }}
+                            >
+                              <div className="calendar-time-cell">{timeSlot}</div>
+                              {barbers.map((barber) => {
+                                const barberApts = calendarAppointmentsByBarber.get(barber.id) || [];
+                                const slotApts = barberApts.filter((apt) => {
+                                  const aptStart = apt.startTime;
+                                  const [aptH, aptM] = aptStart.split(':').map(Number);
+                                  const [slotH, slotM] = timeSlot.split(':').map(Number);
+                                  const aptMinutes = aptH * 60 + aptM;
+                                  const slotMinutes = slotH * 60 + slotM;
+                                  const durationSlots = Math.ceil(apt.duration / 30);
+                                  return (
+                                    slotMinutes >= aptMinutes &&
+                                    slotMinutes < aptMinutes + durationSlots * 30
+                                  );
+                                });
+
+                                const isFirstSlot = (apt) => {
+                                  const [aptH, aptM] = apt.startTime.split(':').map(Number);
+                                  const [slotH, slotM] = timeSlot.split(':').map(Number);
+                                  return aptH === slotH && aptM === slotM;
+                                };
+
+                                return (
+                                  <div key={barber.id} className="calendar-slot-cell">
+                                    {slotApts.map((apt) => {
+                                      if (!isFirstSlot(apt)) return null;
+                                      const durationSlots = Math.ceil(apt.duration / 30);
+                                      const aptDate = getAppointmentStartDate(apt);
+                                      const isAptPast = aptDate ? aptDate < now : false;
+                                      const servicesNames = Array.isArray(apt.services)
+                                        ? apt.services.map((s) => s.serviceName || s.name).join(', ')
+                                        : '-';
+
+                                      return (
+                                        <div
+                                          key={apt.id}
+                                          className={`calendar-appointment-card ${isAptPast ? 'past-appointment' : ''}`}
+                                          style={{
+                                            backgroundColor: apt.color.bg,
+                                            color: apt.color.text,
+                                            borderColor: apt.color.border,
+                                            borderLeftColor: apt.color.border,
+                                            marginBottom: '0.25rem',
+                                          }}
+                                          onClick={() => {
+                                            if (apt.status !== 'completed') {
+                                              handleDeleteClick(apt.id);
+                                            }
+                                          }}
+                                        >
+                                          <div className="apt-time">{apt.startTime}</div>
+                                          <div className="apt-client">
+                                            {apt.dependent
+                                              ? `👤 ${apt.dependent.name}`
+                                              : typeof apt.client === 'string'
+                                                ? apt.client
+                                                : apt.client?.name || 'Cliente'}
+                                          </div>
+                                          <div className="apt-service">{servicesNames}</div>
+                                          {apt.notes && (
+                                            <div className="apt-observation">
+                                              📝 {apt.notes}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

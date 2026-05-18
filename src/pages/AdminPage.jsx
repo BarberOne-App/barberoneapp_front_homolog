@@ -329,7 +329,10 @@ export default function AdminPage() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  const [appointmentDateFilter, setAppointmentDateFilter] = useState('');
+  const [appointmentDateFilter, setAppointmentDateFilter] = useState(() => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
   const [appointmentStartDate, setAppointmentStartDate] = useState('');
   const [appointmentEndDate, setAppointmentEndDate] = useState('');
   const [paymentDateFilter, setPaymentDateFilter] = useState('');
@@ -337,6 +340,9 @@ export default function AdminPage() {
   const [paymentEndDate, setPaymentEndDate] = useState('');
 
   const [selectedBarberFilter, setSelectedBarberFilter] = useState('all');
+  const [selectedUserFilter, setSelectedUserFilter] = useState('all');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState('all');
+  const [appointmentViewMode, setAppointmentViewMode] = useState('list');
 
   const [showBarberModal, setShowBarberModal] = useState(false);
   const [editingBarber, setEditingBarber] = useState(null);
@@ -1427,6 +1433,8 @@ export default function AdminPage() {
     setAppointmentStartDate('');
     setAppointmentEndDate('');
     setSelectedBarberFilter('all');
+    setSelectedUserFilter('all');
+    setSelectedStatusFilter('all');
   };
 
   const clearPaymentFilters = () => {
@@ -4165,6 +4173,23 @@ export default function AdminPage() {
   const filteredAppointmentsAdmin = useMemo(() => {
     let filtered = [...appointments];
 
+    // Por padrão, excluir agendamentos cancelados (a menos que filtro específico)
+    if (selectedStatusFilter !== 'cancelled') {
+      filtered = filtered.filter((apt) => !isCanceledAppointment(apt));
+    } else {
+      filtered = filtered.filter((apt) => isCanceledAppointment(apt));
+    }
+
+    // Filtro por status específico (pendente, confirmado)
+    if (selectedStatusFilter === 'pending') {
+      filtered = filtered.filter((apt) => {
+        const normalizedStatus = normalizeStatusText(apt?.status);
+        return normalizedStatus === 'pending' || !normalizedStatus || normalizedStatus === '';
+      });
+    } else if (selectedStatusFilter === 'confirmed') {
+      filtered = filtered.filter((apt) => normalizeStatusText(apt?.status) === 'confirmed');
+    }
+
     if (isBarber) {
       const loggedInBarber = barbers.find(
         (b) =>
@@ -4208,6 +4233,13 @@ export default function AdminPage() {
       filtered = filtered.filter((apt) => apt.barberId === selectedBarberFilter);
     }
 
+    if (selectedUserFilter !== 'all') {
+      filtered = filtered.filter((apt) => {
+        const clientId = apt.clientId || apt.client?.id;
+        return String(clientId) === String(selectedUserFilter);
+      });
+    }
+
     filtered.sort((a, b) => {
       const dateA = getAppointmentStartDate(a);
       const dateB = getAppointmentStartDate(b);
@@ -4226,6 +4258,8 @@ export default function AdminPage() {
     appointmentStartDate,
     appointmentEndDate,
     selectedBarberFilter,
+    selectedUserFilter,
+    selectedStatusFilter,
     isBarber,
     barbers,
     currentUser?.id,
@@ -4236,6 +4270,83 @@ export default function AdminPage() {
   const filteredAppointmentPayments = getFilteredPayments();
 
   const filteredAppointmentPaymentsForAgendamentos = getFilteredAppointmentPayments();
+
+  // ============================================================
+  // VISUALIZAÇÃO EM CALENDÁRIO / AGENDA (Admin)
+  // ============================================================
+  const APPOINTMENT_COLORS = [
+    { bg: 'rgba(125, 211, 252, 0.9)', text: '#0c4a6e', border: '#38bdf8' },
+    { bg: 'rgba(110, 231, 183, 0.9)', text: '#064e3b', border: '#34d399' },
+    { bg: 'rgba(253, 164, 175, 0.9)', text: '#881337', border: '#fb7185' },
+    { bg: 'rgba(253, 230, 138, 0.9)', text: '#78350f', border: '#fbbf24' },
+    { bg: 'rgba(196, 181, 253, 0.9)', text: '#4c1d95', border: '#a78bfa' },
+    { bg: 'rgba(251, 146, 60, 0.9)', text: '#7c2d12', border: '#f97316' },
+    { bg: 'rgba(167, 243, 208, 0.9)', text: '#065f46', border: '#6ee7b7' },
+    { bg: 'rgba(254, 215, 170, 0.9)', text: '#7c2d12', border: '#fdba74' },
+  ];
+
+  const getAppointmentColor = (index) =>
+    APPOINTMENT_COLORS[index % APPOINTMENT_COLORS.length];
+
+  const calendarTimeSlots = useMemo(() => {
+    const slots = [];
+    let hour = 8;
+    let minute = 0;
+    while (hour < 20 || (hour === 20 && minute === 0)) {
+      const h = String(hour).padStart(2, '0');
+      const m = String(minute).padStart(2, '0');
+      slots.push(`${h}:${m}`);
+      minute += 30;
+      if (minute >= 60) {
+        hour += 1;
+        minute = 0;
+      }
+    }
+    return slots;
+  }, []);
+
+  const getAppointmentDurationMinutes = (apt) => {
+    if (Array.isArray(apt.services) && apt.services.length > 0) {
+      return apt.services.reduce((sum, s) => {
+        const d = Number(s.durationMinutes ?? s.duration ?? 30);
+        return sum + (Number.isFinite(d) && d > 0 ? d : 30);
+      }, 0);
+    }
+    return 30;
+  };
+
+  const calendarAppointmentsByBarber = useMemo(() => {
+    const map = new Map();
+    barbers.forEach((barber) => map.set(barber.id, []));
+
+    filteredAppointmentsAdmin.forEach((apt, index) => {
+      const barberId = apt.barberId;
+      if (!map.has(barberId)) {
+        map.set(barberId, []);
+      }
+
+      const startDate = getAppointmentStartDate(apt);
+      const startTime = startDate
+        ? startDate.toLocaleTimeString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : apt.time || '00:00';
+
+      const duration = getAppointmentDurationMinutes(apt);
+      const color = getAppointmentColor(index);
+
+      map.get(barberId).push({
+        ...apt,
+        startTime,
+        duration,
+        color,
+        index,
+      });
+    });
+
+    return map;
+  }, [filteredAppointmentsAdmin, barbers]);
 
   const calculateMonthlyTotals = () => {
     const pendingAppointments = filteredAppointmentPayments
@@ -7715,10 +7826,44 @@ export default function AdminPage() {
                   </div>
                 )}
 
+                <div className="filter-group">
+                  <label>Cliente:</label>
+                  <select
+                    value={selectedUserFilter}
+                    onChange={(e) => setSelectedUserFilter(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="all">Todos os Clientes</option>
+                    {allUsers
+                      .filter((user) => user.role === 'client' || !user.role)
+                      .map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div className="filter-group">
+                  <label>Status:</label>
+                  <select
+                    value={selectedStatusFilter}
+                    onChange={(e) => setSelectedStatusFilter(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="all">Todos os Status</option>
+                    <option value="pending">Pendentes</option>
+                    <option value="confirmed">Confirmados</option>
+                    <option value="cancelled">Cancelados</option>
+                  </select>
+                </div>
+
                 {(appointmentDateFilter ||
                   appointmentStartDate ||
                   appointmentEndDate ||
-                  selectedBarberFilter !== 'all') && (
+                  selectedBarberFilter !== 'all' ||
+                  selectedUserFilter !== 'all' ||
+                  selectedStatusFilter !== 'all') && (
                   <div className="filter-group">
                     <button onClick={clearAppointmentFilters} className="clear-filters-btn">
                       Limpar Filtros
@@ -7727,202 +7872,358 @@ export default function AdminPage() {
                 )}
               </div>
 
-              {/* TABELA (copiada da BarberPage) */}
-              <div className="barber-appointments-section">
-                {filteredAppointmentsAdmin.length === 0 ? (
-                  <p className="calendar-empty">
-                    Nenhum agendamento encontrado para o período selecionado.
-                  </p>
-                ) : (
-                  <div className="fluig-table-parent" style={{ marginTop: '1.5rem' }}>
-                    <div className="agendamentos-table-scroll">
-                      <table className="fluig-table-children">
-                        <thead>
-                          <tr>
-                            <th>Cliente</th>
-                            <th>Barbeiro</th>
-                            <th>Para</th>
-                            <th>Data</th>
-                            <th>Horário</th>
-                            <th>Serviços</th>
-                            <th>Telefone</th>
-                            <th>Pagamento</th>
-                            <th>Status</th>
-                            <th>Ações</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredAppointmentsAdmin.map((apt) => {
-                            const appointmentDate = getAppointmentStartDate(apt);
-                            const canComplete = canCompleteAppointment(apt);
-                            const isClosedAppointment = isClosedAppointmentStatus(apt);
-                            const isPast = canComplete;
-                            const isCompleted = apt.status === 'completed';
-                            const isConfirmed = apt.status === 'confirmed';
+              {/* TOGGLE VISUALIZAÇÃO */}
+              {filteredAppointmentsAdmin.length > 0 && (
+                <div className="calendar-view-toggle" style={{ marginTop: '1rem' }}>
+                  <button
+                    onClick={() => setAppointmentViewMode('list')}
+                    className={appointmentViewMode === 'list' ? 'active' : ''}
+                  >
+                    📋 Lista
+                  </button>
+                  <button
+                    onClick={() => setAppointmentViewMode('calendar')}
+                    className={appointmentViewMode === 'calendar' ? 'active' : ''}
+                  >
+                    📅 Calendário
+                  </button>
+                </div>
+              )}
 
-                            // Formatação da data e hora
-                            const formattedDate = apt.date
-                              ? new Date(`${apt.date}T00:00:00`).toLocaleDateString('pt-BR')
-                              : appointmentDate
-                                ? appointmentDate.toLocaleDateString('pt-BR')
-                                : 'Data não informada';
-                            const formattedTime = apt.time
-                              ? String(apt.time).slice(0, 5)
-                              : appointmentDate
-                                ? appointmentDate.toLocaleTimeString('pt-BR', {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                  })
-                                : 'Horário não informado';
+              {/* VISUALIZAÇÃO LISTA */}
+              {appointmentViewMode === 'list' && (
+                <div className="barber-appointments-section">
+                  {filteredAppointmentsAdmin.length === 0 ? (
+                    <p className="calendar-empty">
+                      Nenhum agendamento encontrado para o período selecionado.
+                    </p>
+                  ) : (
+                    <div className="fluig-table-parent" style={{ marginTop: '1.5rem' }}>
+                      <div className="agendamentos-table-scroll">
+                        <table className="fluig-table-children">
+                          <thead>
+                            <tr>
+                              <th>Cliente</th>
+                              <th>Barbeiro</th>
+                              <th>Para</th>
+                              <th>Data</th>
+                              <th>Horário</th>
+                              <th>Serviços</th>
+                              <th>Telefone</th>
+                              <th>Pagamento</th>
+                              <th>Status</th>
+                              <th>Ações</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredAppointmentsAdmin.map((apt) => {
+                              const appointmentDate = getAppointmentStartDate(apt);
+                              const canComplete = canCompleteAppointment(apt);
+                              const isClosedAppointment = isClosedAppointmentStatus(apt);
+                              const isPast = canComplete;
+                              const isCompleted = apt.status === 'completed';
+                              const isConfirmed = apt.status === 'confirmed';
 
-                            // Nome do cliente (pode estar em apt.client.name ou apt.clientName)
-                            const clientName = apt.client?.name || apt.clientName || 'Cliente';
-                            const barberName =
-                              apt.barber?.displayName || apt.barberName || 'Sem barbeiro';
-                            const dependentLabel = apt.dependent?.name || apt.dependentName || '';
+                              // Formatação da data e hora
+                              const formattedDate = apt.date
+                                ? new Date(`${apt.date}T00:00:00`).toLocaleDateString('pt-BR')
+                                : appointmentDate
+                                  ? appointmentDate.toLocaleDateString('pt-BR')
+                                  : 'Data não informada';
+                              const formattedTime = apt.time
+                                ? String(apt.time).slice(0, 5)
+                                : appointmentDate
+                                  ? appointmentDate.toLocaleTimeString('pt-BR', {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })
+                                  : 'Horário não informado';
 
-                            // Telefone do cliente
-                            const clientPhone = apt.client?.phone || apt.clientPhone || '-';
-                            const paymentLabel = getAppointmentPaymentMethodLabel(apt.id);
+                              // Nome do cliente (pode estar em apt.client.name ou apt.clientName)
+                              const clientName = apt.client?.name || apt.clientName || 'Cliente';
+                              const barberName =
+                                apt.barber?.displayName || apt.barberName || 'Sem barbeiro';
+                              const dependentLabel = apt.dependent?.name || apt.dependentName || '';
 
-                            // Lista de serviços (cada serviço pode ter serviceName ou name)
-                            const serviceNames = Array.isArray(apt.services)
-                              ? apt.services.map((s) => s.serviceName || s.name).filter(Boolean)
-                              : [];
+                              // Telefone do cliente
+                              const clientPhone = apt.client?.phone || apt.clientPhone || '-';
+                              const paymentLabel = getAppointmentPaymentMethodLabel(apt.id);
 
-                            return (
-                              <tr
-                                key={apt.id}
-                                className={`${isCompleted ? 'row-completed' : ''} ${isPast && !isCompleted ? 'row-past' : ''} ${isConfirmed ? 'row-confirmed' : ''}`}
-                              >
-                                <td>
-                                  <strong>{clientName}</strong>
-                                </td>
-                                <td>{barberName}</td>
-                                <td>
-                                  {dependentLabel ? (
+                              // Lista de serviços (cada serviço pode ter serviceName ou name)
+                              const serviceNames = Array.isArray(apt.services)
+                                ? apt.services.map((s) => s.serviceName || s.name).filter(Boolean)
+                                : [];
+
+                              return (
+                                <tr
+                                  key={apt.id}
+                                  className={`${isCompleted ? 'row-completed' : ''} ${isPast && !isCompleted ? 'row-past' : ''} ${isConfirmed ? 'row-confirmed' : ''}`}
+                                >
+                                  <td>
+                                    <strong>{clientName}</strong>
+                                  </td>
+                                  <td>{barberName}</td>
+                                  <td>
+                                    {dependentLabel ? (
+                                      <span
+                                        style={{
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          background: 'rgba(255,122,26,0.12)',
+                                          color: '#ff7a1a',
+                                          border: '1px solid rgba(255,122,26,0.35)',
+                                          borderRadius: '20px',
+                                          padding: '2px 9px',
+                                          fontSize: '0.75rem',
+                                          fontWeight: 700,
+                                        }}
+                                      >
+                                        👤 {dependentLabel}
+                                      </span>
+                                    ) : (
+                                      <span style={{ color: '#ddd', fontWeight: 600 }}>
+                                        {clientName}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td>{formattedDate}</td>
+                                  <td>
+                                    <span className="appointment-time">{formattedTime}</span>
+                                  </td>
+                                  <td>
+                                    <div className="services-list-compact">
+                                      {serviceNames.length > 0 ? (
+                                        serviceNames.map((name, idx) => (
+                                          <div key={idx} className="service-item-compact">
+                                            {name}
+                                          </div>
+                                        ))
+                                      ) : (
+                                        <span className="no-services">—</span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td>
+                                    <span className="client-phone">{clientPhone}</span>
+                                  </td>
+                                  <td>
                                     <span
                                       style={{
                                         display: 'inline-flex',
                                         alignItems: 'center',
                                         gap: '4px',
-                                        background: 'rgba(255,122,26,0.12)',
-                                        color: '#ff7a1a',
-                                        border: '1px solid rgba(255,122,26,0.35)',
                                         borderRadius: '20px',
                                         padding: '2px 9px',
                                         fontSize: '0.75rem',
                                         fontWeight: 700,
+                                        color:
+                                          paymentLabel === 'Pagamento local'
+                                            ? '#e5b84a'
+                                            : paymentLabel === 'Online via PIX'
+                                              ? '#2ecc71'
+                                              : paymentLabel === 'Online via cartão'
+                                                ? '#4ea1ff'
+                                                : paymentLabel === 'Plano'
+                                                  ? '#d4af37'
+                                                  : '#888',
+                                        border: '1px solid currentColor',
+                                        background: 'rgba(255,255,255,0.03)',
+                                        whiteSpace: 'nowrap',
                                       }}
                                     >
-                                      👤 {dependentLabel}
+                                      {paymentLabel}
                                     </span>
-                                  ) : (
-                                    <span style={{ color: '#ddd', fontWeight: 600 }}>
-                                      {clientName}
+                                  </td>
+                                  <td>
+                                    <span
+                                      className={`status-badge ${getAppointmentStatusClassName(apt)}`}
+                                    >
+                                      {getAppointmentStatusLabel(apt)}
                                     </span>
-                                  )}
-                                </td>
-                                <td>{formattedDate}</td>
-                                <td>
-                                  <span className="appointment-time">{formattedTime}</span>
-                                </td>
-                                <td>
-                                  <div className="services-list-compact">
-                                    {serviceNames.length > 0 ? (
-                                      serviceNames.map((name, idx) => (
-                                        <div key={idx} className="service-item-compact">
-                                          {name}
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <span className="no-services">—</span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td>
-                                  <span className="client-phone">{clientPhone}</span>
-                                </td>
-                                <td>
-                                  <span
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                      borderRadius: '20px',
-                                      padding: '2px 9px',
-                                      fontSize: '0.75rem',
-                                      fontWeight: 700,
-                                      color:
-                                        paymentLabel === 'Pagamento local'
-                                          ? '#e5b84a'
-                                          : paymentLabel === 'Online via PIX'
-                                            ? '#2ecc71'
-                                            : paymentLabel === 'Online via cartão'
-                                              ? '#4ea1ff'
-                                              : paymentLabel === 'Plano'
-                                                ? '#d4af37'
-                                                : '#888',
-                                      border: '1px solid currentColor',
-                                      background: 'rgba(255,255,255,0.03)',
-                                      whiteSpace: 'nowrap',
-                                    }}
-                                  >
-                                    {paymentLabel}
-                                  </span>
-                                </td>
-                                <td>
-                                  <span
-                                    className={`status-badge ${getAppointmentStatusClassName(apt)}`}
-                                  >
-                                    {getAppointmentStatusLabel(apt)}
-                                  </span>
-                                </td>
-                                <td>
-                                  <div className="barber-table-actions">
-                                    {!isCompleted && !isClosedAppointment && (
-                                      <>
-                                        {!isConfirmed && (
+                                  </td>
+                                  <td>
+                                    <div className="barber-table-actions">
+                                      {!isCompleted && !isClosedAppointment && (
+                                        <>
+                                          {!isConfirmed && (
+                                            <button
+                                              onClick={() => handleConfirmAppointment(apt.id)}
+                                              className="action-btn-table btn-confirm-table"
+                                            >
+                                              Confirmar
+                                            </button>
+                                          )}
                                           <button
-                                            onClick={() => handleConfirmAppointment(apt.id)}
-                                            className="action-btn-table btn-confirm-table"
+                                            onClick={() => sendWhatsApp(apt.id, 'confirm')}
+                                            className="action-btn-table btn-whatsapp-table"
                                           >
-                                            Confirmar
+                                            💬 Mensagem
                                           </button>
-                                        )}
-                                        <button
-                                          onClick={() => sendWhatsApp(apt.id, 'confirm')}
-                                          className="action-btn-table btn-whatsapp-table"
-                                        >
-                                          💬 Mensagem
-                                        </button>
-                                        <button
-                                          onClick={() => handleDeleteAppointment(apt.id)}
-                                          className="action-btn-table btn-cancel-table"
-                                        >
-                                          Cancelar
-                                        </button>
-                                        {isConfirmed && canComplete && (
                                           <button
-                                            onClick={() => handleCompleteAppointment(apt.id)}
-                                            className="action-btn-table btn-complete-table"
+                                            onClick={() => handleDeleteAppointment(apt.id)}
+                                            className="action-btn-table btn-cancel-table"
                                           >
-                                            ✅ Concluir
+                                            Cancelar
                                           </button>
-                                        )}
-                                      </>
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                                          {isConfirmed && canComplete && (
+                                            <button
+                                              onClick={() => handleCompleteAppointment(apt.id)}
+                                              className="action-btn-table btn-complete-table"
+                                            >
+                                              ✅ Concluir
+                                            </button>
+                                          )}
+                                        </>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
+
+              {/* VISUALIZAÇÃO CALENDÁRIO */}
+              {appointmentViewMode === 'calendar' && (
+                <div className="barber-appointments-section">
+                  {filteredAppointmentsAdmin.length === 0 ? (
+                    <p className="calendar-empty">
+                      Nenhum agendamento encontrado para o período selecionado.
+                    </p>
+                  ) : (
+                    <div className="calendar-grid-container" style={{ marginTop: '1.5rem' }}>
+                      <div
+                        className="calendar-grid-header"
+                        style={{
+                          gridTemplateColumns: `80px repeat(${barbers.length}, 1fr)`,
+                        }}
+                      >
+                        <div className="calendar-grid-corner">Horário</div>
+                        {barbers.map((barber) => {
+                          const barberPhoto = barber.photo || barber.avatar || '';
+                          const barberInitial =
+                            String(barber.displayName || barber.name).trim().charAt(0).toUpperCase() || '?';
+                          return (
+                            <div key={barber.id} className="calendar-grid-barber-header">
+                              {barberPhoto ? (
+                                <img
+                                  src={barberPhoto}
+                                  alt={barber.displayName || barber.name}
+                                  className="calendar-barber-photo"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : (
+                                <div className="calendar-barber-photo-fallback">
+                                  {barberInitial}
+                                </div>
+                              )}
+                              <span className="calendar-barber-name">
+                                {barber.displayName || barber.name}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="calendar-grid-body">
+                        {calendarTimeSlots.map((timeSlot) => {
+                          const slotDate = filteredAppointmentsAdmin[0]
+                            ? getAppointmentStartDate(filteredAppointmentsAdmin[0])
+                            : null;
+                          const isPast = slotDate
+                            ? (() => {
+                                const [h, m] = timeSlot.split(':').map(Number);
+                                const slotDateTime = new Date(slotDate);
+                                slotDateTime.setHours(h, m, 0, 0);
+                                return slotDateTime < new Date();
+                              })()
+                            : false;
+
+                          return (
+                            <div
+                              key={timeSlot}
+                              className={`calendar-grid-row ${isPast ? 'past-slot' : ''}`}
+                              style={{
+                                gridTemplateColumns: `80px repeat(${barbers.length}, 1fr)`,
+                              }}
+                            >
+                              <div className="calendar-time-cell">{timeSlot}</div>
+                              {barbers.map((barber) => {
+                                const barberApts = calendarAppointmentsByBarber.get(barber.id) || [];
+                                const slotApts = barberApts.filter((apt) => {
+                                  const [aptH, aptM] = apt.startTime.split(':').map(Number);
+                                  const [slotH, slotM] = timeSlot.split(':').map(Number);
+                                  const aptMinutes = aptH * 60 + aptM;
+                                  const slotMinutes = slotH * 60 + slotM;
+                                  const durationSlots = Math.ceil(apt.duration / 30);
+                                  return (
+                                    slotMinutes >= aptMinutes &&
+                                    slotMinutes < aptMinutes + durationSlots * 30
+                                  );
+                                });
+
+                                const isFirstSlot = (apt) => {
+                                  const [aptH, aptM] = apt.startTime.split(':').map(Number);
+                                  const [slotH, slotM] = timeSlot.split(':').map(Number);
+                                  return aptH === slotH && aptM === slotM;
+                                };
+
+                                return (
+                                  <div key={barber.id} className="calendar-slot-cell">
+                                    {slotApts.map((apt) => {
+                                      if (!isFirstSlot(apt)) return null;
+                                      const aptDate = getAppointmentStartDate(apt);
+                                      const isAptPast = aptDate ? aptDate < new Date() : false;
+                                      const servicesNames = Array.isArray(apt.services)
+                                        ? apt.services.map((s) => s.serviceName || s.name).join(', ')
+                                        : '-';
+                                      const clientName =
+                                        typeof apt.client === 'string'
+                                          ? apt.client
+                                          : apt.client?.name || apt.clientName || 'Cliente';
+
+                                      return (
+                                        <div
+                                          key={apt.id}
+                                          className={`calendar-appointment-card ${isAptPast ? 'past-appointment' : ''}`}
+                                          style={{
+                                            backgroundColor: apt.color.bg,
+                                            color: apt.color.text,
+                                            borderColor: apt.color.border,
+                                            borderLeftColor: apt.color.border,
+                                            marginBottom: '0.25rem',
+                                          }}
+                                        >
+                                          <div className="apt-time">{apt.startTime}</div>
+                                          <div className="apt-client">{clientName}</div>
+                                          <div className="apt-service">{servicesNames}</div>
+                                          {apt.notes && (
+                                            <div className="apt-observation">
+                                              📝 {apt.notes}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
