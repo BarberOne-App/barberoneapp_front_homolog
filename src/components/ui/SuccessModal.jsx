@@ -1,8 +1,17 @@
-import { CheckCircle, X } from 'lucide-react';
+import { CheckCircle } from 'lucide-react';
+import { FaWhatsapp } from 'react-icons/fa';
 import Button from './Button.jsx';
 import './SuccessModal.css';
 
-export default function SuccessModal({ isOpen, onClose, title, message, details }) {
+export default function SuccessModal({
+  isOpen,
+  onClose,
+  title,
+  message,
+  details,
+  actionLabel,
+  onAction,
+}) {
   if (!isOpen) return null;
 
   return (
@@ -32,9 +41,17 @@ export default function SuccessModal({ isOpen, onClose, title, message, details 
           )}
         </div>
 
-        <Button onClick={onClose} className="success-modal__button">
-          Entendi
-        </Button>
+        <div className="success-modal__actions">
+          {onAction && (
+            <Button onClick={onAction} className="success-modal__button success-modal__button--whatsapp">
+              <FaWhatsapp size={20} />
+              {actionLabel || 'Enviar no WhatsApp'}
+            </Button>
+          )}
+          <Button onClick={onClose} className="success-modal__button">
+            Entendi
+          </Button>
+        </div>
       </div>
     </div>
   );
