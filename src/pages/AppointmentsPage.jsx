@@ -2445,6 +2445,29 @@ export default function AppointmentsPage() {
     }
   }, [loadData, clearAllPaymentsCache]);
 
+  const handleSendReceiptWhatsApp = useCallback(() => {
+    if (!successData) return;
+
+    const detailLines = Array.isArray(successData.details)
+      ? successData.details
+        .filter((detail) => detail?.label && detail?.value !== undefined && detail?.value !== null)
+        .map((detail) => `${detail.label}: ${detail.value}`)
+      : [];
+
+    const receiptText = [
+      'Comprovante de agendamento',
+      '',
+      successData.title || 'Agendamento confirmado',
+      successData.message || '',
+      '',
+      ...detailLines,
+    ]
+      .filter((line, index, lines) => line || lines[index - 1])
+      .join('\n');
+
+    window.open(`https://wa.me/?text=${encodeURIComponent(receiptText)}`, '_blank');
+  }, [successData]);
+
   const handleDeleteClick = useCallback((id) => {
     setAppointmentToDelete(id);
     setShowConfirmModal(true);
@@ -3684,6 +3707,8 @@ export default function AppointmentsPage() {
         title={successData?.title}
         message={successData?.message}
         details={successData?.details}
+        actionLabel="Enviar comprovante no WhatsApp"
+        onAction={successData ? handleSendReceiptWhatsApp : undefined}
       />
 
       <ConfirmModal
