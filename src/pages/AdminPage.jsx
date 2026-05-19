@@ -4945,6 +4945,16 @@ export default function AdminPage() {
         return;
       }
 
+      const parsedDuration = Number(serviceForm.duration);
+      if (
+        !Number.isInteger(parsedDuration) ||
+        parsedDuration < 10 ||
+        parsedDuration % 10 !== 0
+      ) {
+        showToast('A duracao deve ser em intervalos de 10 minutos.', 'danger');
+        return;
+      }
+
       let formattedPromotionalPrice = '';
       // if (serviceForm.promotionalPrice && serviceForm.promotionalPrice.trim() !== '') {
       //   const promoValue = parseFloat(serviceForm.promotionalPrice);
@@ -4962,7 +4972,7 @@ export default function AdminPage() {
         covered_by_plan: serviceForm.coveredByPlan,
         imageUrl:
           currentServiceImage || 'https://images.unsplash.com/photo-1596728325488-58c87691e9af',
-        durationMinutes: parseInt(serviceForm.duration),
+        durationMinutes: parsedDuration,
       };
 
       if (editingService) {
@@ -8361,54 +8371,48 @@ export default function AdminPage() {
                                       const [aptH, aptM] = apt.startTime.split(':').map(Number);
                                       const slotMinutes = slotH * 60 + slotM;
                                       const aptMinutes = aptH * 60 + aptM;
-                                      const leadingFreeMinutes = Math.max(
-                                        0,
-                                        aptMinutes - slotMinutes,
-                                      );
+                                      const aptEndMinutes = aptMinutes + apt.duration;
                                       const eventHeight = Math.max(
                                         12,
                                         (apt.duration / 30) * calendarSlotHeight,
                                       );
+
                                       const freeMinutesInSlot = Math.max(
                                         0,
-                                        30 - leadingFreeMinutes - apt.duration,
+                                        Math.min(slotMinutes + 30, aptEndMinutes) < slotMinutes + 30
+                                          ? slotMinutes + 30 - Math.min(slotMinutes + 30, aptEndMinutes)
+                                          : 0,
                                       );
-                                      const leadingFreeHeight =
-                                        leadingFreeMinutes > 0
-                                          ? (leadingFreeMinutes / 30) * calendarSlotHeight
-                                          : 0;
                                       const freeHeight =
                                         freeMinutesInSlot > 0
                                           ? (freeMinutesInSlot / 30) * calendarSlotHeight
                                           : 0;
 
+                                      const freeIntervalStart = Math.min(slotMinutes + 30, aptEndMinutes);
+                                      const freeIntervalEnd = slotMinutes + 30;
+                                      const hasBookingInFreeInterval = barberApts.some((otherApt) => {
+                                        if (otherApt.id === apt.id) return false;
+                                        const [otherStartH, otherStartM] = otherApt.startTime.split(':').map(Number);
+                                        const otherStartMinutes = otherStartH * 60 + otherStartM;
+                                        const otherEndMinutes = otherStartMinutes + otherApt.duration;
+                                        return (
+                                          otherStartMinutes < freeIntervalEnd &&
+                                          otherEndMinutes > freeIntervalStart
+                                        );
+                                      });
+
+                                      const showFreeFit = freeMinutesInSlot > 0 && !hasBookingInFreeInterval;
+
                                       return (
                                         <React.Fragment key={apt.id}>
-                                          {leadingFreeMinutes > 0 && (
-                                            <div
-                                              className="calendar-free-fit calendar-free-fit--before"
-                                              style={{ height: `${leadingFreeHeight}px` }}
-                                              role="button"
-                                              tabIndex={0}
-                                              onClick={() => handleFreeFitBooking(barber.id, aptDate, slotMinutes)}
-                                              onKeyDown={(event) => {
-                                                if (event.key === 'Enter' || event.key === ' ') {
-                                                  event.preventDefault();
-                                                  handleFreeFitBooking(barber.id, aptDate, slotMinutes);
-                                                }
-                                              }}
-                                            >
-                                              Encaixe livre · {leadingFreeMinutes} min
-                                            </div>
-                                          )}
-                                          <div
-                                            className={`calendar-appointment-card ${isAptPast ? 'past-appointment' : ''}`}
-                                            style={{
-                                              backgroundColor: apt.color.bg,
-                                              color: apt.color.text,
-                                              borderColor: apt.color.border,
-                                              borderLeftColor: apt.color.border,
-                                              height: `${eventHeight}px`,
+                                        <div
+                                          className={`calendar-appointment-card ${isAptPast ? 'past-appointment' : ''}`}
+                                          style={{
+                                            height: `${eventHeight}px`,
+                                            backgroundColor: apt.color.bg,
+                                            color: apt.color.text,
+                                            borderColor: apt.color.border,
+                                            borderLeftColor: apt.color.border,
                                             }}
                                           >
                                             {eventHeight <= 32 ? (
@@ -8431,34 +8435,34 @@ export default function AdminPage() {
                                                 📝 {apt.notes}
                                               </div>
                                             )}
-                                          </div>
-                                          {freeMinutesInSlot > 0 && (
-                                            <div
-                                              className="calendar-free-fit"
-                                              style={{ height: `${freeHeight}px` }}
-                                              role="button"
-                                              tabIndex={0}
-                                              onClick={() =>
+                                        </div>
+                                        {showFreeFit && (
+                                          <div
+                                            className="calendar-free-fit"
+                                            style={{ height: `${freeHeight}px` }}
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={() =>
+                                              handleFreeFitBooking(
+                                                barber.id,
+                                                aptDate,
+                                                aptMinutes + apt.duration,
+                                              )
+                                            }
+                                            onKeyDown={(event) => {
+                                              if (event.key === 'Enter' || event.key === ' ') {
+                                                event.preventDefault();
                                                 handleFreeFitBooking(
                                                   barber.id,
                                                   aptDate,
                                                   aptMinutes + apt.duration,
-                                                )
+                                                );
                                               }
-                                              onKeyDown={(event) => {
-                                                if (event.key === 'Enter' || event.key === ' ') {
-                                                  event.preventDefault();
-                                                  handleFreeFitBooking(
-                                                    barber.id,
-                                                    aptDate,
-                                                    aptMinutes + apt.duration,
-                                                  );
-                                                }
-                                              }}
-                                            >
-                                              Encaixe livre · {freeMinutesInSlot} min
-                                            </div>
-                                          )}
+                                            }}
+                                          >
+                                            Encaixe livre · {freeMinutesInSlot} min
+                                          </div>
+                                        )}
                                         </React.Fragment>
                                       );
                                     })}
@@ -12132,8 +12136,8 @@ export default function AdminPage() {
               <Input
                 label="Duração (minutos)"
                 type="number"
-                min="15"
-                step="15"
+                min="10"
+                step="10"
                 value={serviceForm.duration}
                 onChange={(e) => handleServiceFormChange('duration', e.target.value)}
                 required

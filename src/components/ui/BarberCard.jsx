@@ -205,6 +205,7 @@ export default function BarberCard({
   showToast,
   preSelectedService,
   preSelectedTime = '',
+  fitWindowTime = '',
   hasActiveSubscription = false,
   isServiceCoveredByPlan = () => false,
   isActive = false,
@@ -245,13 +246,36 @@ export default function BarberCard({
     }
 
     onSelectBarber?.();
-    setSelectedServices((prev) => {
-      const exists = prev.find((s) => s.id === service.id);
-      if (exists) {
-        return prev.filter((s) => s.id !== service.id);
+
+    const exists = selectedServices.find((s) => s.id === service.id);
+    const nextServices = exists
+      ? selectedServices.filter((s) => s.id !== service.id)
+      : [...selectedServices, service];
+
+    if (!exists && preSelectedTime) {
+      const nextDuration = calculateTotalDuration(nextServices);
+      const fitsSelectedWindow = (getAvailableTimes(barberId, selectedDate, nextDuration) || [])
+        .includes(preSelectedTime);
+
+      if (!fitsSelectedWindow) {
+        if (showToast) {
+          showToast('Este servico nao cabe no horario de encaixe selecionado.', 'warning');
+        }
+        return;
       }
-      return [...prev, service];
-    });
+    }
+
+    setSelectedServices(nextServices);
+
+    if (!nextServices.length) {
+      setSelectedTime('');
+      return;
+    }
+
+    if (preSelectedTime) {
+      setSelectedTime('');
+      return;
+    }
 
     setSelectedTime('');
   };
@@ -412,7 +436,9 @@ export default function BarberCard({
         <div className="services-grid">
           {services.length === 0 && (
             <p style={{ color: '#a8a8a8', textAlign: 'center', padding: '1rem' }}>
-              Este barbeiro ainda não possui serviços de domínio configurados.
+              {fitWindowTime
+                ? 'Nenhum servico cabe neste horario de encaixe.'
+                : 'Este barbeiro ainda nao possui servicos de dominio configurados.'}
             </p>
           )}
 
