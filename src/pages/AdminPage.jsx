@@ -7979,6 +7979,23 @@ export default function AdminPage() {
                   )}
               </div>
 
+              {/* TOGGLE VISUALIZAÇÃO */}
+              {filteredAppointmentsAdmin.length > 0 && (
+                <div className="calendar-view-toggle" style={{ marginTop: '1rem' }}>
+                  <button
+                    onClick={() => setAppointmentViewMode('list')}
+                    className={appointmentViewMode === 'list' ? 'active' : ''}
+                  >
+                    📋 Lista
+                  </button>
+                  <button
+                    onClick={() => setAppointmentViewMode('calendar')}
+                    className={appointmentViewMode === 'calendar' ? 'active' : ''}
+                  >
+                    📅 Calendário
+                  </button>
+                </div>
+              )}
 
               {appointmentViewMode === 'list' && (
                 <div className="barber-appointments-section">
@@ -7999,6 +8016,7 @@ export default function AdminPage() {
                               <th>Horário</th>
                               <th>Serviços</th>
                               <th>Telefone</th>
+                              <th>Obs.</th>
                               <th>Pagamento</th>
                               <th>Status</th>
                               <th>Ações</th>
@@ -8051,35 +8069,23 @@ export default function AdminPage() {
                                   <td>
                                     <strong>{clientName}</strong>
                                   </td>
+
                                   <td>{barberName}</td>
+
                                   <td>
                                     {dependentLabel ? (
-                                      <span
-                                        style={{
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          gap: '4px',
-                                          background: 'rgba(255,122,26,0.12)',
-                                          color: '#ff7a1a',
-                                          border: '1px solid rgba(255,122,26,0.35)',
-                                          borderRadius: '20px',
-                                          padding: '2px 9px',
-                                          fontSize: '0.75rem',
-                                          fontWeight: 700,
-                                        }}
-                                      >
-                                        👤 {dependentLabel}
-                                      </span>
+                                      <span className="dependent-badge">👤 {dependentLabel}</span>
                                     ) : (
-                                      <span style={{ color: '#ddd', fontWeight: 600 }}>
-                                        {clientName}
-                                      </span>
+                                      <span style={{ color: '#ddd', fontWeight: 600 }}>{clientName}</span>
                                     )}
                                   </td>
+
                                   <td>{formattedDate}</td>
+
                                   <td>
                                     <span className="appointment-time">{formattedTime}</span>
                                   </td>
+
                                   <td>
                                     <div className="services-list-compact">
                                       {serviceNames.length > 0 ? (
@@ -8093,78 +8099,24 @@ export default function AdminPage() {
                                       )}
                                     </div>
                                   </td>
+
                                   <td>
                                     <span className="client-phone">{clientPhone}</span>
                                   </td>
-                                  <td>
-                                    <span
-                                      style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '4px',
-                                        borderRadius: '20px',
-                                        padding: '2px 9px',
-                                        fontSize: '0.75rem',
-                                        fontWeight: 700,
-                                        color:
-                                          paymentLabel === 'Pagamento local'
-                                            ? '#e5b84a'
-                                            : paymentLabel === 'Online via PIX'
-                                              ? '#2ecc71'
-                                              : paymentLabel === 'Online via cartão'
-                                                ? '#4ea1ff'
-                                                : paymentLabel === 'Plano'
-                                                  ? '#d4af37'
-                                                  : '#888',
-                                        border: '1px solid currentColor',
-                                        background: 'rgba(255,255,255,0.03)',
-                                        whiteSpace: 'nowrap',
-                                      }}
-                                    >
-                                      {paymentLabel}
-                                    </span>
-                                  </td>
-                                  <td>
-                                    <span
-                                      className={`status-badge ${getAppointmentStatusClassName(apt)}`}
-                                    >
-                                      {getAppointmentStatusLabel(apt)}
-                                    </span>
-                                  </td>
-                                  <td>{formattedDate}</td>
-                                  <td>
-                                    <span className="appointment-time">{formattedTime}</span>
-                                  </td>
-                                  <td>
-                                    <div className="services-list-compact">
-                                      {serviceNames.length > 0 ? (
-                                        serviceNames.map((name, idx) => (
-                                          <div key={idx} className="service-item-compact">
-                                            {name}
-                                          </div>
-                                        ))
-                                      ) : (
-                                        <span className="no-services">—</span>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td>
-                                    <span className="client-phone">{clientPhone}</span>
-                                  </td>
+
                                   <td>
                                     {apt.notes ? (
                                       <div>
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            setExpandedObsId(
-                                              expandedObsId === apt.id ? null : apt.id,
-                                            );
+                                            setExpandedObsId(expandedObsId === apt.id ? null : apt.id);
                                           }}
                                           className="obs-btn"
                                         >
                                           Ver
                                         </button>
+
                                         {expandedObsId === apt.id && (
                                           <div className="obs-card">
                                             <div className="obs-card-label">Observação</div>
@@ -8176,63 +8128,43 @@ export default function AdminPage() {
                                       <span className="obs-empty">—</span>
                                     )}
                                   </td>
+
                                   <td>
-                                    <span
-                                      style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '4px',
-                                        borderRadius: '20px',
-                                        padding: '2px 9px',
-                                        fontSize: '0.75rem',
-                                        fontWeight: 700,
-                                        color:
-                                          paymentLabel === 'Pagamento local'
-                                            ? '#e5b84a'
-                                            : paymentLabel === 'Online via PIX'
-                                              ? '#2ecc71'
-                                              : paymentLabel === 'Online via cartão'
-                                                ? '#4ea1ff'
-                                                : paymentLabel === 'Plano'
-                                                  ? '#d4af37'
-                                                  : '#888',
-                                        border: '1px solid currentColor',
-                                        background: 'rgba(255,255,255,0.03)',
-                                        whiteSpace: 'nowrap',
-                                      }}
-                                    >
+                                    <span className="payment-badge">
                                       {paymentLabel}
                                     </span>
                                   </td>
+
                                   <td>
-                                    <span
-                                      className={`status-badge ${getAppointmentStatusClassName(apt)}`}
-                                    >
+                                    <span className={`status-badge ${getAppointmentStatusClassName(apt)}`}>
                                       {getAppointmentStatusLabel(apt)}
                                     </span>
                                   </td>
+
                                   <td>
                                     <div className="barber-table-actions">
                                       {!isCompleted && !isClosedAppointment && (
                                         <>
                                           {!isConfirmed && (
-                                            <>
-                                              <button
-                                                onClick={() => sendWhatsApp(apt.id, 'confirm')}
-                                                className="action-btn-table btn-whatsapp-table"
-                                              >
-                                                💬 Mensagem
-                                              </button>
-
-                                              <button
-                                                onClick={() => handleDeleteAppointment(apt.id)}
-                                                className="action-btn-table btn-cancel-table"
-                                              >
-                                                Cancelar
-                                              </button>
-                                            </>
+                                            <button
+                                              onClick={() => handleConfirmAppointment(apt.id)}
+                                              className="action-btn-table btn-confirm-table"
+                                            >
+                                              Confirmar
+                                            </button>
                                           )}
-
+                                          <button
+                                            onClick={() => sendWhatsApp(apt.id, 'confirm')}
+                                            className="action-btn-table btn-whatsapp-table"
+                                          >
+                                            💬 Mensagem
+                                          </button>
+                                          <button
+                                            onClick={() => handleDeleteAppointment(apt.id)}
+                                            className="action-btn-table btn-cancel-table"
+                                          >
+                                            Cancelar
+                                          </button>
                                           {isConfirmed && canComplete && (
                                             <button
                                               onClick={() => handleCompleteAppointment(apt.id)}
@@ -8246,6 +8178,208 @@ export default function AdminPage() {
                                     </div>
                                   </td>
                                 </tr>
+                                // <tr
+                                //   key={apt.id}
+                                //   className={`${isCompleted ? 'row-completed' : ''} ${isPast && !isCompleted ? 'row-past' : ''} ${isConfirmed ? 'row-confirmed' : ''}`}
+                                // >
+                                //   <td>
+                                //     <strong>{clientName}</strong>
+                                //   </td>
+                                //   <td>{barberName}</td>
+                                //   <td>
+                                //     {dependentLabel ? (
+                                //       <span
+                                //         style={{
+                                //           display: 'inline-flex',
+                                //           alignItems: 'center',
+                                //           gap: '4px',
+                                //           background: 'rgba(255,122,26,0.12)',
+                                //           color: '#ff7a1a',
+                                //           border: '1px solid rgba(255,122,26,0.35)',
+                                //           borderRadius: '20px',
+                                //           padding: '2px 9px',
+                                //           fontSize: '0.75rem',
+                                //           fontWeight: 700,
+                                //         }}
+                                //       >
+                                //         👤 {dependentLabel}
+                                //       </span>
+                                //     ) : (
+                                //       <span style={{ color: '#ddd', fontWeight: 600 }}>
+                                //         {clientName}
+                                //       </span>
+                                //     )}
+                                //   </td>
+                                //   <td>{formattedDate}</td>
+                                //   <td>
+                                //     <span className="appointment-time">{formattedTime}</span>
+                                //   </td>
+                                //   <td>
+                                //     <div className="services-list-compact">
+                                //       {serviceNames.length > 0 ? (
+                                //         serviceNames.map((name, idx) => (
+                                //           <div key={idx} className="service-item-compact">
+                                //             {name}
+                                //           </div>
+                                //         ))
+                                //       ) : (
+                                //         <span className="no-services">—</span>
+                                //       )}
+                                //     </div>
+                                //   </td>
+                                //   <td>
+                                //     <span className="client-phone">{clientPhone}</span>
+                                //   </td>
+                                //   <td>
+                                //     <span
+                                //       style={{
+                                //         display: 'inline-flex',
+                                //         alignItems: 'center',
+                                //         gap: '4px',
+                                //         borderRadius: '20px',
+                                //         padding: '2px 9px',
+                                //         fontSize: '0.75rem',
+                                //         fontWeight: 700,
+                                //         color:
+                                //           paymentLabel === 'Pagamento local'
+                                //             ? '#e5b84a'
+                                //             : paymentLabel === 'Online via PIX'
+                                //               ? '#2ecc71'
+                                //               : paymentLabel === 'Online via cartão'
+                                //                 ? '#4ea1ff'
+                                //                 : paymentLabel === 'Plano'
+                                //                   ? '#d4af37'
+                                //                   : '#888',
+                                //         border: '1px solid currentColor',
+                                //         background: 'rgba(255,255,255,0.03)',
+                                //         whiteSpace: 'nowrap',
+                                //       }}
+                                //     >
+                                //       {paymentLabel}
+                                //     </span>
+                                //   </td>
+                                //   <td>
+                                //     <span
+                                //       className={`status-badge ${getAppointmentStatusClassName(apt)}`}
+                                //     >
+                                //       {getAppointmentStatusLabel(apt)}
+                                //     </span>
+                                //   </td>
+                                //   <td>{formattedDate}</td>
+                                //   <td>
+                                //     <span className="appointment-time">{formattedTime}</span>
+                                //   </td>
+                                //   <td>
+                                //     <div className="services-list-compact">
+                                //       {serviceNames.length > 0 ? (
+                                //         serviceNames.map((name, idx) => (
+                                //           <div key={idx} className="service-item-compact">
+                                //             {name}
+                                //           </div>
+                                //         ))
+                                //       ) : (
+                                //         <span className="no-services">—</span>
+                                //       )}
+                                //     </div>
+                                //   </td>
+                                //   <td>
+                                //     <span className="client-phone">{clientPhone}</span>
+                                //   </td>
+                                //   <td>
+                                //     {apt.notes ? (
+                                //       <div>
+                                //         <button
+                                //           onClick={(e) => {
+                                //             e.stopPropagation();
+                                //             setExpandedObsId(
+                                //               expandedObsId === apt.id ? null : apt.id,
+                                //             );
+                                //           }}
+                                //           className="obs-btn"
+                                //         >
+                                //           Ver
+                                //         </button>
+                                //         {expandedObsId === apt.id && (
+                                //           <div className="obs-card">
+                                //             <div className="obs-card-label">Observação</div>
+                                //             <div className="obs-card-text">{apt.notes}</div>
+                                //           </div>
+                                //         )}
+                                //       </div>
+                                //     ) : (
+                                //       <span className="obs-empty">—</span>
+                                //     )}
+                                //   </td>
+                                //   <td>
+                                //     <span
+                                //       style={{
+                                //         display: 'inline-flex',
+                                //         alignItems: 'center',
+                                //         gap: '4px',
+                                //         borderRadius: '20px',
+                                //         padding: '2px 9px',
+                                //         fontSize: '0.75rem',
+                                //         fontWeight: 700,
+                                //         color:
+                                //           paymentLabel === 'Pagamento local'
+                                //             ? '#e5b84a'
+                                //             : paymentLabel === 'Online via PIX'
+                                //               ? '#2ecc71'
+                                //               : paymentLabel === 'Online via cartão'
+                                //                 ? '#4ea1ff'
+                                //                 : paymentLabel === 'Plano'
+                                //                   ? '#d4af37'
+                                //                   : '#888',
+                                //         border: '1px solid currentColor',
+                                //         background: 'rgba(255,255,255,0.03)',
+                                //         whiteSpace: 'nowrap',
+                                //       }}
+                                //     >
+                                //       {paymentLabel}
+                                //     </span>
+                                //   </td>
+                                //   <td>
+                                //     <span
+                                //       className={`status-badge ${getAppointmentStatusClassName(apt)}`}
+                                //     >
+                                //       {getAppointmentStatusLabel(apt)}
+                                //     </span>
+                                //   </td>
+                                //   <td>
+                                //     <div className="barber-table-actions">
+                                // {!isCompleted && !isClosedAppointment && (
+                                //   <>
+                                //     {!isConfirmed && (
+                                //       <>
+                                //         <button
+                                //           onClick={() => sendWhatsApp(apt.id, 'confirm')}
+                                //           className="action-btn-table btn-whatsapp-table"
+                                //         >
+                                //           💬 Mensagem
+                                //         </button>
+
+                                //         <button
+                                //           onClick={() => handleDeleteAppointment(apt.id)}
+                                //           className="action-btn-table btn-cancel-table"
+                                //         >
+                                //           Cancelar
+                                //         </button>
+                                //       </>
+                                //     )}
+
+                                //     {isConfirmed && canComplete && (
+                                //       <button
+                                //         onClick={() => handleCompleteAppointment(apt.id)}
+                                //         className="action-btn-table btn-complete-table"
+                                //       >
+                                //         ✅ Concluir
+                                //       </button>
+                                //     )}
+                                //   </>
+                                //       )}
+                                //     </div>
+                                //   </td>
+                                // </tr>
                               );
                             })}
                           </tbody>
@@ -8405,14 +8539,14 @@ export default function AdminPage() {
 
                                       return (
                                         <React.Fragment key={apt.id}>
-                                        <div
-                                          className={`calendar-appointment-card ${isAptPast ? 'past-appointment' : ''}`}
-                                          style={{
-                                            height: `${eventHeight}px`,
-                                            backgroundColor: apt.color.bg,
-                                            color: apt.color.text,
-                                            borderColor: apt.color.border,
-                                            borderLeftColor: apt.color.border,
+                                          <div
+                                            className={`calendar-appointment-card ${isAptPast ? 'past-appointment' : ''}`}
+                                            style={{
+                                              height: `${eventHeight}px`,
+                                              backgroundColor: apt.color.bg,
+                                              color: apt.color.text,
+                                              borderColor: apt.color.border,
+                                              borderLeftColor: apt.color.border,
                                             }}
                                           >
                                             {eventHeight <= 32 ? (
@@ -8435,34 +8569,34 @@ export default function AdminPage() {
                                                 📝 {apt.notes}
                                               </div>
                                             )}
-                                        </div>
-                                        {showFreeFit && (
-                                          <div
-                                            className="calendar-free-fit"
-                                            style={{ height: `${freeHeight}px` }}
-                                            role="button"
-                                            tabIndex={0}
-                                            onClick={() =>
-                                              handleFreeFitBooking(
-                                                barber.id,
-                                                aptDate,
-                                                aptMinutes + apt.duration,
-                                              )
-                                            }
-                                            onKeyDown={(event) => {
-                                              if (event.key === 'Enter' || event.key === ' ') {
-                                                event.preventDefault();
+                                          </div>
+                                          {showFreeFit && (
+                                            <div
+                                              className="calendar-free-fit"
+                                              style={{ height: `${freeHeight}px` }}
+                                              role="button"
+                                              tabIndex={0}
+                                              onClick={() =>
                                                 handleFreeFitBooking(
                                                   barber.id,
                                                   aptDate,
                                                   aptMinutes + apt.duration,
-                                                );
+                                                )
                                               }
-                                            }}
-                                          >
-                                            Encaixe livre · {freeMinutesInSlot} min
-                                          </div>
-                                        )}
+                                              onKeyDown={(event) => {
+                                                if (event.key === 'Enter' || event.key === ' ') {
+                                                  event.preventDefault();
+                                                  handleFreeFitBooking(
+                                                    barber.id,
+                                                    aptDate,
+                                                    aptMinutes + apt.duration,
+                                                  );
+                                                }
+                                              }}
+                                            >
+                                              Encaixe livre · {freeMinutesInSlot} min
+                                            </div>
+                                          )}
                                         </React.Fragment>
                                       );
                                     })}
