@@ -342,7 +342,7 @@ export default function AdminPage() {
   const [selectedBarberFilter, setSelectedBarberFilter] = useState('all');
   const [selectedUserFilter, setSelectedUserFilter] = useState('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('all');
-  const [appointmentViewMode, setAppointmentViewMode] = useState('list');
+  const [appointmentViewMode, setAppointmentViewMode] = useState('calendar');
 
   const [showBarberModal, setShowBarberModal] = useState(false);
   const [editingBarber, setEditingBarber] = useState(null);
@@ -1700,9 +1700,9 @@ export default function AdminPage() {
         typeof apiError === 'string'
           ? apiError
           : apiError?.message ||
-            apiError?.error ||
-            error?.message ||
-            'Erro ao importar clientes por Excel.';
+          apiError?.error ||
+          error?.message ||
+          'Erro ao importar clientes por Excel.';
       const errorDetails =
         typeof apiError === 'string' ? '' : formatImportUserErrors(apiError?.errors);
       showToast(
@@ -1785,7 +1785,7 @@ export default function AdminPage() {
             1,
             Math.round(
               parseNumberValue(getMappedValue(row, ['duracao', 'duration', 'durationminutes'])) ||
-                30,
+              30,
             ),
           ),
           commissionPercent: Math.max(
@@ -2127,9 +2127,9 @@ export default function AdminPage() {
       const serviceName =
         Array.isArray(appointment.services) && appointment.services.length > 0
           ? appointment.services
-              .map((s) => s?.serviceName || s?.name)
-              .filter(Boolean)
-              .join(', ')
+            .map((s) => s?.serviceName || s?.name)
+            .filter(Boolean)
+            .join(', ')
           : appointment.serviceName || 'Serviço';
 
       const dependentInfo = getAppointmentDependentInfo(appointment);
@@ -2320,8 +2320,8 @@ export default function AdminPage() {
       const updatedSubs =
         toExpire.length > 0
           ? subscriptionItems.map((s) =>
-              toExpire.find((e) => e.id === s.id) ? { ...s, status: 'cancelled' } : s,
-            )
+            toExpire.find((e) => e.id === s.id) ? { ...s, status: 'cancelled' } : s,
+          )
           : subscriptionItems;
 
       const subsWithCpf = updatedSubs.map((sub) => {
@@ -2768,22 +2768,36 @@ export default function AdminPage() {
     }
     setResetPasswordLoading(true);
     try {
-      await fetch(`${API_URL}/users/${resetPasswordUser.id}`, {
+      const response = await fetch(`${API_URL}/users/${resetPasswordUser.id}`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          resetPassword: resetPasswordForm.newPassword,
+          resetPassword: true,
           newPassword: resetPasswordForm.newPassword,
         }),
       });
-    } catch (error) {
-      showToast('Erro ao redefinir senha.', 'danger');
-    } finally {
+      if (!response.ok) {
+        let message = 'Erro ao redefinir senha.';
+
+        try {
+          const errorData = await response.json();
+          message = errorData?.message || errorData?.error || message;
+        } catch {
+          const responseText = await response.text();
+          if (responseText) message = responseText;
+        }
+
+        throw new Error(message);
+      }
+
       showToast(`Senha de ${resetPasswordUser.name} redefinida com sucesso!`, 'success');
       closeResetPasswordModal();
+    } catch (error) {
+      showToast(error?.message || 'Erro ao redefinir senha.', 'danger');
+    } finally {
       setResetPasswordLoading(false);
     }
   };
@@ -3923,12 +3937,12 @@ export default function AdminPage() {
     return payments.filter((payment) => {
       const paymentDate = new Date(
         payment.appointmentDate ||
-          payment.appointment?.startAt ||
-          payment.appointment?.endAt ||
-          payment.createdAt ||
-          payment.date ||
-          payment.startDate ||
-          payment.nextPaymentDate,
+        payment.appointment?.startAt ||
+        payment.appointment?.endAt ||
+        payment.createdAt ||
+        payment.date ||
+        payment.startDate ||
+        payment.nextPaymentDate,
       );
       return (
         paymentDate.getFullYear() === parseInt(year) &&
@@ -4411,9 +4425,9 @@ export default function AdminPage() {
 
       const startTime = startDate
         ? startDate.toLocaleTimeString('pt-BR', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })
+          hour: '2-digit',
+          minute: '2-digit',
+        })
         : apt.time || '00:00';
 
       const duration = getAppointmentDurationMinutes(apt);
@@ -4906,10 +4920,10 @@ export default function AdminPage() {
       const parsedCommissionPercent = Number(serviceForm.commissionPercent);
       const currentServiceImage = String(
         serviceForm.image ||
-          editingService?.image ||
-          editingService?.imageUrl ||
-          editingService?.image_url ||
-          '',
+        editingService?.image ||
+        editingService?.imageUrl ||
+        editingService?.image_url ||
+        '',
       ).trim();
 
       if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
@@ -5150,7 +5164,7 @@ export default function AdminPage() {
     return (
       String(appointmentBarberId || '') === String(barberData.id || '') ||
       String(appointmentBarberName || '') ===
-        String(barberData.displayName || barberData.name || '')
+      String(barberData.displayName || barberData.name || '')
     );
   };
 
@@ -6990,12 +7004,12 @@ export default function AdminPage() {
                     const stats = barberData
                       ? calculateBarberStatsbyBarber(barberData.id)
                       : {
-                          appointmentsCount: 0,
-                          totalRevenue: 0,
-                          commissionPercent: 0,
-                          barberEarnings: 0,
-                          shopEarnings: 0,
-                        };
+                        appointmentsCount: 0,
+                        totalRevenue: 0,
+                        commissionPercent: 0,
+                        barberEarnings: 0,
+                        shopEarnings: 0,
+                      };
 
                     return (
                       <div key={employee.id} className="fluig-table-parent">
@@ -7947,79 +7961,15 @@ export default function AdminPage() {
                   selectedBarberFilter !== 'all' ||
                   selectedUserFilter !== 'all' ||
                   selectedStatusFilter !== 'all') && (
-                  <div className="filter-group">
-                    <button onClick={clearAppointmentFilters} className="clear-filters-btn">
-                      Limpar Filtros
-                    </button>
-                  </div>
-                )}
+                    <div className="filter-group">
+                      <button onClick={clearAppointmentFilters} className="clear-filters-btn">
+                        Limpar Filtros
+                      </button>
+                    </div>
+                  )}
               </div>
 
-              {/* TABELA (copiada da BarberPage) */}
-              <div className="barber-appointments-section">
-                {filteredAppointmentsAdmin.length === 0 ? (
-                  <p className="calendar-empty">
-                    Nenhum agendamento encontrado para o período selecionado.
-                  </p>
-                ) : (
-                  <div className="fluig-table-parent" style={{ marginTop: '1.5rem' }}>
-                    <div className="agendamentos-table-scroll">
-                      <table className="fluig-table-children">
-                        <thead>
-                          <tr>
-                            <th>Cliente</th>
-                            <th>Barbeiro</th>
-                            <th>Para</th>
-                            <th>Data</th>
-                            <th>Horário</th>
-                            <th>Serviços</th>
-                            <th>Telefone</th>
-                            <th>Obs.</th>
-                            <th>Pagamento</th>
-                            <th>Status</th>
-                            <th>Ações</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredAppointmentsAdmin.map((apt) => {
-                            const appointmentDate = getAppointmentStartDate(apt);
-                            const canComplete = canCompleteAppointment(apt);
-                            const isClosedAppointment = isClosedAppointmentStatus(apt);
-                            const isPast = canComplete;
-                            const isCompleted = apt.status === 'completed';
-                            const isConfirmed = apt.status === 'confirmed';
 
-                            // Formatação da data e hora
-                            const formattedDate = apt.date
-                              ? new Date(`${apt.date}T00:00:00`).toLocaleDateString('pt-BR')
-                              : appointmentDate
-                                ? appointmentDate.toLocaleDateString('pt-BR')
-                                : 'Data não informada';
-                            const formattedTime = apt.time
-                              ? String(apt.time).slice(0, 5)
-                              : appointmentDate
-                                ? appointmentDate.toLocaleTimeString('pt-BR', {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                  })
-                                : 'Horário não informado';
-
-                            // Nome do cliente (pode estar em apt.client.name ou apt.clientName)
-                            const clientName = apt.client?.name || apt.clientName || 'Cliente';
-                            const barberName =
-                              apt.barber?.displayName || apt.barberName || 'Sem barbeiro';
-                            const dependentLabel = apt.dependent?.name || apt.dependentName || '';
-
-                            // Telefone do cliente
-                            const clientPhone = apt.client?.phone || apt.clientPhone || '-';
-                            const paymentLabel = getAppointmentPaymentMethodLabel(apt.id);
-
-                            // Lista de serviços (cada serviço pode ter serviceName ou name)
-                            const serviceNames = Array.isArray(apt.services)
-                              ? apt.services.map((s) => s.serviceName || s.name).filter(Boolean)
-                              : [];
-
-              {/* VISUALIZAÇÃO LISTA */}
               {appointmentViewMode === 'list' && (
                 <div className="barber-appointments-section">
                   {filteredAppointmentsAdmin.length === 0 ? (
@@ -8063,9 +8013,9 @@ export default function AdminPage() {
                                 ? String(apt.time).slice(0, 5)
                                 : appointmentDate
                                   ? appointmentDate.toLocaleTimeString('pt-BR', {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                    })
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })
                                   : 'Horário não informado';
 
                               // Nome do cliente (pode estar em apt.client.name ou apt.clientName)
@@ -8170,105 +8120,109 @@ export default function AdminPage() {
                                     >
                                       {getAppointmentStatusLabel(apt)}
                                     </span>
-                                  )}
-                                </td>
-                                <td>{formattedDate}</td>
-                                <td>
-                                  <span className="appointment-time">{formattedTime}</span>
-                                </td>
-                                <td>
-                                  <div className="services-list-compact">
-                                    {serviceNames.length > 0 ? (
-                                      serviceNames.map((name, idx) => (
-                                        <div key={idx} className="service-item-compact">
-                                          {name}
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <span className="no-services">—</span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td>
-                                  <span className="client-phone">{clientPhone}</span>
-                                </td>
-                                <td>
-                                  {apt.notes ? (
-                                    <div>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setExpandedObsId(
-                                            expandedObsId === apt.id ? null : apt.id,
-                                          );
-                                        }}
-                                        className="obs-btn"
-                                      >
-                                        Ver
-                                      </button>
-                                      {expandedObsId === apt.id && (
-                                        <div className="obs-card">
-                                          <div className="obs-card-label">Observação</div>
-                                          <div className="obs-card-text">{apt.notes}</div>
-                                        </div>
+                                  </td>
+                                  <td>{formattedDate}</td>
+                                  <td>
+                                    <span className="appointment-time">{formattedTime}</span>
+                                  </td>
+                                  <td>
+                                    <div className="services-list-compact">
+                                      {serviceNames.length > 0 ? (
+                                        serviceNames.map((name, idx) => (
+                                          <div key={idx} className="service-item-compact">
+                                            {name}
+                                          </div>
+                                        ))
+                                      ) : (
+                                        <span className="no-services">—</span>
                                       )}
                                     </div>
-                                  ) : (
-                                    <span className="obs-empty">—</span>
-                                  )}
-                                </td>
-                                <td>
-                                  <span
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                      borderRadius: '20px',
-                                      padding: '2px 9px',
-                                      fontSize: '0.75rem',
-                                      fontWeight: 700,
-                                      color:
-                                        paymentLabel === 'Pagamento local'
-                                          ? '#e5b84a'
-                                          : paymentLabel === 'Online via PIX'
-                                            ? '#2ecc71'
-                                            : paymentLabel === 'Online via cartão'
-                                              ? '#4ea1ff'
-                                              : paymentLabel === 'Plano'
-                                                ? '#d4af37'
-                                                : '#888',
-                                      border: '1px solid currentColor',
-                                      background: 'rgba(255,255,255,0.03)',
-                                      whiteSpace: 'nowrap',
-                                    }}
-                                  >
-                                    {paymentLabel}
-                                  </span>
-                                </td>
-                                <td>
-                                  <span
-                                    className={`status-badge ${getAppointmentStatusClassName(apt)}`}
-                                  >
-                                    {getAppointmentStatusLabel(apt)}
-                                  </span>
-                                </td>
-                                <td>
-                                  <div className="barber-table-actions">
-                                    {!isCompleted && !isClosedAppointment && (
-                                      <>
-                                        {!isConfirmed && (
-                                          <button
-                                            onClick={() => sendWhatsApp(apt.id, 'confirm')}
-                                            className="action-btn-table btn-whatsapp-table"
-                                          >
-                                            💬 Mensagem
-                                          </button>
-                                          <button
-                                            onClick={() => handleDeleteAppointment(apt.id)}
-                                            className="action-btn-table btn-cancel-table"
-                                          >
-                                            Cancelar
-                                          </button>
+                                  </td>
+                                  <td>
+                                    <span className="client-phone">{clientPhone}</span>
+                                  </td>
+                                  <td>
+                                    {apt.notes ? (
+                                      <div>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setExpandedObsId(
+                                              expandedObsId === apt.id ? null : apt.id,
+                                            );
+                                          }}
+                                          className="obs-btn"
+                                        >
+                                          Ver
+                                        </button>
+                                        {expandedObsId === apt.id && (
+                                          <div className="obs-card">
+                                            <div className="obs-card-label">Observação</div>
+                                            <div className="obs-card-text">{apt.notes}</div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="obs-empty">—</span>
+                                    )}
+                                  </td>
+                                  <td>
+                                    <span
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        borderRadius: '20px',
+                                        padding: '2px 9px',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 700,
+                                        color:
+                                          paymentLabel === 'Pagamento local'
+                                            ? '#e5b84a'
+                                            : paymentLabel === 'Online via PIX'
+                                              ? '#2ecc71'
+                                              : paymentLabel === 'Online via cartão'
+                                                ? '#4ea1ff'
+                                                : paymentLabel === 'Plano'
+                                                  ? '#d4af37'
+                                                  : '#888',
+                                        border: '1px solid currentColor',
+                                        background: 'rgba(255,255,255,0.03)',
+                                        whiteSpace: 'nowrap',
+                                      }}
+                                    >
+                                      {paymentLabel}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <span
+                                      className={`status-badge ${getAppointmentStatusClassName(apt)}`}
+                                    >
+                                      {getAppointmentStatusLabel(apt)}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <div className="barber-table-actions">
+                                      {!isCompleted && !isClosedAppointment && (
+                                        <>
+                                          {!isConfirmed && (
+                                            <>
+                                              <button
+                                                onClick={() => sendWhatsApp(apt.id, 'confirm')}
+                                                className="action-btn-table btn-whatsapp-table"
+                                              >
+                                                💬 Mensagem
+                                              </button>
+
+                                              <button
+                                                onClick={() => handleDeleteAppointment(apt.id)}
+                                                className="action-btn-table btn-cancel-table"
+                                              >
+                                                Cancelar
+                                              </button>
+                                            </>
+                                          )}
+
                                           {isConfirmed && canComplete && (
                                             <button
                                               onClick={() => handleCompleteAppointment(apt.id)}
@@ -8352,11 +8306,11 @@ export default function AdminPage() {
                             : null;
                           const isPast = slotDate
                             ? (() => {
-                                const [h, m] = timeSlot.split(':').map(Number);
-                                const slotDateTime = new Date(slotDate);
-                                slotDateTime.setHours(h, m, 0, 0);
-                                return slotDateTime < new Date();
-                              })()
+                              const [h, m] = timeSlot.split(':').map(Number);
+                              const slotDateTime = new Date(slotDate);
+                              slotDateTime.setHours(h, m, 0, 0);
+                              return slotDateTime < new Date();
+                            })()
                             : false;
 
                           return (
@@ -8430,81 +8384,81 @@ export default function AdminPage() {
 
                                       return (
                                         <React.Fragment key={apt.id}>
-                                        {leadingFreeMinutes > 0 && (
+                                          {leadingFreeMinutes > 0 && (
+                                            <div
+                                              className="calendar-free-fit calendar-free-fit--before"
+                                              style={{ height: `${leadingFreeHeight}px` }}
+                                              role="button"
+                                              tabIndex={0}
+                                              onClick={() => handleFreeFitBooking(barber.id, aptDate, slotMinutes)}
+                                              onKeyDown={(event) => {
+                                                if (event.key === 'Enter' || event.key === ' ') {
+                                                  event.preventDefault();
+                                                  handleFreeFitBooking(barber.id, aptDate, slotMinutes);
+                                                }
+                                              }}
+                                            >
+                                              Encaixe livre · {leadingFreeMinutes} min
+                                            </div>
+                                          )}
                                           <div
-                                            className="calendar-free-fit calendar-free-fit--before"
-                                            style={{ height: `${leadingFreeHeight}px` }}
-                                            role="button"
-                                            tabIndex={0}
-                                            onClick={() => handleFreeFitBooking(barber.id, aptDate, slotMinutes)}
-                                            onKeyDown={(event) => {
-                                              if (event.key === 'Enter' || event.key === ' ') {
-                                                event.preventDefault();
-                                                handleFreeFitBooking(barber.id, aptDate, slotMinutes);
-                                              }
+                                            className={`calendar-appointment-card ${isAptPast ? 'past-appointment' : ''}`}
+                                            style={{
+                                              backgroundColor: apt.color.bg,
+                                              color: apt.color.text,
+                                              borderColor: apt.color.border,
+                                              borderLeftColor: apt.color.border,
+                                              height: `${eventHeight}px`,
                                             }}
                                           >
-                                            Encaixe livre · {leadingFreeMinutes} min
+                                            {eventHeight <= 32 ? (
+                                              <div className="apt-inline-summary">
+                                                <span className="apt-time">{apt.startTime} · {apt.duration} min</span>
+                                                <span className="apt-client">{clientName}</span>
+                                                <span className="apt-service">{servicesNames || '-'}</span>
+                                              </div>
+                                            ) : (
+                                              <>
+                                                <div className="apt-time">{apt.startTime} · {apt.duration} min</div>
+                                                <div className="apt-client">{clientName}</div>
+                                              </>
+                                            )}
+                                            {eventHeight >= 28 && (
+                                              <div className="apt-service">{servicesNames}</div>
+                                            )}
+                                            {eventHeight >= 42 && apt.notes && (
+                                              <div className="apt-observation">
+                                                📝 {apt.notes}
+                                              </div>
+                                            )}
                                           </div>
-                                        )}
-                                        <div
-                                          className={`calendar-appointment-card ${isAptPast ? 'past-appointment' : ''}`}
-                                          style={{
-                                            backgroundColor: apt.color.bg,
-                                            color: apt.color.text,
-                                            borderColor: apt.color.border,
-                                            borderLeftColor: apt.color.border,
-                                            height: `${eventHeight}px`,
-                                          }}
-                                        >
-                                          {eventHeight <= 32 ? (
-                                            <div className="apt-inline-summary">
-                                              <span className="apt-time">{apt.startTime} · {apt.duration} min</span>
-                                              <span className="apt-client">{clientName}</span>
-                                              <span className="apt-service">{servicesNames || '-'}</span>
-                                            </div>
-                                          ) : (
-                                            <>
-                                              <div className="apt-time">{apt.startTime} · {apt.duration} min</div>
-                                              <div className="apt-client">{clientName}</div>
-                                            </>
-                                          )}
-                                          {eventHeight >= 28 && (
-                                            <div className="apt-service">{servicesNames}</div>
-                                          )}
-                                          {eventHeight >= 42 && apt.notes && (
-                                            <div className="apt-observation">
-                                              📝 {apt.notes}
-                                            </div>
-                                          )}
-                                        </div>
-                                        {freeMinutesInSlot > 0 && (
-                                          <div
-                                            className="calendar-free-fit"
-                                            style={{ height: `${freeHeight}px` }}
-                                            role="button"
-                                            tabIndex={0}
-                                            onClick={() =>
-                                              handleFreeFitBooking(
-                                                barber.id,
-                                                aptDate,
-                                                aptMinutes + apt.duration,
-                                              )
-                                            }
-                                            onKeyDown={(event) => {
-                                              if (event.key === 'Enter' || event.key === ' ') {
-                                                event.preventDefault();
+                                          {freeMinutesInSlot > 0 && (
+                                            <div
+                                              className="calendar-free-fit"
+                                              style={{ height: `${freeHeight}px` }}
+                                              role="button"
+                                              tabIndex={0}
+                                              onClick={() =>
                                                 handleFreeFitBooking(
                                                   barber.id,
                                                   aptDate,
                                                   aptMinutes + apt.duration,
-                                                );
+                                                )
                                               }
-                                            }}
-                                          >
-                                            Encaixe livre · {freeMinutesInSlot} min
-                                          </div>
-                                        )}
+                                              onKeyDown={(event) => {
+                                                if (event.key === 'Enter' || event.key === ' ') {
+                                                  event.preventDefault();
+                                                  handleFreeFitBooking(
+                                                    barber.id,
+                                                    aptDate,
+                                                    aptMinutes + apt.duration,
+                                                  );
+                                                }
+                                              }}
+                                            >
+                                              Encaixe livre · {freeMinutesInSlot} min
+                                            </div>
+                                          )}
                                         </React.Fragment>
                                       );
                                     })}
@@ -9366,11 +9320,11 @@ export default function AdminPage() {
                           (s.status === 'active' || s.status === 'cancel_pending') &&
                           (subscriptionSearchType === 'name'
                             ? (s.userName || '')
-                                .toLowerCase()
-                                .includes(subscriptionSearch.toLowerCase())
+                              .toLowerCase()
+                              .includes(subscriptionSearch.toLowerCase())
                             : (s.userCpf || '')
-                                .replace(/\D/g, '')
-                                .includes(subscriptionSearch.replace(/\D/g, ''))),
+                              .replace(/\D/g, '')
+                              .includes(subscriptionSearch.replace(/\D/g, ''))),
                       ).length
                     }{' '}
                     resultado(s)
@@ -9407,19 +9361,19 @@ export default function AdminPage() {
                         </td>
                       </tr>
                     ) : subscriptions
-                        .filter((s) => s.status === 'active' || s.status === 'cancel_pending')
-                        .filter((s) => {
-                          if (!subscriptionSearch.trim()) return true;
-                          if (subscriptionSearchType === 'name') {
-                            return (s.user.name || '')
-                              .toLowerCase()
-                              .includes(subscriptionSearch.toLowerCase());
-                          } else {
-                            return (s.userCpf || '')
-                              .replace(/\D/g, '')
-                              .includes(subscriptionSearch.replace(/\D/g, ''));
-                          }
-                        }).length === 0 ? (
+                      .filter((s) => s.status === 'active' || s.status === 'cancel_pending')
+                      .filter((s) => {
+                        if (!subscriptionSearch.trim()) return true;
+                        if (subscriptionSearchType === 'name') {
+                          return (s.user.name || '')
+                            .toLowerCase()
+                            .includes(subscriptionSearch.toLowerCase());
+                        } else {
+                          return (s.userCpf || '')
+                            .replace(/\D/g, '')
+                            .includes(subscriptionSearch.replace(/\D/g, ''));
+                        }
+                      }).length === 0 ? (
                       <tr>
                         <td
                           colSpan="6"
@@ -9477,8 +9431,8 @@ export default function AdminPage() {
                             <td style={{ color: 'var(--text-gray)', fontSize: '0.85rem' }}>
                               {sub.currentCycle?.periodEnd || sub.nextBillingDate
                                 ? new Date(
-                                    sub.currentCycle?.periodEnd || sub.nextBillingDate,
-                                  ).toLocaleDateString('pt-BR')
+                                  sub.currentCycle?.periodEnd || sub.nextBillingDate,
+                                ).toLocaleDateString('pt-BR')
                                 : 'N/A'}
                             </td>
                             <td>
@@ -10024,14 +9978,14 @@ export default function AdminPage() {
                   const barberEarnings = paidOnly.reduce((sum, payment) => {
                     const appointment = payment.appointmentId
                       ? appointments.find(
-                          (apt) => apt.id?.toString() === payment.appointmentId?.toString(),
-                        )
+                        (apt) => apt.id?.toString() === payment.appointmentId?.toString(),
+                      )
                       : appointments.find(
-                          (apt) =>
-                            apt.clientId === payment.userId &&
-                            apt.date === payment.appointmentDate &&
-                            apt.time === payment.appointmentTime,
-                        );
+                        (apt) =>
+                          apt.clientId === payment.userId &&
+                          apt.date === payment.appointmentDate &&
+                          apt.time === payment.appointmentTime,
+                      );
 
                     return (
                       sum +
@@ -10156,22 +10110,22 @@ export default function AdminPage() {
                                     const tipo = isPlanCovered
                                       ? 'plano'
                                       : paymentMethodValue === 'local' ||
-                                          payment.status === 'pendinglocal'
+                                        payment.status === 'pendinglocal'
                                         ? 'local'
                                         : 'avulso';
 
                                     const appointment = payment.appointmentId
                                       ? appointments.find(
-                                          (apt) =>
-                                            apt.id?.toString() ===
-                                            payment.appointmentId?.toString(),
-                                        )
+                                        (apt) =>
+                                          apt.id?.toString() ===
+                                          payment.appointmentId?.toString(),
+                                      )
                                       : appointments.find(
-                                          (apt) =>
-                                            apt.clientId === payment.userId &&
-                                            apt.date === payment.appointmentDate &&
-                                            apt.time === payment.appointmentTime,
-                                        );
+                                        (apt) =>
+                                          apt.clientId === payment.userId &&
+                                          apt.date === payment.appointmentDate &&
+                                          apt.time === payment.appointmentTime,
+                                      );
                                     const productsList =
                                       appointment?.products?.filter((pr) => pr && pr.productName) ||
                                       [];
@@ -10180,11 +10134,11 @@ export default function AdminPage() {
                                       const price =
                                         typeof prod.unitPrice === 'string'
                                           ? parseFloat(
-                                              prod.unitPrice
-                                                .replace(/R\$/g, '')
-                                                .replace(/,/g, '.')
-                                                .trim(),
-                                            ) || 0
+                                            prod.unitPrice
+                                              .replace(/R\$/g, '')
+                                              .replace(/,/g, '.')
+                                              .trim(),
+                                          ) || 0
                                           : prod.unitPrice || 0;
                                       return s + price * (prod.quantity || 1);
                                     }, 0);
@@ -10194,18 +10148,18 @@ export default function AdminPage() {
                                     const rowComm = isPlanCovered
                                       ? 0
                                       : calculateAppointmentCommission(
-                                          appointment,
-                                          serviceVal,
-                                          barberObj,
-                                        );
+                                        appointment,
+                                        serviceVal,
+                                        barberObj,
+                                      );
 
                                     return (
                                       <tr key={payment.id}>
                                         <td>
                                           {payment.appointment?.startAt
                                             ? new Date(
-                                                payment.appointment.startAt,
-                                              ).toLocaleDateString('pt-BR')
+                                              payment.appointment.startAt,
+                                            ).toLocaleDateString('pt-BR')
                                             : '—'}
                                         </td>
                                         <td>
@@ -10311,21 +10265,21 @@ export default function AdminPage() {
                                               fontWeight: 600,
                                               ...(tipo === 'plano'
                                                 ? {
-                                                    background: '#d4af3722',
-                                                    color: '#d4af37',
-                                                    border: '1px solid #d4af3744',
-                                                  }
+                                                  background: '#d4af3722',
+                                                  color: '#d4af37',
+                                                  border: '1px solid #d4af3744',
+                                                }
                                                 : tipo === 'local'
                                                   ? {
-                                                      background: '#3498db22',
-                                                      color: '#3498db',
-                                                      border: '1px solid #3498db44',
-                                                    }
+                                                    background: '#3498db22',
+                                                    color: '#3498db',
+                                                    border: '1px solid #3498db44',
+                                                  }
                                                   : {
-                                                      background: '#ff7a1a22',
-                                                      color: '#ff7a1a',
-                                                      border: '1px solid #ff7a1a44',
-                                                    }),
+                                                    background: '#ff7a1a22',
+                                                    color: '#ff7a1a',
+                                                    border: '1px solid #ff7a1a44',
+                                                  }),
                                             }}
                                           >
                                             {tipo === 'plano'

@@ -2355,12 +2355,7 @@ export default function AppointmentsPage() {
             .join(', ');
           const fullDescription = productNames ? `${serviceNames}, ${productNames}` : serviceNames;
 
-          const paymentPlan = {
-            id: `temp-${Date.now()}`,
-            name: fullDescription,
-            price: purchaseData.finalTotal,
-          };
-
+          // 🔥 NOVO: Criar agendamento IMEDIATAMENTE antes do pagamento
           const newAppointment = {
             barberId: pendingBookingData.barberId,
             barberName: pendingBookingData.barberName,
@@ -2383,30 +2378,55 @@ export default function AppointmentsPage() {
             notes: pendingBookingData.observation || '',
           };
 
+          const createdAppointment = await createAppointment(newAppointment);
+
+          // 🔥 NOVO: Registrar pagamento com status 'pending' imediatamente
+          const paymentData = {
+            appointmentId: createdAppointment.id,
+            userId: responsibleId || currentUser.id,
+            userName: activeClient.name,
+            amount: purchaseData.finalTotal,
+            serviceName: serviceNames,
+            services: pendingBookingData.services,
+            servicePrice: purchaseData.servicePrice || 0,
+            servicesCoveredByPlan: pendingBookingData.coveredServices || [],
+            hasPlanCoveredServices: (pendingBookingData.coveredServices || []).length > 0,
+            serviceCoveredByPlan: pendingBookingData.serviceCoveredByPlan === true,
+            barberName: pendingBookingData.barberName,
+            appointmentDate: pendingBookingData.date,
+            appointmentTime: pendingBookingData.time,
+            products: purchaseData.products,
+            status: 'pending',
+            method: selectedMethod,
+            paymentMethod: selectedMethod,
+          };
+
+          const createdPayment = await criarPagamentoAgendamento(paymentData);
+          const paymentId = createdPayment?.id;
+          clearPaymentCache(createdAppointment.id);
+
+          // 🔥 NOVO: Adicionar agendamento ao estado local imediatamente
+          setAppointments((prev) => [createdAppointment, ...prev]);
+
+          if (purchaseData.products && purchaseData.products.length > 0) {
+            pendingStockUpdate.current = purchaseData.products || [];
+          }
+
+          const paymentPlan = {
+            id: `temp-${Date.now()}`,
+            name: fullDescription,
+            price: purchaseData.finalTotal,
+          };
+
           setSelectedAppointmentForPayment({
             ...paymentPlan,
             paymentMethod: selectedMethod,
             isAppointment: true,
-            needsCreation: true,
+            appointmentId: createdAppointment.id, // 🔥 NOVO: Passar appointmentId criado
+            paymentId: paymentId, // 🔥 NOVO: Passar paymentId para atualizar ao confirmar pagamento
             appointmentData: newAppointment,
-            paymentData: {
-              userId: responsibleId || currentUser.id,
-              userName: activeClient.name,
-              amount: purchaseData.finalTotal,
-              serviceName: serviceNames,
-              services: pendingBookingData.services,
-              servicePrice: purchaseData.servicePrice || 0,
-              servicesCoveredByPlan: pendingBookingData.coveredServices || [],
-              hasPlanCoveredServices: (pendingBookingData.coveredServices || []).length > 0,
-              serviceCoveredByPlan: pendingBookingData.serviceCoveredByPlan === true,
-              barberName: pendingBookingData.barberName,
-              appointmentDate: pendingBookingData.date,
-              appointmentTime: pendingBookingData.time,
-              products: purchaseData.products,
-            }
+            paymentData,
           });
-
-          pendingStockUpdate.current = purchaseData.products || [];
 
           setShowPaymentChoiceModal(false);
           setPendingBookingData(null);
@@ -2550,6 +2570,10 @@ export default function AppointmentsPage() {
       } catch (error) {
         console.error('Erro:', error);
         showToast(extractAppointmentErrorMessage(error), 'danger');
+        // Garante que os estados sejam limpos em caso de erro
+        setShowPaymentChoiceModal(false);
+        setPendingBookingData(null);
+        setPurchaseData(null);
       } finally {
         setBookingInProgress(false);
         setPixLoading(false);
@@ -3737,10 +3761,16 @@ export default function AppointmentsPage() {
                             let statusClass = 'pending';
                             let statusText = 'Pendente';
 
-                            let paymentStatusClass = 'paid';
-                            let paymentStatusText = 'Pago';
+                            let paymentStatusClass = 'pending';
+                            let paymentStatusText = 'Pendente';
 
-                            if (isLocalPayment) {
+                        if (isPaid) {
+                          paymentStatusClass = 'paid';
+                          paymentStatusText = 'Pago';
+                        } else if (isPlanCovered) {
+                              paymentStatusClass = 'covered';
+                          paymentStatusText = 'Plano';
+                        } else if (isLocalPayment) {
                               paymentStatusClass = 'pending-local';
                               paymentStatusText = 'Local';
                             }
